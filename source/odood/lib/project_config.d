@@ -78,6 +78,7 @@ struct ProjectConfig {
         this.odoo_pid_file = this.root_dir.join("odoo.pid");
         this.backups_dir = this.root_dir.join("backups");
         this.repositories_dir = this.root_dir.join("repositories");
+        this.odoo_path = this.root_dir.join("odoo");
         this.odoo_serie = odoo_serie;
         this.odoo_branch = odoo_branch;
         this.odoo_repo = odoo_repo;

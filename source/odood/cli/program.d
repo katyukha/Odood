@@ -19,18 +19,13 @@ class OdoodProgram: Program {
     void run(ref string[] args) {
         auto pargs = this.parse(args);
         if (pargs.command !is null) {
-            // Raise error
-            this.execute(pargs);
+            OdoodCommand cmd = cast(OdoodCommand)this.commands[pargs.command.name];
+            if (cmd) {
+                cmd.execute(pargs.command);
+            } else {
+                // raise error
+            }
         } else {
-        }
-    }
-
-    void execute(ref ProgramArgs args) {
-        OdoodCommand cmd = cast(OdoodCommand)this.commands[args.command.name];
-        if (cmd) {
-            cmd.execute(args);
-        } else {
-            // raise error
         }
     }
 }

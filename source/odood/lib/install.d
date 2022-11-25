@@ -2,6 +2,7 @@ module odood.lib.install;
 
 private import std.format: format;
 private import std.algorithm.searching: startsWith;
+private import std.string: strip;
 private import std.exception: enforce;
 private import std.net.curl: download;
 
@@ -32,6 +33,8 @@ void initializeProjectDirs(in ProjectConfig config) {
 /** Install odoo to specified project config
  **/
 void installDownloadOdoo(in ProjectConfig config) {
+    import std.stdio;
+    import std.format;
     auto odoo_archive_path = config.downloads_dir.join(
             "odoo.%s.zip".format(config.odoo_branch));
 
@@ -40,13 +43,25 @@ void installDownloadOdoo(in ProjectConfig config) {
         "Currently, download of odoo is supported only " ~
         "from github repositories.");
 
+    auto download_url = "%s/archive/%s.zip".format(
+        config.odoo_repo.strip("", ".git"), config.odoo_branch);
+
     // TODO: Add timeout
     // TODO: Switch to tar.gz, for smaller archives
-    download(
-        "%s/archive/%s.zip".format(config.odoo_repo, config.odoo_branch),
-        odoo_archive_path.toString);
+    if (!odoo_archive_path.exists) {
+        writeln("Downloading odoo from %s to %s".format(
+            download_url,
+            odoo_archive_path));
+        download(download_url, odoo_archive_path.toString);
+    }
 
-    extract_zip_archive(odoo_archive_path, config.odoo_path);
+    // Extract, with unfloding content of odoo-<branch> to
+    // dest folder directly.
+    writeln("Extracting odoo from %s to %s".format(
+        odoo_archive_path, config.odoo_path));
+    extract_zip_archive(
+        odoo_archive_path, config.odoo_path,
+        "odoo-%s/".format(config.odoo_branch));
 }
 
 

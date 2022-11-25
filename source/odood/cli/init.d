@@ -1,5 +1,8 @@
 module odood.cli.init;
 
+private import std.format: format;
+private import std.exception: enforce;
+
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
@@ -7,6 +10,7 @@ private import odood.cli.command: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo_serie: OdooSerie;
 private import odood.lib.install;
+private import odood.lib.exception: OdoodException;
 
 
 class CommandInit: OdoodCommand {
@@ -24,12 +28,16 @@ class CommandInit: OdoodCommand {
 
     }
 
-    ProjectConfig initProjectConfig(ref ProgramArgs args) {
+    ProjectConfig initProjectConfig(ProgramArgs args) {
         auto install_dir = Path(args.option("install-dir"));
         auto odoo_version = OdooSerie(args.option("odoo-version"));
         auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
         auto odoo_repo = args.option(
                 "odoo-repo", "https://github.com/odoo/odoo.git");
+
+        enforce!OdoodException(
+            odoo_version.isValid,
+            "Odoo version %s is not valid".format(args.option("odoo-version")));
 
         return ProjectConfig(
                 install_dir,
@@ -38,8 +46,10 @@ class CommandInit: OdoodCommand {
                 odoo_repo);
     }
 
-    public override void execute(ref ProgramArgs args) {
+    public override void execute(ProgramArgs args) {
         auto project_config = this.initProjectConfig(args);
+        import std.stdio;
+        writeln("Installing odoo to %s".format(project_config.root_dir));
         project_config.initializeProjectDirs();
         installDownloadOdoo(project_config);
 
