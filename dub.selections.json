@@ -1,0 +1,14 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"commandr": "~master",
+		"console-colors": "1.0.8",
+		"dlibzip": "1.9.2",
+		"dshould": "1.7.0",
+		"dyaml": "0.9.2",
+		"prettyprint": "1.0.8",
+		"thepath": "0.0.1",
+		"tinyendian": "0.2.0",
+		"unit-threaded": "2.1.2"
+	}
+}

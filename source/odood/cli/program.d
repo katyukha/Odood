@@ -1,0 +1,37 @@
+module odood.cli.program;
+private import odood.lib.common: _version;
+
+private import commandr: Program, ProgramArgs, Option, Flag, parse;
+
+private import odood.cli.command: OdoodCommand;
+private import odood.cli.init: CommandInit;
+
+
+class OdoodProgram: Program {
+
+    this() {
+        super("odood", _version);
+        this.summary("Easily manage odoo installations.");
+        this.add(new CommandInit());
+    }
+
+
+    void run(ref string[] args) {
+        auto pargs = this.parse(args);
+        if (pargs.command !is null) {
+            // Raise error
+            this.execute(pargs);
+        } else {
+        }
+    }
+
+    void execute(ref ProgramArgs args) {
+        OdoodCommand cmd = cast(OdoodCommand)this.commands[args.command.name];
+        if (cmd) {
+            cmd.execute(args);
+        } else {
+            // raise error
+        }
+    }
+}
+
