@@ -13,6 +13,9 @@ struct ProjectConfig {
     /// Root project directory
     Path root_dir;
 
+    /// Directory to store executables
+    Path bin_dir;
+
     /// Directory to store odoo configurations
     Path conf_dir;
 
@@ -62,10 +65,14 @@ struct ProjectConfig {
     /// Repo, odoo is installed from.
     string odoo_repo;
 
+    /// Version of nodejs to install. Default: lts
+    string node_version = "lts";
+
 
     this(in Path root_path, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
         this.root_dir = root_path.expandTilde.toAbsolute;
+        this.bin_dir = this.root_dir.join("bin");
         this.conf_dir = this.root_dir.join("conf");
         this.odoo_conf = this.conf_dir.join("odoo.conf");
         this.odoo_test_conf = this.conf_dir.join("odoo.test.conf");
@@ -96,6 +103,7 @@ struct ProjectConfig {
 
     void fromYAML(in ref dyaml.Node config) {
         this.root_dir = Path(config["root_dir"].as!string);
+        this.bin_dir = Path(config["bin_dir"].as!string);
         this.conf_dir = Path(config["conf_dir"].as!string);
         this.odoo_conf = Path(config["odoo_conf"].as!string);
         this.odoo_test_conf = Path(config["odoo_test_conf"].as!string);
@@ -112,12 +120,14 @@ struct ProjectConfig {
         this.odoo_serie = OdooSerie(config["odoo_serie"].as!string);
         this.odoo_branch = config["odoo_branch"].as!string;
         this.odoo_repo = config["odoo_repo"].as!string;
+        this.node_version = config["node_version"].as!string;
     }
 
 
     dyaml.Node toYAML() {
         return dyaml.Node([
             "root_dir": this.root_dir.toString,
+            "bin_dir": this.bin_dir.toString,
             "conf_dir": this.conf_dir.toString,
             "odoo_conf": this.odoo_conf.toString,
             "odoo_test_conf": this.odoo_test_conf.toString,
@@ -134,6 +144,7 @@ struct ProjectConfig {
             "odoo_serie": this.odoo_serie.toString,
             "odoo_branch": this.odoo_branch,
             "odoo_repo": this.odoo_repo,
+            "node_version": this.node_version,
         ]);
     }
 
@@ -151,6 +162,15 @@ struct ProjectConfig {
             out_file.close();
         }
         dumper.dump(out_file.lockingTextWriter, this.toYAML);
+    }
+
+    /// Suggest mejor python version to run this project
+    ubyte suggetPythonMajorVersion() {
+        if (this.odoo_serie < OdooSerie("11")) {
+            return 2;
+        } else {
+            return 3;
+        }
     }
 
 }

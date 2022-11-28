@@ -1,16 +1,28 @@
 module odood.lib.install;
 
+private import std.stdio: writeln;
 private import std.format: format;
 private import std.algorithm.searching: startsWith;
 private import std.string: strip;
 private import std.exception: enforce;
 private import std.net.curl: download;
+private import std.conv: to;
 
 private import odood.lib.exception: OdoodException;
 private import odood.lib.project_config: ProjectConfig;
 
 private import odood.lib.zip;
+private import odood.lib.utils;
 
+
+// Define template for simple script that allows to run any command in
+// python's virtualenv
+private string SCRIPT_RUN_IN_ENV="#!/usr/bin/env bash
+source \"%s\";
+\"$@\"; res=$?;
+deactivate;
+exit $res;
+";
 
 /** Initialize project directory structure for specified project config.
     This function will create all needed directories for project.
@@ -20,6 +32,7 @@ private import odood.lib.zip;
  **/
 void initializeProjectDirs(in ProjectConfig config) {
     config.root_dir.mkdir(true);
+    config.bin_dir.mkdir(true);
     config.conf_dir.mkdir(true);
     config.log_dir.mkdir(true);
     config.downloads_dir.mkdir(true);
@@ -31,10 +44,13 @@ void initializeProjectDirs(in ProjectConfig config) {
 
 
 /** Install odoo to specified project config
+
+    Params:
+        config = Project configuration to download Odoo to.
  **/
 void installDownloadOdoo(in ProjectConfig config) {
+    // TODO: replace with logger calls, or with colored output.
     import std.stdio;
-    import std.format;
     auto odoo_archive_path = config.downloads_dir.join(
             "odoo.%s.zip".format(config.odoo_branch));
 
@@ -65,6 +81,47 @@ void installDownloadOdoo(in ProjectConfig config) {
 }
 
 
+void installVirtualenv(in ProjectConfig config) {
+    import std.parallelism: totalCPUs;
+
+    writeln("Installing virtualenv...");
+
+    // TODO: make the function to run any command with proper error handling
+    runCmdE(["python3", "-m", "virtualenv", config.venv_dir.toString]);
+
+    import std.file: getAttributes, setAttributes;
+    import std.conv : octal;
+    config.bin_dir.join("run-in-venv").writeFile(
+        SCRIPT_RUN_IN_ENV.format(config.venv_dir.join("bin", "activate")));
+    config.bin_dir.join("run-in-venv").toString.setAttributes(
+        config.bin_dir.join("run-in-venv").toString.getAttributes | octal!755);
+
+    runCmdE([
+        config.venv_dir.join("bin", "pip").toString,
+        "install", "nodeenv"]);
+
+    runCmdE([
+        config.venv_dir.join("bin", "nodeenv").toString,
+        "--python-virtualenv", "--clean-src",
+        "--jobs", totalCPUs.to!string, "--node", config.node_version]); 
+
+    runCmdE([
+        config.bin_dir.join("run-in-venv").toString,
+        "npm", "set", "user", "0"]);
+    runCmdE([
+        config.bin_dir.join("run-in-venv").toString,
+        "npm", "set", "unsafe-perm", "true"]);
+}
 
 
+void installOdoo(in ProjectConfig config) {
+    runCmdE([
+        config.venv_dir.join("bin", "pip").toString,
+        "install", "phonenumbers", "python-slugify", "setuptools-odoo",
+        "cffi", "jinja2", "python-magic", "Python-Chart"]);
+    writeln("Installing odoo to %s".format(config.odoo_path));
+    runCmdE(
+        [config.venv_dir.join("bin", "python").toString, "setup.py", "develop"],
+        config.odoo_path.toString);
 
+}

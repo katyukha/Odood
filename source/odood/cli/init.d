@@ -52,6 +52,8 @@ class CommandInit: OdoodCommand {
         writeln("Installing odoo to %s".format(project_config.root_dir));
         project_config.initializeProjectDirs();
         installDownloadOdoo(project_config);
+        installVirtualenv(project_config);
+        installOdoo(project_config);
 
         // 1. Prepare directory structure
         // 2. Install Odoo

@@ -133,7 +133,7 @@ void extract_zip_archive(
                     size_read > 0,
                     "Cannot read file %s. Read: %s/%s".format(
                         entry_name, size_written, stat.size));
-                out_file.rawWrite(buf);
+                out_file.rawWrite(buf[0 .. size_read]);
                 size_written += size_read;
             }
         }
