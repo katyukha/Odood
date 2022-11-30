@@ -1,4 +1,4 @@
-module odood.lib.install;
+module odood.lib.install.odoo;
 
 private import std.stdio: writeln;
 private import std.format: format;

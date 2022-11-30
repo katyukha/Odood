@@ -17,3 +17,4 @@ odood-test-*
 
 *.sw[npo]
 /tmp/
+/build/
