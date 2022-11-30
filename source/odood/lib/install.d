@@ -93,35 +93,29 @@ void installVirtualenv(in ProjectConfig config) {
     import std.conv : octal;
     config.bin_dir.join("run-in-venv").writeFile(
         SCRIPT_RUN_IN_ENV.format(config.venv_dir.join("bin", "activate")));
-    config.bin_dir.join("run-in-venv").toString.setAttributes(
-        config.bin_dir.join("run-in-venv").toString.getAttributes | octal!755);
+    config.bin_dir.join("run-in-venv").setAttributes(octal!755);
 
-    runCmdE([
-        config.venv_dir.join("bin", "pip").toString,
-        "install", "nodeenv"]);
+    config.venv_dir.join("bin", "pip").runCmdE(["install", "nodeenv"]);
 
-    runCmdE([
-        config.venv_dir.join("bin", "nodeenv").toString,
+    config.venv_dir.join("bin", "nodeenv").runCmdE([
         "--python-virtualenv", "--clean-src",
         "--jobs", totalCPUs.to!string, "--node", config.node_version]); 
 
-    runCmdE([
-        config.bin_dir.join("run-in-venv").toString,
-        "npm", "set", "user", "0"]);
-    runCmdE([
-        config.bin_dir.join("run-in-venv").toString,
-        "npm", "set", "unsafe-perm", "true"]);
+    config.bin_dir.join("run-in-venv").runCmdE(
+        ["npm", "set", "user", "0"]);
+    config.bin_dir.join("run-in-venv").runCmdE(
+        ["npm", "set", "unsafe-perm", "true"]);
 }
 
 
 void installOdoo(in ProjectConfig config) {
-    runCmdE([
-        config.venv_dir.join("bin", "pip").toString,
+    config.venv_dir.join("bin", "pip").runCmdE([
         "install", "phonenumbers", "python-slugify", "setuptools-odoo",
         "cffi", "jinja2", "python-magic", "Python-Chart"]);
     writeln("Installing odoo to %s".format(config.odoo_path));
-    runCmdE(
-        [config.venv_dir.join("bin", "python").toString, "setup.py", "develop"],
-        config.odoo_path.toString);
+
+    config.venv_dir.join("bin", "python").runCmdE(
+        ["setup.py", "develop"],
+        config.odoo_path);
 
 }

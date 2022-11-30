@@ -7,7 +7,7 @@
 		"dshould": "1.7.0",
 		"dyaml": "0.9.2",
 		"prettyprint": "1.0.8",
-		"thepath": "0.0.1",
+		"thepath": "0.0.2",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.2"
 	}
