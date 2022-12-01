@@ -45,7 +45,7 @@ auto runCmdE(
     enforce!OdoodException(
         result.status == 0,
         "Command %s returned non-zero error code!\nOutput: %s".format(
-            args, result.status));
+            args, result.output));
     return result;
 }
 
@@ -62,7 +62,7 @@ auto runCmdE(
     enforce!OdoodException(
         result.status == 0,
         "Command %s returned non-zero error code!\nOutput: %s".format(
-            args, result.status));
+            args, result.output));
     return result;
 }
 

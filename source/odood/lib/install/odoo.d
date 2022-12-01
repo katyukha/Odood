@@ -87,7 +87,7 @@ void installVirtualenv(in ProjectConfig config) {
 
     writeln("Installing virtualenv...");
 
-    runCmdE(["python3", "-m", "virtualenv", config.venv_dir.toString]);
+    runCmdE(["python3", "-m", "virtualenv", "-p", "python3", config.venv_dir.toString]);
 
     import std.file: getAttributes, setAttributes;
     import std.conv : octal;
@@ -112,6 +112,11 @@ void installOdoo(in ProjectConfig config) {
     config.venv_dir.join("bin", "pip").runCmdE([
         "install", "phonenumbers", "python-slugify", "setuptools-odoo",
         "cffi", "jinja2", "python-magic", "Python-Chart"]);
+
+    writeln("Installing odoo dependencies (requirements.txt)");
+    config.venv_dir.join("bin", "pip").runCmdE([
+        "install", "-r", config.odoo_path.join("requirements.txt").toString]);
+
     writeln("Installing odoo to %s".format(config.odoo_path));
 
     config.venv_dir.join("bin", "python").runCmdE(
@@ -125,7 +130,6 @@ void installOdooConfig(in ProjectConfig config) {
     import std.array: join;
     Ini odoo_conf;
     Ini odoo_opts = IniSection("options");
-    odoo_conf.addSection(odoo_opts);
 
     string[] addons_path =[config.odoo_path.join("addons").toString];
     if (config.odoo_serie <= OdooSerie(9)) {
@@ -139,10 +143,11 @@ void installOdooConfig(in ProjectConfig config) {
     odoo_opts.setKey("admin_passwd", "admin");
     odoo_opts.setKey("data_dir", config.data_dir.toString);
     odoo_opts.setKey("logfile", config.log_file.toString);
-    odoo_opts.setKey("db_host", "False");
+    odoo_opts.setKey("db_host", "localhost");
     odoo_opts.setKey("db_port", "False");
     odoo_opts.setKey("db_user", "odoo");
     odoo_opts.setKey("db_password", "odoo");
+    odoo_conf.addSection(odoo_opts);
 
     odoo_conf.save(config.odoo_conf.toString);
 }
