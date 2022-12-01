@@ -7,21 +7,25 @@ private import std.string : format;
 
 
 struct OdooSerie {
-    private uint _major;
-    private uint _minor;
+    private ubyte _major;
+    private ubyte _minor;
     private bool _isValid = false;
 
     this(in string ver) {
         auto parts = ver.split(".");
         if (parts.length == 2) {
-            this._major = parts[0].to!uint;
-            this._minor = parts[1].to!uint;
-            this._isValid = true;
+            this(parts[0].to!ubyte, parts[1].to!ubyte);
         } else if (parts.length == 1) {
-            this._major = parts[0].to!uint;
-            this._minor = 0;
-            this._isValid = true;
+            this(parts[0].to!ubyte, 0);
+        } else {
+            this(0, 0);
         }
+    }
+    this(in ubyte major, in ubyte minor=0) {
+        this._major = major;
+        this._minor = minor;
+        if (_major > 0) _isValid = true;
+        else _isValid = false;
     }
 
     string toString() const
@@ -33,8 +37,8 @@ struct OdooSerie {
     }
 
     @property bool isValid() const { return this._isValid; }
-    @property uint major() const { return this._major; }
-    @property uint minor() const { return this._minor; }
+    @property ubyte major() const { return this._major; }
+    @property ubyte minor() const { return this._minor; }
 
     unittest {
         auto s = OdooSerie("12.0");

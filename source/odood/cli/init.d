@@ -9,7 +9,6 @@ private import commandr: Option, Flag, ProgramArgs;
 private import odood.cli.command: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo_serie: OdooSerie;
-private import odood.lib.install;
 private import odood.lib.exception: OdoodException;
 
 
@@ -48,19 +47,9 @@ class CommandInit: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project_config = this.initProjectConfig(args);
-        import std.stdio;
-        writeln("Installing odoo to %s".format(project_config.root_dir));
-        project_config.initializeProjectDirs();
-        installDownloadOdoo(project_config);
-        installVirtualenv(project_config);
-        installOdoo(project_config);
-        project_config.save(project_config.root_dir.join("odood.yml"));
-
-        // 1. Prepare directory structure
-        // 2. Install Odoo
-        // 3. Install virtualenv
-        // 4. Install python dependencies
-
+        auto project = Project(project_config);
+        project.initialize();
+        project.save();
     }
 
 }

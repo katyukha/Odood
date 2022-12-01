@@ -9,7 +9,7 @@ public import odood.lib.project_config: ProjectConfig;
 
 
 struct Project {
-    private ProjectConfig config;
+    private ProjectConfig _config;
 
     /** Initialize by path.
 
@@ -19,9 +19,9 @@ struct Project {
      **/
     this(in Path path) {
         if (path.exists && path.isFile) {
-            this.loadConfig(path);
-        } if (path.exists && path.isDir) {
-            this.loadConfig(path.join("odood.yml"));
+            _config.load(path);
+        } if (path.exists && path.isDir && path.join("odood.yml").exists) {
+            _config.load(path.join("odood.yml"));
         } else {
             throw new OdoodException(
                 "Cannot initialize project. Config not found");
@@ -34,25 +34,35 @@ struct Project {
             cofnig = instance of project configuration to initialize from.
      **/
     this(in ProjectConfig config) {
-        this.config = config;
+        _config = config;
     }
 
-    /** Load configuration from config file.
-
-        Params:
-            path = path to config file to load.
-     **/
-
-    void loadConfig(in Path path) {
-        this.config.load(path);
-    }
+    @property const (ProjectConfig) config() const { return _config; }
 
     /** Save project configuration to config file.
 
         Params:
            path = path to config file to save configuration to.
      **/
-    void saveConfig(in Path path) {
-        this.config.save(path);
+    void save(in Path path = Path()) {
+        if (path.isNull) _config.save(_config.root_dir.join("odood.yml"));
+        else _config.save(path);
+    }
+
+    /** Initialize project.
+     **/
+    void initialize() {
+        import odood.lib.install;
+
+        _config.initializeProjectDirs();
+        _config.installDownloadOdoo();
+        _config.installVirtualenv();
+        _config.installOdoo();
+
+        // 1. Prepare directory structure
+        // 2. Install Odoo
+        // 3. Install virtualenv
+        // 4. Install python dependencies
+
     }
 }

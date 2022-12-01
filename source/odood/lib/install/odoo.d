@@ -86,7 +86,6 @@ void installVirtualenv(in ProjectConfig config) {
 
     writeln("Installing virtualenv...");
 
-    // TODO: make the function to run any command with proper error handling
     runCmdE(["python3", "-m", "virtualenv", config.venv_dir.toString]);
 
     import std.file: getAttributes, setAttributes;

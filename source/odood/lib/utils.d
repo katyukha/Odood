@@ -1,6 +1,7 @@
 module odood.lib.utils;
 
-private import std.process: execute, Config;
+private import std.process: execute, Config, Pid;
+private import core.sys.posix.sys.types: pid_t;
 private import std.exception: enforce;
 private import std.format: format;
 
@@ -48,7 +49,7 @@ auto runCmdE(
     return result;
 }
 
-///
+/// ditto
 auto runCmdE(
         in Path path,
         in string[] args = [],
@@ -63,4 +64,20 @@ auto runCmdE(
         "Command %s returned non-zero error code!\nOutput: %s".format(
             args, result.status));
     return result;
+}
+
+/// Check if process is alive
+bool isProcessRunning(in pid_t pid) {
+    import core.sys.posix.signal: kill;
+    import core.stdc.errno;
+
+    int res = kill(pid, 0);
+    if (res == -1 && errno == ESRCH)
+        return false;
+    return true;
+}
+
+/// ditto
+bool isProcessRunning(scope Pid pid) {
+    return isProcessRunning(pid.osHandle);
 }
