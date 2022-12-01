@@ -1,22 +1,43 @@
 module odood.lib.project;
 
+private import std.stdio;
+private import std.exception: enforce;
+private import std.format: format;
 private import thepath: Path;
-private static import dyaml; 
 
 private import odood.lib.exception: OdoodException;
 
 public import odood.lib.project_config: ProjectConfig;
 
 
-struct Project {
+class Project {
     private ProjectConfig _config;
+
+    /** Initialize with automatic config discovery
+      *
+      **/
+    this() {
+        Path current = Path(".").toAbsolute;
+        bool loaded = false;
+        while (current.toString != "/") {
+            if (current.join("odood.yml").exists) {
+                _config.load(current.join("odood.yml"));
+                loaded = true;
+                break;
+            }
+            current = current.parent;
+        }
+        enforce!OdoodException(
+            loaded,
+            "Cannot find Odood configuration file!");
+    }
 
     /** Initialize by path.
 
         Params:
             path = is path to odood config file or path to directory
                 that contains odood.yml config file
-     **/
+      **/
     this(in Path path) {
         if (path.exists && path.isFile) {
             _config.load(path);
@@ -32,7 +53,7 @@ struct Project {
 
         Params:
             cofnig = instance of project configuration to initialize from.
-     **/
+      **/
     this(in ProjectConfig config) {
         _config = config;
     }
@@ -43,14 +64,14 @@ struct Project {
 
         Params:
            path = path to config file to save configuration to.
-     **/
+      **/
     void save(in Path path = Path()) {
         if (path.isNull) _config.save(_config.root_dir.join("odood.yml"));
         else _config.save(path);
     }
 
     /** Initialize project.
-     **/
+      **/
     void initialize() {
         import odood.lib.install;
 
@@ -58,11 +79,19 @@ struct Project {
         _config.installDownloadOdoo();
         _config.installVirtualenv();
         _config.installOdoo();
+        _config.installOdooConfig();
 
         // 1. Prepare directory structure
         // 2. Install Odoo
         // 3. Install virtualenv
         // 4. Install python dependencies
 
+    }
+
+    /** Run the server.
+      **/
+    void serverRun() {
+        import odood.lib.server;
+        _config.spawnServer();
     }
 }

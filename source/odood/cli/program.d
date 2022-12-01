@@ -5,6 +5,7 @@ private import commandr: Program, ProgramArgs, Option, Flag, parse;
 
 private import odood.cli.command: OdoodCommand;
 private import odood.cli.init: CommandInit;
+private import odood.cli.server: CommandServer;
 
 
 class OdoodProgram: Program {
@@ -13,6 +14,7 @@ class OdoodProgram: Program {
         super("odood", _version);
         this.summary("Easily manage odoo installations.");
         this.add(new CommandInit());
+        this.add(new CommandServer());
     }
 
 

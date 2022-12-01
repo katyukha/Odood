@@ -47,7 +47,7 @@ class CommandInit: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project_config = this.initProjectConfig(args);
-        auto project = Project(project_config);
+        auto project = new Project(project_config);
         project.initialize();
         project.save();
     }
