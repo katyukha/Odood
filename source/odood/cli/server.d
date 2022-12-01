@@ -14,13 +14,26 @@ private import odood.lib.exception: OdoodException;
 class CommandServerRun: OdoodCommand {
     this() {
         super("run", "Run the server.");
+        this.add(new Flag("d", "detach", "Run the server in background."));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.serverRun();
+        project.serverRun(args.flag("detach"));
     }
 
+}
+
+
+class CommandServerStop: OdoodCommand {
+    this() {
+        super("stop", "Stop the server");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        project.serverStop();
+    }
 }
 
 
@@ -28,6 +41,7 @@ class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
         this.add(new CommandServerRun());
+        this.add(new CommandServerStop());
     }
 }
 

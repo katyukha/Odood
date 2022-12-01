@@ -99,3 +99,32 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
         std.process.wait(pid);
     return odoo_pid;
 }
+
+/** Stop the Odoo server
+  *
+  **/
+void stopServer(in ProjectConfig config) {
+    import core.time;
+    import core.sys.posix.signal: kill, SIGTERM;
+    import core.stdc.errno;
+    import core.thread: Thread;
+    import std.exception: ErrnoException;
+
+    auto odoo_pid = getServerPid(config);
+    enforce!ServerAlreadyRuningException(
+        odoo_pid > 0,
+        "Server is not running!");
+
+    for(ubyte i=0; isProcessRunning(odoo_pid) && i < 10; i++) {
+        int res = kill(odoo_pid, SIGTERM);
+
+        // Wait 1 second, before next check
+        Thread.sleep(1.seconds);
+
+        if (res == -1 && errno == ESRCH)
+            break; // Process killed
+        if (res == -1) {
+            throw new ErrnoException("Cannot kill odoo");
+        }
+    }
+}

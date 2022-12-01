@@ -90,8 +90,15 @@ class Project {
 
     /** Run the server.
       **/
-    void serverRun() {
+    void serverRun(in bool detach=false) {
         import odood.lib.server;
-        _config.spawnServer();
+        _config.spawnServer(detach);
+    }
+
+    /** Stop the server.
+      **/
+    void serverStop() {
+        import odood.lib.server;
+        _config.stopServer();
     }
 }
