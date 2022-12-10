@@ -21,10 +21,8 @@ class CommandInit: OdoodCommand {
             .required().defaultValue("14.0"));
         this.add(new Option(null, "odoo-branch", "Branch in Odoo repo to install Odoo from."));
         this.add(new Option(null, "odoo-repo", "Install Odoo from specific repository."));
-        this.add(new Flag(null, "archive", "Download odoo as archive"));
-        this.add(new Flag(null, "git", "Clone odoo as git repository."));
-        this.add(new Flag(null, "single-branch", "Clone odoo as single-branch git repository."));
-
+        this.add(new Option(null, "py-version", "Install specific python version."));
+        this.add(new Option(null, "node-version", "Install specific node version."));
     }
 
     ProjectConfig initProjectConfig(ProgramArgs args) {
@@ -38,11 +36,20 @@ class CommandInit: OdoodCommand {
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
 
-        return ProjectConfig(
-                install_dir,
-                odoo_version,
-                odoo_branch,
-                odoo_repo);
+        auto config = ProjectConfig(
+            install_dir,
+            odoo_version,
+            odoo_branch,
+            odoo_repo);
+
+        if (args.option("py-version")) {
+            config.python_version = args.option("py-version");
+        }
+        if (args.option("node-version")) {
+            config.node_version = args.option("node-version");
+        }
+
+        return config;
     }
 
     public override void execute(ProgramArgs args) {

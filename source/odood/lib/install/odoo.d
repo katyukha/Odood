@@ -84,23 +84,51 @@ void installDownloadOdoo(in ProjectConfig config) {
 
 void installVirtualenv(in ProjectConfig config) {
     import std.parallelism: totalCPUs;
+    import odood.lib.install.python;
 
     writeln("Installing virtualenv...");
 
-    runCmdE(["python3", "-m", "virtualenv", "-p", "python3", config.venv_dir.toString]);
+    if (isSystemPythonSuitable(config)){
+        runCmdE([
+            "python3",
+            "-m", "virtualenv",
+            "-p", config.guessPythonInterpreter,
+            config.venv_dir.toString]);
+    } else {
+        buildPython(config);
+        writeln(
+            "%s successfully built".format(
+                runCmdE(
+                    config.root_dir.join("python", "bin", config.guessPythonInterpreter),
+                    ["--version"]).output));
+        runCmdE([
+            "python3",
+            "-m", "virtualenv",
+            "-p", config.root_dir.join(
+                "python", "bin", config.guessPythonInterpreter).toString,
+            config.venv_dir.toString]);
+    }
 
+
+    // Use correct version of setuptools, because some versions of Odoo
+    // required 'use_2to3' option, that is removed in latest versions
+    if (config.odoo_serie > OdooSerie(10)) {
+        config.venv_dir.join("bin", "pip").runCmdE(
+            ["install", "setuptools>=45,<58"]);
+    }
+
+    // Add bash script to run any command in virtual env
     import std.file: getAttributes, setAttributes;
     import std.conv : octal;
     config.bin_dir.join("run-in-venv").writeFile(
         SCRIPT_RUN_IN_ENV.format(config.venv_dir.join("bin", "activate")));
     config.bin_dir.join("run-in-venv").setAttributes(octal!755);
 
+    // Install nodeenv and node
     config.venv_dir.join("bin", "pip").runCmdE(["install", "nodeenv"]);
-
     config.venv_dir.join("bin", "nodeenv").runCmdE([
         "--python-virtualenv", "--clean-src",
         "--jobs", totalCPUs.to!string, "--node", config.node_version]); 
-
     config.bin_dir.join("run-in-venv").runCmdE(
         ["npm", "set", "user", "0"]);
     config.bin_dir.join("run-in-venv").runCmdE(
@@ -114,8 +142,8 @@ void installOdoo(in ProjectConfig config) {
         "cffi", "jinja2", "python-magic", "Python-Chart"]);
 
     writeln("Installing odoo dependencies (requirements.txt)");
-    config.venv_dir.join("bin", "pip").runCmdE([
-        "install", "-r", config.odoo_path.join("requirements.txt").toString]);
+    config.venv_dir.join("bin", "pip").runCmdE(
+        ["install", "-r", config.odoo_path.join("requirements.txt").toString]);
 
     writeln("Installing odoo to %s".format(config.odoo_path));
 

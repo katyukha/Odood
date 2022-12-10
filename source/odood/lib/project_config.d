@@ -68,6 +68,14 @@ struct ProjectConfig {
     /// Version of nodejs to install. Default: lts
     string node_version = "lts";
 
+    /** Version of python to install.
+      * if null, then Odoo will automatically detect if specific version of
+      * python have to be built, or use system python.
+      * Must be string in format "X.Y.Z". For example '3.9.12'.
+      **/
+    string python_version = null;
+
+    // TODO: Add validation of config
 
     this(in Path root_path, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
@@ -121,6 +129,7 @@ struct ProjectConfig {
         this.odoo_branch = config["odoo_branch"].as!string;
         this.odoo_repo = config["odoo_repo"].as!string;
         this.node_version = config["node_version"].as!string;
+        this.python_version = config["python_version"].as!string;
     }
 
 
@@ -145,6 +154,7 @@ struct ProjectConfig {
             "odoo_branch": this.odoo_branch,
             "odoo_repo": this.odoo_repo,
             "node_version": this.node_version,
+            "python_version": this.python_version,
         ]);
     }
 
@@ -162,15 +172,6 @@ struct ProjectConfig {
             out_file.close();
         }
         dumper.dump(out_file.lockingTextWriter, this.toYAML);
-    }
-
-    /// Suggest mejor python version to run this project
-    ubyte suggetPythonMajorVersion() {
-        if (this.odoo_serie < OdooSerie("11")) {
-            return 2;
-        } else {
-            return 3;
-        }
     }
 
 }
