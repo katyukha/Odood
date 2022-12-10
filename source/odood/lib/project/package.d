@@ -7,7 +7,7 @@ private import thepath: Path;
 
 private import odood.lib.exception: OdoodException;
 
-public import odood.lib.project_config: ProjectConfig;
+public import odood.lib.project.config: ProjectConfig;
 
 
 class Project {

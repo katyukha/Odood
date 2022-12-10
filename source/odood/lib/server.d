@@ -9,8 +9,8 @@ private import std.format: format;
 
 private import thepath: Path;
 
-private import odood.lib.project_config: ProjectConfig;
-private import odood.lib.odoo_serie: OdooSerie;
+private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: isProcessRunning;
 

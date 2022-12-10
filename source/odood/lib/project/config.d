@@ -1,11 +1,12 @@
 /// This module handles config of instance managed by odood
-module odood.lib.project_config;
+module odood.lib.project.config;
 
 private import thepath: Path;
-private import odood.lib.odoo_serie: OdooSerie;
 private static import dyaml;
 private static import dyaml.dumper;
 private static import dyaml.style;
+
+private import odood.lib.odoo.serie: OdooSerie;
 
 
 struct ProjectConfig {

@@ -1,5 +1,5 @@
 module odood.cli.program;
-private import odood.lib.common: _version;
+private import odood.lib: _version;
 
 private import commandr: Program, ProgramArgs, Option, Flag, parse;
 

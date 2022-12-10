@@ -1,5 +1,5 @@
 /// This module handles Odoo seris (12.0, 13.0, etc)
-module odood.lib.odoo_serie;
+module odood.lib.odoo.serie;
 
 private import std.array: split;
 private import std.conv: to;

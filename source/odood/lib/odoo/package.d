@@ -1,0 +1,1 @@
+module odood.lib.odoo;

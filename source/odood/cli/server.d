@@ -8,7 +8,7 @@ private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.command: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
-private import odood.lib.odoo_serie: OdooSerie;
+private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 
 
