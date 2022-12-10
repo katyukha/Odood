@@ -80,12 +80,6 @@ class Project {
         _config.installVirtualenv();
         _config.installOdoo();
         _config.installOdooConfig();
-
-        // 1. Prepare directory structure
-        // 2. Install Odoo
-        // 3. Install virtualenv
-        // 4. Install python dependencies
-
     }
 
     /** Run the server.

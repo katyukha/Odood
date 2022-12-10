@@ -5,7 +5,6 @@ private import std.format: format;
 private import std.algorithm.searching: startsWith;
 private import std.string: strip;
 private import std.exception: enforce;
-private import std.net.curl: download;
 private import std.conv: to;
 
 private import odood.lib.exception: OdoodException;
@@ -69,7 +68,7 @@ void installDownloadOdoo(in ProjectConfig config) {
         writeln("Downloading odoo from %s to %s".format(
             download_url,
             odoo_archive_path));
-        download(download_url, odoo_archive_path.toString);
+        download(download_url, odoo_archive_path);
     }
 
     // Extract, with unfloding content of odoo-<branch> to

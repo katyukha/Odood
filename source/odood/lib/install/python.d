@@ -6,13 +6,12 @@ private import semver;
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.net.curl: download;
 private import std.parallelism: totalCPUs;
 
 private import odood.lib.project_config: ProjectConfig;
 private import odood.lib.odoo_serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: runCmdE;
+private import odood.lib.utils: runCmdE, download;
 
 
 /// Guess major python version to run this project
@@ -140,8 +139,7 @@ void buildPython(in ProjectConfig config,
         python_configure_opts ~= "--enable-loadable-sqlite-extensions";
 
     if (!python_download_path.exists) {
-        // TODO: use D requests, instead of Curl download
-        download(python_download_link, python_download_path.toString);
+        download(python_download_link, python_download_path);
     }
 
     if (!python_build_dir.exists) {

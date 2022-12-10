@@ -110,51 +110,67 @@ struct ProjectConfig {
     }
 
     void fromYAML(in ref dyaml.Node config) {
-        this.root_dir = Path(config["root_dir"].as!string);
-        this.bin_dir = Path(config["bin_dir"].as!string);
-        this.conf_dir = Path(config["conf_dir"].as!string);
-        this.odoo_conf = Path(config["odoo_conf"].as!string);
-        this.odoo_test_conf = Path(config["odoo_test_conf"].as!string);
-        this.log_dir = Path(config["log_dir"].as!string);
-        this.log_file = Path(config["log_file"].as!string);
-        this.downloads_dir = Path(config["downloads_dir"].as!string);
-        this.addons_dir = Path(config["addons_dir"].as!string);
-        this.data_dir = Path(config["data_dir"].as!string);
-        this.venv_dir = Path(config["venv_dir"].as!string);
-        this.odoo_path = Path(config["odoo_path"].as!string);
-        this.odoo_pid_file = Path(config["odoo_pid_file"].as!string);
-        this.backups_dir = Path(config["backups_dir"].as!string);
-        this.repositories_dir = Path(config["repositories_dir"].as!string);
-        this.odoo_serie = OdooSerie(config["odoo_serie"].as!string);
-        this.odoo_branch = config["odoo_branch"].as!string;
-        this.odoo_repo = config["odoo_repo"].as!string;
-        this.node_version = config["node_version"].as!string;
-        this.python_version = config["python_version"].as!string;
+        this.root_dir = Path(config["directories"]["root_dir"].as!string);
+        this.bin_dir = Path(config["directories"]["bin_dir"].as!string);
+        this.conf_dir = Path(config["directories"]["conf_dir"].as!string);
+        this.log_dir = Path(config["directories"]["log_dir"].as!string);
+        this.downloads_dir = Path(
+            config["directories"]["downloads_dir"].as!string);
+        this.addons_dir = Path(config["directories"]["addons_dir"].as!string);
+        this.data_dir = Path(config["directories"]["data_dir"].as!string);
+        this.venv_dir = Path(config["directories"]["venv_dir"].as!string);
+        this.backups_dir = Path(config["directories"]["backups_dir"].as!string);
+        this.repositories_dir = Path(
+            config["directories"]["repositories_dir"].as!string);
+
+        this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
+        this.odoo_test_conf = Path(config["files"]["odoo_test_config"].as!string);
+        this.log_file = Path(config["files"]["odoo_log"].as!string);
+        this.odoo_pid_file = Path(config["files"]["odoo_pid"].as!string);
+
+        this.odoo_path = Path(config["odoo"]["path"].as!string);
+        this.odoo_serie = OdooSerie(config["odoo"]["version"].as!string);
+        this.odoo_branch = config["odoo"]["branch"].as!string;
+        this.odoo_repo = config["odoo"]["repo"].as!string;
+
+        this.node_version = config["nodejs"]["version"].as!string;
+        this.python_version = config["python"]["version"].as!string;
     }
 
 
     dyaml.Node toYAML() {
-        return dyaml.Node([
-            "root_dir": this.root_dir.toString,
-            "bin_dir": this.bin_dir.toString,
-            "conf_dir": this.conf_dir.toString,
-            "odoo_conf": this.odoo_conf.toString,
-            "odoo_test_conf": this.odoo_test_conf.toString,
-            "log_dir": this.log_dir.toString,
-            "log_file": this.log_file.toString,
-            "downloads_dir": this.downloads_dir.toString,
-            "addons_dir": this.addons_dir.toString,
-            "data_dir": this.data_dir.toString,
-            "venv_dir": this.venv_dir.toString,
-            "odoo_path": this.odoo_path.toString,
-            "odoo_pid_file": this.odoo_pid_file.toString,
-            "backups_dir": this.backups_dir.toString,
-            "repositories_dir": this.repositories_dir.toString,
-            "odoo_serie": this.odoo_serie.toString,
-            "odoo_branch": this.odoo_branch,
-            "odoo_repo": this.odoo_repo,
-            "node_version": this.node_version,
-            "python_version": this.python_version,
+        import dyaml: Node;
+        return Node([
+            "odoo": Node([
+                "version": this.odoo_serie.toString,
+                "branch": this.odoo_branch,
+                "repo": this.odoo_repo,
+                "path": this.odoo_path.toString,
+            ]),
+            "directories": Node([
+                "root_dir": this.root_dir.toString,
+                "bin_dir": this.bin_dir.toString,
+                "conf_dir": this.conf_dir.toString,
+                "log_dir": this.log_dir.toString,
+                "downloads_dir": this.downloads_dir.toString,
+                "addons_dir": this.addons_dir.toString,
+                "data_dir": this.data_dir.toString,
+                "venv_dir": this.venv_dir.toString,
+                "backups_dir": this.backups_dir.toString,
+                "repositories_dir": this.repositories_dir.toString,
+            ]),
+            "files": Node([
+                "odoo_config": this.odoo_conf.toString,
+                "odoo_test_config": this.odoo_test_conf.toString,
+                "odoo_log": this.log_file.toString,
+                "odoo_pid": this.odoo_pid_file.toString,
+            ]),
+            "nodejs": Node([
+                "version": this.node_version,
+            ]),
+            "python": Node([
+                "version": this.python_version,
+            ]),
         ]);
     }
 

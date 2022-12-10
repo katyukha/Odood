@@ -1,7 +1,8 @@
 module odood.lib.utils;
 
-private import std.process: execute, Config, Pid;
+private import core.time;
 private import core.sys.posix.sys.types: pid_t;
+private import std.process: execute, Config, Pid;
 private import std.exception: enforce;
 private import std.format: format;
 
@@ -80,4 +81,36 @@ bool isProcessRunning(in pid_t pid) {
 /// ditto
 bool isProcessRunning(scope Pid pid) {
     return isProcessRunning(pid.osHandle);
+}
+
+
+/** Download the file from the web
+  *
+  * Params:
+  *     url = the url to download file from
+  *     dest = the destination path to download file to
+  *     timeout = optional timeout. Default is 15 seconds.
+  **/
+void download(in string url, in Path dest_path, in Duration timeout=15.seconds) {
+    import requests: Request;
+
+    enforce!OdoodException(
+        !dest_path.exists,
+        "Cannot download %s to %s! Destination path already exists!".format(
+            url, dest_path));
+
+    auto request = Request();
+    request.useStreaming = true;
+    request.timeout = timeout;
+
+    auto response = request.get(url);
+    auto stream = response.receiveAsRange();
+
+    auto f_dest = dest_path.openFile("wb");
+    scope(exit) f_dest.close();
+
+    while (!stream.empty) {
+        f_dest.rawWrite(stream.front);
+        stream.popFront;
+    }
 }
