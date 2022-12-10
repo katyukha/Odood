@@ -17,19 +17,11 @@ class Project {
       *
       **/
     this() {
-        Path current = Path(".").toAbsolute;
-        bool loaded = false;
-        while (current.toString != "/") {
-            if (current.join("odood.yml").exists) {
-                _config.load(current.join("odood.yml"));
-                loaded = true;
-                break;
-            }
-            current = current.parent;
-        }
+        auto config_path = Path.current.searchFileUp("odood.yml");
         enforce!OdoodException(
-            loaded,
-            "Cannot find Odood configuration file!");
+            !config_path.isNull,
+            "Cannot find OdooD configuration file!");
+        _config.load(config_path);
     }
 
     /** Initialize by path.
