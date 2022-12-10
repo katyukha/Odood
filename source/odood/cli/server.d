@@ -26,6 +26,24 @@ class CommandServerRun: OdoodCommand {
 }
 
 
+class CommandServerIsRunning: OdoodCommand {
+    this() {
+        super("status", "Check if server is running");
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.stdio;
+        auto project = new Project();
+        if (project.isServerRunning) {
+            writeln("The server is running");
+        } else {
+            writeln("The server is stopped");
+        }
+    }
+
+}
+
+
 class CommandServerStop: OdoodCommand {
     this() {
         super("stop", "Stop the server");
@@ -42,6 +60,7 @@ class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
         this.add(new CommandServerRun());
+        this.add(new CommandServerIsRunning());
         this.add(new CommandServerStop());
     }
 }

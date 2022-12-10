@@ -100,6 +100,19 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
     return odoo_pid;
 }
 
+
+/** Check if the Odoo server is running or not
+  *
+  **/
+bool isServerRunning(in ProjectConfig config) {
+    auto odoo_pid = getServerPid(config);
+    if (odoo_pid <= 0) {
+        return false;
+    }
+
+    return isProcessRunning(odoo_pid);
+}
+
 /** Stop the Odoo server
   *
   **/

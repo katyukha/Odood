@@ -89,6 +89,13 @@ class Project {
         _config.spawnServer(detach);
     }
 
+    /** Is server running
+      **/
+    bool isServerRunning() {
+        import odood.lib.server;
+        return _config.isServerRunning;
+    }
+
     /** Stop the server.
       **/
     void serverStop() {

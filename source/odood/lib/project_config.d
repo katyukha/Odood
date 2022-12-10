@@ -77,38 +77,59 @@ struct ProjectConfig {
 
     // TODO: Add validation of config
 
+
+    /** Create new config from basic parameters.
+      *
+      * Params:
+      *     root_path = Path to the project root directory
+      *     odoo_serie = Version of Odoo to run
+      *     odoo_branch = Name of the branch to get Odoo from
+      *     odoo_repo = URL to the repository to get Odoo from
+      **/
     this(in Path root_path, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
         this.root_dir = root_path.expandTilde.toAbsolute;
         this.bin_dir = this.root_dir.join("bin");
         this.conf_dir = this.root_dir.join("conf");
-        this.odoo_conf = this.conf_dir.join("odoo.conf");
-        this.odoo_test_conf = this.conf_dir.join("odoo.test.conf");
         this.log_dir = this.root_dir.join("logs");
-        this.log_file = this.log_dir.join("odoo.log");
         this.downloads_dir = this.root_dir.join("downloads");
         this.addons_dir = this.root_dir.join("custom_addons");
         this.data_dir = this.root_dir.join("data");
         this.venv_dir = this.root_dir.join("venv");
-        this.odoo_pid_file = this.root_dir.join("odoo.pid");
         this.backups_dir = this.root_dir.join("backups");
         this.repositories_dir = this.root_dir.join("repositories");
+
+        this.odoo_conf = this.conf_dir.join("odoo.conf");
+        this.odoo_test_conf = this.conf_dir.join("odoo.test.conf");
+        this.log_file = this.log_dir.join("odoo.log");
+        this.odoo_pid_file = this.root_dir.join("odoo.pid");
+
         this.odoo_path = this.root_dir.join("odoo");
         this.odoo_serie = odoo_serie;
         this.odoo_branch = odoo_branch;
         this.odoo_repo = odoo_repo;
     }
 
-
+    /// ditto
     this(in Path root_path, in OdooSerie odoo_serie) {
         this(root_path, odoo_serie, odoo_serie.toString, 
              "https://github.com/odoo/odoo");
     }
 
-    this(in ref dyaml.Node config) {
-        this.fromYAML(config);
+    /** Create this config instance from YAML node
+      *
+      * Params:
+      *     node = YAML node representation to initialize config from
+      **/
+    this(in ref dyaml.Node node) {
+        this.fromYAML(node);
     }
 
+    /** Parse YAML representation of config, and initialize this instance.
+      *
+      * Params:
+      *     config = YAML node representation to initialize config from
+      **/
     void fromYAML(in ref dyaml.Node config) {
         this.root_dir = Path(config["directories"]["root_dir"].as!string);
         this.bin_dir = Path(config["directories"]["bin_dir"].as!string);
@@ -137,7 +158,8 @@ struct ProjectConfig {
         this.python_version = config["python"]["version"].as!string;
     }
 
-
+    /** Serialize config to YAML node
+      **/
     dyaml.Node toYAML() {
         import dyaml: Node;
         return Node([

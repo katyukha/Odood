@@ -62,7 +62,6 @@ void installDownloadOdoo(in ProjectConfig config) {
     auto download_url = "%s/archive/%s.zip".format(
         config.odoo_repo.strip("", ".git"), config.odoo_branch);
 
-    // TODO: Add timeout
     // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
         writeln("Downloading odoo from %s to %s".format(
