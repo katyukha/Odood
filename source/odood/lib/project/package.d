@@ -3,9 +3,12 @@ module odood.lib.project;
 private import std.stdio;
 private import std.exception: enforce;
 private import std.format: format;
+
 private import thepath: Path;
+private import dini: Ini;
 
 private import odood.lib.exception: OdoodException;
+private import odood.lib.odoo.config: initOdooConfig;
 
 public import odood.lib.project.config: ProjectConfig;
 
@@ -64,14 +67,20 @@ class Project {
 
     /** Initialize project.
       **/
-    void initialize() {
+    void initialize(ref Ini odoo_config) {
         import odood.lib.install;
 
         _config.initializeProjectDirs();
         _config.installDownloadOdoo();
         _config.installVirtualenv();
         _config.installOdoo();
-        _config.installOdooConfig();
+        _config.installOdooConfig(odoo_config);
+    }
+
+    /// ditto
+    void initialize() {
+        auto odoo_config = _config.initOdooConfig();
+        initialize(odoo_config);
     }
 
     /** Run the server.

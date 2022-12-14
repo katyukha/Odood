@@ -7,6 +7,8 @@ private import std.string: strip;
 private import std.exception: enforce;
 private import std.conv: to;
 
+private import dini: Ini;
+
 private import odood.lib.exception: OdoodException;
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
@@ -70,29 +72,28 @@ void installOdoo(in ProjectConfig config) {
 
 }
 
-void installOdooConfig(in ProjectConfig config) {
-    import dini;
-    import std.array: join;
-    Ini odoo_conf;
-    Ini odoo_opts = IniSection("options");
+void installOdooConfig(in ProjectConfig config, in Ini odoo_config) {
+    // Copy provided config. Thus we will have two configs: normal and test.
+    Ini odoo_conf = cast(Ini) odoo_config;
+    Ini odoo_test_conf = cast(Ini) odoo_config;
 
-    string[] addons_path =[config.odoo_path.join("addons").toString];
-    if (config.odoo_serie <= OdooSerie(9)) {
-        addons_path ~= config.odoo_path.join("openerp").toString;
-    } else {
-        addons_path ~= config.odoo_path.join("odoo").toString;
-    }
-    addons_path ~= config.addons_dir.toString;
-
-    odoo_opts.setKey("addons_path", join(addons_path, ","));
-    odoo_opts.setKey("admin_passwd", "admin");
-    odoo_opts.setKey("data_dir", config.data_dir.toString);
-    odoo_opts.setKey("logfile", config.log_file.toString);
-    odoo_opts.setKey("db_host", "localhost");
-    odoo_opts.setKey("db_port", "False");
-    odoo_opts.setKey("db_user", "odoo");
-    odoo_opts.setKey("db_password", "odoo");
-    odoo_conf.addSection(odoo_opts);
-
+    // Save odoo configs
     odoo_conf.save(config.odoo_conf.toString);
+
+    // Update test config with different xmlrpc/http port to avoid conflicts
+    // with running odoo server
+    if (config.odoo_serie < OdooSerie(11)) {
+        odoo_test_conf["options"].setKey("xmlrpc_port", "8269");
+        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+    } else {
+        odoo_test_conf["options"].setKey("http_port", "8269");
+        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+    }
+
+    // Disable logfile for test config, to enforce log to
+    // stdout/stderr for tests
+    odoo_test_conf["options"].setKey("logfile", "False");
+
+    // Save test odoo config
+    odoo_test_conf.save(config.odoo_test_conf.toString);
 }
