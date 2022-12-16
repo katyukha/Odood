@@ -17,10 +17,10 @@ private import odood.lib.zip;
 private import odood.lib.utils;
 
 
-/** Install odoo to specified project config
-
-    Params:
-        config = Project configuration to download Odoo to.
+/** Download Odoo to odoo_path specified by project config
+  *
+  * Params:
+  *     config = Project configuration to download Odoo to.
  **/
 void installDownloadOdoo(in ProjectConfig config) {
     // TODO: replace with logger calls, or with colored output.
@@ -54,7 +54,11 @@ void installDownloadOdoo(in ProjectConfig config) {
 }
 
 
-
+/** Install Odoo in virtual environment of specified project config
+  *
+  * Params:
+  *     config = Project configuration to download Odoo to.
+  **/
 void installOdoo(in ProjectConfig config) {
     config.venv_dir.join("bin", "pip").runCmdE([
         "install", "phonenumbers", "python-slugify", "setuptools-odoo",
@@ -72,6 +76,14 @@ void installOdoo(in ProjectConfig config) {
 
 }
 
+
+/** Generate and save Odoo configuration (normal and test) to project
+  * specified by project config
+  *
+  * Params:
+  *     config = Project configuration to download Odoo to.
+  *     odoo_config = Ini struture that represents desired odoo config
+  **/
 void installOdooConfig(in ProjectConfig config, in Ini odoo_config) {
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
