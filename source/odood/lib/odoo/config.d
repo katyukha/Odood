@@ -8,6 +8,12 @@ private import odood.lib.odoo.serie: OdooSerie;
 
 
 /** Initialize default odoo config
+  *
+  * Params:
+  *     config = Project configuration
+  *
+  * Returns:
+  *    Ini file structure, that could be used to read and modify config
   **/
 Ini initOdooConfig(in ProjectConfig config) {
     import std.array;
@@ -29,4 +35,30 @@ Ini initOdooConfig(in ProjectConfig config) {
     odoo_conf["options"].setKey("logfile", config.log_file.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");
     return odoo_conf;
+}
+
+
+/** Read odoo config from specified file.
+  *
+  * Params:
+  *     odoo_conf_path = Path to configuration to read
+  *
+  * Returns:
+  *    Ini file structure, that could be used to read and modify config
+  **/
+Ini readOdooConfig(in Path odoo_conf_path) {
+    return Ini.Parse(odoo_conf_path.toString);
+}
+
+
+/** Read odoo default Odoo configuration
+  *
+  * Params:
+  *     config = Project configuration
+  *
+  * Returns:
+  *    Ini file structure, that could be used to read and modify config
+  **/
+Ini readOdooConfig(in ProjectConfig config) {
+    return readOdooConfig(config.odoo_conf);
 }

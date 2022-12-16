@@ -8,23 +8,24 @@ private import thepath: Path;
 private import dini: Ini;
 
 private import odood.lib.exception: OdoodException;
-private import odood.lib.odoo.config: initOdooConfig;
+private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 
 public import odood.lib.project.config: ProjectConfig;
 
 
 class Project {
     private ProjectConfig _config;
+    private Path _config_path;
 
     /** Initialize with automatic config discovery
       *
       **/
     this() {
-        auto config_path = Path.current.searchFileUp("odood.yml");
+        auto s_config_path = Path.current.searchFileUp("odood.yml");
         enforce!OdoodException(
-            !config_path.isNull,
+            !s_config_path.isNull,
             "Cannot find OdooD configuration file!");
-        _config.load(config_path);
+        this(s_config_path);
     }
 
     /** Initialize by path.
@@ -36,7 +37,7 @@ class Project {
     this(in Path path) {
         if (path.exists && path.isFile) {
             _config.load(path);
-        } if (path.exists && path.isDir && path.join("odood.yml").exists) {
+        } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
             _config.load(path.join("odood.yml"));
         } else {
             throw new OdoodException(
@@ -49,11 +50,14 @@ class Project {
         Params:
             cofnig = instance of project configuration to initialize from.
       **/
-    this(in ProjectConfig config) {
+    this(in ProjectConfig config, in Path config_path = Path()) {
         _config = config;
+        if (config_path.isNull)
+            _config_path = config_path;
     }
 
     @property const (ProjectConfig) config() const { return _config; }
+    @property const (Path) config_path() const { return _config_path; }
 
     /** Save project configuration to config file.
 
@@ -61,8 +65,12 @@ class Project {
            path = path to config file to save configuration to.
       **/
     void save(in Path path = Path()) {
-        if (path.isNull) _config.save(_config.root_dir.join("odood.yml"));
-        else _config.save(path);
+        if (path.isNull)
+            _config_path =_config.root_dir.join("odood.yml");
+        else
+            _config_path = path;
+
+        _config.save(_config_path);
     }
 
     /** Initialize project.
@@ -106,6 +114,10 @@ class Project {
     void serverStop() {
         import odood.lib.server;
         _config.stopServer();
+    }
+
+    auto getOdooConfig() {
+        return this._config.readOdooConfig;
     }
 
 }
