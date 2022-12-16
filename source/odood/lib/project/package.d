@@ -66,6 +66,10 @@ class Project {
     }
 
     /** Initialize project.
+      * This will create new project directory and install Odoo there.
+      *
+      * Params:
+      *     odoo_config: INI struct, that represents configuration for Odoo
       **/
     void initialize(ref Ini odoo_config) {
         import odood.lib.install;
