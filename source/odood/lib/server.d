@@ -2,6 +2,7 @@
 module odood.lib.server;
 
 private static import std.process;
+private import core.time;
 private import core.sys.posix.sys.types: pid_t;
 private import std.exception: enforce;
 private import std.conv: to;
@@ -120,7 +121,6 @@ bool isServerRunning(in ProjectConfig config) {
   *
   **/
 void stopServer(in ProjectConfig config) {
-    import core.time;
     import core.sys.posix.signal: kill, SIGTERM;
     import core.stdc.errno;
     import core.thread: Thread;

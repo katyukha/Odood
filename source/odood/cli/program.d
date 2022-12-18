@@ -6,7 +6,7 @@ private import commandr: Program, ProgramArgs, Option, Flag, parse;
 private import odood.cli.command: OdoodCommand;
 private import odood.cli.init: CommandInit;
 private import odood.cli.server:
-    CommandServer, CommandServerStart, CommandServerStop;
+    CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart;
 private import odood.cli.database: CommandDatabase;
 private import odood.cli.status: CommandStatus;
 
@@ -24,6 +24,7 @@ class OdoodProgram: Program {
         // shortcuts
         this.add(new CommandServerStart());
         this.add(new CommandServerStop());
+        this.add(new CommandServerRestart());
     }
 
 
