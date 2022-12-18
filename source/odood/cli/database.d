@@ -10,7 +10,7 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 private import odood.cli.command: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException;
+private import odood.lib.exception: OdoodException, OdoodExitException;
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -66,12 +66,33 @@ class CommandDatabaseDrop: OdoodCommand {
     }
 }
 
+
+class CommandDatabaseExists: OdoodCommand {
+    this() {
+        super("exists", "Check if database exists.");
+        this.add(new Flag(
+            "-q", "quiet", "Suppress output, just return exit code"));
+        this.add(new Argument("name", "Name of database").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        bool db_exists = project.lodoo.isDatabaseExists(args.arg("name"));
+        if (db_exists) {
+            throw new OdoodExitException(0, "Database exists");
+        } else {
+            throw new OdoodExitException(1, "Database does not exists");
+        }
+    }
+}
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
         this.add(new CommandDatabaseList());
         this.add(new CommandDatabaseCreate());
         this.add(new CommandDatabaseDrop());
+        this.add(new CommandDatabaseExists());
     }
 }
 

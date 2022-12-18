@@ -3,7 +3,8 @@ module odood.lib.odoo.lodoo;
 private import thepath: Path;
 
 private import odood.lib.project: ProjectConfig;
-private import odood.lib.utils: runCmd, runCmdE;
+//private import odood.lib.utils: runCmd, runCmdE;
+private import odood.lib.venv: runInVenv, runInVenvE;
 
 
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
@@ -14,19 +15,19 @@ const struct LOdoo {
         Path _odoo_conf;
         ProjectConfig _config;
 
-        Path _lodoo_path;
-
         /// Run lodoo with provided args
         auto run(in string[] args...) {
             // TODO: user run-in-venv
-            return _lodoo_path.runCmd(["--conf", _odoo_conf.toString] ~ args);
+            return _config.runInVenv(
+                ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 
         /** Run lodoo with provided args, raising error
           * in case of non-zero exit status.
           **/
         auto runE(in string[] args...) {
-            return _lodoo_path.runCmdE(["--conf", _odoo_conf.toString] ~ args);
+            return _config.runInVenvE(
+                ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 
     public:
@@ -35,7 +36,6 @@ const struct LOdoo {
         this(in ProjectConfig config, in Path odoo_conf) {
             _odoo_conf = odoo_conf;
             _config = config;
-            _lodoo_path = config.venv_dir.join("bin", "lodoo");
         }
 
         /** Return list of databases available on this odoo instance
@@ -77,5 +77,12 @@ const struct LOdoo {
           **/
         void dropDatabase(in string name) {
             runE("db-drop", name);
+        }
+
+        /** Check if database eixsts
+          **/
+        bool isDatabaseExists(in string name) {
+            auto res = run("db-exists", name);
+            return res.status == 0;
         }
 }
