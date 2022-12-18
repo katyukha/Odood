@@ -199,6 +199,14 @@ void buildPython(in ProjectConfig config,
 }
 
 
+/** Install python dependencies in virtual environment
+  *
+  **/
+void installPyPackages(in ProjectConfig config, in string[] packages...) {
+    config.venv_dir.join("bin", "pip").runCmdE(["install"] ~ packages);
+}
+
+
 /** Install virtual env for specified project config
   **/
 void installVirtualenv(in ProjectConfig config) {
@@ -233,8 +241,7 @@ void installVirtualenv(in ProjectConfig config) {
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
     if (config.odoo_serie > OdooSerie(10)) {
-        config.venv_dir.join("bin", "pip").runCmdE(
-            ["install", "setuptools>=45,<58"]);
+        config.installPyPackages("setuptools>=45,<58");
     }
 
     // Add bash script to run any command in virtual env
@@ -245,7 +252,7 @@ void installVirtualenv(in ProjectConfig config) {
     config.bin_dir.join("run-in-venv").setAttributes(octal!755);
 
     // Install nodeenv and node
-    config.venv_dir.join("bin", "pip").runCmdE(["install", "nodeenv"]);
+    config.installPyPackages("nodeenv");
     config.venv_dir.join("bin", "nodeenv").runCmdE([
         "--python-virtualenv", "--clean-src",
         "--jobs", totalCPUs.to!string, "--node", config.node_version]); 

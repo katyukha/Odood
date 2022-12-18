@@ -12,6 +12,7 @@ private import dini: Ini;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.install.python: installPyPackages;
 
 private import odood.lib.zip;
 private import odood.lib.utils;
@@ -60,9 +61,10 @@ void installDownloadOdoo(in ProjectConfig config) {
   *     config = Project configuration to download Odoo to.
   **/
 void installOdoo(in ProjectConfig config) {
-    config.venv_dir.join("bin", "pip").runCmdE([
-        "install", "phonenumbers", "python-slugify", "setuptools-odoo",
-        "cffi", "jinja2", "python-magic", "Python-Chart"]);
+    // Install python dependecnies
+    config.installPyPackages(
+        "phonenumbers", "python-slugify", "setuptools-odoo",
+        "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo");
 
     writeln("Installing odoo dependencies (requirements.txt)");
     config.venv_dir.join("bin", "pip").runCmdE(
