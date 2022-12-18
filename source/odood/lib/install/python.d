@@ -2,6 +2,7 @@
 module odood.lib.install.python;
 
 private import semver;
+private import thepath: Path;
 
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
@@ -12,14 +13,14 @@ private import std.conv: to;
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: runCmdE, download;
+private import odood.lib.utils: runCmd, runCmdE, download;
 
 
 // Define template for simple script that allows to run any command in
 // python's virtualenv
 private string SCRIPT_RUN_IN_ENV="#!/usr/bin/env bash
 source \"%s\";
-\"$@\"; res=$?;
+exec \"$@\"; res=$?;
 deactivate;
 exit $res;
 ";
@@ -199,11 +200,32 @@ void buildPython(in ProjectConfig config,
 }
 
 
+/** Run command in virtual environment
+  **/
+auto runInVenv(in ProjectConfig config,
+               in string[] args,
+               in Path workDir = Path(),
+               in string[string] env = null) {
+    return config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
+}
+
+/** Run command in virtual environment.
+  * Raise error on non-zero return code.
+  **/
+auto runInVenvE(in ProjectConfig config,
+               in string[] args,
+               in Path workDir = Path(),
+               in string[string] env = null) {
+    return config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
+}
+
+
+
 /** Install python dependencies in virtual environment
   *
   **/
-void installPyPackages(in ProjectConfig config, in string[] packages...) {
-    config.venv_dir.join("bin", "pip").runCmdE(["install"] ~ packages);
+auto installPyPackages(in ProjectConfig config, in string[] packages...) {
+    return config.runInVenvE(["pip", "install"] ~ packages);
 }
 
 
@@ -237,13 +259,6 @@ void installVirtualenv(in ProjectConfig config) {
             config.venv_dir.toString]);
     }
 
-
-    // Use correct version of setuptools, because some versions of Odoo
-    // required 'use_2to3' option, that is removed in latest versions
-    if (config.odoo_serie > OdooSerie(10)) {
-        config.installPyPackages("setuptools>=45,<58");
-    }
-
     // Add bash script to run any command in virtual env
     import std.file: getAttributes, setAttributes;
     import std.conv : octal;
@@ -251,14 +266,23 @@ void installVirtualenv(in ProjectConfig config) {
         SCRIPT_RUN_IN_ENV.format(config.venv_dir.join("bin", "activate")));
     config.bin_dir.join("run-in-venv").setAttributes(octal!755);
 
+    // Use correct version of setuptools, because some versions of Odoo
+    // required 'use_2to3' option, that is removed in latest versions
+    if (config.odoo_serie > OdooSerie(10)) {
+        config.installPyPackages("setuptools>=45,<58");
+    }
+
     // Install nodeenv and node
     config.installPyPackages("nodeenv");
-    config.venv_dir.join("bin", "nodeenv").runCmdE([
+    config.runInVenvE([
         "--python-virtualenv", "--clean-src",
-        "--jobs", totalCPUs.to!string, "--node", config.node_version]); 
-    config.bin_dir.join("run-in-venv").runCmdE(
-        ["npm", "set", "user", "0"]);
-    config.bin_dir.join("run-in-venv").runCmdE(
-        ["npm", "set", "unsafe-perm", "true"]);
+        "--jobs", totalCPUs.to!string, "--node", config.node_version,
+    ]);
+    config.runInVenvE(["npm", "set", "user", "0"]);
+    config.runInVenvE(["npm", "set", "unsafe-perm", "true"]);
+
+    // Install javascript dependecies
+    // TODO: Make it optional, install automatically only for odoo <= 11
+    config.runInVenvE(["npm", "install", "-g", "less@3.9.0", "rtlcss"]);
 }
 

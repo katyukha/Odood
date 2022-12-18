@@ -18,6 +18,7 @@ const struct LOdoo {
 
         /// Run lodoo with provided args
         auto run(in string[] args...) {
+            // TODO: user run-in-venv
             return _lodoo_path.runCmd(["--conf", _odoo_conf.toString] ~ args);
         }
 

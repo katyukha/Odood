@@ -89,8 +89,11 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
         process_conf |= Config.detached;
 
     auto pid = std.process.spawnProcess(
-        [getServerScriptPath(config).toString,
-         "--pidfile=%s".format(config.odoo_pid_file)],
+        [
+            config.bin_dir.join("run-in-venv").toString,
+            getServerScriptPath(config).toString,
+            "--pidfile=%s".format(config.odoo_pid_file),
+        ],
         env,
         process_conf,
         config.project_root.toString);

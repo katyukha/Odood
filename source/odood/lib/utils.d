@@ -62,8 +62,8 @@ auto runCmdE(
     auto result = path.execute(args, env, workDir, config, maxOutput);
     enforce!OdoodException(
         result.status == 0,
-        "Command %s returned non-zero error code!\nOutput: %s".format(
-            args, result.output));
+        "Command %s with args %s returned non-zero error code!\nOutput: %s".format(
+            path, args, result.output));
     return result;
 }
 
