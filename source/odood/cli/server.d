@@ -26,7 +26,21 @@ class CommandServerRun: OdoodCommand {
 }
 
 
-class CommandServerIsRunning: OdoodCommand {
+class CommandServerStart: OdoodCommand {
+    this() {
+        super("start", "Run the server in background.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        project.serverRun(true);
+    }
+
+}
+
+
+
+class CommandServerStatus: OdoodCommand {
     this() {
         super("status", "Check if server is running");
     }
@@ -60,7 +74,8 @@ class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
         this.add(new CommandServerRun());
-        this.add(new CommandServerIsRunning());
+        this.add(new CommandServerStart());
+        this.add(new CommandServerStatus());
         this.add(new CommandServerStop());
     }
 }
