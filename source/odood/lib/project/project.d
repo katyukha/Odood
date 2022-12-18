@@ -9,6 +9,7 @@ private import dini: Ini;
 
 private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
+private import odood.lib.odoo.lodoo: LOdoo;
 
 public import odood.lib.project.config: ProjectConfig;
 
@@ -56,8 +57,16 @@ class Project {
             _config_path = config_path;
     }
 
+    /// Project config instance
     @property const (ProjectConfig) config() const { return _config; }
+
+    /// Path to project config
     @property const (Path) config_path() const { return _config_path; }
+
+    /// LOdoo instance for standard config of this project
+    @property const(LOdoo) lodoo() const {
+        return LOdoo(_config, _config.odoo_conf);
+    }
 
     /** Save project configuration to config file.
 
