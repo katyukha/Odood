@@ -50,6 +50,7 @@ auto runCmdE(
     return result;
 }
 
+
 /// ditto
 auto runCmdE(
         in Path path,
@@ -66,6 +67,7 @@ auto runCmdE(
             path, args, result.output));
     return result;
 }
+
 
 /// Check if process is alive
 bool isProcessRunning(in pid_t pid) {

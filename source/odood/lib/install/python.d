@@ -14,11 +14,12 @@ private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE, download;
+private import odood.lib.venv: runInVenv, runInVenvE, installPyPackages;
 
 
 // Define template for simple script that allows to run any command in
 // python's virtualenv
-private string SCRIPT_RUN_IN_ENV="#!/usr/bin/env bash
+private immutable string SCRIPT_RUN_IN_ENV="#!/usr/bin/env bash
 source \"%s\";
 exec \"$@\"; res=$?;
 deactivate;
@@ -200,35 +201,6 @@ void buildPython(in ProjectConfig config,
 }
 
 
-/** Run command in virtual environment
-  **/
-auto runInVenv(in ProjectConfig config,
-               in string[] args,
-               in Path workDir = Path(),
-               in string[string] env = null) {
-    return config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
-}
-
-/** Run command in virtual environment.
-  * Raise error on non-zero return code.
-  **/
-auto runInVenvE(in ProjectConfig config,
-               in string[] args,
-               in Path workDir = Path(),
-               in string[string] env = null) {
-    return config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
-}
-
-
-
-/** Install python dependencies in virtual environment
-  *
-  **/
-auto installPyPackages(in ProjectConfig config, in string[] packages...) {
-    return config.runInVenvE(["pip", "install"] ~ packages);
-}
-
-
 /** Install virtual env for specified project config
   **/
 void installVirtualenv(in ProjectConfig config) {
@@ -263,7 +235,8 @@ void installVirtualenv(in ProjectConfig config) {
     import std.file: getAttributes, setAttributes;
     import std.conv : octal;
     config.bin_dir.join("run-in-venv").writeFile(
-        SCRIPT_RUN_IN_ENV.format(config.venv_dir.join("bin", "activate")));
+        SCRIPT_RUN_IN_ENV.format(
+            config.venv_dir.join("bin", "activate")));
     config.bin_dir.join("run-in-venv").setAttributes(octal!755);
 
     // Use correct version of setuptools, because some versions of Odoo

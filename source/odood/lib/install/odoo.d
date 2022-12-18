@@ -12,7 +12,7 @@ private import dini: Ini;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.install.python: installPyPackages;
+private import odood.lib.venv: installPyPackages;
 
 private import odood.lib.zip;
 private import odood.lib.utils;
