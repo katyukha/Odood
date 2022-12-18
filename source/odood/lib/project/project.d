@@ -66,7 +66,7 @@ class Project {
       **/
     void save(in Path path = Path()) {
         if (path.isNull)
-            _config_path =_config.root_dir.join("odood.yml");
+            _config_path =_config.project_root.join("odood.yml");
         else
             _config_path = path;
 

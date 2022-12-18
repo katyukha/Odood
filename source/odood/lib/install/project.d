@@ -10,7 +10,7 @@ private import odood.lib.project.config: ProjectConfig;
         config = Project configuration to initialize directory structure.
  **/
 void initializeProjectDirs(in ProjectConfig config) {
-    config.root_dir.mkdir(true);
+    config.project_root.mkdir(true);
     config.bin_dir.mkdir(true);
     config.conf_dir.mkdir(true);
     config.log_dir.mkdir(true);

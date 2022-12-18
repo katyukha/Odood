@@ -12,7 +12,7 @@ private import odood.lib.odoo.serie: OdooSerie;
 struct ProjectConfig {
 
     /// Root project directory
-    Path root_dir;
+    Path project_root;
 
     /// Directory to store executables
     Path bin_dir;
@@ -89,23 +89,23 @@ struct ProjectConfig {
       **/
     this(in Path root_path, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
-        this.root_dir = root_path.expandTilde.toAbsolute;
-        this.bin_dir = this.root_dir.join("bin");
-        this.conf_dir = this.root_dir.join("conf");
-        this.log_dir = this.root_dir.join("logs");
-        this.downloads_dir = this.root_dir.join("downloads");
-        this.addons_dir = this.root_dir.join("custom_addons");
-        this.data_dir = this.root_dir.join("data");
-        this.venv_dir = this.root_dir.join("venv");
-        this.backups_dir = this.root_dir.join("backups");
-        this.repositories_dir = this.root_dir.join("repositories");
+        this.project_root = root_path.expandTilde.toAbsolute;
+        this.bin_dir = this.project_root.join("bin");
+        this.conf_dir = this.project_root.join("conf");
+        this.log_dir = this.project_root.join("logs");
+        this.downloads_dir = this.project_root.join("downloads");
+        this.addons_dir = this.project_root.join("custom_addons");
+        this.data_dir = this.project_root.join("data");
+        this.venv_dir = this.project_root.join("venv");
+        this.backups_dir = this.project_root.join("backups");
+        this.repositories_dir = this.project_root.join("repositories");
 
         this.odoo_conf = this.conf_dir.join("odoo.conf");
         this.odoo_test_conf = this.conf_dir.join("odoo.test.conf");
         this.log_file = this.log_dir.join("odoo.log");
-        this.odoo_pid_file = this.root_dir.join("odoo.pid");
+        this.odoo_pid_file = this.project_root.join("odoo.pid");
 
-        this.odoo_path = this.root_dir.join("odoo");
+        this.odoo_path = this.project_root.join("odoo");
         this.odoo_serie = odoo_serie;
         this.odoo_branch = odoo_branch;
         this.odoo_repo = odoo_repo;
@@ -132,18 +132,18 @@ struct ProjectConfig {
       *     config = YAML node representation to initialize config from
       **/
     void fromYAML(in ref dyaml.Node config) {
-        this.root_dir = Path(config["directories"]["root_dir"].as!string);
-        this.bin_dir = Path(config["directories"]["bin_dir"].as!string);
-        this.conf_dir = Path(config["directories"]["conf_dir"].as!string);
-        this.log_dir = Path(config["directories"]["log_dir"].as!string);
+        this.project_root = Path(config["project_root"].as!string);
+        this.bin_dir = Path(config["directories"]["bin"].as!string);
+        this.conf_dir = Path(config["directories"]["conf"].as!string);
+        this.log_dir = Path(config["directories"]["log"].as!string);
         this.downloads_dir = Path(
-            config["directories"]["downloads_dir"].as!string);
-        this.addons_dir = Path(config["directories"]["addons_dir"].as!string);
-        this.data_dir = Path(config["directories"]["data_dir"].as!string);
-        this.venv_dir = Path(config["directories"]["venv_dir"].as!string);
-        this.backups_dir = Path(config["directories"]["backups_dir"].as!string);
+            config["directories"]["downloads"].as!string);
+        this.addons_dir = Path(config["directories"]["addons"].as!string);
+        this.data_dir = Path(config["directories"]["data"].as!string);
+        this.venv_dir = Path(config["directories"]["venv"].as!string);
+        this.backups_dir = Path(config["directories"]["backups"].as!string);
         this.repositories_dir = Path(
-            config["directories"]["repositories_dir"].as!string);
+            config["directories"]["repositories"].as!string);
 
         this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
         this.odoo_test_conf = Path(config["files"]["odoo_test_config"].as!string);
@@ -164,6 +164,7 @@ struct ProjectConfig {
     dyaml.Node toYAML() {
         import dyaml: Node;
         return Node([
+            "project_root": Node(this.project_root.toString),
             "odoo": Node([
                 "version": this.odoo_serie.toString,
                 "branch": this.odoo_branch,
@@ -171,16 +172,15 @@ struct ProjectConfig {
                 "path": this.odoo_path.toString,
             ]),
             "directories": Node([
-                "root_dir": this.root_dir.toString,
-                "bin_dir": this.bin_dir.toString,
-                "conf_dir": this.conf_dir.toString,
-                "log_dir": this.log_dir.toString,
-                "downloads_dir": this.downloads_dir.toString,
-                "addons_dir": this.addons_dir.toString,
-                "data_dir": this.data_dir.toString,
-                "venv_dir": this.venv_dir.toString,
-                "backups_dir": this.backups_dir.toString,
-                "repositories_dir": this.repositories_dir.toString,
+                "bin": this.bin_dir.toString,
+                "conf": this.conf_dir.toString,
+                "log": this.log_dir.toString,
+                "downloads": this.downloads_dir.toString,
+                "addons": this.addons_dir.toString,
+                "data": this.data_dir.toString,
+                "venv": this.venv_dir.toString,
+                "backups": this.backups_dir.toString,
+                "repositories": this.repositories_dir.toString,
             ]),
             "files": Node([
                 "odoo_config": this.odoo_conf.toString,

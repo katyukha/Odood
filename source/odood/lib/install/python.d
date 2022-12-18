@@ -135,7 +135,7 @@ void buildPython(in ProjectConfig config,
         "python-%s.tgz".format(build_version));
     auto python_build_dir = config.downloads_dir.join(
         "Python-%s".format(build_version));
-    auto python_path = config.root_dir.join("python");
+    auto python_path = config.project_root.join("python");
 
     enforce!OdoodException(
         !python_path.exists,
@@ -219,12 +219,12 @@ void installVirtualenv(in ProjectConfig config) {
         writeln(
             "%s successfully built".format(
                 runCmdE(
-                    config.root_dir.join("python", "bin", config.guessPythonInterpreter),
+                    config.project_root.join("python", "bin", config.guessPythonInterpreter),
                     ["--version"]).output));
         runCmdE([
             "python3",
             "-m", "virtualenv",
-            "-p", config.root_dir.join(
+            "-p", config.project_root.join(
                 "python", "bin", config.guessPythonInterpreter).toString,
             config.venv_dir.toString]);
     }

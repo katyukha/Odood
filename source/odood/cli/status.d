@@ -52,7 +52,7 @@ class CommandStatus: OdoodCommand {
 
         writeln(
             TMPL_CURRENT_PROJECT_STATUS.format(
-                project.config.root_dir,
+                project.config.project_root,
                 project.config_path,
                 project.config.odoo_serie,
                 project.config.odoo_branch,

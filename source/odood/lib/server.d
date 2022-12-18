@@ -93,7 +93,7 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
          "--pidfile=%s".format(config.odoo_pid_file)],
         env,
         process_conf,
-        config.root_dir.toString);
+        config.project_root.toString);
     odoo_pid = pid.osHandle;
     if (!detach)
         std.process.wait(pid);
