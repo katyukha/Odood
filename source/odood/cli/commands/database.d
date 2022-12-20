@@ -7,10 +7,9 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException, OdoodExitException;
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -83,9 +82,13 @@ class CommandDatabaseExists: OdoodCommand {
         auto project = new Project();
         bool db_exists = project.lodoo.isDatabaseExists(args.arg("name"));
         if (db_exists) {
-            throw new OdoodExitException(0, "Database exists");
+            if (!args.flag("quiet"))
+                writeln("Database %s exists!".format(args.arg("name")));
+            exitWithCode(0, "Database exists");
         } else {
-            throw new OdoodExitException(1, "Database does not exists");
+            if (!args.flag("quiet"))
+                writeln("Database does not %s exists!".format(args.arg("name")));
+            exitWithCode(1, "Database does not exists");
         }
     }
 }
