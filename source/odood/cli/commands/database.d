@@ -23,7 +23,7 @@ class CommandDatabaseList: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        foreach(db; project.lodoo.listDatabases()) {
+        foreach(db; project.lodoo.databaseList()) {
             writeln("- %s".format(db));
         }
     }
@@ -48,7 +48,7 @@ class CommandDatabaseCreate: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.lodoo.createDatabase(
+        project.lodoo.databaseCreate(
             args.arg("name"),
             args.flag("demo"),
             args.option("lang"),
@@ -65,7 +65,7 @@ class CommandDatabaseDrop: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.lodoo.dropDatabase(args.arg("name"));
+        project.lodoo.databaseDrop(args.arg("name"));
     }
 }
 
@@ -80,7 +80,7 @@ class CommandDatabaseExists: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        bool db_exists = project.lodoo.isDatabaseExists(args.arg("name"));
+        bool db_exists = project.lodoo.databaseExists(args.arg("name"));
         if (db_exists) {
             if (!args.flag("quiet"))
                 writeln("Database %s exists!".format(args.arg("name")));
@@ -93,6 +93,24 @@ class CommandDatabaseExists: OdoodCommand {
     }
 }
 
+
+class CommandDatabaseRename: OdoodCommand {
+    this() {
+        super("rename", "Rename database.");
+        this.add(new Argument(
+            "old-name", "Name of original database.").required());
+        this.add(new Argument(
+            "new-name", "New name of database.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        project.lodoo.databaseRename(
+            args.arg("old-name"), args.arg("new-name"));
+    }
+}
+
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
@@ -100,6 +118,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseCreate());
         this.add(new CommandDatabaseDrop());
         this.add(new CommandDatabaseExists());
+        this.add(new CommandDatabaseRename());
     }
 }
 

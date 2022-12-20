@@ -15,7 +15,8 @@ const struct LOdoo {
         Path _odoo_conf;
         ProjectConfig _config;
 
-        /// Run lodoo with provided args
+        /** Run lodoo with provided args
+          **/
         auto run(in string[] args...) {
             // TODO: user run-in-venv
             return _config.runInVenv(
@@ -40,7 +41,7 @@ const struct LOdoo {
 
         /** Return list of databases available on this odoo instance
           **/
-        string[] listDatabases() {
+        string[] databaseList() {
             import std.array: split, array;
             import std.algorithm.iteration: filter;
             auto res = runE("db-list");
@@ -49,7 +50,7 @@ const struct LOdoo {
 
         /** Create new Odoo database on this odoo instance
           **/
-        void createDatabase(in string name, in bool demo=false,
+        void databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
             string[] args = ["db-create"];
@@ -75,14 +76,20 @@ const struct LOdoo {
 
         /** Drop specified database
           **/
-        void dropDatabase(in string name) {
+        void databaseDrop(in string name) {
             runE("db-drop", name);
         }
 
         /** Check if database eixsts
           **/
-        bool isDatabaseExists(in string name) {
+        bool databaseExists(in string name) {
             auto res = run("db-exists", name);
             return res.status == 0;
+        }
+
+        /** Rename database
+          **/
+        void databaseRename(in string old_name, in string new_name) {
+            runE("db-rename", old_name, new_name);
         }
 }
