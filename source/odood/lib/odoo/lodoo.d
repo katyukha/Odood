@@ -7,6 +7,12 @@ private import odood.lib.project: ProjectConfig;
 private import odood.lib.venv: runInVenv, runInVenvE;
 
 
+enum BackupFormat {
+    zip,
+    sql,
+}
+
+
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
   * python CLI util
   **/
@@ -91,5 +97,27 @@ const struct LOdoo {
           **/
         void databaseRename(in string old_name, in string new_name) {
             runE("db-rename", old_name, new_name);
+        }
+
+        /** Copy database
+          **/
+        void databaseCopy(in string old_name, in string new_name) {
+            runE("db-copy", old_name, new_name);
+        }
+
+        /** Backup database
+          **/
+        void databaseBackup(in string name, in Path backup_path,
+                            in BackupFormat format = BackupFormat.zip) {
+            final switch (format) {
+                case BackupFormat.zip:
+                    runE("db-backup", name, backup_path.toString,
+                         "--format", "zip");
+                    break;
+                case BackupFormat.sql:
+                    runE("db-backup", name, backup_path.toString,
+                         "--format", "sql");
+                    break;
+            }
         }
 }

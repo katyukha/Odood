@@ -5,6 +5,8 @@ private import core.sys.posix.sys.types: pid_t;
 private import std.process: execute, Config, Pid;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.ascii: letters;
+private import std.random: uniform;
 
 private import thepath: Path;
 
@@ -115,4 +117,13 @@ void download(in string url, in Path dest_path, in Duration timeout=15.seconds) 
         f_dest.rawWrite(stream.front);
         stream.popFront;
     }
+}
+
+
+/** Generate random string of specified length
+  **/
+string generateRandomString(in uint length) {
+    string result = "";
+    for(uint i; i<length; i++) result ~= letters[uniform(0, $)];
+    return result;
 }

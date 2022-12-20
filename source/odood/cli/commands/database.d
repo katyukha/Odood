@@ -10,6 +10,8 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.odoo.lodoo: BackupFormat;
+private import odood.lib.utils: generateRandomString;
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -111,6 +113,70 @@ class CommandDatabaseRename: OdoodCommand {
 }
 
 
+class CommandDatabaseCopy: OdoodCommand {
+    this() {
+        super("copy", "Copy database.");
+        this.add(new Argument(
+            "old-name", "Name of original database.").required());
+        this.add(new Argument(
+            "new-name", "New name of database.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        project.lodoo.databaseCopy(
+            args.arg("old-name"), args.arg("new-name"));
+    }
+}
+
+
+class CommandDatabaseBackup: OdoodCommand {
+    this() {
+        super("backup", "Backup database.");
+        this.add(new Argument(
+            "name", "Name of database to backup.").required());
+        this.add(new Option(
+            "d", "dest",
+            "Destination path for backup. " ~
+            "By default will store at project's backup directory."));
+        this.add(new Flag(
+            null, "zip", "Make ZIP backup with filestore."));
+        this.add(new Flag(
+            null, "sql", "Make SQL-only backup without filestore"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        auto b_format = BackupFormat.zip;
+        if (args.flag("zip"))
+            b_format = BackupFormat.zip;
+        if (args.flag("sql"))
+            b_format = BackupFormat.sql;
+
+        //db_dump_file="$BACKUP_DIR/db-backup-$db_name-$(date -I).$(random_string 4)";
+        immutable string tmpl_dest_name="db-backup-%s-%s.%s.%s";
+        Path dest;
+        if (args.option("dest")) {
+            dest = Path(args.option("dest"));
+        } else {
+            import std.datetime.systime: Clock;
+            string dest_name="db-backup-%s-%s.%s.%s".format(
+                args.arg("name"),
+                "%s-%s-%s".format(
+                    Clock.currTime.year,
+                    Clock.currTime.month,
+                    Clock.currTime.day),
+                generateRandomString(4),
+                b_format
+            );
+            dest = project.config.backups_dir.join(dest_name);
+        }
+
+        project.lodoo.databaseBackup(args.arg("name"), dest, b_format);
+    }
+}
+
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
@@ -119,6 +185,8 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseDrop());
         this.add(new CommandDatabaseExists());
         this.add(new CommandDatabaseRename());
+        this.add(new CommandDatabaseCopy());
+        this.add(new CommandDatabaseBackup());
     }
 }
 
