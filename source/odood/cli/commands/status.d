@@ -1,4 +1,4 @@
-module odood.cli.status;
+module odood.cli.commands.status;
 
 private import std.stdio;
 private import std.format: format;
@@ -7,10 +7,11 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
-private import odood.cli.command: OdoodCommand;
+private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
+
 
 immutable string TMPL_CURRENT_PROJECT_STATUS = "
 Current project:

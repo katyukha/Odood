@@ -1,4 +1,4 @@
-module odood.cli.server;
+module odood.cli.commands.server;
 
 private import std.format: format;
 private import std.exception: enforce;
@@ -6,7 +6,7 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
-private import odood.cli.command: OdoodCommand;
+private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;

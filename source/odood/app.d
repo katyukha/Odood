@@ -1,11 +1,12 @@
 import std.stdio;
 import std.format: format;
 
-import odood.cli: OdoodProgram;
 import odood.lib.exception: OdoodException, OdoodExitException;
+import odood.cli.app;
+
 
 int main(string[] args) {
-    auto program = new OdoodProgram();
+    auto program = new App();
 
     try {
         program.run(args);
@@ -20,3 +21,4 @@ int main(string[] args) {
     }
     return 0;
 }
+

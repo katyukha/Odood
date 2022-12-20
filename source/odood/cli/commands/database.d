@@ -1,4 +1,4 @@
-module odood.cli.database;
+module odood.cli.commands.database;
 
 private import std.stdio;
 private import std.format: format;
@@ -7,7 +7,7 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
-private import odood.cli.command: OdoodCommand;
+private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException, OdoodExitException;
@@ -15,7 +15,11 @@ private import odood.lib.exception: OdoodException, OdoodExitException;
 
 class CommandDatabaseList: OdoodCommand {
     this() {
-        super("list", "Show the databases available for this odoo.");
+        super("list");
+    }
+
+    this(in string name) {
+        super(name, "Show the databases available for this odoo.");
     }
 
     public override void execute(ProgramArgs args) {

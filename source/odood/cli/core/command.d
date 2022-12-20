@@ -1,7 +1,6 @@
-module odood.cli.command;
+module odood.cli.core.command;
 
-private import commandr: Command, Program, ProgramArgs, parse;
-
+private import commandr: Command, ProgramArgs;
 
 
 class OdoodCommand: Command {
