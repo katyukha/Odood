@@ -13,14 +13,17 @@ private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.utils: generateRandomString;
 
+// TODO: Use specific exception tree for CLI part
+private import odood.lib.exception: OdoodException;
+
 
 class CommandDatabaseList: OdoodCommand {
     this() {
-        super("list");
+        this("list");
     }
 
     this(in string name) {
-        super(name, "Show the databases available for this odoo.");
+        super(name, "Show the databases available for this odoo instance.");
     }
 
     public override void execute(ProgramArgs args) {
@@ -177,6 +180,26 @@ class CommandDatabaseBackup: OdoodCommand {
 }
 
 
+class CommandDatabaseRestore: OdoodCommand {
+    this() {
+        super("restore", "Restore database.");
+        this.add(new Argument(
+            "name", "Name of database to restore.").required());
+        this.add(new Argument(
+            "backup", "Path to backup to restore database from.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+        auto backup_path = Path(args.arg("backup")).toAbsolute;
+        enforce!OdoodException(
+            backup_path.exists && backup_path.isFile,
+            "Wrong backup path specified!");
+        project.lodoo.databaseRestore(args.arg("name"), backup_path);
+    }
+}
+
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
@@ -187,6 +210,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseRename());
         this.add(new CommandDatabaseCopy());
         this.add(new CommandDatabaseBackup());
+        this.add(new CommandDatabaseRestore());
     }
 }
 

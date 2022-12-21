@@ -120,4 +120,10 @@ const struct LOdoo {
                     break;
             }
         }
+
+        /** Restore database
+          **/
+        void databaseRestore(in string name, in Path backup_path) {
+            runE("db-restore", name, backup_path.toString);
+        }
 }
