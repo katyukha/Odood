@@ -14,7 +14,6 @@ private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE, download;
-private import odood.lib.venv: runInVenv, runInVenvE, installPyPackages;
 
 
 // Define template for simple script that allows to run any command in
@@ -242,20 +241,20 @@ void installVirtualenv(in ProjectConfig config) {
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
     if (config.odoo_serie > OdooSerie(10)) {
-        config.installPyPackages("setuptools>=45,<58");
+        config.venv.installPyPackages("setuptools>=45,<58");
     }
 
     // Install nodeenv and node
-    config.installPyPackages("nodeenv");
-    config.runInVenvE([
+    config.venv.installPyPackages("nodeenv");
+    config.venv.runE([
         "nodeenv", "--python-virtualenv", "--clean-src",
         "--jobs", totalCPUs.to!string, "--node", config.node_version,
     ]);
-    config.runInVenvE(["npm", "set", "user", "0"]);
-    config.runInVenvE(["npm", "set", "unsafe-perm", "true"]);
+    config.venv.npm("set", "user", "0");
+    config.venv.npm("set", "unsafe-perm", "true");
 
     // Install javascript dependecies
     // TODO: Make it optional, install automatically only for odoo <= 11
-    config.runInVenvE(["npm", "install", "-g", "less@3.9.0", "rtlcss"]);
+    config.venv.npm("install", "-g", "less@3.9.0", "rtlcss");
 }
 

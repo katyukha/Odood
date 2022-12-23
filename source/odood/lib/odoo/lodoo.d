@@ -3,8 +3,6 @@ module odood.lib.odoo.lodoo;
 private import thepath: Path;
 
 private import odood.lib.project: ProjectConfig;
-//private import odood.lib.utils: runCmd, runCmdE;
-private import odood.lib.venv: runInVenv, runInVenvE;
 
 
 enum BackupFormat {
@@ -25,7 +23,7 @@ const struct LOdoo {
           **/
         auto run(in string[] args...) {
             // TODO: user run-in-venv
-            return _config.runInVenv(
+            return _config.venv.run(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 
@@ -33,7 +31,7 @@ const struct LOdoo {
           * in case of non-zero exit status.
           **/
         auto runE(in string[] args...) {
-            return _config.runInVenvE(
+            return _config.venv.runE(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 

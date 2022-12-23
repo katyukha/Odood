@@ -68,6 +68,14 @@ class Project {
         return LOdoo(_config, _config.odoo_conf);
     }
 
+    /** VirtualEnv related to this project.
+      * Allows to run commands in convext of virtual environment,
+      * install packages, etc
+      **/
+    @property auto venv() const {
+        return _config.venv;
+    }
+
     /** Save project configuration to config file.
 
         Params:

@@ -7,31 +7,74 @@ private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE;
 
 
-/** Run command in virtual environment
-  **/
-auto runInVenv(in ProjectConfig config,
-               in string[] args,
-               in Path workDir = Path(),
-               in string[string] env = null) {
-    return config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
+const struct VirtualEnv {
+    private ProjectConfig _config;
+
+    @disable this();
+
+    /** Construct new venv wrapper for this project
+      **/
+    this(in ProjectConfig config) {
+        _config = config;
+    }
+
+    /** Run command in virtual environment
+      **/
+    auto run(in string[] args,
+             in Path workDir = Path(),
+             in string[string] env = null) {
+        return _config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
+    }
+
+    /** Run command in virtual environment.
+      * Raise error on non-zero return code.
+      **/
+    auto runE(in string[] args,
+              in Path workDir = Path(),
+              in string[string] env = null) {
+        return _config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
+    }
+
+
+    /** Install python dependencies in virtual environment
+      *
+      **/
+    auto installPyPackages(in string[] packages...) {
+        return pip(["install"] ~ packages);
+    }
+
+    /** Install python requirements from requirements.txt file
+      *
+      **/
+    auto installPyRequirements(in Path requirements) {
+        return pip("install", "-r", requirements.toString);
+    }
+
+    /** Run pip, passing all arguments to pip
+      *
+      **/
+    auto pip(in string[] args...) {
+        return runE(["pip"] ~ args);
+    }
+
+    /** Run python, passing all arguments to python
+      *
+      **/
+    auto python(in string[] args,
+                in Path workDir) {
+        return runE(args, workDir);
+    }
+
+    /// ditto
+    auto python(in string[] args...) {
+        return runE(args);
+    }
+
+    /** Run npm passing all arguments to npm
+      *
+      **/
+    auto npm(in string[] args...) {
+        return runE(["npm"] ~ args);
+    }
+
 }
-
-/** Run command in virtual environment.
-  * Raise error on non-zero return code.
-  **/
-auto runInVenvE(in ProjectConfig config,
-               in string[] args,
-               in Path workDir = Path(),
-               in string[string] env = null) {
-    return config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
-}
-
-
-/** Install python dependencies in virtual environment
-  *
-  **/
-auto installPyPackages(in ProjectConfig config, in string[] packages...) {
-    return config.runInVenvE(["pip", "install"] ~ packages);
-}
-
-

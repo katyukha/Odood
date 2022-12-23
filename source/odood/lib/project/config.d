@@ -7,6 +7,7 @@ private static import dyaml.dumper;
 private static import dyaml.style;
 
 private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.venv: VirtualEnv;
 
 
 struct ProjectConfig {
@@ -125,6 +126,14 @@ struct ProjectConfig {
     this(in ref dyaml.Node node) {
         this.fromYAML(node);
     }
+
+    /** VirtualEnv related to this project config.
+      * Allows to run commands in context of virtual environment
+      **/
+    @property VirtualEnv venv() const {
+        return VirtualEnv(this);
+    }
+
 
     /** Parse YAML representation of config, and initialize this instance.
       *
