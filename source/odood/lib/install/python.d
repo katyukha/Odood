@@ -248,7 +248,7 @@ void installVirtualenv(in ProjectConfig config) {
     // Install nodeenv and node
     config.installPyPackages("nodeenv");
     config.runInVenvE([
-        "--python-virtualenv", "--clean-src",
+        "nodeenv", "--python-virtualenv", "--clean-src",
         "--jobs", totalCPUs.to!string, "--node", config.node_version,
     ]);
     config.runInVenvE(["npm", "set", "user", "0"]);
