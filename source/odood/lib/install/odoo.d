@@ -1,6 +1,6 @@
 module odood.lib.install.odoo;
 
-private import std.stdio: writeln;
+private import std.logger;
 private import std.format: format;
 private import std.algorithm.searching: startsWith;
 private import std.string: strip;
@@ -38,16 +38,17 @@ void installDownloadOdoo(in ProjectConfig config) {
 
     // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
-        writeln("Downloading odoo from %s to %s".format(
-            download_url,
-            odoo_archive_path));
+        infof(
+            "Downloading odoo from %s to %s",
+            download_url, odoo_archive_path);
         download(download_url, odoo_archive_path);
     }
 
     // Extract, with unfloding content of odoo-<branch> to
     // dest folder directly.
-    writeln("Extracting odoo from %s to %s".format(
-        odoo_archive_path, config.odoo_path));
+    infof(
+        "Extracting odoo from %s to %s",
+        odoo_archive_path, config.odoo_path);
     extract_zip_archive(
         odoo_archive_path, config.odoo_path,
         "odoo-%s/".format(config.odoo_branch));
@@ -65,11 +66,11 @@ void installOdoo(in ProjectConfig config) {
         "phonenumbers", "python-slugify", "setuptools-odoo",
         "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo");
 
-    writeln("Installing odoo dependencies (requirements.txt)");
+    info("Installing odoo dependencies (requirements.txt)");
     config.venv.installPyRequirements(
         config.odoo_path.join("requirements.txt"));
 
-    writeln("Installing odoo to %s".format(config.odoo_path));
+    infof("Installing odoo to %s", config.odoo_path);
 
     config.venv.python(
         ["setup.py", "develop"],

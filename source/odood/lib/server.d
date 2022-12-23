@@ -2,6 +2,7 @@
 module odood.lib.server;
 
 private static import std.process;
+private import std.logger;
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
 private import std.exception: enforce;
@@ -89,6 +90,7 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
     if (detach)
         process_conf |= Config.detached;
 
+    info("Starting odoo server...");
     auto pid = std.process.spawnProcess(
         [
             config.bin_dir.join("run-in-venv").toString,
@@ -99,6 +101,7 @@ pid_t spawnServer(in ProjectConfig config, bool detach=false) {
         process_conf,
         config.project_root.toString);
     odoo_pid = pid.osHandle;
+    infof("Odoo server is started. PID: %s", odoo_pid);
     if (!detach)
         std.process.wait(pid);
     return odoo_pid;
@@ -126,6 +129,7 @@ void stopServer(in ProjectConfig config) {
     import core.thread: Thread;
     import std.exception: ErrnoException;
 
+    info("Stopping odoo server...");
     auto odoo_pid = getServerPid(config);
     enforce!ServerAlreadyRuningException(
         odoo_pid > 0,
@@ -143,4 +147,5 @@ void stopServer(in ProjectConfig config) {
             throw new ErrnoException("Cannot kill odoo");
         }
     }
+    info("Server stopped.");
 }

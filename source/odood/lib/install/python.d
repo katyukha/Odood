@@ -9,6 +9,7 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.parallelism: totalCPUs;
 private import std.conv: to;
+private import std.logger;
 
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
@@ -203,11 +204,10 @@ void buildPython(in ProjectConfig config,
 /** Install virtual env for specified project config
   **/
 void installVirtualenv(in ProjectConfig config) {
-    import std.stdio: writeln;
     import std.parallelism: totalCPUs;
     import odood.lib.install.python;
 
-    writeln("Installing virtualenv...");
+    info("Installing virtualenv...");
 
     if (isSystemPythonSuitable(config)){
         runCmdE([
@@ -217,11 +217,12 @@ void installVirtualenv(in ProjectConfig config) {
             config.venv_dir.toString]);
     } else {
         buildPython(config);
-        writeln(
-            "%s successfully built".format(
-                runCmdE(
-                    config.project_root.join("python", "bin", config.guessPythonInterpreter),
-                    ["--version"]).output));
+        infof(
+            "Python successfully built. Version: %s",
+            runCmdE(
+                config.project_root.join("python", "bin", config.guessPythonInterpreter),
+                ["--version"]).output);
+
         runCmdE([
             "python3",
             "-m", "virtualenv",

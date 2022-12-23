@@ -12,8 +12,15 @@ class OdoodProgram: Program {
 
     this(Args...)(auto ref Args args) { super(args); }
 
+    /** Called before running the program.
+      * Could be used by subclasses to make some pre-processing before
+      * running command.
+      **/
+    protected void setup(scope ref ProgramArgs args) {};
+
     int run(ref string[] args) {
         auto pargs = this.parse(args);
+        setup(pargs);
         if (pargs.command !is null) {
 
             auto cmd = this.commands[pargs.command.name];

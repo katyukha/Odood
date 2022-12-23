@@ -1,5 +1,6 @@
 module odood.lib.odoo.lodoo;
 
+private import std.logger;
 private import thepath: Path;
 
 private import odood.lib.project: ProjectConfig;
@@ -22,7 +23,7 @@ const struct LOdoo {
         /** Run lodoo with provided args
           **/
         auto run(in string[] args...) {
-            // TODO: user run-in-venv
+            tracef("Running LOdoo with args %s", args);
             return _config.venv.run(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
@@ -31,6 +32,7 @@ const struct LOdoo {
           * in case of non-zero exit status.
           **/
         auto runE(in string[] args...) {
+            tracef("Running LOdoo with args %s", args);
             return _config.venv.runE(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }

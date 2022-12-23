@@ -1,5 +1,7 @@
 module odood.lib.venv;
 
+private import std.logger;
+private import std.format: format;
 private import thepath: Path;
 
 private import odood.lib.project.config: ProjectConfig;
@@ -23,6 +25,9 @@ const struct VirtualEnv {
     auto run(in string[] args,
              in Path workDir = Path(),
              in string[string] env = null) {
+        tracef(
+            "Running command in virtualenv: cmd=%s, work dir=%s, env=%s",
+            args, workDir, env);
         return _config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
     }
 
@@ -32,6 +37,10 @@ const struct VirtualEnv {
     auto runE(in string[] args,
               in Path workDir = Path(),
               in string[string] env = null) {
+        tracef(
+            "Running command in virtualenv (with exit-code check): " ~
+            "cmd=%s, work dir=%s, env=%s",
+            args, workDir, env);
         return _config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
     }
 
