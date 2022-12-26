@@ -2,6 +2,7 @@ module odood.lib.utils;
 
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
+private import std.logger;
 private import std.process: execute, Config, Pid;
 private import std.exception: enforce;
 private import std.format: format;
@@ -21,6 +22,7 @@ private import odood.lib.exception: OdoodException;
         const string[string] env = null,
         Config config = Config.none,
         size_t maxOutput = size_t.max) {
+    tracef("Running %s in workdir %s with env %s", args, workDir, env);
     return execute(args, env, config, maxOutput, workDir); 
 }
 
@@ -32,7 +34,7 @@ auto runCmd(
         in string[string] env = null,
         in Config config = Config.none,
         in size_t maxOutput = size_t.max) {
-
+    tracef("Running %s with args %s in workdir %s with env %s", path, args, workDir, env);
     return path.execute(args, env, workDir, config, maxOutput);
 }
 
@@ -58,7 +60,7 @@ auto runCmdE(
         Config config = Config.none,                       
         size_t maxOutput = size_t.max) {                   
 
-    auto result = execute(args, env, config, maxOutput, workDir); 
+    auto result = runCmd(args, workDir, env, config, maxOutput);
     enforce!OdoodException(
         result.status == 0,
         "Command %s returned non-zero error code!\nOutput: %s".format(
@@ -76,7 +78,7 @@ auto runCmdE(
         in Config config = Config.none,
         in size_t maxOutput = size_t.max) {
 
-    auto result = path.execute(args, env, workDir, config, maxOutput);
+    auto result = runCmd(path, args, workDir, env, config, maxOutput);
     enforce!OdoodException(
         result.status == 0,
         "Command %s with args %s returned non-zero error code!\nOutput: %s".format(

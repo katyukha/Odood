@@ -23,30 +23,31 @@ class OdoodLogger : Logger {
 
     override protected void writeLogMsg(ref LogEntry payload)
     {
+        auto msg = escapeCCL(payload.msg);
         final switch (payload.logLevel) {
             case LogLevel.trace:
                 cwritefln(
-                    "<grey>TRACE</grey>: %s", payload.msg);
+                    "<grey>TRACE</grey>: %s", msg);
                 break;
             case LogLevel.info:
                 cwritefln(
-                    "<blue>INFO</blue>: %s", payload.msg);
+                    "<blue>INFO</blue>: %s", msg);
                 break;
             case LogLevel.warning:
                 cwritefln(
-                    "<orange>WARNING</orange>: %s", payload.msg);
+                    "<orange>WARNING</orange>: %s", msg);
                 break;
             case LogLevel.error:
                 cwritefln(
-                    "<lred>ERROR</lred>: %s", payload.msg);
+                    "<lred>ERROR</lred>: %s", msg);
                 break;
             case LogLevel.critical:
                 cwritefln(
-                    "<red>CRITICAL</red>: %s", payload.msg);
+                    "<red>CRITICAL</red>: %s", msg);
                 break;
             case LogLevel.fatal:
                 cwritefln(
-                    "<lmagenta>FATAL</lmagenta>: %s", payload.msg);
+                    "<lmagenta>FATAL</lmagenta>: %s", msg);
                 break;
             case LogLevel.off, LogLevel.all:
                 // No output; This log levels are not used in messages,

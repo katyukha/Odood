@@ -86,12 +86,12 @@ const struct VirtualEnv {
       **/
     auto python(in string[] args,
                 in Path workDir) {
-        return runE(args, workDir);
+        return runE(["python"] ~ args, workDir);
     }
 
     /// ditto
     auto python(in string[] args...) {
-        return runE(args);
+        return runE(["python"] ~ args);
     }
 
     /** Run npm passing all arguments to npm
