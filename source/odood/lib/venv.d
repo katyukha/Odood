@@ -2,6 +2,7 @@ module odood.lib.venv;
 
 private import std.logger;
 private import std.format: format;
+private import std.typecons: Nullable;
 private import thepath: Path;
 
 private import odood.lib.project.config: ProjectConfig;
@@ -23,25 +24,39 @@ const struct VirtualEnv {
     /** Run command in virtual environment
       **/
     auto run(in string[] args,
-             in Path workDir = Path(),
-             in string[string] env = null) {
+             in Nullable!Path workDir=Nullable!Path.init,
+             in string[string] env=null) {
         tracef(
             "Running command in virtualenv: cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
         return _config.bin_dir.join("run-in-venv").runCmd(args, workDir, env);
     }
 
+    /// ditto
+    auto run(in string[] args,
+             in Path workDir,
+             in string[string] env=null) {
+        return run(args, Nullable!Path(workDir), env);
+    }
+
     /** Run command in virtual environment.
       * Raise error on non-zero return code.
       **/
     auto runE(in string[] args,
-              in Path workDir = Path(),
-              in string[string] env = null) {
+              in Nullable!Path workDir=Nullable!Path.init,
+              in string[string] env=null) {
         tracef(
             "Running command in virtualenv (with exit-code check): " ~
             "cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
         return _config.bin_dir.join("run-in-venv").runCmdE(args, workDir, env);
+    }
+
+    /// ditto
+    auto runE(in string[] args,
+              in Path workDir,
+              in string[string] env=null) {
+        return runE(args, Nullable!Path(workDir), env);
     }
 
 

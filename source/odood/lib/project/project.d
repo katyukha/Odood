@@ -3,6 +3,7 @@ module odood.lib.project.project;
 private import std.stdio;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 private import dini: Ini;
@@ -16,7 +17,7 @@ public import odood.lib.project.config: ProjectConfig;
 
 class Project {
     private ProjectConfig _config;
-    private Path _config_path;
+    private Nullable!Path _config_path;
 
     /** Initialize with automatic config discovery
       *
@@ -26,7 +27,7 @@ class Project {
         enforce!OdoodException(
             !s_config_path.isNull,
             "Cannot find OdooD configuration file!");
-        this(s_config_path);
+        this(s_config_path.get);
     }
 
     /** Initialize by path.
@@ -37,8 +38,10 @@ class Project {
       **/
     this(in Path path) {
         if (path.exists && path.isFile) {
+            _config_path = Nullable!Path(path);
             _config.load(path);
         } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
+            _config_path = path.join("odood.yml").nullable;
             _config.load(path.join("odood.yml"));
         } else {
             throw new OdoodException(
@@ -51,17 +54,15 @@ class Project {
         Params:
             cofnig = instance of project configuration to initialize from.
       **/
-    this(in ProjectConfig config, in Path config_path = Path()) {
+    this(in ProjectConfig config) {
         _config = config;
-        if (config_path.isNull)
-            _config_path = config_path;
     }
 
     /// Project config instance
     @property const (ProjectConfig) config() const { return _config; }
 
     /// Path to project config
-    @property const (Path) config_path() const { return _config_path; }
+    @property const (Path) config_path() const { return _config_path.get; }
 
     /// LOdoo instance for standard config of this project
     @property const(LOdoo) lodoo() const {
@@ -81,13 +82,14 @@ class Project {
         Params:
            path = path to config file to save configuration to.
       **/
-    void save(in Path path = Path()) {
-        if (path.isNull)
-            _config_path =_config.project_root.join("odood.yml");
-        else
+    void save(in Nullable!Path path=Nullable!Path.init) {
+        if (!path.isNull)
             _config_path = path;
 
-        _config.save(_config_path);
+        if (_config_path.isNull)
+            _config.save(_config.project_root.join("odood.yml"));
+        else
+            _config.save(config_path);
     }
 
     /** Initialize project.

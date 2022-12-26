@@ -7,6 +7,7 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.ascii: letters;
 private import std.random: uniform;
+private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 
@@ -27,12 +28,25 @@ private import odood.lib.exception: OdoodException;
 auto runCmd(
         in Path path,
         in string[] args = [],
-        in Path workDir = Path(),
+        in Nullable!Path workDir = Nullable!Path.init,
         in string[string] env = null,
         in Config config = Config.none,
         in size_t maxOutput = size_t.max) {
 
     return path.execute(args, env, workDir, config, maxOutput);
+}
+
+/// ditto
+auto runCmd(
+        in Path path,
+        in string[] args,
+        in Path workDir,
+        in string[string] env = null,
+        in Config config = Config.none,
+        in size_t maxOutput = size_t.max) {
+    return runCmd(
+        path, args, cast(const Nullable!Path)workDir.nullable,
+        env, config, maxOutput);
 }
 
 
@@ -57,7 +71,7 @@ auto runCmdE(
 auto runCmdE(
         in Path path,
         in string[] args = [],
-        in Path workDir = Path(),
+        in Nullable!Path workDir = Nullable!Path.init,
         in string[string] env = null,
         in Config config = Config.none,
         in size_t maxOutput = size_t.max) {
@@ -68,6 +82,19 @@ auto runCmdE(
         "Command %s with args %s returned non-zero error code!\nOutput: %s".format(
             path, args, result.output));
     return result;
+}
+
+/// ditto
+auto runCmdE(
+        in Path path,
+        in string[] args,
+        in Path workDir,
+        in string[string] env = null,
+        in Config config = Config.none,
+        in size_t maxOutput = size_t.max) {
+    return runCmdE(
+        path, args, cast(const Nullable!Path)workDir.nullable,
+        env, config, maxOutput);
 }
 
 
