@@ -4,6 +4,7 @@ private import std.stdio;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
+private import std.logger;
 
 private import thepath: Path;
 private import dini: Ini;
@@ -11,6 +12,8 @@ private import dini: Ini;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.lodoo: LOdoo;
+private import odood.lib.odoo.addon: findAddons;
+private import odood.lib.repository: AddonRepository, cloneRepo;
 
 public import odood.lib.project.config: ProjectConfig;
 
@@ -137,6 +140,27 @@ class Project {
 
     auto getOdooConfig() {
         return this._config.readOdooConfig;
+    }
+
+    void addRepo(in string url, in string branch) {
+        auto repo = cloneRepo(_config, url, branch);
+        linkAddons(repo.path);
+    }
+
+    void linkAddons(in Path search_dir) {
+        foreach(addon; findAddons(search_dir)) {
+            auto dest = _config.addons_dir.join(addon.name);
+            if (!dest.exists) {
+                infof("linking addon %s (%s -> %s)",
+                      addon.name, addon.path, dest);
+                addon.path.symlink(_config.addons_dir.join(addon.name));
+            }
+            if (dest.join("requirements.txt").exists) {
+                infof("Installing python requirements for addon '%s'",
+                      addon.name);
+                venv.installPyRequirements(dest.join("requirements.txt"));
+            }
+        }
     }
 
 }

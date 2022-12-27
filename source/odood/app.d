@@ -1,3 +1,5 @@
+module odood.app;
+
 import std.stdio;
 import std.format: format;
 
