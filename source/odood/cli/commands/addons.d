@@ -12,7 +12,13 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.odoo.addon: OdooAddon;
 private import odood.lib.exception: OdoodException;
+
+enum AddonDisplayType {
+    by_name,
+    by_path,
+}
 
 
 class CommandAddonsList: OdoodCommand {
@@ -22,7 +28,14 @@ class CommandAddonsList: OdoodCommand {
 
     this(in string name) {
         super(name, "List addons in specified directory.");
-        this.add(new Argument("path", "Path to search for addons in.").optional);
+        this.add(new Flag(
+            null, "by-path", "Display addons by paths."));
+        this.add(new Flag(
+            null, "by-name", "Display addons by name (default)."));
+        this.add(new Flag(
+            null, "system", "Search for all addons available for Odoo."));
+        this.add(new Argument(
+            "path", "Path to search for addons in.").optional);
     }
 
     public override void execute(ProgramArgs args) {
@@ -31,10 +44,30 @@ class CommandAddonsList: OdoodCommand {
         auto search_path = args.arg("path") ?
             Path(args.arg("path")) : Path.current;
 
-        tracef("Listing addons in %s", search_path);
-        auto addons = project.addons.scan(search_path);
+        auto display_type = AddonDisplayType.by_name;
+        if (args.flag("by-path"))
+            display_type = AddonDisplayType.by_path;
+        if (args.flag("by-name"))
+            display_type = AddonDisplayType.by_name;
+
+        OdooAddon[] addons;
+        if (args.flag("system")) {
+            info("Listing all addons available for Odoo");
+            addons = project.addons.scan();
+        } else  {
+            infof("Listing addons in %s", search_path);
+            addons = project.addons.scan(search_path);
+        }
+
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
-            writeln(addon.name);
+            final switch(display_type) {
+                case AddonDisplayType.by_name:
+                    writeln(addon.name);
+                    break;
+                case AddonDisplayType.by_path:
+                    writeln(addon.path);
+                    break;
+            }
         }
     }
 

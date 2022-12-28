@@ -1,15 +1,19 @@
 module odood.lib.addon_manager;
 
 private import std.logger;
+private import std.typecons: Nullable, nullable;
+private import std.array: split;
 
 private import thepath: Path;
 
 private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.odoo.config: readOdooConfig;
 private import odood.lib.odoo.addon;
 
 
 struct AddonManager {
     private const ProjectConfig _config;
+    private Nullable!(Path[]) _addons_paths;
 
     @disable this();
 
@@ -17,8 +21,35 @@ struct AddonManager {
         _config = config;
     }
 
+    /// Get list of paths to search for addons
+    @property const(Path[]) addons_paths() {
+        if (_addons_paths.isNull) {
+            auto odoo_conf = _config.readOdooConfig;
+            auto search_paths = odoo_conf["options"].getKey("addons_path");
+
+            Path[] res;
+            foreach(apath; search_paths.split(",")) {
+                auto p = Path(apath);
+                if (p.exists)
+                    res ~= p;
+            }
+            _addons_paths = res.nullable;
+        }
+        return _addons_paths.get;
+
+    }
+
+    /// Scan for all addons available in Odoo
+    OdooAddon[] scan() {
+        OdooAddon[] res;
+        foreach(path; addons_paths)
+            res ~= scan(path);
+        return res;
+    }
+
     /// Scan specified path for addons
     OdooAddon[] scan(in Path path) {
+        tracef("Searching for addons in %s", path);
         if (isOdooAddon(path)) {
             return [OdooAddon(path)];
         }
