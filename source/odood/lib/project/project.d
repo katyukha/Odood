@@ -13,6 +13,7 @@ private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.addon: findAddons;
+private import odood.lib.server: OdooServer;
 private import odood.lib.repository: AddonRepository, cloneRepo;
 
 public import odood.lib.project.config: ProjectConfig;
@@ -80,6 +81,13 @@ class Project {
         return _config.venv;
     }
 
+    /** OdooServer wrapper to manage server of this Odood project
+      * Provides basic methods to start/stop/etc odoo server.
+      **/
+    @property auto server() const {
+        return OdooServer(_config);
+    }
+
     /** Save project configuration to config file.
 
         Params:
@@ -117,36 +125,18 @@ class Project {
         initialize(odoo_config);
     }
 
-    /** Run the server.
-      **/
-    void serverRun(in bool detach=false) {
-        import odood.lib.server;
-        _config.spawnServer(detach);
-    }
-
-    /** Is server running
-      **/
-    bool isServerRunning() {
-        import odood.lib.server;
-        return _config.isServerRunning;
-    }
-
-    /** Stop the server.
-      **/
-    void serverStop() {
-        import odood.lib.server;
-        _config.stopServer();
-    }
-
+    /// Get configuration for Odoo
     auto getOdooConfig() {
         return this._config.readOdooConfig;
     }
 
+    /// Add new repo to project
     void addRepo(in string url, in string branch) {
         auto repo = cloneRepo(_config, url, branch);
         linkAddons(repo.path);
     }
 
+    /// Link addons in specified directory
     void linkAddons(in Path search_dir) {
         foreach(addon; findAddons(search_dir)) {
             auto dest = _config.addons_dir.join(addon.name);

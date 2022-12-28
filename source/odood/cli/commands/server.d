@@ -20,7 +20,7 @@ class CommandServerRun: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.serverRun(args.flag("detach"));
+        project.server.spawn(args.flag("detach"));
     }
 
 }
@@ -33,7 +33,7 @@ class CommandServerStart: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.serverRun(true);
+        project.server.spawn(true);
     }
 
 }
@@ -47,7 +47,7 @@ class CommandServerStatus: OdoodCommand {
     public override void execute(ProgramArgs args) {
         import std.stdio;
         auto project = new Project();
-        if (project.isServerRunning) {
+        if (project.server.isRunning) {
             writeln("The server is running");
         } else {
             writeln("The server is stopped");
@@ -64,7 +64,7 @@ class CommandServerStop: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.serverStop();
+        project.server.stop();
     }
 }
 
@@ -76,8 +76,8 @@ class CommandServerRestart: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.serverStop();
-        project.serverRun(true);
+        project.server.stop();
+        project.server.spawn(true);
     }
 
 }

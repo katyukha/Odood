@@ -35,7 +35,7 @@ class CommandStatus: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = new Project();
 
-        auto is_running = project.isServerRunning();
+        auto is_running = project.server.isRunning();
 
         auto odoo_config = project.getOdooConfig();
 
@@ -57,7 +57,7 @@ class CommandStatus: OdoodCommand {
                 project.config_path,
                 project.config.odoo_serie,
                 project.config.odoo_branch,
-                project.isServerRunning ? "Running" : "Stopped",
+                project.server.isRunning ? "Running" : "Stopped",
                 "http://%s:%s".format(http_host, http_port),
             )
         );
