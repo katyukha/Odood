@@ -31,8 +31,10 @@ class ServerAlreadyRuningException : OdoodException
 }
 
 
+/** Wrapper struct to manage odoo server
+  **/
 struct OdooServer {
-    private ProjectConfig _config;
+    private const ProjectConfig _config;
 
     @disable this();
 
@@ -62,8 +64,6 @@ struct OdooServer {
     }
 
     /** Get PID of running Odoo Process
-      * Params:
-      *    config = Project configuration to get PID for
       * Returns:
       *    - PID of process running
       *    - -1 if no pid file located

@@ -42,7 +42,7 @@ class CommandAddonsLink: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = new Project();
 
-        project.linkAddons(Path(args.arg("path")));
+        project.addons.link(Path(args.arg("path")));
     }
 
 }

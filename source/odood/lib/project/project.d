@@ -12,13 +12,16 @@ private import dini: Ini;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.lodoo: LOdoo;
-private import odood.lib.odoo.addon: findAddons;
 private import odood.lib.server: OdooServer;
+private import odood.lib.addon_manager: AddonManager;
 private import odood.lib.repository: AddonRepository, cloneRepo;
 
 public import odood.lib.project.config: ProjectConfig;
 
 
+/** The Odood project.
+  * The main entity to manage whole Odood project
+  **/
 class Project {
     private ProjectConfig _config;
     private Nullable!Path _config_path;
@@ -56,7 +59,7 @@ class Project {
     /** Initialize by provided config
 
         Params:
-            cofnig = instance of project configuration to initialize from.
+            config = instance of project configuration to initialize from.
       **/
     this(in ProjectConfig config) {
         _config = config;
@@ -86,6 +89,13 @@ class Project {
       **/
     @property auto server() const {
         return OdooServer(_config);
+    }
+
+    /** AddonManager related to this project
+      * Allows to manage addons of this project
+      **/
+    @property auto addons() const {
+        return AddonManager(_config);
     }
 
     /** Save project configuration to config file.
@@ -133,25 +143,7 @@ class Project {
     /// Add new repo to project
     void addRepo(in string url, in string branch) {
         auto repo = cloneRepo(_config, url, branch);
-        linkAddons(repo.path);
+        addons.link(repo.path);
     }
-
-    /// Link addons in specified directory
-    void linkAddons(in Path search_dir) {
-        foreach(addon; findAddons(search_dir)) {
-            auto dest = _config.addons_dir.join(addon.name);
-            if (!dest.exists) {
-                infof("linking addon %s (%s -> %s)",
-                      addon.name, addon.path, dest);
-                addon.path.symlink(_config.addons_dir.join(addon.name));
-            }
-            if (dest.join("requirements.txt").exists) {
-                infof("Installing python requirements for addon '%s'",
-                      addon.name);
-                venv.installPyRequirements(dest.join("requirements.txt"));
-            }
-        }
-    }
-
 }
 

@@ -10,6 +10,8 @@ private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.venv: VirtualEnv;
 
 
+/** Project configuration
+  **/
 struct ProjectConfig {
 
     /// Root project directory

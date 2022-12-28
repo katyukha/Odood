@@ -121,7 +121,7 @@ bool isProcessRunning(scope Pid pid) {
   *
   * Params:
   *     url = the url to download file from
-  *     dest = the destination path to download file to
+  *     dest_path = the destination path to download file to
   *     timeout = optional timeout. Default is 15 seconds.
   **/
 void download(in string url, in Path dest_path, in Duration timeout=15.seconds) {

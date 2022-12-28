@@ -10,8 +10,10 @@ private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE;
 
 
+/** VirtualEnv wrapper, to simplify operations within wirtual environment
+  **/
 const struct VirtualEnv {
-    private ProjectConfig _config;
+    private const ProjectConfig _config;
 
     @disable this();
 

@@ -8,7 +8,6 @@ private import std.logger;
 private import thepath: Path;
 
 private import odood.lib.utils: runCmdE;
-private import odood.lib.odoo.addon: findAddons;
 private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.exception: OdoodException;
 
@@ -24,11 +23,6 @@ struct AddonRepository {
 
     @property path() const {
         return _path;
-    }
-
-    /// Search for addons in repo
-    auto scan() const {
-        return findAddons(_path);
     }
 }
 

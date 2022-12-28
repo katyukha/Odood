@@ -17,8 +17,8 @@ enum BackupFormat {
   **/
 const struct LOdoo {
     private:
-        Path _odoo_conf;
-        ProjectConfig _config;
+        const Path _odoo_conf;
+        const ProjectConfig _config;
 
         /** Run lodoo with provided args
           **/

@@ -10,22 +10,41 @@ private import pyd.embedded: py_eval;
 private import thepath: Path;
 
 
-// This struct represents basic, minimal info about addon
+/** Simple struct to represent single Odoo addons.
+  * This struct is not bound to any project config,
+  * but represents the addon on filesystem, with ability to fetch
+  * additional info about this addon by reading manifest
+  **/
 struct OdooAddon {
-    string name;
-    Path path;
+    private const string _name;
+    private const Path _path;
 
     @disable this();
 
+    /// Initialize addon based on path and name
     this(in Path path, in string name) {
-        this.name = name;
-        this.path = path;
+        this._name = name;
+        this._path = path;
     }
 
+    /** Initialize addon from path on filesystem, with automatic
+      * computation of name of addon.
+      **/
     this(in Path path) {
-        this(path, getAddonName(path));
+        this(_path, getAddonName(_path));
     }
 
+    /// name of the addon
+    @property name() const {
+        return _name;
+    }
+
+    /// path to the addon on filesystem
+    @property path() const {
+        return _path;
+    }
+
+    /// Read the module manifest and return it as py_evan result
     auto readManifest() const {
         auto manifest_path = getAddonManifestPath(path).get;
         return py_eval(manifest_path.readFileText);
@@ -63,25 +82,4 @@ Nullable!Path getAddonManifestPath(in Path path) {
   **/
 string getAddonName(in Path path) {
     return path.baseName;
-}
-
-
-/** Find addons inside specified path
-  **/
-OdooAddon[] findAddons(in Path path) {
-    if (isOdooAddon(path)) {
-        return [OdooAddon(path)];
-    }
-
-    OdooAddon[] res;
-
-    // TODO: update to path.walkBreadth when new version of the path released
-    foreach(addon_path; path.walkBreadth) {
-        if (addon_path.isInside(path.join("setup")))
-            // Skip modules defined in OCA setup folder to avoid duplication.
-            continue;
-        if (addon_path.isOdooAddon)
-            res ~= OdooAddon(addon_path);
-    }
-    return res;
 }
