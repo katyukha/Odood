@@ -1,5 +1,6 @@
 module odood.cli.commands.addons;
 
+private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
 
@@ -48,12 +49,38 @@ class CommandAddonsLink: OdoodCommand {
 }
 
 
+class CommandAddonsUpdateList: OdoodCommand {
+    this() {
+        super("update-list", "Update list of addons.");
+        this.add(
+            new Argument(
+                "database", "Path to search for addons in."
+            ).optional().repeating());
+        this.add(new Flag("a", "all", "Update all databases."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+
+        string[] dbnames = args.flag("all") ?
+            project.lodoo.databaseList() : args.args("database");
+
+        foreach(db; dbnames) {
+            infof("Updating list of addons for database %s", db);
+            project.lodoo.updateAddonsList(db);
+        }
+    }
+
+}
+
+
 
 class CommandAddons: OdoodCommand {
     this() {
         super("addons", "Manage third-party addons.");
         this.add(new CommandAddonsAddRepo());
         this.add(new CommandAddonsLink());
+        this.add(new CommandAddonsUpdateList());
     }
 }
 

@@ -126,4 +126,10 @@ const struct LOdoo {
         void databaseRestore(in string name, in Path backup_path) {
             runE("db-restore", name, backup_path.toString);
         }
+
+        /** Update list of addons
+          **/
+        void updateAddonsList(in string dbname) {
+            runE("addons-update-list", dbname);
+        }
 }
