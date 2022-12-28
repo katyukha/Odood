@@ -1,8 +1,10 @@
 module odood.cli.commands.addons;
 
+private import std.stdio;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.algorithm: sort;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -11,6 +13,32 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, ProjectConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
+
+
+class CommandAddonsList: OdoodCommand {
+    this() {
+        this("list");
+    }
+
+    this(in string name) {
+        super(name, "List addons in specified directory.");
+        this.add(new Argument("path", "Path to search for addons in.").optional);
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+
+        auto search_path = args.arg("path") ?
+            Path(args.arg("path")) : Path.current;
+
+        tracef("Listing addons in %s", search_path);
+        auto addons = project.addons.scan(search_path);
+        foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
+            writeln(addon.name);
+        }
+    }
+
+}
 
 
 class CommandAddonsAddRepo: OdoodCommand {
@@ -81,6 +109,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsAddRepo());
         this.add(new CommandAddonsLink());
         this.add(new CommandAddonsUpdateList());
+        this.add(new CommandAddonsList());
     }
 }
 

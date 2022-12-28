@@ -29,7 +29,7 @@ class CommandDatabaseList: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = new Project();
         foreach(db; project.lodoo.databaseList()) {
-            writeln("- %s".format(db));
+            writeln(db);
         }
     }
 

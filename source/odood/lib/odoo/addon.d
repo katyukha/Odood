@@ -16,8 +16,8 @@ private import thepath: Path;
   * additional info about this addon by reading manifest
   **/
 struct OdooAddon {
-    private const string _name;
-    private const Path _path;
+    private string _name;
+    private Path _path;
 
     @disable this();
 
@@ -31,7 +31,7 @@ struct OdooAddon {
       * computation of name of addon.
       **/
     this(in Path path) {
-        this(_path, getAddonName(_path));
+        this(path, getAddonName(path));
     }
 
     /// name of the addon
