@@ -1,6 +1,7 @@
 module odood.cli.app;
 
 private import std.logger;
+private import std.format: format;
 
 private import commandr: Program, ProgramArgs, Option, Flag, parse;
 import consolecolors: cwritefln, escapeCCL;
@@ -24,7 +25,7 @@ class OdoodLogger : Logger {
 
     override protected void writeLogMsg(ref LogEntry payload)
     {
-        auto msg = escapeCCL(payload.msg);
+        auto msg = payload.msg;
         final switch (payload.logLevel) {
             case LogLevel.trace:
                 cwritefln(
@@ -119,10 +120,12 @@ class App: OdoodProgram {
         try {
             return super.run(args);
         } catch (OdoodException e) {
-            errorf("Odood Exception catched: %s", e);
+            // TODO: Use custom colodred formatting for errors
+            error(escapeCCL("Odood Exception catched: %s".format(e)));
             return 1;
         } catch (Exception e) {
-            errorf("Exception catched: %s", e);
+            // TODO: Use custom colodred formatting for errors
+            error(escapeCCL("Exception catched: %s".format(e)));
             return 1;
         }
     }

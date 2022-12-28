@@ -83,13 +83,11 @@ struct AddonManager {
 
     /// Link all addons inside specified directories
     void link(in Path search_path) {
-        if (search_path.isOdooAddon) {
+        if (search_path.isOdooAddon)
             link(OdooAddon(search_path));
-        }
             
-        foreach(addon; scan(search_path)) {
+        foreach(addon; scan(search_path))
             link(addon);
-        }
     }
 
 }
