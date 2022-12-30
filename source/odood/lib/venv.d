@@ -41,6 +41,14 @@ const struct VirtualEnv {
         return run(args, Nullable!Path(workDir), env);
     }
 
+    /// ditto
+    auto run(in Path path,
+             in string[] args,
+             in Path workDir,
+             in string[string] env=null) {
+        return run([path.toString] ~ args,  workDir, env);
+    }
+
     /** Run command in virtual environment.
       * Raise error on non-zero return code.
       **/
@@ -59,6 +67,14 @@ const struct VirtualEnv {
               in Path workDir,
               in string[string] env=null) {
         return runE(args, Nullable!Path(workDir), env);
+    }
+
+    /// ditto
+    auto runE(in Path path,
+             in string[] args,
+             in Path workDir,
+             in string[string] env=null) {
+        return runE([path.toString] ~ args,  workDir, env);
     }
 
 

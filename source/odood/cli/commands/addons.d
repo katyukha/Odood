@@ -135,6 +135,84 @@ class CommandAddonsUpdateList: OdoodCommand {
 }
 
 
+class CommandAddonsUpdate: OdoodCommand {
+    this() {
+        super("update", "Update specified addons.");
+        this.add(
+            new Option(
+                "d", "db", "Database(s) to update addons in."
+            ).optional().repeating());
+        this.add(
+            new Option(
+                null, "dir", "Directory to search for addons to be updated"
+            ).optional().repeating());
+        this.add(
+            new Argument(
+                "addon", "Name of addon to update").optional().repeating());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+
+        string[] dbnames = args.options("db") ?
+            args.options("db") : project.lodoo.databaseList();
+
+        string[] addon_names = args.args("addon");
+
+        foreach(dir; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(dir)))
+                addon_names ~= [addon.name];
+
+        tracef(
+            "Addons to be updated in databases %s: %s", dbnames, addon_names);
+        foreach(db; dbnames) {
+            infof("Updating addons for <yellow>%s</yellow> database...", db);
+            project.addons.update(addon_names, db);
+        }
+    }
+
+}
+
+
+class CommandAddonsInstall: OdoodCommand {
+    this() {
+        super("install", "Install specified addons.");
+        this.add(
+            new Option(
+                "d", "db", "Database(s) to install addons in."
+            ).optional().repeating());
+        this.add(
+            new Option(
+                null, "dir", "Directory to search for addons to be installed"
+            ).optional().repeating());
+        this.add(
+            new Argument(
+                "addon", "Name of addon to update").optional().repeating());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = new Project();
+
+        string[] dbnames = args.options("db") ?
+            args.options("db") : project.lodoo.databaseList();
+
+        string[] addon_names = args.args("addon");
+
+        foreach(dir; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(dir)))
+                addon_names ~= [addon.name];
+
+        tracef(
+            "Addons to be installed in databases %s: %s", dbnames, addon_names);
+        foreach(db; dbnames) {
+            infof("Installing addons for <yellow>%s</yellow> database...", db);
+            project.addons.update(addon_names, db);
+        }
+    }
+
+}
+
+
 
 class CommandAddons: OdoodCommand {
     this() {
@@ -143,6 +221,8 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsLink());
         this.add(new CommandAddonsUpdateList());
         this.add(new CommandAddonsList());
+        this.add(new CommandAddonsUpdate());
+        this.add(new CommandAddonsInstall());
     }
 }
 

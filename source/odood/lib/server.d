@@ -69,7 +69,7 @@ struct OdooServer {
       *    - -1 if no pid file located
       *    - -2 if process specified in pid file is not running
       **/
-    pid_t getPid() {
+    pid_t getPid() const {
         if (_config.odoo_pid_file.exists) {
             auto pid = _config.odoo_pid_file.readFileText.to!pid_t;
             if (isProcessRunning(pid))
@@ -82,7 +82,7 @@ struct OdooServer {
     /** Spawn the Odoo server
       *
       **/
-    pid_t spawn(bool detach=false) {
+    pid_t spawn(bool detach=false) const {
         import std.process: Config;
 
         auto odoo_pid = getPid();
@@ -115,11 +115,26 @@ struct OdooServer {
         return odoo_pid;
     }
 
+    auto run(in string[] options...) const {
+        const(string[string]) env=[
+            "OPENERP_SERVER": _config.odoo_conf.toString,
+            "ODOO_RC": _config.odoo_conf.toString,
+        ];
+        _config.venv.run(scriptPath, options, _config.project_root, env);
+    }
+
+    auto runE(in string[] options...) const {
+        const(string[string]) env=[
+            "OPENERP_SERVER": _config.odoo_conf.toString,
+            "ODOO_RC": _config.odoo_conf.toString,
+        ];
+        _config.venv.runE(scriptPath, options, _config.project_root, env);
+    }
 
     /** Check if the Odoo server is running or not
       *
       **/
-    bool isRunning() {
+    bool isRunning() const {
         auto odoo_pid = getPid();
         if (odoo_pid <= 0) {
             return false;
@@ -131,7 +146,7 @@ struct OdooServer {
     /** Stop the Odoo server
       *
       **/
-    void stop() {
+    void stop() const {
         import core.sys.posix.signal: kill, SIGTERM;
         import core.stdc.errno;
         import core.thread: Thread;

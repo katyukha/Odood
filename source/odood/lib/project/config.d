@@ -8,6 +8,7 @@ private static import dyaml.style;
 
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.venv: VirtualEnv;
+private import odood.lib.server: OdooServer;
 
 
 /** Project configuration
@@ -136,6 +137,12 @@ struct ProjectConfig {
         return VirtualEnv(this);
     }
 
+    /** OdooServer wrapper for this project config.
+      * Allows to manage odoo server.
+      **/
+    @property OdooServer server() const {
+        return OdooServer(this);
+    }
 
     /** Parse YAML representation of config, and initialize this instance.
       *
