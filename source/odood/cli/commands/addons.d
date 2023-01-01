@@ -209,9 +209,7 @@ class CommandAddonsInstall: OdoodCommand {
             project.addons.update(addon_names, db);
         }
     }
-
 }
-
 
 
 class CommandAddons: OdoodCommand {

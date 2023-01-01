@@ -8,6 +8,7 @@ private import std.logger;
 
 private import thepath: Path;
 private import dini: Ini;
+private import dyaml;
 
 private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
@@ -46,14 +47,16 @@ class Project {
     this(in Path path) {
         if (path.exists && path.isFile) {
             _config_path = Nullable!Path(path);
-            _config.load(path);
+            //_config.load(path);
         } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
             _config_path = path.join("odood.yml").nullable;
-            _config.load(path.join("odood.yml"));
+            //_config.load(path.join("odood.yml"));
         } else {
             throw new OdoodException(
                 "Cannot initialize project. Config not found");
         }
+        dyaml.Node config_yaml = dyaml.Loader.fromFile(path.toString()).load();
+        _config = ProjectConfig(config_yaml);
     }
 
     /** Initialize by provided config
@@ -119,12 +122,14 @@ class Project {
       * Params:
       *     odoo_config: INI struct, that represents configuration for Odoo
       **/
-    void initialize(ref Ini odoo_config) {
+    void initialize(ref Ini odoo_config,
+            in string python_version="auto",
+            in string node_version="lts") {
         import odood.lib.install;
 
         _config.initializeProjectDirs();
         _config.installDownloadOdoo();
-        _config.installVirtualenv();
+        _config.installVirtualenv(python_version, node_version);
         _config.installOdoo();
         _config.installOdooConfig(odoo_config);
     }

@@ -11,7 +11,6 @@ private import odood.lib.project.config: ProjectConfig;
  **/
 void initializeProjectDirs(in ProjectConfig config) {
     config.project_root.mkdir(true);
-    config.bin_dir.mkdir(true);
     config.conf_dir.mkdir(true);
     config.log_dir.mkdir(true);
     config.downloads_dir.mkdir(true);

@@ -60,7 +60,7 @@ struct OdooServer {
 
     /// Get path to the odoo server script to run
     @property Path scriptPath() const {
-        return _config.venv_dir.join("bin", scriptName());
+        return _config.venv.path.join("bin", scriptName());
     }
 
     /** Get PID of running Odoo Process
@@ -99,9 +99,11 @@ struct OdooServer {
             process_conf |= Config.detached;
 
         info("Starting odoo server...");
+
+        // TODO: move this to virtualenv logic?
         auto pid = std.process.spawnProcess(
             [
-                _config.bin_dir.join("run-in-venv").toString,
+                _config.venv.path.join("bin", "run-in-venv").toString,
                 scriptPath.toString,
                 "--pidfile=%s".format(_config.odoo_pid_file),
             ],

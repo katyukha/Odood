@@ -7,6 +7,7 @@ private static import dyaml.dumper;
 private static import dyaml.style;
 
 private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.server: OdooServer;
 
@@ -17,9 +18,6 @@ struct ProjectConfig {
 
     /// Root project directory
     Path project_root;
-
-    /// Directory to store executables
-    Path bin_dir;
 
     /// Directory to store odoo configurations
     Path conf_dir;
@@ -45,9 +43,6 @@ struct ProjectConfig {
     /// Directory for odoo data-files
     Path data_dir;
 
-    /// Virtual environment directory
-    Path venv_dir;
-
     /// Path to odoo installation
     Path odoo_path;
 
@@ -70,15 +65,7 @@ struct ProjectConfig {
     /// Repo, odoo is installed from.
     string odoo_repo;
 
-    /// Version of nodejs to install. Default: lts
-    string node_version = "lts";
-
-    /** Version of python to install.
-      * if null, then Odoo will automatically detect if specific version of
-      * python have to be built, or use system python.
-      * Must be string in format "X.Y.Z". For example '3.9.12'.
-      **/
-    string python_version = null;
+    VirtualEnv _venv;
 
     // TODO: Add validation of config
 
@@ -94,13 +81,11 @@ struct ProjectConfig {
     this(in Path root_path, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
         this.project_root = root_path.expandTilde.toAbsolute;
-        this.bin_dir = this.project_root.join("bin");
         this.conf_dir = this.project_root.join("conf");
         this.log_dir = this.project_root.join("logs");
         this.downloads_dir = this.project_root.join("downloads");
         this.addons_dir = this.project_root.join("custom_addons");
         this.data_dir = this.project_root.join("data");
-        this.venv_dir = this.project_root.join("venv");
         this.backups_dir = this.project_root.join("backups");
         this.repositories_dir = this.project_root.join("repositories");
 
@@ -113,11 +98,17 @@ struct ProjectConfig {
         this.odoo_serie = odoo_serie;
         this.odoo_branch = odoo_branch;
         this.odoo_repo = odoo_repo;
+
+        this._venv = VirtualEnv(
+            this.project_root.join("venv"),
+            guessPySerie(odoo_serie));
     }
 
     /// ditto
     this(in Path root_path, in OdooSerie odoo_serie) {
-        this(root_path, odoo_serie, odoo_serie.toString, 
+        this(root_path,
+             odoo_serie,
+             odoo_serie.toString, 
              "https://github.com/odoo/odoo");
     }
 
@@ -126,39 +117,15 @@ struct ProjectConfig {
       * Params:
       *     node = YAML node representation to initialize config from
       **/
-    this(in ref dyaml.Node node) {
-        this.fromYAML(node);
-    }
-
-    /** VirtualEnv related to this project config.
-      * Allows to run commands in context of virtual environment
-      **/
-    @property VirtualEnv venv() const {
-        return VirtualEnv(this);
-    }
-
-    /** OdooServer wrapper for this project config.
-      * Allows to manage odoo server.
-      **/
-    @property OdooServer server() const {
-        return OdooServer(this);
-    }
-
-    /** Parse YAML representation of config, and initialize this instance.
-      *
-      * Params:
-      *     config = YAML node representation to initialize config from
-      **/
-    void fromYAML(in ref dyaml.Node config) {
+    this(in ref dyaml.Node config) {
+        //this.fromYAML(node);
         this.project_root = Path(config["project_root"].as!string);
-        this.bin_dir = Path(config["directories"]["bin"].as!string);
         this.conf_dir = Path(config["directories"]["conf"].as!string);
         this.log_dir = Path(config["directories"]["log"].as!string);
         this.downloads_dir = Path(
             config["directories"]["downloads"].as!string);
         this.addons_dir = Path(config["directories"]["addons"].as!string);
         this.data_dir = Path(config["directories"]["data"].as!string);
-        this.venv_dir = Path(config["directories"]["venv"].as!string);
         this.backups_dir = Path(config["directories"]["backups"].as!string);
         this.repositories_dir = Path(
             config["directories"]["repositories"].as!string);
@@ -173,8 +140,29 @@ struct ProjectConfig {
         this.odoo_branch = config["odoo"]["branch"].as!string;
         this.odoo_repo = config["odoo"]["repo"].as!string;
 
-        this.node_version = config["nodejs"]["version"].as!string;
-        this.python_version = config["python"]["version"].as!string;
+        if (config.containsKey("virtualenv")) {
+            // TODO: move to venv object
+            this._venv = VirtualEnv(config["virtualenv"]);
+        } else {
+            this._venv = VirtualEnv(
+                Path(config["directories"]["venv"].as!string),
+                guessPySerie(odoo_serie),
+            );
+        }
+    }
+
+    /** VirtualEnv related to this project config.
+      * Allows to run commands in context of virtual environment
+      **/
+    @property VirtualEnv venv() const {
+        return _venv;
+    }
+
+    /** OdooServer wrapper for this project config.
+      * Allows to manage odoo server.
+      **/
+    @property OdooServer server() const {
+        return OdooServer(this);
     }
 
     /** Serialize config to YAML node
@@ -190,13 +178,11 @@ struct ProjectConfig {
                 "path": this.odoo_path.toString,
             ]),
             "directories": Node([
-                "bin": this.bin_dir.toString,
                 "conf": this.conf_dir.toString,
                 "log": this.log_dir.toString,
                 "downloads": this.downloads_dir.toString,
                 "addons": this.addons_dir.toString,
                 "data": this.data_dir.toString,
-                "venv": this.venv_dir.toString,
                 "backups": this.backups_dir.toString,
                 "repositories": this.repositories_dir.toString,
             ]),
@@ -206,18 +192,8 @@ struct ProjectConfig {
                 "odoo_log": this.log_file.toString,
                 "odoo_pid": this.odoo_pid_file.toString,
             ]),
-            "nodejs": Node([
-                "version": this.node_version,
-            ]),
-            "python": Node([
-                "version": this.python_version,
-            ]),
+            "virtualenv": _venv.toYAML(),
         ]);
-    }
-
-    void load(in Path path) {
-        dyaml.Node root = dyaml.Loader.fromFile(path.toString()).load();
-        this.fromYAML(root);
     }
 
     void save(in Path path) {

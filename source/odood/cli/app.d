@@ -15,6 +15,7 @@ private import odood.cli.commands.server:
 private import odood.cli.commands.database: CommandDatabase, CommandDatabaseList;
 private import odood.cli.commands.status: CommandStatus;
 private import odood.cli.commands.addons: CommandAddons, CommandAddonsList;
+private import odood.cli.commands.config: CommandConfig;
 
 
 /** Custom logger for Odood CLI
@@ -25,7 +26,7 @@ class OdoodLogger : Logger {
 
     override protected void writeLogMsg(ref LogEntry payload)
     {
-        auto msg = payload.msg;
+        auto msg = escapeCCL(payload.msg);
         final switch (payload.logLevel) {
             case LogLevel.trace:
                 cwritefln(
@@ -70,6 +71,7 @@ class App: OdoodProgram {
         this.add(new CommandStatus());
         this.add(new CommandDatabase());
         this.add(new CommandAddons());
+        this.add(new CommandConfig());
 
         // shortcuts
         this.add(new CommandServerStart());

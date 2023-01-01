@@ -26,9 +26,11 @@ class CommandInit: OdoodCommand {
         this.add(new Option(
             null, "odoo-repo", "Install Odoo from specific repository."));
         this.add(new Option(
-            null, "py-version", "Install specific python version."));
+            null, "py-version", "Install specific python version.")
+                .defaultValue("auto"));
         this.add(new Option(
-            null, "node-version", "Install specific node version."));
+            null, "node-version", "Install specific node version.")
+                .defaultValue("lts"));
         this.add(new Option(
             null, "db-host", "Database host").defaultValue("localhost"));
         this.add(new Option(
@@ -64,13 +66,6 @@ class CommandInit: OdoodCommand {
             odoo_branch,
             odoo_repo);
 
-        if (args.option("py-version")) {
-            config.python_version = args.option("py-version");
-        }
-        if (args.option("node-version")) {
-            config.node_version = args.option("node-version");
-        }
-
         return config;
     }
 
@@ -102,7 +97,10 @@ class CommandInit: OdoodCommand {
 
         auto odoo_config = prepareOdooConfig(project_config, args);
 
-        project.initialize(odoo_config);
+        project.initialize(
+            odoo_config,
+            args.option("py-version", "auto"),
+            args.option("node-version", "lts"));
         project.save();
 
         if (args.flag("create-db-user")) {
