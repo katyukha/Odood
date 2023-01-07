@@ -1,9 +1,9 @@
 module odood.lib.exception;
 
+private import std.exception;
+
 
 class OdoodException : Exception
 {
-    this(string msg, string file = __FILE__, size_t line = __LINE__) {
-        super(msg, file, line);
-    }
+    mixin basicExceptionCtors;
 }

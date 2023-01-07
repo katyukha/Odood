@@ -16,6 +16,7 @@ private import odood.cli.commands.database: CommandDatabase, CommandDatabaseList
 private import odood.cli.commands.status: CommandStatus;
 private import odood.cli.commands.addons: CommandAddons, CommandAddonsList;
 private import odood.cli.commands.config: CommandConfig;
+private import odood.cli.commands.test: CommandTest;
 
 
 /** Custom logger for Odood CLI
@@ -72,6 +73,7 @@ class App: OdoodProgram {
         this.add(new CommandDatabase());
         this.add(new CommandAddons());
         this.add(new CommandConfig());
+        this.add(new CommandTest());
 
         // shortcuts
         this.add(new CommandServerStart());

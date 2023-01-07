@@ -54,9 +54,10 @@ struct OdooAddon {
 
 /// Check if provided path is odoo module
 bool isOdooAddon(in Path path) {
-    if (!path.isDir)
-        return false;
     if (!path.exists)
+        return false;
+
+    if (!path.isDir)
         return false;
 
     if (!path.getAddonManifestPath.isNull)

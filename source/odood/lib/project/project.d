@@ -16,6 +16,7 @@ private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
 private import odood.lib.addon_manager: AddonManager;
 private import odood.lib.repository: AddonRepository, cloneRepo;
+private import odood.lib.odoo.test: OdooTestRunner;
 
 public import odood.lib.project.config: ProjectConfig;
 
@@ -99,6 +100,12 @@ class Project {
       **/
     @property auto addons() const {
         return AddonManager(_config);
+    }
+
+    /** Create new test-runner instance.
+      **/
+    auto testRunner() const {
+        return OdooTestRunner(_config);
     }
 
     /** Save project configuration to config file.

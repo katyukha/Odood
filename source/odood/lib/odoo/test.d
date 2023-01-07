@@ -1,0 +1,174 @@
+/** Module that defines test runner, that is responsible
+  * for running tests of odoo modules
+  **/
+module odood.lib.odoo.test;
+
+private import std.logger;
+private import std.string: join, empty;
+private import std.format: format;
+private import std.algorithm: map;
+private import std.exception: enforce;
+
+private import thepath: Path;
+
+private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.odoo.lodoo: LOdoo;
+private import odood.lib.odoo.log: OdooLogRecord;
+private import odood.lib.odoo.addon: OdooAddon;
+private import odood.lib.addon_manager: AddonManager;
+private import odood.lib.server: OdooServer;
+private import odood.lib.exception: OdoodException;
+
+private struct OdooTestResult {
+    bool success;
+    OdooLogRecord[] warnings;
+    OdooLogRecord[] errors;
+}
+
+
+struct OdooTestRunner {
+
+    private const ProjectConfig _config;
+    private const LOdoo _lodoo;
+    private const OdooServer _server;
+    private AddonManager _addon_manager;
+
+    // TODO: Create separate struct to handle AddonsLists
+    private OdooAddon[] _addons;  // Addons to run tests for
+    private OdooLogRecord[] _log_records;
+
+    private string _test_db_name;
+    private Path _log_file;
+    private void delegate(in ref OdooLogRecord rec) _log_handler;
+
+    this(in ProjectConfig config) {
+        _config = config;
+        _lodoo = LOdoo(_config, _config.odoo_conf);
+        _server = OdooServer(_config);
+        _addon_manager = AddonManager(_config);
+    }
+
+    string getOrCreateTestDb() {
+        if (!_test_db_name)
+            setDatabaseName("odood%s-odood-test".format(_config.odoo_serie));
+        if (!_lodoo.databaseExists(_test_db_name))
+            _lodoo.databaseCreate(_test_db_name, true);
+        return _test_db_name;
+    }
+
+    void logToFile(in ref OdooLogRecord log_record) {
+        _log_file.appendFile(
+            "%s %s %s %s %s: %s\n".format(
+                log_record.date, log_record.process_id, log_record.log_level,
+                log_record.db, log_record.logger, log_record.msg));
+    }
+
+    auto ref setDatabaseName(in string dbname) {
+        _test_db_name = dbname;
+        _log_file = _config.log_dir.join("test.%s.log".format(_test_db_name));
+
+        tracef(
+            "Setting dbname=%s and logfile=%s for test runner",
+            _test_db_name, _log_file);
+
+        return this;
+    }
+
+    auto ref addModule(in OdooAddon addon) {
+        tracef("Adding %s addon to test runner", addon.name);
+        _addons ~= addon;
+        return this;
+    }
+
+    auto ref addModule(in string addon_name) {
+        auto addon = _addon_manager.getByName(addon_name);
+        enforce!OdoodException(
+            !addon.isNull,
+            "Cannot find addon %s!".format(addon_name));
+        return addModule(addon.get);
+    }
+
+    auto ref registerLogHandler(
+            scope void delegate(in ref OdooLogRecord) handler) {
+        _log_handler = handler;
+        return this;
+    }
+
+    /** Run tests
+      **/
+    auto run() {
+        enforce!OdoodException(
+            _addons.length > 0,
+            "No addons specified for test");
+        auto test_dbname = getOrCreateTestDb();
+
+        OdooTestResult result;
+
+        auto init_res =_server.pipeServerLog([
+            "--init=%s".format(_addons.map!(a => a.name).join(",")),
+            "--log-level=warn",
+            "--stop-after-init",
+            "--database=%s".format(test_dbname),
+        ]);
+        foreach(log_record; init_res) {
+            _log_records ~= log_record;
+            logToFile(log_record);
+            if (_log_handler)
+                _log_handler(log_record);
+
+            switch (log_record.log_level) {
+                case "WARNING":
+                    result.warnings ~= log_record;
+                    break;
+                case "ERROR", "CRITICAL":
+                    result.errors ~= log_record;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if(init_res.close != 0) {
+            result.success = false;
+            return result;
+        }
+
+        auto update_res =_server.pipeServerLog([
+            "--update=%s".format(_addons.map!(a => a.name).join(",")),
+            "--log-level=info",
+            "--stop-after-init",
+            "--test-enable",
+            "--database=%s".format(test_dbname),
+        ]);
+        foreach(log_record; update_res) {
+            _log_records ~= log_record;
+            logToFile(log_record);
+            if (_log_handler)
+                _log_handler(log_record);
+
+            switch (log_record.log_level) {
+                case "WARNING":
+                    result.warnings ~= log_record;
+                    break;
+                case "ERROR", "CRITICAL":
+                    result.errors ~= log_record;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (update_res.close != 0) {
+            result.success = false;
+            return result;
+        }
+
+        if (result.errors.length > 0)
+            result.success = false;
+        else
+            result.success = true;
+
+        return result;
+    }
+}
