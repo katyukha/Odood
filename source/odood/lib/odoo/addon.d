@@ -44,6 +44,16 @@ struct OdooAddon {
         return _path;
     }
 
+    @property installable() {
+        // TODO: Cache processed manifest in addon.
+        auto manifest = readManifest();
+        if (manifest.has_key("installable"))
+            return manifest["installable"].to_d!bool;
+
+        // All addons are installable by default
+        return true;
+    }
+
     /// Read the module manifest and return it as py_evan result
     auto readManifest() const {
         auto manifest_path = getAddonManifestPath(path).get;

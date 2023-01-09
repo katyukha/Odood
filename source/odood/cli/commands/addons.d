@@ -34,6 +34,8 @@ class CommandAddonsList: OdoodCommand {
             null, "by-name", "Display addons by name (default)."));
         this.add(new Flag(
             null, "system", "Search for all addons available for Odoo."));
+        this.add(new Flag(
+            null, "installable", "Filter only installable addons."));
         this.add(new Argument(
             "path", "Path to search for addons in.").optional);
     }
@@ -60,6 +62,9 @@ class CommandAddonsList: OdoodCommand {
         }
 
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
+            if (args.flag("installable") && !addon.installable)
+                continue;
+
             final switch(display_type) {
                 case AddonDisplayType.by_name:
                     writeln(addon.name);
