@@ -45,6 +45,8 @@ class CommandTest: OdoodCommand {
         super("test", "Run tests for mudles.");
         this.add(new Option(
             "d", "db", "Database to run tests for."));
+        this.add(new Flag(
+            "t", "temp-db", "Create temporary database for tests."));
         this.add(new Argument(
             "addon", "Name of addon to run tests for.").required.repeating);
     }
@@ -62,7 +64,9 @@ class CommandTest: OdoodCommand {
         foreach(addon_name; args.args("addon"))
             testRunner.addModule(addon_name);
 
-        if (args.option("db") && !args.option("db").empty)
+        if (args.flag("temp-db"))
+            testRunner.useTemporaryDatabase();
+        else if (args.option("db") && !args.option("db").empty)
             testRunner.setDatabaseName(args.option("db"));
 
         auto res = testRunner.run();

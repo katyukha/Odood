@@ -16,7 +16,7 @@ immutable auto RE_PARSE_ODOO_LOG = ctRegex!(
     `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
     `(?P<process_id>\d+)\s` ~
     `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-_]+)\s` ~
+    `(?P<db>\?|[\w\-\._]+)\s` ~
     `(?P<logger>[\w\.]+):\s` ~
     `(?P<msg>[\s\S]*?)\n*` ~
     `(?=(\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d\s\d+\s[A-Z]+\s))`,
@@ -27,7 +27,7 @@ immutable auto RE_PARSE_ODOO_LOG_E = ctRegex!(
     `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
     `(?P<process_id>\d+)\s` ~
     `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-_]+)\s` ~
+    `(?P<db>\?|[\w\-\._]+)\s` ~
     `(?P<logger>[\w\.]+):\s` ~
     `(?P<msg>[\s\S]*?)\n*` ~
     `(?=$)`,
@@ -40,7 +40,7 @@ immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
     `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
     `(?P<process_id>\d+)\s` ~
     `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-_]+)\s` ~
+    `(?P<db>\?|[\w\-\._]+)\s` ~
     `(?P<logger>[\w\.]+):\s` ~
     `(?P<msg>[\s\S]*?)\n*` ~
     `(?=(\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d\s\d+\s[A-Z]+\s)|$)`,

@@ -6,7 +6,6 @@ private import std.logger;
 private import std.process: execute, Config, Pid;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.ascii: letters;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
 
@@ -152,7 +151,10 @@ void download(in string url, in Path dest_path, in Duration timeout=15.seconds) 
 /** Generate random string of specified length
   **/
 string generateRandomString(in uint length) {
+    import std.ascii: letters, digits;
+
     string result = "";
-    for(uint i; i<length; i++) result ~= letters[uniform(0, $)];
+    immutable string symbol_pool = letters ~ digits;
+    for(uint i; i<length; i++) result ~= symbol_pool[uniform(0, $)];
     return result;
 }

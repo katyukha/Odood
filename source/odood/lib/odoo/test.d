@@ -19,6 +19,7 @@ private import odood.lib.odoo.addon: OdooAddon;
 private import odood.lib.addon_manager: AddonManager;
 private import odood.lib.server: OdooServer;
 private import odood.lib.exception: OdoodException;
+private import odood.lib.utils: generateRandomString;
 
 private struct OdooTestResult {
     bool success;
@@ -39,6 +40,7 @@ struct OdooTestRunner {
     private OdooLogRecord[] _log_records;
 
     private string _test_db_name;
+    private bool _temporary_db;
     private Path _log_file;
     private void delegate(in ref OdooLogRecord rec) _log_handler;
 
@@ -47,14 +49,15 @@ struct OdooTestRunner {
         _lodoo = LOdoo(_config, _config.odoo_conf);
         _server = OdooServer(_config);
         _addon_manager = AddonManager(_config);
+        _temporary_db = false;
     }
 
-    string getOrCreateTestDb() {
+    void getOrCreateTestDb() {
         if (!_test_db_name)
-            setDatabaseName("odood%s-odood-test".format(_config.odoo_serie));
+            setDatabaseName(
+                "odood%s-odood-test".format(_config.odoo_serie.major));
         if (!_lodoo.databaseExists(_test_db_name))
             _lodoo.databaseCreate(_test_db_name, true);
-        return _test_db_name;
     }
 
     void logToFile(in ref OdooLogRecord log_record) {
@@ -73,6 +76,16 @@ struct OdooTestRunner {
             _test_db_name, _log_file);
 
         return this;
+    }
+
+    auto ref useTemporaryDatabase() {
+        tracef(
+            "Using temporary database. " ~
+            "It will be removed after tests finished");
+        _temporary_db = true;
+        return setDatabaseName(
+            "odood%s-test-%s".format(
+                _config.odoo_serie.major, generateRandomString(8)));
     }
 
     auto ref addModule(in OdooAddon addon) {
@@ -95,13 +108,21 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Take clean up actions before test finished
+      **/
+    void cleanUp() {
+        if (_temporary_db && _lodoo.databaseExists(_test_db_name)) {
+            _lodoo.databaseDrop(_test_db_name);
+        }
+    }
+
     /** Run tests
       **/
     auto run() {
         enforce!OdoodException(
             _addons.length > 0,
             "No addons specified for test");
-        auto test_dbname = getOrCreateTestDb();
+        getOrCreateTestDb();
 
         OdooTestResult result;
 
@@ -109,7 +130,8 @@ struct OdooTestRunner {
             "--init=%s".format(_addons.map!(a => a.name).join(",")),
             "--log-level=warn",
             "--stop-after-init",
-            "--database=%s".format(test_dbname),
+            "--workers=0",
+            "--database=%s".format(_test_db_name),
         ]);
         foreach(log_record; init_res) {
             _log_records ~= log_record;
@@ -131,6 +153,7 @@ struct OdooTestRunner {
 
         if(init_res.close != 0) {
             result.success = false;
+            cleanUp();
             return result;
         }
 
@@ -138,8 +161,9 @@ struct OdooTestRunner {
             "--update=%s".format(_addons.map!(a => a.name).join(",")),
             "--log-level=info",
             "--stop-after-init",
+            "--workers=0",
             "--test-enable",
-            "--database=%s".format(test_dbname),
+            "--database=%s".format(_test_db_name),
         ]);
         foreach(log_record; update_res) {
             _log_records ~= log_record;
@@ -161,6 +185,7 @@ struct OdooTestRunner {
 
         if (update_res.close != 0) {
             result.success = false;
+            cleanUp();
             return result;
         }
 
@@ -169,6 +194,7 @@ struct OdooTestRunner {
         else
             result.success = true;
 
+        cleanUp();
         return result;
     }
 }
