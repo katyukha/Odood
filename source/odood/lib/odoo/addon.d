@@ -6,6 +6,7 @@ private import std.exception : enforce;
 private import std.conv : to;
 
 private import pyd.embedded: py_eval;
+private import pyd.pydobject: PydObject;
 
 private import thepath: Path;
 
@@ -15,9 +16,10 @@ private import thepath: Path;
   * but represents the addon on filesystem, with ability to fetch
   * additional info about this addon by reading manifest
   **/
-struct OdooAddon {
-    private string _name;
-    private Path _path;
+final class OdooAddon {
+    private immutable string _name;
+    private immutable Path _path;
+    private Nullable!PydObject _manifest;
 
     @disable this();
 
@@ -35,29 +37,31 @@ struct OdooAddon {
     }
 
     /// name of the addon
-    @property name() const {
+    @property auto name() const {
         return _name;
     }
 
     /// path to the addon on filesystem
-    @property path() const {
+    @property auto path() const {
         return _path;
     }
 
-    @property installable() {
-        // TODO: Cache processed manifest in addon.
-        auto manifest = readManifest();
-        if (manifest.has_key("installable"))
-            return manifest["installable"].to_d!bool;
+    /// module manifest
+    @property auto manifest() {
+        if (_manifest.isNull)
+            _manifest = nullable(readManifest());
+        return _manifest.get;
+    }
 
-        // All addons are installable by default
-        return true;
+    @property bool installable() {
+        return manifest.get("installable", true).to_d!bool;
     }
 
     /// Read the module manifest and return it as py_evan result
     auto readManifest() const {
         auto manifest_path = getAddonManifestPath(path).get;
         return py_eval(manifest_path.readFileText);
+
     }
 }
 

@@ -36,7 +36,7 @@ struct OdooTestRunner {
     private AddonManager _addon_manager;
 
     // TODO: Create separate struct to handle AddonsLists
-    private OdooAddon[] _addons;  // Addons to run tests for
+    private const(OdooAddon)[] _addons;  // Addons to run tests for
     private OdooLogRecord[] _log_records;
 
     private string _test_db_name;
@@ -88,9 +88,9 @@ struct OdooTestRunner {
                 _config.odoo_serie.major, generateRandomString(8)));
     }
 
-    auto ref addModule(in OdooAddon addon) {
+    auto ref addModule(in ref OdooAddon addon) {
         tracef("Adding %s addon to test runner", addon.name);
-        _addons ~= addon;
+        _addons ~= [addon];
         return this;
     }
 

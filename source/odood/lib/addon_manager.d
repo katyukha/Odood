@@ -51,7 +51,7 @@ struct AddonManager {
     Nullable!OdooAddon getByName(in string addon_name) {
         foreach(path; addons_paths) {
             if (path.join(addon_name).isOdooAddon)
-                return OdooAddon(path.join(addon_name), addon_name).nullable;
+                return new OdooAddon(path.join(addon_name), addon_name).nullable;
         }
         return Nullable!OdooAddon.init;
     }
@@ -68,7 +68,7 @@ struct AddonManager {
     OdooAddon[] scan(in Path path) {
         tracef("Searching for addons in %s", path);
         if (isOdooAddon(path)) {
-            return [OdooAddon(path)];
+            return [new OdooAddon(path)];
         }
 
         OdooAddon[] res;
@@ -78,7 +78,7 @@ struct AddonManager {
                 // Skip modules defined in OCA setup folder to avoid duplication.
                 continue;
             if (addon_path.isOdooAddon)
-                res ~= OdooAddon(addon_path);
+                res ~= new OdooAddon(addon_path);
         }
         return res;
     }
@@ -101,7 +101,7 @@ struct AddonManager {
     /// Link all addons inside specified directories
     void link(in Path search_path) {
         if (search_path.isOdooAddon)
-            link(OdooAddon(search_path));
+            link(new OdooAddon(search_path));
             
         foreach(addon; scan(search_path))
             link(addon);
