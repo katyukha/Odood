@@ -11,7 +11,28 @@ private import pyd.pydobject: PydObject;
 private import thepath: Path;
 
 
-/** Simple struct to represent single Odoo addons.
+/** Struct designed to read addons manifest
+  **/
+private struct OdooAddonManifest {
+    private PydObject _manifest;
+
+    this(in Path path) {
+        _manifest = py_eval(path.readFileText);
+    }
+
+    /// Is addon installable
+    @property bool installable() {
+        return _manifest.get("installable", true).to_d!bool;
+    }
+
+    /// Is this addons application
+    @property bool application() {
+        return _manifest.get("application", false).to_d!bool;
+    }
+}
+
+
+/** Simple struct to represent single Odoo addon.
   * This struct is not bound to any project config,
   * but represents the addon on filesystem, with ability to fetch
   * additional info about this addon by reading manifest
@@ -19,7 +40,8 @@ private import thepath: Path;
 final class OdooAddon {
     private immutable string _name;
     private immutable Path _path;
-    private Nullable!PydObject _manifest;
+    private immutable Path _manifest_path;
+    private Nullable!OdooAddonManifest _manifest;
 
     @disable this();
 
@@ -27,13 +49,14 @@ final class OdooAddon {
     this(in Path path, in string name) {
         this._name = name;
         this._path = path.toAbsolute;
+        this._manifest_path = getAddonManifestPath(_path).get;
     }
 
     /** Initialize addon from path on filesystem, with automatic
       * computation of name of addon.
       **/
     this(in Path path) {
-        this(path, getAddonName(path));
+        this(path, path.baseName);
     }
 
     /// name of the addon
@@ -49,19 +72,9 @@ final class OdooAddon {
     /// module manifest
     @property auto manifest() {
         if (_manifest.isNull)
-            _manifest = nullable(readManifest());
+            _manifest = OdooAddonManifest(_manifest_path).nullable;
+
         return _manifest.get;
-    }
-
-    @property bool installable() {
-        return manifest.get("installable", true).to_d!bool;
-    }
-
-    /// Read the module manifest and return it as py_evan result
-    auto readManifest() const {
-        auto manifest_path = getAddonManifestPath(path).get;
-        return py_eval(manifest_path.readFileText);
-
     }
 }
 
@@ -90,11 +103,4 @@ Nullable!Path getAddonManifestPath(in Path path) {
     if (path.join("__openerp__.py").exists)
         return path.join("__openerp__.py").nullable;
     return Nullable!Path.init;
-}
-
-
-/** Get name of addon based on path to addon
-  **/
-string getAddonName(in Path path) {
-    return path.baseName;
 }

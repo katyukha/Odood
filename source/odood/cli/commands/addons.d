@@ -69,7 +69,7 @@ class CommandAddonsList: OdoodCommand {
         }
 
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
-            if (args.flag("installable") && !addon.installable)
+            if (args.flag("installable") && !addon.manifest.installable)
                 continue;
             if (args.flag("linked") && !project.addons.isLinked(addon))
                 continue;
