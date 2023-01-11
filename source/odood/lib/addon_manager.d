@@ -107,6 +107,16 @@ struct AddonManager {
             link(addon);
     }
 
+    /// Check if addon is linked or not
+    bool isLinked(in ref OdooAddon addon) {
+        auto check_path = _config.addons_dir.join(addon.name);
+        if (check_path.exists &&
+                check_path.isSymlink &&
+                check_path.readLink().toAbsolute == addon.path.toAbsolute)
+            return true;
+        return false;
+    }
+
     /// Initial method, that can do install 
     private void _run_install_update_addons(
             in string[] addon_names,

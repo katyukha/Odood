@@ -36,6 +36,10 @@ class CommandAddonsList: OdoodCommand {
             null, "system", "Search for all addons available for Odoo."));
         this.add(new Flag(
             null, "installable", "Filter only installable addons."));
+        this.add(new Flag(
+            null, "linked", "Filter only linked addons."));
+        this.add(new Flag(
+            null, "not-linked", "Filter only addons that are not linked."));
         this.add(new Argument(
             "path", "Path to search for addons in.").optional);
     }
@@ -63,6 +67,10 @@ class CommandAddonsList: OdoodCommand {
 
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
             if (args.flag("installable") && !addon.installable)
+                continue;
+            if (args.flag("linked") && !project.addons.isLinked(addon))
+                continue;
+            if (args.flag("not-linked") && project.addons.isLinked(addon))
                 continue;
 
             final switch(display_type) {
