@@ -85,11 +85,11 @@ struct AddonManager {
 
     /// Link single odoo addon
     void link(in OdooAddon addon, in bool force=false) {
-        auto const dest = _config.addons_dir.join(addon.name);
+        auto const dest = _config.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
-            addon.path.symlink(_config.addons_dir.join(addon.name));
+            addon.path.symlink(_config.directories.addons.join(addon.name));
         } else if (force) {
             tracef(
                 ("Removing allready existing addon %s at %s " ~
@@ -98,7 +98,7 @@ struct AddonManager {
             dest.remove();
             tracef("linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
-            addon.path.symlink(_config.addons_dir.join(addon.name));
+            addon.path.symlink(_config.directories.addons.join(addon.name));
         }
 
         if (dest.join("requirements.txt").exists) {
@@ -119,7 +119,7 @@ struct AddonManager {
 
     /// Check if addon is linked or not
     bool isLinked(in ref OdooAddon addon) {
-        auto check_path = _config.addons_dir.join(addon.name);
+        auto check_path = _config.directories.addons.join(addon.name);
         if (check_path.exists &&
                 check_path.isSymlink &&
                 check_path.readLink().toAbsolute == addon.path.toAbsolute)

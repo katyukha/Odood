@@ -95,7 +95,7 @@ auto cloneRepo(in ProjectConfig config, in string url, in string branch) {
     string[] path_segments;
     foreach(p; git_url.path.splitter("/"))
         path_segments ~= p;
-    auto dest = config.repositories_dir.join(path_segments);
+    auto dest = config.directories.repositories.join(path_segments);
     enforce!OdoodException(
         dest.isValid,
         "Cannot compute destination for git repo %s");

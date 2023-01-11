@@ -73,7 +73,7 @@ struct OdooTestRunner {
 
     auto ref setDatabaseName(in string dbname) {
         _test_db_name = dbname;
-        _log_file = _config.log_dir.join("test.%s.log".format(_test_db_name));
+        _log_file = _config.directories.log.join("test.%s.log".format(_test_db_name));
 
         tracef(
             "Setting dbname=%s and logfile=%s for test runner",

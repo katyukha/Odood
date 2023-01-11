@@ -11,13 +11,13 @@ private import odood.lib.project.config: ProjectConfig;
  **/
 void initializeProjectDirs(in ProjectConfig config) {
     config.project_root.mkdir(true);
-    config.conf_dir.mkdir(true);
-    config.log_dir.mkdir(true);
-    config.downloads_dir.mkdir(true);
-    config.addons_dir.mkdir(true);
-    config.data_dir.mkdir(true);
-    config.backups_dir.mkdir(true);
-    config.repositories_dir.mkdir(true);
+    config.directories.conf.mkdir(true);
+    config.directories.log.mkdir(true);
+    config.directories.downloads.mkdir(true);
+    config.directories.addons.mkdir(true);
+    config.directories.data.mkdir(true);
+    config.directories.backups.mkdir(true);
+    config.directories.repositories.mkdir(true);
 }
 
 

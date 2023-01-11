@@ -25,7 +25,7 @@ private import odood.lib.utils;
 void installDownloadOdoo(in ProjectConfig config) {
     // TODO: replace with logger calls, or with colored output.
     import std.stdio;
-    auto odoo_archive_path = config.downloads_dir.join(
+    auto odoo_archive_path = config.directories.downloads.join(
             "odoo.%s.zip".format(config.odoo_branch));
 
     enforce!OdoodException(

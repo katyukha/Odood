@@ -172,7 +172,7 @@ class CommandDatabaseBackup: OdoodCommand {
                 generateRandomString(4),
                 b_format
             );
-            dest = project.config.backups_dir.join(dest_name);
+            dest = project.config.directories.backups.join(dest_name);
         }
 
         project.lodoo.databaseBackup(args.arg("name"), dest, b_format);

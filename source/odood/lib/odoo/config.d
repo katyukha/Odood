@@ -28,11 +28,11 @@ Ini initOdooConfig(in ProjectConfig config) {
     } else {
         addons_path ~= config.odoo_path.join("odoo").toString;
     }
-    addons_path ~= config.addons_dir.toString;
+    addons_path ~= config.directories.addons.toString;
 
     odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
-    odoo_conf["options"].setKey("data_dir", config.data_dir.toString);
-    odoo_conf["options"].setKey("logfile", config.log_file.toString);
+    odoo_conf["options"].setKey("data_dir", config.directories.data.toString);
+    odoo_conf["options"].setKey("logfile", config.directories.log.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");
     return odoo_conf;
 }
