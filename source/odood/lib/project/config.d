@@ -25,9 +25,6 @@ struct ProjectConfig {
     /// Main odoo config file
     Path odoo_conf;
 
-    /// Odoo configuration file for tests
-    Path odoo_test_conf;
-
     /// Directory to store logs
     Path log_dir;
 
@@ -90,7 +87,6 @@ struct ProjectConfig {
         this.repositories_dir = this.project_root.join("repositories");
 
         this.odoo_conf = this.conf_dir.join("odoo.conf");
-        this.odoo_test_conf = this.conf_dir.join("odoo.test.conf");
         this.log_file = this.log_dir.join("odoo.log");
         this.odoo_pid_file = this.project_root.join("odoo.pid");
 
@@ -131,7 +127,6 @@ struct ProjectConfig {
             config["directories"]["repositories"].as!string);
 
         this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
-        this.odoo_test_conf = Path(config["files"]["odoo_test_config"].as!string);
         this.log_file = Path(config["files"]["odoo_log"].as!string);
         this.odoo_pid_file = Path(config["files"]["odoo_pid"].as!string);
 
@@ -188,7 +183,6 @@ struct ProjectConfig {
             ]),
             "files": Node([
                 "odoo_config": this.odoo_conf.toString,
-                "odoo_test_config": this.odoo_test_conf.toString,
                 "odoo_log": this.log_file.toString,
                 "odoo_pid": this.odoo_pid_file.toString,
             ]),

@@ -21,6 +21,10 @@ private import odood.lib.server: OdooServer;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
 
+private immutable ODOO_TEST_HTTP_PORT=8269;
+private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
+
+
 private struct OdooTestResult {
     bool success;
     OdooLogRecord[] warnings;
@@ -126,11 +130,17 @@ struct OdooTestRunner {
 
         OdooTestResult result;
 
+        auto opt_http_port = _config.odoo_serie > OdooSerie(10) ?
+                "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
+                "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
+
         auto init_res =_server.pipeServerLog([
             "--init=%s".format(_addons.map!(a => a.name).join(",")),
             "--log-level=warn",
             "--stop-after-init",
             "--workers=0",
+            "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+            opt_http_port,
             "--database=%s".format(_test_db_name),
         ]);
         foreach(log_record; init_res) {
