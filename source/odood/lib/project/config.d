@@ -114,7 +114,6 @@ struct ProjectConfig {
       *     node = YAML node representation to initialize config from
       **/
     this(in ref dyaml.Node config) {
-        //this.fromYAML(node);
         this.project_root = Path(config["project_root"].as!string);
         this.conf_dir = Path(config["directories"]["conf"].as!string);
         this.log_dir = Path(config["directories"]["log"].as!string);
@@ -126,9 +125,20 @@ struct ProjectConfig {
         this.repositories_dir = Path(
             config["directories"]["repositories"].as!string);
 
-        this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
-        this.log_file = Path(config["files"]["odoo_log"].as!string);
-        this.odoo_pid_file = Path(config["files"]["odoo_pid"].as!string);
+        if (config["odoo"].containsKey("configfile"))
+            this.odoo_conf = config["odoo"]["configfile"].as!string;
+        else
+            this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
+
+        if (config["odoo"].containsKey("logfile"))
+            this.log_file = config["odoo"]["logfile"].as!string;
+        else
+            this.log_file = Path(config["files"]["odoo_log"].as!string);
+
+        if (config["odoo"].containsKey("pidfile"))
+            this.odoo_pid_file = config["odoo"]["pidfile"].as!string;
+        else
+            this.odoo_pid_file = Path(config["files"]["odoo_pid"].as!string);
 
         this.odoo_path = Path(config["odoo"]["path"].as!string);
         this.odoo_serie = OdooSerie(config["odoo"]["version"].as!string);
@@ -136,7 +146,6 @@ struct ProjectConfig {
         this.odoo_repo = config["odoo"]["repo"].as!string;
 
         if (config.containsKey("virtualenv")) {
-            // TODO: move to venv object
             this._venv = VirtualEnv(config["virtualenv"]);
         } else {
             this._venv = VirtualEnv(
@@ -171,6 +180,9 @@ struct ProjectConfig {
                 "branch": this.odoo_branch,
                 "repo": this.odoo_repo,
                 "path": this.odoo_path.toString,
+                "configfile": this.odoo_conf.toString,
+                "logfile": this.log_file.toString,
+                "pidfile": this.odoo_pid_file.toString,
             ]),
             "directories": Node([
                 "conf": this.conf_dir.toString,
@@ -180,11 +192,6 @@ struct ProjectConfig {
                 "data": this.data_dir.toString,
                 "backups": this.backups_dir.toString,
                 "repositories": this.repositories_dir.toString,
-            ]),
-            "files": Node([
-                "odoo_config": this.odoo_conf.toString,
-                "odoo_log": this.log_file.toString,
-                "odoo_pid": this.odoo_pid_file.toString,
             ]),
             "virtualenv": _venv.toYAML(),
         ]);
