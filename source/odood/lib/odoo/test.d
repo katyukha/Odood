@@ -137,6 +137,7 @@ struct OdooTestRunner {
         auto init_res =_server.pipeServerLog([
             "--init=%s".format(_addons.map!(a => a.name).join(",")),
             "--log-level=warn",
+            "--logfile=",
             "--stop-after-init",
             "--workers=0",
             "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
@@ -170,6 +171,7 @@ struct OdooTestRunner {
         auto update_res =_server.pipeServerLog([
             "--update=%s".format(_addons.map!(a => a.name).join(",")),
             "--log-level=info",
+            "--logfile=",
             "--stop-after-init",
             "--workers=0",
             "--test-enable",
