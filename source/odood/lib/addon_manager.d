@@ -84,13 +84,23 @@ struct AddonManager {
     }
 
     /// Link single odoo addon
-    void link(in OdooAddon addon) {
+    void link(in OdooAddon addon, in bool force=false) {
         auto const dest = _config.addons_dir.join(addon.name);
         if (!dest.exists) {
             tracef("linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
             addon.path.symlink(_config.addons_dir.join(addon.name));
+        } else if (force) {
+            tracef(
+                ("Removing allready existing addon %s at %s " ~
+                 "before linking from %s").format(
+                     addon.name, dest, addon.path));
+            dest.remove();
+            tracef("linking addon %s (%s -> %s)",
+                   addon.name, addon.path, dest);
+            addon.path.symlink(_config.addons_dir.join(addon.name));
         }
+
         if (dest.join("requirements.txt").exists) {
             infof("Installing python requirements for addon '%s'",
                   addon.name);
@@ -99,12 +109,12 @@ struct AddonManager {
     }
 
     /// Link all addons inside specified directories
-    void link(in Path search_path) {
+    void link(in Path search_path, in bool force=false) {
         if (search_path.isOdooAddon)
-            link(new OdooAddon(search_path));
+            link(new OdooAddon(search_path), force);
             
         foreach(addon; scan(search_path))
-            link(addon);
+            link(addon, force);
     }
 
     /// Check if addon is linked or not

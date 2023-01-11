@@ -26,7 +26,7 @@ final class OdooAddon {
     /// Initialize addon based on path and name
     this(in Path path, in string name) {
         this._name = name;
-        this._path = path;
+        this._path = path.toAbsolute;
     }
 
     /** Initialize addon from path on filesystem, with automatic

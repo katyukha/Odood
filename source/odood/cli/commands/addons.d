@@ -15,6 +15,7 @@ private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.addon: OdooAddon;
 private import odood.lib.exception: OdoodException;
 
+
 enum AddonDisplayType {
     by_name,
     by_path,
@@ -110,6 +111,8 @@ class CommandAddonsAddRepo: OdoodCommand {
 class CommandAddonsLink: OdoodCommand {
     this() {
         super("link", "Link addons in specified directory.");
+        this.add(new Flag(
+            "f", "force", "Rewrite already linked/existing addon."));
         this.add(new Argument(
             "path", "Path to search for addons in.").required());
     }
@@ -117,7 +120,7 @@ class CommandAddonsLink: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = new Project();
 
-        project.addons.link(Path(args.arg("path")));
+        project.addons.link(Path(args.arg("path")), args.flag("force"));
     }
 
 }
