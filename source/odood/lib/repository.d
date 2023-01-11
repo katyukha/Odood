@@ -40,10 +40,10 @@ struct GitURL {
 
     this(in string url) {
         auto immutable re_git_url = ctRegex!(
-            `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w-\.]+)(:(?P<password>[\w-\.]+))?@)?(?P<host>[\w-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w-\/\.]+)(\.git))?`);
+            `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\.]+)(:(?P<password>[\w\-\.]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
         auto re_match = url.matchFirst(re_git_url);
         enforce!OdoodException(
-            !re_match.empty,
+            !re_match.empty || !re_match["path"] || !re_match["host"],
             "Cannot parse git url '%s'".format(url));
 
         user = re_match["user"];
@@ -77,6 +77,15 @@ struct GitURL {
             scheme.shouldEqual("ssh");
             host.shouldEqual("gitlab.crnd.pro");
             path.shouldEqual("crnd-opensource/crnd-web");
+            port.shouldBeNull;
+            user.shouldEqual("git");
+            password.shouldBeNull;
+        }
+
+        with (GitURL("git@gitlab.crnd.pro:crnd/crnd-account")) {
+            scheme.shouldEqual("ssh");
+            host.shouldEqual("gitlab.crnd.pro");
+            path.shouldEqual("crnd/crnd-account");
             port.shouldBeNull;
             user.shouldEqual("git");
             password.shouldBeNull;

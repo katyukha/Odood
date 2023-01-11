@@ -95,14 +95,24 @@ class CommandAddonsAddRepo: OdoodCommand {
         super("add-repo", "Add git repository.");
         this.add(new Option(
             "b", "branch", "Branch to clone"));
+        this.add(new Flag(
+            null, "oca",
+            "Add Odoo Community Association (OCA) repository. " ~
+            "If set, then 'repo' argument coould be specified as " ~
+            "name of repo under 'https://github.com/OCA' organuzation.")),
         this.add(new Argument("repo", "Repository URL to clone from.").required());
     }
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
 
+        string git_url = args.arg("repo");
+        if (args.flag("oca"))
+            // TODO: Add validation
+            git_url = "https://github.com/OCA/%s".format(git_url);
+
         project.addRepo(
-            args.arg("repo"),
+            git_url,
             args.option("branch") ?
                 args.option("branch") : project.config.odoo_branch);
     }
