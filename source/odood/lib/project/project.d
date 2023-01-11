@@ -155,7 +155,7 @@ class Project {
     /// Add new repo to project
     void addRepo(in string url, in string branch) {
         auto repo = cloneRepo(_config, url, branch);
-        addons.link(repo.path);
+        addons.link(repo.path, true);
     }
 }
 

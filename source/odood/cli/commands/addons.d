@@ -36,6 +36,8 @@ class CommandAddonsList: OdoodCommand {
         this.add(new Flag(
             null, "system", "Search for all addons available for Odoo."));
         this.add(new Flag(
+            "r", "recursive", "Search for addons recursively."));
+        this.add(new Flag(
             null, "installable", "Filter only installable addons."));
         this.add(new Flag(
             null, "linked", "Filter only linked addons."));
@@ -60,10 +62,10 @@ class CommandAddonsList: OdoodCommand {
         OdooAddon[] addons;
         if (args.flag("system")) {
             info("Listing all addons available for Odoo");
-            addons = project.addons.scan();
+            addons = project.addons.scan(args.flag("recursive"));
         } else  {
             infof("Listing addons in %s", search_path);
-            addons = project.addons.scan(search_path);
+            addons = project.addons.scan(search_path, args.flag("recursive"));
         }
 
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
@@ -113,6 +115,9 @@ class CommandAddonsLink: OdoodCommand {
         super("link", "Link addons in specified directory.");
         this.add(new Flag(
             "f", "force", "Rewrite already linked/existing addon."));
+        this.add(new Flag(
+            "r", "recursive",
+            "Search for addons in this directory recursively."));
         this.add(new Argument(
             "path", "Path to search for addons in.").required());
     }
@@ -120,7 +125,10 @@ class CommandAddonsLink: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = new Project();
 
-        project.addons.link(Path(args.arg("path")), args.flag("force"));
+        project.addons.link(
+            Path(args.arg("path")),
+            args.flag("recursive"),
+            args.flag("force"));
     }
 
 }

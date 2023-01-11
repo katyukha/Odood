@@ -5,6 +5,7 @@ private import std.typecons: Nullable, nullable;
 private import std.array: split;
 private import std.string: join;
 private import std.format: format;
+private import std.file: SpanMode;
 
 private import thepath: Path;
 
@@ -57,15 +58,15 @@ struct AddonManager {
     }
 
     /// Scan for all addons available in Odoo
-    OdooAddon[] scan() {
+    OdooAddon[] scan(in bool recursive=false) {
         OdooAddon[] res;
         foreach(path; addons_paths)
-            res ~= scan(path);
+            res ~= scan(path, recursive);
         return res;
     }
 
     /// Scan specified path for addons
-    OdooAddon[] scan(in Path path) {
+    OdooAddon[] scan(in Path path, in bool recursive=false) {
         tracef("Searching for addons in %s", path);
         if (isOdooAddon(path)) {
             return [new OdooAddon(path)];
@@ -73,7 +74,8 @@ struct AddonManager {
 
         OdooAddon[] res;
 
-        foreach(addon_path; path.walkBreadth) {
+        auto walk_mode = recursive ? SpanMode.breadth : SpanMode.shallow;
+        foreach(addon_path; path.walk(walk_mode)) {
             if (addon_path.isInside(path.join("setup")))
                 // Skip modules defined in OCA setup folder to avoid duplication.
                 continue;
@@ -109,11 +111,14 @@ struct AddonManager {
     }
 
     /// Link all addons inside specified directories
-    void link(in Path search_path, in bool force=false) {
+    void link(
+            in Path search_path,
+            in bool recursive=false,
+            in bool force=false) {
         if (search_path.isOdooAddon)
             link(new OdooAddon(search_path), force);
             
-        foreach(addon; scan(search_path))
+        foreach(addon; scan(search_path, recursive))
             link(addon, force);
     }
 
