@@ -136,7 +136,11 @@ class CommandAddonsLink: OdoodCommand {
 
 class CommandAddonsUpdateList: OdoodCommand {
     this() {
-        super("update-list", "Update list of addons.");
+        this("update-list");
+    }
+
+    this(in string name) {
+        super(name, "Update list of addons.");
         this.add(
             new Argument(
                 "database", "Path to search for addons in."
@@ -149,6 +153,9 @@ class CommandAddonsUpdateList: OdoodCommand {
 
         string[] dbnames = args.flag("all") ?
             project.lodoo.databaseList() : args.args("database");
+
+        if (!dbnames)
+            errorf("No databases specified.");
 
         foreach(db; dbnames) {
             infof("Updating list of addons for database %s", db);
