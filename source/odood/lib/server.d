@@ -156,6 +156,13 @@ struct OdooServer {
         return -1;
     }
 
+    private const(string[string]) getServerEnv() const {
+        return [
+            "OPENERP_SERVER": _config.odoo.configfile.toString,
+            "ODOO_RC": _config.odoo.configfile.toString,
+        ];
+    }
+
     /** Spawn the Odoo server
       *
       **/
@@ -166,10 +173,6 @@ struct OdooServer {
             !isRunning,
             "Server already running!");
 
-        const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo.configfile.toString,
-            "ODOO_RC": _config.odoo.configfile.toString,
-        ];
         Config process_conf = Config.none;
         if (detach)
             process_conf |= Config.detached;
@@ -188,7 +191,7 @@ struct OdooServer {
                 _config.venv.path.join("bin", "run-in-venv").toString,
                 scriptPath.toString,
             ] ~ server_opts,
-            env,
+            getServerEnv,
             process_conf,
             _config.project_root.toString);
         infof("Odoo server is started. PID: %s", pid.osHandle);
@@ -208,11 +211,6 @@ struct OdooServer {
             !isRunning,
             "Server already running!");
 
-        // TODO: Make separate method to get environment for odoo server
-        const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo.configfile.toString,
-            "ODOO_RC": _config.odoo.configfile.toString,
-        ];
         Config process_conf = Config.none;
 
         tracef("Starting odoo server (pipe logs) with args %s", options);
@@ -223,7 +221,7 @@ struct OdooServer {
                 scriptPath.toString,
             ] ~ options,
             Redirect.all,
-            env,
+            getServerEnv,
             process_conf,
             _config.project_root.toString);
 
@@ -231,19 +229,11 @@ struct OdooServer {
     }
 
     auto run(in string[] options...) const {
-        const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo.configfile.toString,
-            "ODOO_RC": _config.odoo.configfile.toString,
-        ];
-        _config.venv.run(scriptPath, options, _config.project_root, env);
+        _config.venv.run(scriptPath, options, _config.project_root, getServerEnv);
     }
 
     auto runE(in string[] options...) const {
-        const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo.configfile.toString,
-            "ODOO_RC": _config.odoo.configfile.toString,
-        ];
-        _config.venv.runE(scriptPath, options, _config.project_root, env);
+        _config.venv.runE(scriptPath, options, _config.project_root, getServerEnv);
     }
 
     /** Check if the Odoo server is running or not
