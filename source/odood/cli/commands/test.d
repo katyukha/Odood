@@ -43,12 +43,17 @@ void printLogRecord(in ref OdooLogRecord rec) {
 class CommandTest: OdoodCommand {
     this() {
         super("test", "Run tests for mudles.");
-        this.add(new Option(
-            "d", "db", "Database to run tests for."));
         this.add(new Flag(
             "t", "temp-db", "Create temporary database for tests."));
+        this.add(new Option(
+            "d", "db", "Database to run tests for."));
+        this.add(new Option(
+            null, "dir", "Directory to search for addons to test").repeating);
+        this.add(new Option(
+            null, "dir-r",
+            "Directory to recursively search for addons to test").repeating);
         this.add(new Argument(
-            "addon", "Name of addon to run tests for.").required.repeating);
+            "addon", "Name of addon to run tests for.").optional.repeating);
     }
 
     public override void execute(ProgramArgs args) {
@@ -60,6 +65,14 @@ class CommandTest: OdoodCommand {
         testRunner.registerLogHandler((in ref rec) {
             printLogRecord(rec);
         });
+
+        foreach(string search_path; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(search_path), false))
+                testRunner.addModule(addon);
+
+        foreach(string search_path; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(search_path), true))
+                testRunner.addModule(addon);
 
         foreach(addon_name; args.args("addon"))
             testRunner.addModule(addon_name);

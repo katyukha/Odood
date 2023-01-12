@@ -65,12 +65,14 @@ class CommandDatabaseCreate: OdoodCommand {
 class CommandDatabaseDrop: OdoodCommand {
     this() {
         super("drop", "Drop the odoo database.");
-        this.add(new Argument("name", "Name of database").required());
+        this.add(new Argument("name", "Name of database").required.repeating);
     }
 
     public override void execute(ProgramArgs args) {
         auto project = new Project();
-        project.lodoo.databaseDrop(args.arg("name"));
+        foreach(dbname; args.args("name"))
+            if (project.lodoo.databaseExists(dbname))
+                project.lodoo.databaseDrop(dbname);
     }
 }
 

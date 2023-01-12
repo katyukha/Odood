@@ -56,7 +56,7 @@ struct OdooTestRunner {
         _temporary_db = false;
     }
 
-    void getOrCreateTestDb() {
+    private void getOrCreateTestDb() {
         if (!_test_db_name)
             setDatabaseName(
                 "odood%s-odood-test".format(_config.odoo_serie.major));
@@ -64,13 +64,15 @@ struct OdooTestRunner {
             _lodoo.databaseCreate(_test_db_name, true);
     }
 
-    void logToFile(in ref OdooLogRecord log_record) {
+    private void logToFile(in ref OdooLogRecord log_record) {
         _log_file.appendFile(
             "%s %s %s %s %s: %s\n".format(
                 log_record.date, log_record.process_id, log_record.log_level,
                 log_record.db, log_record.logger, log_record.msg));
     }
 
+    /** Set name of database to run test on
+      **/
     auto ref setDatabaseName(in string dbname) {
         _test_db_name = dbname;
         _log_file = _config.directories.log.join("test.%s.log".format(_test_db_name));
@@ -82,6 +84,9 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Configure test runner to automatically create temporary database
+      * with randomized name and to drop created database after test completed.
+      **/
     auto ref useTemporaryDatabase() {
         tracef(
             "Using temporary database. " ~
@@ -92,12 +97,14 @@ struct OdooTestRunner {
                 _config.odoo_serie.major, generateRandomString(8)));
     }
 
+    /// Add new module to test run
     auto ref addModule(in ref OdooAddon addon) {
-        tracef("Adding %s addon to test runner", addon.name);
+        tracef("Adding %s addon to test runner...", addon.name);
         _addons ~= [addon];
         return this;
     }
 
+    /// ditto
     auto ref addModule(in string addon_name) {
         auto addon = _addon_manager.getByName(addon_name);
         enforce!OdoodException(
@@ -106,6 +113,9 @@ struct OdooTestRunner {
         return addModule(addon.get);
     }
 
+    /** Register handler that will be called to process each log record
+      * captured by this test runner.
+      **/
     auto ref registerLogHandler(
             scope void delegate(in ref OdooLogRecord) handler) {
         _log_handler = handler;
