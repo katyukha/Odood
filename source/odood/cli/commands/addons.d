@@ -98,6 +98,8 @@ class CommandAddonsLink: OdoodCommand {
         this.add(new Flag(
             "r", "recursive",
             "Search for addons in this directory recursively."));
+        this.add(new Flag(
+            null, "ual", "Update addons list for all databases"));
         this.add(new Argument(
             "path", "Path to search for addons in.").required());
     }
@@ -109,6 +111,10 @@ class CommandAddonsLink: OdoodCommand {
             Path(args.arg("path")),
             args.flag("recursive"),
             args.flag("force"));
+
+        if (args.flag("ual"))
+            foreach(dbname; project.lodoo.databaseList())
+                project.lodoo.updateAddonsList(dbname);
     }
 
 }
