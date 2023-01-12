@@ -55,8 +55,8 @@ class CommandStatus: OdoodCommand {
             TMPL_CURRENT_PROJECT_STATUS.format(
                 project.config.project_root,
                 project.config_path,
-                project.config.odoo_serie,
-                project.config.odoo_branch,
+                project.config.odoo.serie,
+                project.config.odoo.branch,
                 project.server.isRunning ? "Running" : "Stopped",
                 "http://%s:%s".format(http_host, http_port),
             )

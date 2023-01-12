@@ -77,7 +77,7 @@ class Project {
 
     /// LOdoo instance for standard config of this project
     @property const(LOdoo) lodoo() const {
-        return LOdoo(_config, _config.odoo_conf);
+        return LOdoo(_config, _config.odoo.configfile);
     }
 
     /** VirtualEnv related to this project.

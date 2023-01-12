@@ -22,11 +22,11 @@ Ini initOdooConfig(in ProjectConfig config) {
     IniSection options = IniSection("options");
     odoo_conf.addSection(options);
 
-    string[] addons_path =[config.odoo_path.join("addons").toString];
-    if (config.odoo_serie <= OdooSerie(9)) {
-        addons_path ~= config.odoo_path.join("openerp").toString;
+    string[] addons_path =[config.odoo.path.join("addons").toString];
+    if (config.odoo.serie <= OdooSerie(9)) {
+        addons_path ~= config.odoo.path.join("openerp").toString;
     } else {
-        addons_path ~= config.odoo_path.join("odoo").toString;
+        addons_path ~= config.odoo.path.join("odoo").toString;
     }
     addons_path ~= config.directories.addons.toString;
 
@@ -60,5 +60,5 @@ Ini readOdooConfig(in Path odoo_conf_path) {
   *    Ini file structure, that could be used to read and modify config
   **/
 Ini readOdooConfig(in ProjectConfig config) {
-    return readOdooConfig(config.odoo_conf);
+    return readOdooConfig(config.odoo.configfile);
 }

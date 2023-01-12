@@ -34,7 +34,7 @@ class CommandAddonsList: OdoodCommand {
         this.add(new Flag(
             null, "by-name", "Display addons by name (default)."));
         this.add(new Flag(
-            null, "system", "Search for all addons available for Odoo."));
+            "s", "system", "Search for all addons available for Odoo."));
         this.add(new Flag(
             "r", "recursive", "Search for addons recursively."));
         this.add(new Flag(

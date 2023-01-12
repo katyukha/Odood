@@ -43,13 +43,13 @@ SemVer getSystemPythonVersion(in ProjectConfig config) {
 /// Is system python suitable for specified project config
 bool isSystemPythonSuitable(in ProjectConfig config) {
     auto sys_py_ver = config.getSystemPythonVersion;
-    if (config.odoo_serie <= OdooSerie(10))
+    if (config.odoo.serie <= OdooSerie(10))
         return (sys_py_ver >= SemVer(2, 7) && sys_py_ver < SemVer(3));
-    if (config.odoo_serie <= OdooSerie(12))
+    if (config.odoo.serie <= OdooSerie(12))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 9));
-    if (config.odoo_serie <= OdooSerie(14))
+    if (config.odoo.serie <= OdooSerie(14))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 10));
-    if (config.odoo_serie <= OdooSerie(16))
+    if (config.odoo.serie <= OdooSerie(16))
         return (sys_py_ver >= SemVer(3, 7) && sys_py_ver < SemVer(3, 11));
 
     /// Unknown odoo version
@@ -63,19 +63,19 @@ bool isSystemPythonSuitable(in ProjectConfig config) {
   * Returns: the suggested python version for specified project config.
   **/
 string suggestPythonVersion(in ProjectConfig config) {
-    if (config.odoo_serie <= OdooSerie(10)) {
+    if (config.odoo.serie <= OdooSerie(10)) {
         return "2.7.18";
-    } else if (config.odoo_serie == OdooSerie(11)) {
+    } else if (config.odoo.serie == OdooSerie(11)) {
         return "3.7.13";
-    } else if (config.odoo_serie == OdooSerie(12)) {
+    } else if (config.odoo.serie == OdooSerie(12)) {
         return "3.7.13";
-    } else if (config.odoo_serie == OdooSerie(13)) {
+    } else if (config.odoo.serie == OdooSerie(13)) {
         return "3.8.13";
-    } else if (config.odoo_serie == OdooSerie(14)) {
+    } else if (config.odoo.serie == OdooSerie(14)) {
         return "3.8.13";
-    } else if (config.odoo_serie == OdooSerie(15)) {
+    } else if (config.odoo.serie == OdooSerie(15)) {
         return "3.8.13";
-    } else if (config.odoo_serie == OdooSerie(16)) {
+    } else if (config.odoo.serie == OdooSerie(16)) {
         return "3.8.13";
     } else {
         return "3.8.13";
@@ -105,7 +105,7 @@ void installVirtualenv(in ProjectConfig config,
 
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
-    if (config.odoo_serie > OdooSerie(10)) {
+    if (config.odoo.serie > OdooSerie(10)) {
         config.venv.installPyPackages("setuptools>=45,<58");
     }
 

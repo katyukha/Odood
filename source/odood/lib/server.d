@@ -123,11 +123,11 @@ struct OdooServer {
 
     /// Get name of odoo server script, depending on odoo serie
     @property string scriptName() const {
-        if (_config.odoo_serie >= OdooSerie(11)) {
+        if (_config.odoo.serie >= OdooSerie(11)) {
             return "odoo";
-        } else if (_config.odoo_serie == OdooSerie(10)) {
+        } else if (_config.odoo.serie == OdooSerie(10)) {
             return "odoo-bin";
-        } else if (_config.odoo_serie >= OdooSerie(8)) {
+        } else if (_config.odoo.serie >= OdooSerie(8)) {
             return "odoo.py";
         } else {
             // Versions older than 8.0
@@ -147,8 +147,8 @@ struct OdooServer {
       *    - -2 if process specified in pid file is not running
       **/
     pid_t getPid() const {
-        if (_config.odoo_pid_file.exists) {
-            auto pid = _config.odoo_pid_file.readFileText.to!pid_t;
+        if (_config.odoo.pidfile.exists) {
+            auto pid = _config.odoo.pidfile.readFileText.to!pid_t;
             if (isProcessRunning(pid))
                 return pid;
             return -2;
@@ -167,8 +167,8 @@ struct OdooServer {
             "Server already running!");
 
         const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo_conf.toString,
-            "ODOO_RC": _config.odoo_conf.toString,
+            "OPENERP_SERVER": _config.odoo.configfile.toString,
+            "ODOO_RC": _config.odoo.configfile.toString,
         ];
         Config process_conf = Config.none;
         if (detach)
@@ -178,10 +178,10 @@ struct OdooServer {
 
         // TODO: move this to virtualenv logic?
         auto server_opts = [
-            "--pidfile=%s".format(_config.odoo_pid_file),
+            "--pidfile=%s".format(_config.odoo.pidfile),
         ];
         if (detach)
-            server_opts ~= ["--logfile=%s".format(_config.log_file)];
+            server_opts ~= ["--logfile=%s".format(_config.odoo.logfile)];
 
         auto pid = std.process.spawnProcess(
             [
@@ -210,8 +210,8 @@ struct OdooServer {
 
         // TODO: Make separate method to get environment for odoo server
         const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo_conf.toString,
-            "ODOO_RC": _config.odoo_conf.toString,
+            "OPENERP_SERVER": _config.odoo.configfile.toString,
+            "ODOO_RC": _config.odoo.configfile.toString,
         ];
         Config process_conf = Config.none;
 
@@ -232,16 +232,16 @@ struct OdooServer {
 
     auto run(in string[] options...) const {
         const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo_conf.toString,
-            "ODOO_RC": _config.odoo_conf.toString,
+            "OPENERP_SERVER": _config.odoo.configfile.toString,
+            "ODOO_RC": _config.odoo.configfile.toString,
         ];
         _config.venv.run(scriptPath, options, _config.project_root, env);
     }
 
     auto runE(in string[] options...) const {
         const(string[string]) env=[
-            "OPENERP_SERVER": _config.odoo_conf.toString,
-            "ODOO_RC": _config.odoo_conf.toString,
+            "OPENERP_SERVER": _config.odoo.configfile.toString,
+            "ODOO_RC": _config.odoo.configfile.toString,
         ];
         _config.venv.runE(scriptPath, options, _config.project_root, env);
     }

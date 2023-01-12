@@ -142,7 +142,7 @@ struct AddonManager {
             "-d", database,
             "--max-cron-threads=0",
             "--stop-after-init",
-            _config.odoo_serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
+            _config.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=/dev/null",
         ];
 

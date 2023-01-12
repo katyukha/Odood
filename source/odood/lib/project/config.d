@@ -11,6 +11,67 @@ private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.server: OdooServer;
 
+/** Struct that represents odoo-specific configuration
+  **/
+private struct ProjectConfigOdoo {
+    /// Main odoo config file
+    Path configfile;
+
+    /// Path to log file
+    Path logfile;
+
+    /// Path to odoo installation
+    Path path;
+
+    /// Path to PID file, that will store process ID of running odoo server
+    Path pidfile;
+
+    /// Version of odoo installed
+    OdooSerie serie;
+
+    /// The branch of odoo that installed. By default same as odoo_serie.
+    string branch;
+
+    /// Repo, odoo is installed from.
+    string repo;
+
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in OdooSerie odoo_serie,
+            in string odoo_branch, in string odoo_repo) {
+
+        configfile = directories.conf.join("odoo.conf");
+        logfile = directories.log.join("odoo.log");
+        pidfile = project_root.join("odoo.pid");
+        path = project_root.join("odoo");
+        serie = odoo_serie;
+        branch = odoo_branch;
+        repo = odoo_repo;
+    }
+
+    this(in ref dyaml.Node config) {
+        this.configfile = config["configfile"].as!string;
+        this.logfile = config["logfile"].as!string;
+        this.pidfile = config["pidfile"].as!string;
+        this.path = Path(config["path"].as!string);
+        this.serie = OdooSerie(config["version"].as!string);
+        this.branch = config["branch"].as!string;
+        this.repo = config["repo"].as!string;
+    }
+
+    dyaml.Node toYAML() const {
+        return dyaml.Node([
+            "version": this.serie.toString,
+            "branch": this.branch,
+            "repo": this.repo,
+            "path": this.path.toString,
+            "configfile": this.configfile.toString,
+            "logfile": this.logfile.toString,
+            "pidfile": this.pidfile.toString,
+        ]);
+    }
+}
+
 
 /** Stuct that represents directory structure for the project
   **/
@@ -80,28 +141,9 @@ final class ProjectConfig {
     /// Root project directory
     Path project_root;
 
-    /// Main odoo config file
-    Path odoo_conf;
-
-    /// Path to log file
-    Path log_file;
-
-    /// Path to odoo installation
-    Path odoo_path;
-
-    /// Path to PID file, that will store process ID of running odoo server
-    Path odoo_pid_file;
-
-    /// Version of odoo installed
-    OdooSerie odoo_serie;
-
-    /// The branch of odoo that installed. By default same as odoo_serie.
-    string odoo_branch;
-
-    /// Repo, odoo is installed from.
-    string odoo_repo;
-
     ProjectConfigDirectories directories;
+
+    ProjectConfigOdoo odoo;
 
     VirtualEnv _venv;
 
@@ -120,14 +162,12 @@ final class ProjectConfig {
             in string odoo_branch, in string odoo_repo) {
         this.project_root = root_path.expandTilde.toAbsolute;
         this.directories = ProjectConfigDirectories(this.project_root);
-
-        this.odoo_conf = this.directories.conf.join("odoo.conf");
-        this.log_file = this.directories.log.join("odoo.log");
-        this.odoo_pid_file = this.project_root.join("odoo.pid");
-        this.odoo_path = this.project_root.join("odoo");
-        this.odoo_serie = odoo_serie;
-        this.odoo_branch = odoo_branch;
-        this.odoo_repo = odoo_repo;
+        this.odoo = ProjectConfigOdoo(
+            this.project_root,
+            this.directories,
+            odoo_serie,
+            odoo_branch,
+            odoo_repo);
 
         this._venv = VirtualEnv(
             this.project_root.join("venv"),
@@ -150,35 +190,9 @@ final class ProjectConfig {
     this(in ref dyaml.Node config) {
         this.project_root = Path(config["project_root"].as!string);
         this.directories = ProjectConfigDirectories(config["directories"]);
+        this.odoo = ProjectConfigOdoo(config["odoo"]);
 
-        if (config["odoo"].containsKey("configfile"))
-            this.odoo_conf = config["odoo"]["configfile"].as!string;
-        else
-            this.odoo_conf = Path(config["files"]["odoo_config"].as!string);
-
-        if (config["odoo"].containsKey("logfile"))
-            this.log_file = config["odoo"]["logfile"].as!string;
-        else
-            this.log_file = Path(config["files"]["odoo_log"].as!string);
-
-        if (config["odoo"].containsKey("pidfile"))
-            this.odoo_pid_file = config["odoo"]["pidfile"].as!string;
-        else
-            this.odoo_pid_file = Path(config["files"]["odoo_pid"].as!string);
-
-        this.odoo_path = Path(config["odoo"]["path"].as!string);
-        this.odoo_serie = OdooSerie(config["odoo"]["version"].as!string);
-        this.odoo_branch = config["odoo"]["branch"].as!string;
-        this.odoo_repo = config["odoo"]["repo"].as!string;
-
-        if (config.containsKey("virtualenv")) {
-            this._venv = VirtualEnv(config["virtualenv"]);
-        } else {
-            this._venv = VirtualEnv(
-                Path(config["directories"]["venv"].as!string),
-                guessPySerie(odoo_serie),
-            );
-        }
+        this._venv = VirtualEnv(config["virtualenv"]);
     }
 
     /** VirtualEnv related to this project config.
@@ -201,15 +215,7 @@ final class ProjectConfig {
         import dyaml: Node;
         return Node([
             "project_root": Node(this.project_root.toString),
-            "odoo": Node([
-                "version": this.odoo_serie.toString,
-                "branch": this.odoo_branch,
-                "repo": this.odoo_repo,
-                "path": this.odoo_path.toString,
-                "configfile": this.odoo_conf.toString,
-                "logfile": this.log_file.toString,
-                "pidfile": this.odoo_pid_file.toString,
-            ]),
+            "odoo": this.odoo.toYAML(),
             "directories": this.directories.toYAML(),
             "virtualenv": _venv.toYAML(),
         ]);

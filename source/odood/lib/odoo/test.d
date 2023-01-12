@@ -50,7 +50,7 @@ struct OdooTestRunner {
 
     this(in ProjectConfig config) {
         _config = config;
-        _lodoo = LOdoo(_config, _config.odoo_conf);
+        _lodoo = LOdoo(_config, _config.odoo.configfile);
         _server = OdooServer(_config);
         _addon_manager = AddonManager(_config);
         _temporary_db = false;
@@ -59,7 +59,7 @@ struct OdooTestRunner {
     private void getOrCreateTestDb() {
         if (!_test_db_name)
             setDatabaseName(
-                "odood%s-odood-test".format(_config.odoo_serie.major));
+                "odood%s-odood-test".format(_config.odoo.serie.major));
         if (!_lodoo.databaseExists(_test_db_name))
             _lodoo.databaseCreate(_test_db_name, true);
     }
@@ -94,7 +94,7 @@ struct OdooTestRunner {
         _temporary_db = true;
         return setDatabaseName(
             "odood%s-test-%s".format(
-                _config.odoo_serie.major, generateRandomString(8)));
+                _config.odoo.serie.major, generateRandomString(8)));
     }
 
     /// Add new module to test run
@@ -140,7 +140,7 @@ struct OdooTestRunner {
 
         OdooTestResult result;
 
-        auto opt_http_port = _config.odoo_serie > OdooSerie(10) ?
+        auto opt_http_port = _config.odoo.serie > OdooSerie(10) ?
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 

@@ -17,7 +17,7 @@ private import odood.lib.zip;
 private import odood.lib.utils;
 
 
-/** Download Odoo to odoo_path specified by project config
+/** Download Odoo to odoo.path specified by project config
   *
   * Params:
   *     config = Project configuration to download Odoo to.
@@ -26,15 +26,15 @@ void installDownloadOdoo(in ProjectConfig config) {
     // TODO: replace with logger calls, or with colored output.
     import std.stdio;
     auto odoo_archive_path = config.directories.downloads.join(
-            "odoo.%s.zip".format(config.odoo_branch));
+            "odoo.%s.zip".format(config.odoo.branch));
 
     enforce!OdoodException(
-        config.odoo_repo.startsWith("https://github.com"),
+        config.odoo.repo.startsWith("https://github.com"),
         "Currently, download of odoo is supported only " ~
         "from github repositories.");
 
     auto download_url = "%s/archive/%s.zip".format(
-        config.odoo_repo.strip("", ".git"), config.odoo_branch);
+        config.odoo.repo.strip("", ".git"), config.odoo.branch);
 
     // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
@@ -48,10 +48,10 @@ void installDownloadOdoo(in ProjectConfig config) {
     // dest folder directly.
     infof(
         "Extracting odoo from %s to %s",
-        odoo_archive_path, config.odoo_path);
+        odoo_archive_path, config.odoo.path);
     extract_zip_archive(
-        odoo_archive_path, config.odoo_path,
-        "odoo-%s/".format(config.odoo_branch));
+        odoo_archive_path, config.odoo.path,
+        "odoo-%s/".format(config.odoo.branch));
 }
 
 
@@ -68,13 +68,13 @@ void installOdoo(in ProjectConfig config) {
 
     info("Installing odoo dependencies (requirements.txt)");
     config.venv.installPyRequirements(
-        config.odoo_path.join("requirements.txt"));
+        config.odoo.path.join("requirements.txt"));
 
-    infof("Installing odoo to %s", config.odoo_path);
+    infof("Installing odoo to %s", config.odoo.path);
 
     config.venv.python(
         ["setup.py", "develop"],
-        config.odoo_path);
+        config.odoo.path);
 }
 
 
@@ -91,5 +91,5 @@ void installOdooConfig(in ProjectConfig config, in Ini odoo_config) {
     Ini odoo_conf = cast(Ini) odoo_config;
 
     // Save odoo configs
-    odoo_conf.save(config.odoo_conf.toString);
+    odoo_conf.save(config.odoo.configfile.toString);
 }

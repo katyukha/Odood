@@ -77,7 +77,7 @@ class CommandInit: OdoodCommand {
         odoo_config["options"].setKey(
             "db_password", args.option("db-password"));
 
-        if (project_config.odoo_serie < OdooSerie(11)) {
+        if (project_config.odoo.serie < OdooSerie(11)) {
             odoo_config["options"].setKey(
                 "xmlrpc_interface", args.option("http-host"));
             odoo_config["options"].setKey(
