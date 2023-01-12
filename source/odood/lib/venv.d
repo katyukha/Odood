@@ -72,7 +72,7 @@ struct VirtualEnv {
         }
     }
 
-    package dyaml.Node toYAML() {
+    package dyaml.Node toYAML() const {
         return dyaml.Node([
             "path": dyaml.Node(_path.toString),
             "python_serie": dyaml.Node(_py_serie),

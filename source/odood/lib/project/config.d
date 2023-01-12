@@ -58,7 +58,7 @@ private struct ProjectConfigDirectories {
         this.repositories = Path(config["repositories"].as!string);
     }
 
-    dyaml.Node toYAML() {
+    dyaml.Node toYAML() const {
         import dyaml: Node;
         return Node([
             "conf": this.conf.toString,
@@ -75,7 +75,7 @@ private struct ProjectConfigDirectories {
 
 /** Project configuration
   **/
-struct ProjectConfig {
+final class ProjectConfig {
 
     /// Root project directory
     Path project_root;
@@ -197,7 +197,7 @@ struct ProjectConfig {
 
     /** Serialize config to YAML node
       **/
-    dyaml.Node toYAML() {
+    dyaml.Node toYAML() const {
         import dyaml: Node;
         return Node([
             "project_root": Node(this.project_root.toString),
@@ -215,7 +215,7 @@ struct ProjectConfig {
         ]);
     }
 
-    void save(in Path path) {
+    void save(in Path path) const {
         auto dumper = dyaml.dumper.dumper();
         dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
 

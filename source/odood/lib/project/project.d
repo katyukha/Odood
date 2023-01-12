@@ -25,7 +25,7 @@ public import odood.lib.project.config: ProjectConfig;
   * The main entity to manage whole Odood project
   **/
 class Project {
-    private ProjectConfig _config;
+    private const ProjectConfig _config;
     private Nullable!Path _config_path;
 
     /** Initialize with automatic config discovery
@@ -57,7 +57,7 @@ class Project {
                 "Cannot initialize project. Config not found");
         }
         dyaml.Node config_yaml = dyaml.Loader.fromFile(path.toString()).load();
-        _config = ProjectConfig(config_yaml);
+        _config = new ProjectConfig(config_yaml);
     }
 
     /** Initialize by provided config
@@ -65,12 +65,12 @@ class Project {
         Params:
             config = instance of project configuration to initialize from.
       **/
-    this(in ProjectConfig config) {
+    this(in ref ProjectConfig config) {
         _config = config;
     }
 
     /// Project config instance
-    @property const (ProjectConfig) config() const { return _config; }
+    @property ref const (ProjectConfig) config() const { return _config; }
 
     /// Path to project config
     @property const (Path) config_path() const { return _config_path.get; }

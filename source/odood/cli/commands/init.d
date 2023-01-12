@@ -60,7 +60,7 @@ class CommandInit: OdoodCommand {
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
 
-        auto config = ProjectConfig(
+        auto config = new ProjectConfig(
             install_dir,
             odoo_version,
             odoo_branch,
