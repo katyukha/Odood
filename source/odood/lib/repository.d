@@ -12,21 +12,6 @@ private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.exception: OdoodException;
 
 
-struct AddonRepository {
-    private const Path _path;
-
-    @disable this();
-
-    this(in Path path) {
-        _path = path;
-    }
-
-    @property path() const {
-        return _path;
-    }
-}
-
-
 // Struct to handle git urls
 struct GitURL {
     string scheme;
@@ -95,20 +80,40 @@ struct GitURL {
 }
 
 
-/// Clone repository
-auto cloneRepo(in ProjectConfig config, in string url, in string branch) {
-    import std.algorithm: splitter;
-    import std.conv: to;
-    auto git_url = GitURL(url);
+struct AddonRepository {
+    private const Path _path;
 
-    string[] path_segments;
-    foreach(p; git_url.path.splitter("/"))
-        path_segments ~= p;
-    auto dest = config.directories.repositories.join(path_segments);
-    enforce!OdoodException(
-        dest.isValid,
-        "Cannot compute destination for git repo %s");
-    infof("Clonning repository (branch=%s): %s", branch, url);
-    runCmdE(["git", "clone", "-b", branch, url, dest.toString]);
-    return AddonRepository(dest);
+    @disable this();
+
+    this(in Path path) {
+        _path = path;
+    }
+
+    @property path() const {
+        return _path;
+    }
+
+    // TODO: May be it have sense to create separate entity AddonRepoManager
+    static auto clone(
+            in ProjectConfig config,
+            in string url,
+            in string branch) {
+        import std.algorithm: splitter;
+        import std.conv: to;
+        auto git_url = GitURL(url);
+
+        string[] path_segments;
+        foreach(p; git_url.path.splitter("/"))
+            path_segments ~= p;
+        auto dest = config.directories.repositories.join(path_segments);
+        enforce!OdoodException(
+            dest.isValid,
+            "Cannot compute destination for git repo %s");
+        enforce!OdoodException(
+            !dest.join(".git").exists,
+            "It seems that repo %s already clonned!".format(url));
+        infof("Clonning repository (branch=%s): %s", branch, url);
+        runCmdE(["git", "clone", "-b", branch, url, dest.toString]);
+        return AddonRepository(dest);
+    }
 }

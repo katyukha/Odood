@@ -15,7 +15,7 @@ private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
 private import odood.lib.addon_manager: AddonManager;
-private import odood.lib.repository: AddonRepository, cloneRepo;
+private import odood.lib.repository: AddonRepository;
 private import odood.lib.odoo.test: OdooTestRunner;
 
 public import odood.lib.project.config: ProjectConfig;
@@ -104,7 +104,7 @@ class Project {
 
     /** Create new test-runner instance.
       **/
-    auto testRunner() const {
+    @property auto testRunner() const {
         return OdooTestRunner(_config);
     }
 
@@ -154,7 +154,7 @@ class Project {
 
     /// Add new repo to project
     void addRepo(in string url, in string branch) {
-        auto repo = cloneRepo(_config, url, branch);
+        auto repo = AddonRepository.clone(_config, url, branch);
         addons.link(repo.path, true);
     }
 }
