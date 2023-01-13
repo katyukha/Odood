@@ -8,7 +8,7 @@ private import std.logger;
 private import thepath: Path;
 
 private import odood.lib.utils: runCmdE;
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.exception: OdoodException;
 
 
@@ -95,7 +95,7 @@ struct AddonRepository {
 
     // TODO: May be it have sense to create separate entity AddonRepoManager
     static auto clone(
-            in ProjectConfig config,
+            in Project project,
             in string url,
             in string branch) {
         import std.algorithm: splitter;
@@ -105,7 +105,7 @@ struct AddonRepository {
         string[] path_segments;
         foreach(p; git_url.path.splitter("/"))
             path_segments ~= p;
-        auto dest = config.directories.repositories.join(path_segments);
+        auto dest = project.directories.repositories.join(path_segments);
         enforce!OdoodException(
             dest.isValid,
             "Cannot compute destination for git repo %s");

@@ -3,7 +3,7 @@ module odood.lib.odoo.lodoo;
 private import std.logger;
 private import thepath: Path;
 
-private import odood.lib.project: ProjectConfig;
+private import odood.lib.project: Project;
 
 
 enum BackupFormat {
@@ -18,13 +18,13 @@ enum BackupFormat {
 const struct LOdoo {
     private:
         const Path _odoo_conf;
-        const ProjectConfig _config;
+        const Project _project;
 
         /** Run lodoo with provided args
           **/
         auto run(in string[] args...) {
             tracef("Running LOdoo with args %s", args);
-            return _config.venv.run(
+            return _project.venv.run(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 
@@ -33,16 +33,16 @@ const struct LOdoo {
           **/
         auto runE(in string[] args...) {
             tracef("Running LOdoo with args %s", args);
-            return _config.venv.runE(
+            return _project.venv.runE(
                 ["lodoo", "--conf", _odoo_conf.toString] ~ args);
         }
 
     public:
         @disable this();
 
-        this(in ProjectConfig config, in Path odoo_conf) {
+        this(in Project project, in Path odoo_conf) {
             _odoo_conf = odoo_conf;
-            _config = config;
+            _project = project;
         }
 
         /** Return list of databases available on this odoo instance

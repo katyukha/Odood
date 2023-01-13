@@ -8,7 +8,7 @@ private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand, exitWithCode;
-private import odood.lib.project: Project, ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.utils: generateRandomString;
@@ -174,7 +174,7 @@ class CommandDatabaseBackup: OdoodCommand {
                 generateRandomString(4),
                 b_format
             );
-            dest = project.config.directories.backups.join(dest_name);
+            dest = project.directories.backups.join(dest_name);
         }
 
         project.lodoo.databaseBackup(args.arg("name"), dest, b_format);

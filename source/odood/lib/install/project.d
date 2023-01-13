@@ -1,23 +1,23 @@
 module odood.lib.install.project;
 
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 
 
-/** Initialize project directory structure for specified project config.
+/** Initialize project directory structure for specified project.
     This function will create all needed directories for project.
 
     Params:
-        config = Project configuration to initialize directory structure.
+        project = Instance of Odood Project to initialize directory structure.
  **/
-void initializeProjectDirs(in ProjectConfig config) {
-    config.project_root.mkdir(true);
-    config.directories.conf.mkdir(true);
-    config.directories.log.mkdir(true);
-    config.directories.downloads.mkdir(true);
-    config.directories.addons.mkdir(true);
-    config.directories.data.mkdir(true);
-    config.directories.backups.mkdir(true);
-    config.directories.repositories.mkdir(true);
+void initializeProjectDirs(in Project project) {
+    project.project_root.mkdir(true);
+    project.directories.conf.mkdir(true);
+    project.directories.log.mkdir(true);
+    project.directories.downloads.mkdir(true);
+    project.directories.addons.mkdir(true);
+    project.directories.data.mkdir(true);
+    project.directories.backups.mkdir(true);
+    project.directories.repositories.mkdir(true);
 }
 
 

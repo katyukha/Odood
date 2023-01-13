@@ -11,7 +11,7 @@ private import std.parallelism: totalCPUs;
 private import std.conv: to;
 private import std.logger;
 
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE, download;
@@ -22,10 +22,10 @@ private import odood.lib.venv: PySerie;
   *
   * Returns: SemVer version of system python interpreter
   **/
-SemVer getSystemPythonVersion(in ProjectConfig config) {
+SemVer getSystemPythonVersion(in Project project) {
     import std.process: execute;
 
-    auto python_interpreter = config.venv.py_interpreter_name;
+    auto python_interpreter = project.venv.py_interpreter_name;
     auto res = execute([python_interpreter, "--version"]);
     enforce!OdoodException(
         res.status == 0,
@@ -40,16 +40,16 @@ SemVer getSystemPythonVersion(in ProjectConfig config) {
 }
 
 
-/// Is system python suitable for specified project config
-bool isSystemPythonSuitable(in ProjectConfig config) {
-    auto sys_py_ver = config.getSystemPythonVersion;
-    if (config.odoo.serie <= OdooSerie(10))
+/// Is system python suitable for specified project
+bool isSystemPythonSuitable(in Project project) {
+    auto sys_py_ver = project.getSystemPythonVersion;
+    if (project.odoo.serie <= OdooSerie(10))
         return (sys_py_ver >= SemVer(2, 7) && sys_py_ver < SemVer(3));
-    if (config.odoo.serie <= OdooSerie(12))
+    if (project.odoo.serie <= OdooSerie(12))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 9));
-    if (config.odoo.serie <= OdooSerie(14))
+    if (project.odoo.serie <= OdooSerie(14))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 10));
-    if (config.odoo.serie <= OdooSerie(16))
+    if (project.odoo.serie <= OdooSerie(16))
         return (sys_py_ver >= SemVer(3, 7) && sys_py_ver < SemVer(3, 11));
 
     /// Unknown odoo version
@@ -58,24 +58,24 @@ bool isSystemPythonSuitable(in ProjectConfig config) {
 
 
 // TODO: move to odoo/python ?
-/** Suggest python version for specified project configuration.
+/** Suggest python version for specified project.
   * This is used to determine what version of python to build.
-  * Returns: the suggested python version for specified project config.
+  * Returns: the suggested python version for specified project.
   **/
-string suggestPythonVersion(in ProjectConfig config) {
-    if (config.odoo.serie <= OdooSerie(10)) {
+string suggestPythonVersion(in Project project) {
+    if (project.odoo.serie <= OdooSerie(10)) {
         return "2.7.18";
-    } else if (config.odoo.serie == OdooSerie(11)) {
+    } else if (project.odoo.serie == OdooSerie(11)) {
         return "3.7.13";
-    } else if (config.odoo.serie == OdooSerie(12)) {
+    } else if (project.odoo.serie == OdooSerie(12)) {
         return "3.7.13";
-    } else if (config.odoo.serie == OdooSerie(13)) {
+    } else if (project.odoo.serie == OdooSerie(13)) {
         return "3.8.13";
-    } else if (config.odoo.serie == OdooSerie(14)) {
+    } else if (project.odoo.serie == OdooSerie(14)) {
         return "3.8.13";
-    } else if (config.odoo.serie == OdooSerie(15)) {
+    } else if (project.odoo.serie == OdooSerie(15)) {
         return "3.8.13";
-    } else if (config.odoo.serie == OdooSerie(16)) {
+    } else if (project.odoo.serie == OdooSerie(16)) {
         return "3.8.13";
     } else {
         return "3.8.13";
@@ -83,34 +83,34 @@ string suggestPythonVersion(in ProjectConfig config) {
 }
 
 
-/** Install virtual env for specified project config
+/** Install virtual env for specified project
   **/
-void installVirtualenv(in ProjectConfig config,
+void installVirtualenv(in Project project,
                        in string python_version,
                        in string node_version) {
     import std.parallelism: totalCPUs;
     import odood.lib.install.python;
 
     if (python_version == "auto") {
-        if (isSystemPythonSuitable(config))
-            config.venv.initializeVirtualEnv("system", node_version);
+        if (isSystemPythonSuitable(project))
+            project.venv.initializeVirtualEnv("system", node_version);
         else
-            config.venv.initializeVirtualEnv(
-                config.suggestPythonVersion,
+            project.venv.initializeVirtualEnv(
+                project.suggestPythonVersion,
                 node_version);
     } else {
-        config.venv.initializeVirtualEnv(python_version, node_version);
+        project.venv.initializeVirtualEnv(python_version, node_version);
     }
 
 
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
-    if (config.odoo.serie > OdooSerie(10)) {
-        config.venv.installPyPackages("setuptools>=45,<58");
+    if (project.odoo.serie > OdooSerie(10)) {
+        project.venv.installPyPackages("setuptools>=45,<58");
     }
 
     // Install javascript dependecies
     // TODO: Make it optional, install automatically only for odoo <= 11
-    config.venv.npm("install", "-g", "less@3.9.0", "rtlcss");
+    project.venv.npm("install", "-g", "less@3.9.0", "rtlcss");
 }
 

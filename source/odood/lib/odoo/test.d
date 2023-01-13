@@ -11,7 +11,7 @@ private import std.exception: enforce;
 
 private import thepath: Path;
 
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
@@ -34,7 +34,7 @@ private struct OdooTestResult {
 
 struct OdooTestRunner {
 
-    private const ProjectConfig _config;
+    private const Project _project;
     private const LOdoo _lodoo;
     private const OdooServer _server;
     private AddonManager _addon_manager;
@@ -48,18 +48,18 @@ struct OdooTestRunner {
     private Path _log_file;
     private void delegate(in ref OdooLogRecord rec) _log_handler;
 
-    this(in ProjectConfig config) {
-        _config = config;
-        _lodoo = LOdoo(_config, _config.odoo.configfile);
-        _server = OdooServer(_config);
-        _addon_manager = AddonManager(_config);
+    this(in Project project) {
+        _project = project;
+        _lodoo = LOdoo(_project, _project.odoo.configfile);
+        _server = OdooServer(_project);
+        _addon_manager = AddonManager(_project);
         _temporary_db = false;
     }
 
     private void getOrCreateTestDb() {
         if (!_test_db_name)
             setDatabaseName(
-                "odood%s-odood-test".format(_config.odoo.serie.major));
+                "odood%s-odood-test".format(_project.odoo.serie.major));
         if (!_lodoo.databaseExists(_test_db_name))
             _lodoo.databaseCreate(_test_db_name, true);
     }
@@ -75,7 +75,7 @@ struct OdooTestRunner {
       **/
     auto ref setDatabaseName(in string dbname) {
         _test_db_name = dbname;
-        _log_file = _config.directories.log.join("test.%s.log".format(_test_db_name));
+        _log_file = _project.directories.log.join("test.%s.log".format(_test_db_name));
 
         tracef(
             "Setting dbname=%s and logfile=%s for test runner",
@@ -94,7 +94,7 @@ struct OdooTestRunner {
         _temporary_db = true;
         return setDatabaseName(
             "odood%s-test-%s".format(
-                _config.odoo.serie.major, generateRandomString(8)));
+                _project.odoo.serie.major, generateRandomString(8)));
     }
 
     /// Add new module to test run
@@ -140,7 +140,7 @@ struct OdooTestRunner {
 
         OdooTestResult result;
 
-        auto opt_http_port = _config.odoo.serie > OdooSerie(10) ?
+        auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 

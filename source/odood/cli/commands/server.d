@@ -7,7 +7,7 @@ private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project, ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 

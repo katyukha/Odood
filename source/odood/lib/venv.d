@@ -9,7 +9,6 @@ private import std.conv: to;
 private import thepath: Path;
 private static import dyaml;
 
-private import odood.lib.project.config: ProjectConfig;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: runCmd, runCmdE;
 
@@ -33,7 +32,7 @@ enum PySerie {
 /** VirtualEnv wrapper, to simplify operations within virtual environment
   *
   **/
-struct VirtualEnv {
+const struct VirtualEnv {
     /// Virtual environment directory
     private const Path _path;
 

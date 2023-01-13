@@ -15,7 +15,7 @@ private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
 private import odood.lib.exception: OdoodException;
@@ -111,23 +111,23 @@ private struct OdooLogPipe {
 /** Wrapper struct to manage odoo server
   **/
 struct OdooServer {
-    private const ProjectConfig _config;
+    private const Project _project;
 
     @disable this();
 
     /** Construct new server wrapper for this project
       **/
-    this(in ProjectConfig config) {
-        _config = config;
+    this(in Project project) {
+        _project = project;
     }
 
     /// Get name of odoo server script, depending on odoo serie
     @property string scriptName() const {
-        if (_config.odoo.serie >= OdooSerie(11)) {
+        if (_project.odoo.serie >= OdooSerie(11)) {
             return "odoo";
-        } else if (_config.odoo.serie == OdooSerie(10)) {
+        } else if (_project.odoo.serie == OdooSerie(10)) {
             return "odoo-bin";
-        } else if (_config.odoo.serie >= OdooSerie(8)) {
+        } else if (_project.odoo.serie >= OdooSerie(8)) {
             return "odoo.py";
         } else {
             // Versions older than 8.0
@@ -137,7 +137,7 @@ struct OdooServer {
 
     /// Get path to the odoo server script to run
     @property Path scriptPath() const {
-        return _config.venv.path.join("bin", scriptName());
+        return _project.venv.path.join("bin", scriptName());
     }
 
     /** Get PID of running Odoo Process
@@ -147,8 +147,8 @@ struct OdooServer {
       *    - -2 if process specified in pid file is not running
       **/
     pid_t getPid() const {
-        if (_config.odoo.pidfile.exists) {
-            auto pid = _config.odoo.pidfile.readFileText.to!pid_t;
+        if (_project.odoo.pidfile.exists) {
+            auto pid = _project.odoo.pidfile.readFileText.to!pid_t;
             if (isProcessRunning(pid))
                 return pid;
             return -2;
@@ -158,8 +158,8 @@ struct OdooServer {
 
     private const(string[string]) getServerEnv() const {
         return [
-            "OPENERP_SERVER": _config.odoo.configfile.toString,
-            "ODOO_RC": _config.odoo.configfile.toString,
+            "OPENERP_SERVER": _project.odoo.configfile.toString,
+            "ODOO_RC": _project.odoo.configfile.toString,
         ];
     }
 
@@ -181,19 +181,19 @@ struct OdooServer {
 
         // TODO: move this to virtualenv logic?
         auto server_opts = [
-            "--pidfile=%s".format(_config.odoo.pidfile),
+            "--pidfile=%s".format(_project.odoo.pidfile),
         ];
         if (detach)
-            server_opts ~= ["--logfile=%s".format(_config.odoo.logfile)];
+            server_opts ~= ["--logfile=%s".format(_project.odoo.logfile)];
 
         auto pid = std.process.spawnProcess(
             [
-                _config.venv.path.join("bin", "run-in-venv").toString,
+                _project.venv.path.join("bin", "run-in-venv").toString,
                 scriptPath.toString,
             ] ~ server_opts,
             getServerEnv,
             process_conf,
-            _config.project_root.toString);
+            _project.project_root.toString);
         infof("Odoo server is started. PID: %s", pid.osHandle);
         if (!detach)
             std.process.wait(pid);
@@ -217,23 +217,23 @@ struct OdooServer {
 
         auto server_pipes = std.process.pipeProcess(
             [
-                _config.venv.path.join("bin", "run-in-venv").toString,
+                _project.venv.path.join("bin", "run-in-venv").toString,
                 scriptPath.toString,
             ] ~ options,
             Redirect.all,
             getServerEnv,
             process_conf,
-            _config.project_root.toString);
+            _project.project_root.toString);
 
         return OdooLogPipe(server_pipes);
     }
 
     auto run(in string[] options...) const {
-        _config.venv.run(scriptPath, options, _config.project_root, getServerEnv);
+        _project.venv.run(scriptPath, options, _project.project_root, getServerEnv);
     }
 
     auto runE(in string[] options...) const {
-        _config.venv.runE(scriptPath, options, _config.project_root, getServerEnv);
+        _project.venv.runE(scriptPath, options, _project.project_root, getServerEnv);
     }
 
     /** Check if the Odoo server is running or not

@@ -8,7 +8,7 @@ private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project, ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 
@@ -53,10 +53,10 @@ class CommandStatus: OdoodCommand {
 
         writeln(
             TMPL_CURRENT_PROJECT_STATUS.format(
-                project.config.project_root,
+                project.project_root,
                 project.config_path,
-                project.config.odoo.serie,
-                project.config.odoo.branch,
+                project.odoo.serie,
+                project.odoo.branch,
                 project.server.isRunning ? "Running" : "Stopped",
                 "http://%s:%s".format(http_host, http_port),
             )

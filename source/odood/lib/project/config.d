@@ -13,7 +13,7 @@ private import odood.lib.server: OdooServer;
 
 /** Struct that represents odoo-specific configuration
   **/
-private struct ProjectConfigOdoo {
+package struct ProjectConfigOdoo {
     /// Main odoo config file
     Path configfile;
 
@@ -75,7 +75,7 @@ private struct ProjectConfigOdoo {
 
 /** Stuct that represents directory structure for the project
   **/
-private struct ProjectConfigDirectories {
+package struct ProjectConfigDirectories {
 
     /// Directory to store odoo configurations
     Path conf;
@@ -132,105 +132,3 @@ private struct ProjectConfigDirectories {
         ]);
     }
 }
-
-
-/** Project configuration
-  **/
-final class ProjectConfig {
-
-    /// Root project directory
-    Path project_root;
-
-    ProjectConfigDirectories directories;
-
-    ProjectConfigOdoo odoo;
-
-    VirtualEnv _venv;
-
-    // TODO: Add validation of config
-
-
-    /** Create new config from basic parameters.
-      *
-      * Params:
-      *     root_path = Path to the project root directory
-      *     odoo_serie = Version of Odoo to run
-      *     odoo_branch = Name of the branch to get Odoo from
-      *     odoo_repo = URL to the repository to get Odoo from
-      **/
-    this(in Path root_path, in OdooSerie odoo_serie,
-            in string odoo_branch, in string odoo_repo) {
-        this.project_root = root_path.expandTilde.toAbsolute;
-        this.directories = ProjectConfigDirectories(this.project_root);
-        this.odoo = ProjectConfigOdoo(
-            this.project_root,
-            this.directories,
-            odoo_serie,
-            odoo_branch,
-            odoo_repo);
-
-        this._venv = VirtualEnv(
-            this.project_root.join("venv"),
-            guessPySerie(odoo_serie));
-    }
-
-    /// ditto
-    this(in Path root_path, in OdooSerie odoo_serie) {
-        this(root_path,
-             odoo_serie,
-             odoo_serie.toString, 
-             "https://github.com/odoo/odoo");
-    }
-
-    /** Create this config instance from YAML node
-      *
-      * Params:
-      *     node = YAML node representation to initialize config from
-      **/
-    this(in ref dyaml.Node config) {
-        this.project_root = Path(config["project_root"].as!string);
-        this.directories = ProjectConfigDirectories(config["directories"]);
-        this.odoo = ProjectConfigOdoo(config["odoo"]);
-
-        this._venv = VirtualEnv(config["virtualenv"]);
-    }
-
-    /** VirtualEnv related to this project config.
-      * Allows to run commands in context of virtual environment
-      **/
-    @property VirtualEnv venv() const {
-        return _venv;
-    }
-
-    /** OdooServer wrapper for this project config.
-      * Allows to manage odoo server.
-      **/
-    @property OdooServer server() const {
-        return OdooServer(this);
-    }
-
-    /** Serialize config to YAML node
-      **/
-    dyaml.Node toYAML() const {
-        import dyaml: Node;
-        return Node([
-            "project_root": Node(this.project_root.toString),
-            "odoo": this.odoo.toYAML(),
-            "directories": this.directories.toYAML(),
-            "virtualenv": _venv.toYAML(),
-        ]);
-    }
-
-    void save(in Path path) const {
-        auto dumper = dyaml.dumper.dumper();
-        dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
-
-        auto out_file = path.openFile("w");
-        scope (exit) {
-            out_file.close();
-        }
-        dumper.dump(out_file.lockingTextWriter, this.toYAML);
-    }
-
-}
-

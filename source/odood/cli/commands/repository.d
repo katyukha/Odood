@@ -42,7 +42,7 @@ class CommandRepositoryAdd: OdoodCommand {
         project.addRepo(
             git_url,
             args.option("branch") ?
-                args.option("branch") : project.config.odoo.branch);
+                args.option("branch") : project.odoo.branch);
     }
 
 }

@@ -10,31 +10,31 @@ private import std.conv: to;
 private import dini: Ini;
 
 private import odood.lib.exception: OdoodException;
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 
 private import odood.lib.zip;
 private import odood.lib.utils;
 
 
-/** Download Odoo to odoo.path specified by project config
+/** Download Odoo to odoo.path specified by project
   *
   * Params:
-  *     config = Project configuration to download Odoo to.
+  *     project = Project to download Odoo to.
  **/
-void installDownloadOdoo(in ProjectConfig config) {
+void installDownloadOdoo(in Project project) {
     // TODO: replace with logger calls, or with colored output.
     import std.stdio;
-    auto odoo_archive_path = config.directories.downloads.join(
-            "odoo.%s.zip".format(config.odoo.branch));
+    auto odoo_archive_path = project.directories.downloads.join(
+            "odoo.%s.zip".format(project.odoo.branch));
 
     enforce!OdoodException(
-        config.odoo.repo.startsWith("https://github.com"),
+        project.odoo.repo.startsWith("https://github.com"),
         "Currently, download of odoo is supported only " ~
         "from github repositories.");
 
     auto download_url = "%s/archive/%s.zip".format(
-        config.odoo.repo.strip("", ".git"), config.odoo.branch);
+        project.odoo.repo.strip("", ".git"), project.odoo.branch);
 
     // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
@@ -48,48 +48,47 @@ void installDownloadOdoo(in ProjectConfig config) {
     // dest folder directly.
     infof(
         "Extracting odoo from %s to %s",
-        odoo_archive_path, config.odoo.path);
+        odoo_archive_path, project.odoo.path);
     extract_zip_archive(
-        odoo_archive_path, config.odoo.path,
-        "odoo-%s/".format(config.odoo.branch));
+        odoo_archive_path, project.odoo.path,
+        "odoo-%s/".format(project.odoo.branch));
 }
 
 
-/** Install Odoo in virtual environment of specified project config
+/** Install Odoo in virtual environment of specified project
   *
   * Params:
-  *     config = Project configuration to download Odoo to.
+  *     project = Project to download Odoo to.
   **/
-void installOdoo(in ProjectConfig config) {
+void installOdoo(in Project project) {
     // Install python dependecnies
-    config.venv.installPyPackages(
+    project.venv.installPyPackages(
         "phonenumbers", "python-slugify", "setuptools-odoo",
         "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo");
 
     info("Installing odoo dependencies (requirements.txt)");
-    config.venv.installPyRequirements(
-        config.odoo.path.join("requirements.txt"));
+    project.venv.installPyRequirements(
+        project.odoo.path.join("requirements.txt"));
 
-    infof("Installing odoo to %s", config.odoo.path);
+    infof("Installing odoo to %s", project.odoo.path);
 
-    config.venv.python(
+    project.venv.python(
         ["setup.py", "develop"],
-        config.odoo.path);
+        project.odoo.path);
 }
 
 
 // TODO: Do we need this function?
 /** Generate and save Odoo configuration to project
-  * specified by project config
   *
   * Params:
-  *     config = Project configuration to download Odoo to.
+  *     project = Project save odoo config to.
   *     odoo_config = Ini struture that represents desired odoo config
   **/
-void installOdooConfig(in ProjectConfig config, in Ini odoo_config) {
+void installOdooConfig(in Project project, in Ini odoo_config) {
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
 
     // Save odoo configs
-    odoo_conf.save(config.odoo.configfile.toString);
+    odoo_conf.save(project.odoo.configfile.toString);
 }

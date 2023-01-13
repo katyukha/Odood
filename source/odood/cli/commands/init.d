@@ -1,5 +1,6 @@
 module odood.cli.commands.init;
 
+private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
 
@@ -7,7 +8,7 @@ private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project, ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.odoo.config: initOdooConfig;
@@ -49,35 +50,15 @@ class CommandInit: OdoodCommand {
             null, "http-port", "Http port").defaultValue("8069"));
     }
 
-    ProjectConfig initProjectConfig(ProgramArgs args) {
-        auto install_dir = Path(args.option("install-dir"));
-        auto odoo_version = OdooSerie(args.option("odoo-version"));
-        auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
-        auto odoo_repo = args.option(
-                "odoo-repo", "https://github.com/odoo/odoo.git");
-
-        enforce!OdoodException(
-            odoo_version.isValid,
-            "Odoo version %s is not valid".format(args.option("odoo-version")));
-
-        auto config = new ProjectConfig(
-            install_dir,
-            odoo_version,
-            odoo_branch,
-            odoo_repo);
-
-        return config;
-    }
-
-    auto prepareOdooConfig(in ProjectConfig project_config, ProgramArgs args) {
-        auto odoo_config = initOdooConfig(project_config);
+    auto prepareOdooConfig(in Project project, ProgramArgs args) {
+        auto odoo_config = initOdooConfig(project);
         odoo_config["options"].setKey("db_host", args.option("db-host"));
         odoo_config["options"].setKey("db_port", args.option("db-port"));
         odoo_config["options"].setKey("db_user", args.option("db-user"));
         odoo_config["options"].setKey(
             "db_password", args.option("db-password"));
 
-        if (project_config.odoo.serie < OdooSerie(11)) {
+        if (project.odoo.serie < OdooSerie(11)) {
             odoo_config["options"].setKey(
                 "xmlrpc_interface", args.option("http-host"));
             odoo_config["options"].setKey(
@@ -92,10 +73,23 @@ class CommandInit: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project_config = this.initProjectConfig(args);
-        auto project = new Project(project_config);
+        auto install_dir = Path(args.option("install-dir"));
+        auto odoo_version = OdooSerie(args.option("odoo-version"));
+        auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
+        auto odoo_repo = args.option(
+                "odoo-repo", "https://github.com/odoo/odoo.git");
 
-        auto odoo_config = prepareOdooConfig(project_config, args);
+        enforce!OdoodException(
+            odoo_version.isValid,
+            "Odoo version %s is not valid".format(args.option("odoo-version")));
+
+        auto project = new Project(
+            install_dir,
+            odoo_version,
+            odoo_branch,
+            odoo_repo);
+
+        auto odoo_config = prepareOdooConfig(project, args);
 
         project.initialize(
             odoo_config,
@@ -104,6 +98,9 @@ class CommandInit: OdoodCommand {
         project.save();
 
         if (args.flag("create-db-user")) {
+            infof(
+                "Creating new postgres user %s for Odood project %s",
+                args.option("db-user"), project.project_root);
             createNewPostgresUser(
                 args.option("db-user"), args.option("db-password"));
         }

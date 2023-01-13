@@ -9,14 +9,14 @@ private import std.file: SpanMode;
 
 private import thepath: Path;
 
-private import odood.lib.project.config: ProjectConfig;
+private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.addon;
 
 
 struct AddonManager {
-    private const ProjectConfig _config;
+    private const Project _project;
     private Nullable!(Path[]) _addons_paths;
 
     /// Cmd for Install, Update addons
@@ -27,14 +27,14 @@ struct AddonManager {
 
     @disable this();
 
-    this(in ProjectConfig config) {
-        _config = config;
+    this(in Project project) {
+        _project = project;
     }
 
     /// Get list of paths to search for addons
     @property const(Path[]) addons_paths() {
         if (_addons_paths.isNull) {
-            auto odoo_conf = _config.readOdooConfig;
+            auto odoo_conf = _project.readOdooConfig;
             auto search_paths = odoo_conf["options"].getKey("addons_path");
 
             Path[] res;
@@ -87,11 +87,11 @@ struct AddonManager {
 
     /// Link single odoo addon
     void link(in OdooAddon addon, in bool force=false) {
-        auto const dest = _config.directories.addons.join(addon.name);
+        auto const dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
-            addon.path.symlink(_config.directories.addons.join(addon.name));
+            addon.path.symlink(_project.directories.addons.join(addon.name));
         } else if (force) {
             tracef(
                 ("Removing allready existing addon %s at %s " ~
@@ -100,13 +100,13 @@ struct AddonManager {
             dest.remove();
             tracef("linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
-            addon.path.symlink(_config.directories.addons.join(addon.name));
+            addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
         if (dest.join("requirements.txt").exists) {
             infof("Installing python requirements for addon '%s'",
                   addon.name);
-            _config.venv.installPyRequirements(dest.join("requirements.txt"));
+            _project.venv.installPyRequirements(dest.join("requirements.txt"));
         }
     }
 
@@ -124,7 +124,7 @@ struct AddonManager {
 
     /// Check if addon is linked or not
     bool isLinked(in ref OdooAddon addon) {
-        auto check_path = _config.directories.addons.join(addon.name);
+        auto check_path = _project.directories.addons.join(addon.name);
         if (check_path.exists &&
                 check_path.isSymlink &&
                 check_path.readLink().toAbsolute == addon.path.toAbsolute)
@@ -142,7 +142,7 @@ struct AddonManager {
             "-d", database,
             "--max-cron-threads=0",
             "--stop-after-init",
-            _config.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
+            _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=/dev/null",
         ];
 
@@ -162,7 +162,7 @@ struct AddonManager {
             fi
         */
 
-        _config.server.runE(server_opts);
+        _project.server.runE(server_opts);
 
     }
 

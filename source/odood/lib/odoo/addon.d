@@ -33,7 +33,7 @@ private struct OdooAddonManifest {
 
 
 /** Simple struct to represent single Odoo addon.
-  * This struct is not bound to any project config,
+  * This struct is not bound to any project,
   * but represents the addon on filesystem, with ability to fetch
   * additional info about this addon by reading manifest
   **/
