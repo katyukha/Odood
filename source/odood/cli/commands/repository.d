@@ -29,7 +29,7 @@ class CommandRepositoryAdd: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         string git_url = args.arg("repo");
         if (args.flag("oca"))

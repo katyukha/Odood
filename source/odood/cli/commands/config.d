@@ -12,7 +12,7 @@ class CommandConfigUpdate: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         project.save();
     }
 

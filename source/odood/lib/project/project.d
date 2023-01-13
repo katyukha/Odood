@@ -43,73 +43,107 @@ class Project {
     /** Initialize with automatic config discovery
       *
       **/
-    this() {
+    static auto loadProject() {
         auto s_config_path = Path.current.searchFileUp("odood.yml");
         enforce!OdoodException(
             !s_config_path.isNull,
             "Cannot find OdooD configuration file!");
-        this(s_config_path.get);
+        return loadProject(s_config_path.get);
     }
 
-    /** Initialize by path. Automatically discover odood.yml configuration
+    /** Load project from path. Automatically discover odood.yml configuration
       * file and load it.
       *
       * Params:
       *     path = is path to odood config file or path to directory
       *         that contains odood.yml config file
       **/
-    this(in Path path) {
+    static auto loadProject(in Path path) {
+
+        // TODO: convert path to absolute
+        //       do we need this? Will be converted in constructor.
         if (path.exists && path.isFile) {
-            _config_path = Nullable!Path(path);
+            Node config = dyaml.Loader.fromFile(path.toString()).load();
+            return new Project(config, path);
         } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
-            _config_path = path.join("odood.yml").nullable;
-        } else {
-            throw new OdoodException(
-                "Cannot initialize project. Config not found");
+            auto load_path = path.join("odood.yml");
+            Node config = dyaml.Loader.fromFile(load_path.toString()).load();
+            return new Project(config, load_path);
         }
-
-        // Load configuration from file
-        Node config = dyaml.Loader.fromFile(path.toString()).load();
-
-        this.project_root = Path(config["project_root"].as!string);
-        this.directories = ProjectConfigDirectories(config["directories"]);
-        this.odoo = ProjectConfigOdoo(config["odoo"]);
-
-        this._venv = VirtualEnv(config["virtualenv"]);
-
+        throw new OdoodException(
+            "Cannot initialize project. Config not found");
     }
 
     /** Create new project from basic parameters.
       *
       * Params:
-      *     root_path = Path to the project root directory
+      *     project_root = Path to the project root directory
+      *     directories = Struct that represents project directories
+      *     odoo = Struct that represents Project's Odoo configuration
       *     odoo_serie = Version of Odoo to run
       *     odoo_branch = Name of the branch to get Odoo from
       *     odoo_repo = URL to the repository to get Odoo from
+      *     config_path = Path to odood.yml config file
+      *     yaml_config = dyaml.Node that represents yaml configuration
       **/
-    this(in Path path, in OdooSerie odoo_serie,
-            in string odoo_branch, in string odoo_repo) {
-        // TODO: Refactor. May be make static method 'initialize'
-        this.project_root = path.expandTilde.toAbsolute;
-        this.directories = ProjectConfigDirectories(this.project_root);
-        this.odoo = ProjectConfigOdoo(
-            this.project_root,
-            this.directories,
-            odoo_serie,
-            odoo_branch,
-            odoo_repo);
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in ProjectConfigOdoo odoo) {
+
+        this.project_root = project_root.expandTilde.toAbsolute;
+        this.directories = directories;
+        this.odoo = odoo;
 
         this._venv = VirtualEnv(
             this.project_root.join("venv"),
-            guessPySerie(odoo_serie));
+            guessPySerie(odoo.serie));
     }
 
     /// ditto
-    this(in Path root_path, in OdooSerie odoo_serie) {
-        this(root_path,
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in ProjectConfigOdoo odoo,
+            in Path config_path) {
+        this(project_root, directories, odoo);
+        _config_path = Nullable!Path(config_path);
+    }
+
+    /// ditto
+    this(in Path project_root, in OdooSerie odoo_serie,
+            in string odoo_branch, in string odoo_repo) {
+        this(
+            project_root,
+            ProjectConfigDirectories(this.project_root),
+            ProjectConfigOdoo(
+                this.project_root,
+                this.directories,
+                odoo_serie,
+                odoo_branch,
+                odoo_repo),
+        );
+    }
+
+    /// ditto
+    this(in Path project_root, in OdooSerie odoo_serie) {
+        this(project_root,
              odoo_serie,
              odoo_serie.toString, 
              "https://github.com/odoo/odoo");
+    }
+
+    /// ditto
+    this(in Node yaml_config) {
+        this(
+            Path(yaml_config["project_root"].as!string),
+            ProjectConfigDirectories(yaml_config["directories"]),
+            ProjectConfigOdoo(yaml_config["odoo"]),
+        );
+    }
+
+    /// ditto
+    this(in Node yaml_config, in Path config_path) {
+        this(yaml_config);
+        _config_path = Nullable!Path(config_path);
     }
 
     /// Path to project config

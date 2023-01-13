@@ -33,7 +33,7 @@ class CommandStatus: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         auto is_running = project.server.isRunning();
 

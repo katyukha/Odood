@@ -58,7 +58,7 @@ class CommandTest: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         import std.process: wait, Redirect;
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         auto testRunner = project.testRunner();
 

@@ -27,7 +27,7 @@ class CommandDatabaseList: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         foreach(db; project.lodoo.databaseList()) {
             writeln(db);
         }
@@ -52,7 +52,7 @@ class CommandDatabaseCreate: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         project.lodoo.databaseCreate(
             args.arg("name"),
             args.flag("demo"),
@@ -69,7 +69,7 @@ class CommandDatabaseDrop: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         foreach(dbname; args.args("name"))
             if (project.lodoo.databaseExists(dbname))
                 project.lodoo.databaseDrop(dbname);
@@ -86,7 +86,7 @@ class CommandDatabaseExists: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         bool db_exists = project.lodoo.databaseExists(args.arg("name"));
         if (db_exists) {
             if (!args.flag("quiet"))
@@ -111,7 +111,7 @@ class CommandDatabaseRename: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         project.lodoo.databaseRename(
             args.arg("old-name"), args.arg("new-name"));
     }
@@ -128,7 +128,7 @@ class CommandDatabaseCopy: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         project.lodoo.databaseCopy(
             args.arg("old-name"), args.arg("new-name"));
     }
@@ -151,7 +151,7 @@ class CommandDatabaseBackup: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         auto b_format = BackupFormat.zip;
         if (args.flag("zip"))
             b_format = BackupFormat.zip;
@@ -192,7 +192,7 @@ class CommandDatabaseRestore: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
         auto backup_path = Path(args.arg("backup")).toAbsolute;
         enforce!OdoodException(
             backup_path.exists && backup_path.isFile,

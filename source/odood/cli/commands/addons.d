@@ -48,7 +48,7 @@ class CommandAddonsList: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         auto search_path = args.arg("path") ?
             Path(args.arg("path")) : Path.current;
@@ -105,7 +105,7 @@ class CommandAddonsLink: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         project.addons.link(
             Path(args.arg("path")),
@@ -135,7 +135,7 @@ class CommandAddonsUpdateList: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         string[] dbnames = args.flag("all") ?
             project.lodoo.databaseList() : args.args("database");
@@ -169,7 +169,7 @@ class CommandAddonsUpdate: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         string[] dbnames = args.options("db") ?
             args.options("db") : project.lodoo.databaseList();
@@ -203,12 +203,16 @@ class CommandAddonsInstall: OdoodCommand {
                 null, "dir", "Directory to search for addons to be installed"
             ).optional().repeating());
         this.add(
+            new Option(
+                null, "dir-r", "Directory to recursively search for addons to be installed"
+            ).optional().repeating());
+        this.add(
             new Argument(
                 "addon", "Name of addon to update").optional().repeating());
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = new Project();
+        auto project = Project.loadProject;
 
         string[] dbnames = args.options("db") ?
             args.options("db") : project.lodoo.databaseList();
@@ -219,11 +223,15 @@ class CommandAddonsInstall: OdoodCommand {
             foreach(addon; project.addons.scan(Path(dir)))
                 addon_names ~= [addon.name];
 
+        foreach(dir; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(dir), true))
+                addon_names ~= [addon.name];
+
         tracef(
             "Addons to be installed in databases %s: %s", dbnames, addon_names);
         foreach(db; dbnames) {
             infof("Installing addons for <yellow>%s</yellow> database...", db);
-            project.addons.update(addon_names, db);
+            project.addons.install(addon_names, db);
         }
     }
 }
