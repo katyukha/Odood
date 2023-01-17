@@ -20,7 +20,7 @@ class CommandInit: OdoodCommand {
         super("init", "Initialize new odood project.");
         this.add(new Option("i", "install-dir", "Directory to install odoo to")
             .required());
-        this.add(new Option(null, "odoo-version", "Version of Odoo to install")
+        this.add(new Option("v", "odoo-version", "Version of Odoo to install")
             .required().defaultValue("14.0"));
         this.add(new Option(
             null, "odoo-branch", "Branch in Odoo repo to install Odoo from."));

@@ -29,6 +29,10 @@ private struct OdooAddonManifest {
     @property bool application() {
         return _manifest.get("application", false).to_d!bool;
     }
+
+    @property string module_version() {
+        return _manifest.get("version", "").to_d!string;
+    }
 }
 
 

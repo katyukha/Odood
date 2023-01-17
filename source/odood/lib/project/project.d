@@ -111,12 +111,14 @@ class Project {
     /// ditto
     this(in Path project_root, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
+        auto root = project_root.expandTilde.toAbsolute;
+        auto directories = ProjectConfigDirectories(root);
         this(
-            project_root,
-            ProjectConfigDirectories(this.project_root),
+            root,
+            directories,
             ProjectConfigOdoo(
-                this.project_root,
-                this.directories,
+                root,
+                directories,
                 odoo_serie,
                 odoo_branch,
                 odoo_repo),

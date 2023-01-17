@@ -19,6 +19,7 @@ private import odood.lib.exception: OdoodException;
 enum AddonDisplayType {
     by_name,
     by_path,
+    by_name_version,
 }
 
 
@@ -34,11 +35,15 @@ class CommandAddonsList: OdoodCommand {
         this.add(new Flag(
             null, "by-name", "Display addons by name (default)."));
         this.add(new Flag(
+            null, "by-name-version", "Display addon name with addon version"));
+        this.add(new Flag(
             "s", "system", "Search for all addons available for Odoo."));
         this.add(new Flag(
             "r", "recursive", "Search for addons recursively."));
         this.add(new Flag(
             null, "installable", "Filter only installable addons."));
+        this.add(new Flag(
+            null, "not-installable", "Filter only not-installable addons."));
         this.add(new Flag(
             null, "linked", "Filter only linked addons."));
         this.add(new Flag(
@@ -58,6 +63,8 @@ class CommandAddonsList: OdoodCommand {
             display_type = AddonDisplayType.by_path;
         if (args.flag("by-name"))
             display_type = AddonDisplayType.by_name;
+        if (args.flag("by-name-version"))
+            display_type = AddonDisplayType.by_name_version;
 
         OdooAddon[] addons;
         if (args.flag("system")) {
@@ -71,6 +78,8 @@ class CommandAddonsList: OdoodCommand {
         foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
             if (args.flag("installable") && !addon.manifest.installable)
                 continue;
+            if (args.flag("not-installable") && addon.manifest.installable)
+                continue;
             if (args.flag("linked") && !project.addons.isLinked(addon))
                 continue;
             if (args.flag("not-linked") && project.addons.isLinked(addon))
@@ -82,6 +91,10 @@ class CommandAddonsList: OdoodCommand {
                     break;
                 case AddonDisplayType.by_path:
                     writeln(addon.path);
+                    break;
+                case AddonDisplayType.by_name_version:
+                    writefln(
+                        "%10s\t%s", addon.manifest.module_version, addon.name);
                     break;
             }
         }
@@ -164,6 +177,10 @@ class CommandAddonsUpdate: OdoodCommand {
                 null, "dir", "Directory to search for addons to be updated"
             ).optional().repeating());
         this.add(
+            new Option(
+                null, "dir-r", "Directory to recursively search for addons to be installed"
+            ).optional().repeating());
+        this.add(
             new Argument(
                 "addon", "Name of addon to update").optional().repeating());
     }
@@ -178,6 +195,10 @@ class CommandAddonsUpdate: OdoodCommand {
 
         foreach(dir; args.options("dir"))
             foreach(addon; project.addons.scan(Path(dir)))
+                addon_names ~= [addon.name];
+
+        foreach(dir; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(dir), true))
                 addon_names ~= [addon.name];
 
         tracef(
