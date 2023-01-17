@@ -1,8 +1,8 @@
-module odood.lib.addon_manager;
+module odood.lib.addons.manager;
 
 private import std.logger;
 private import std.typecons: Nullable, nullable;
-private import std.array: split;
+private import std.array: split, empty;
 private import std.string: join;
 private import std.format: format;
 private import std.file: SpanMode;
@@ -13,6 +13,9 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.addon;
+private import odood.lib.addons.odoo_requirements:
+    parseOdooRequirements, OdooRequirementsLineType;
+private import odood.lib.addons.repository: AddonRepository;
 
 
 struct AddonManager {
@@ -208,4 +211,27 @@ struct AddonManager {
         install(scan(search_path), database);
     }
 
+    /// Process odoo_requirements.txt file, that is used by odoo-helper
+    void processOdooRequirements(in Path path) {
+        foreach(line; parseOdooRequirements(path.join("odoo_requirements.txt"))) {
+            if (line.type == OdooRequirementsLineType.repo) {
+                addRepo(
+                    line.repo_url,
+                    line.branch.empty ?
+                        _project.odoo.serie.toString : line.branch);
+            }
+        }
+    }
+
+    /// Add new addon repo to project
+    void addRepo(in string url, in string branch) {
+        auto repo = AddonRepository.clone(_project, url, branch);
+        link(repo.path, true);
+
+        // If there is odoo_requirements.txt file present, then we have to
+        // process it.
+        if (repo.path.join("odoo_requirements.txt").exists) {
+            processOdooRequirements(repo.path.join("odoo_requirements.txt"));
+        }
+    }
 }

@@ -16,7 +16,7 @@ private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.odoo.addon: OdooAddon;
-private import odood.lib.addon_manager: AddonManager;
+private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.server: OdooServer;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
@@ -37,7 +37,6 @@ struct OdooTestRunner {
     private const Project _project;
     private const LOdoo _lodoo;
     private const OdooServer _server;
-    private AddonManager _addon_manager;
 
     // TODO: Create separate struct to handle AddonsLists
     private const(OdooAddon)[] _addons;  // Addons to run tests for
@@ -52,7 +51,6 @@ struct OdooTestRunner {
         _project = project;
         _lodoo = LOdoo(_project, _project.odoo.configfile);
         _server = OdooServer(_project);
-        _addon_manager = AddonManager(_project);
         _temporary_db = false;
     }
 
@@ -106,7 +104,7 @@ struct OdooTestRunner {
 
     /// ditto
     auto ref addModule(in string addon_name) {
-        auto addon = _addon_manager.getByName(addon_name);
+        auto addon = _project.addons.getByName(addon_name);
         enforce!OdoodException(
             !addon.isNull,
             "Cannot find addon %s!".format(addon_name));

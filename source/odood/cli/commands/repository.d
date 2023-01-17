@@ -39,7 +39,7 @@ class CommandRepositoryAdd: OdoodCommand {
             // TODO: Add validation
             git_url = "https://github.com/%s".format(git_url);
 
-        project.addRepo(
+        project.addons.addRepo(
             git_url,
             args.option("branch") ?
                 args.option("branch") : project.odoo.branch);

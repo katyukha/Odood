@@ -17,10 +17,8 @@ private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.server: OdooServer;
 private import odood.lib.venv: VirtualEnv;
-private import odood.lib.addon_manager: AddonManager;
-private import odood.lib.repository: AddonRepository;
+private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
-private import odood.lib.odoo_requirements: parseOdooRequirements, OdooRequirementsLineType;
 
 public import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
 
@@ -249,17 +247,8 @@ class Project {
     }
 
     /// Add new repo to project
-    void addRepo(in string url, in string branch) {
-        import std.array: empty;
-        auto repo = AddonRepository.clone(this, url, branch);
-        addons.link(repo.path, true);
-        if (repo.path.join("odoo_requirements.txt").exists) {
-            foreach(line; parseOdooRequirements(repo.path.join("odoo_requirements.txt"))) {
-                if (line.type == OdooRequirementsLineType.repo) {
-                    this.addRepo(line.repo_url, line.branch.empty ? this.odoo.serie.toString : line.branch);
-                }
-            }
-        }
+    deprecated void addRepo(in string url, in string branch) {
+        this.addons.addRepo(url, branch);
     }
 }
 
