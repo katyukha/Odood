@@ -6,8 +6,9 @@ private import std.array: split, empty;
 private import std.string: join;
 private import std.format: format;
 private import std.file: SpanMode;
+private import std.exception: enforce;
 
-private import thepath: Path;
+private import thepath: Path, createTempPath;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
@@ -16,8 +17,12 @@ private import odood.lib.odoo.addon;
 private import odood.lib.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.utils: download;
+private import odood.lib.zip: extract_zip_archive;
+private import odood.lib.exception: OdoodException;
 
 
+/// Struct that provide API to manage odoo addons for the project
 struct AddonManager {
     private const Project _project;
     private Nullable!(Path[]) _addons_paths;
@@ -69,7 +74,7 @@ struct AddonManager {
     }
 
     /// Scan specified path for addons
-    OdooAddon[] scan(in Path path, in bool recursive=false) {
+    OdooAddon[] scan(in Path path, in bool recursive=false) const {
         tracef("Searching for addons in %s", path);
         if (isOdooAddon(path)) {
             return [new OdooAddon(path)];
@@ -89,7 +94,7 @@ struct AddonManager {
     }
 
     /// Link single odoo addon
-    void link(in OdooAddon addon, in bool force=false) {
+    void link(in OdooAddon addon, in bool force=false) const {
         auto const dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("linking addon %s (%s -> %s)",
@@ -117,7 +122,7 @@ struct AddonManager {
     void link(
             in Path search_path,
             in bool recursive=false,
-            in bool force=false) {
+            in bool force=false) const {
         if (search_path.isOdooAddon)
             link(new OdooAddon(search_path), force);
             
@@ -126,7 +131,7 @@ struct AddonManager {
     }
 
     /// Check if addon is linked or not
-    bool isLinked(in ref OdooAddon addon) {
+    bool isLinked(in ref OdooAddon addon) const {
         auto check_path = _project.directories.addons.join(addon.name);
         if (check_path.exists &&
                 check_path.isSymlink &&
@@ -209,6 +214,35 @@ struct AddonManager {
     /// ditto
     void install(in Path search_path, in string database) {
         install(scan(search_path), database);
+    }
+
+    /// Download from odoo apps
+    void downloadFromOdooApps(in string addon_name) const {
+        auto temp_dir = createTempPath();
+        scope(exit) temp_dir.remove();
+
+        auto download_path = temp_dir.join("%s.zip".format(addon_name));
+        tracef("Downloading addon %s from odoo apps...", addon_name);
+        download(
+            "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
+                addon_name, _project.odoo.serie, addon_name),
+            download_path);
+        tracef("Unpacking addon %s from odoo apps...", addon_name);
+        extract_zip_archive(download_path, temp_dir.join("apps"));
+
+        enforce!OdoodException(
+            isOdooAddon(temp_dir.join("apps", addon_name)),
+            "Downloaded archive does not contain requested odoo app!");
+
+        foreach(addon; scan(temp_dir.join("apps"))) {
+            if (_project.directories.addons.join(addon.name).exists) {
+                warningf("Cannot copy module %s. it is already present. Skipping.", addon_name);
+            } else {
+                tracef("Copying addon %s...", addon.name);
+                addon.path.copyTo(_project.directories.downloads);
+                link(_project.directories.downloads.join(addon.name));
+            }
+        }
     }
 
     /// Process odoo_requirements.txt file, that is used by odoo-helper

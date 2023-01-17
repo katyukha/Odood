@@ -119,6 +119,9 @@ void extract_zip_archive(
         } else {
             // If it is file, then we have to extract file.
 
+            // ensure the directory for this file created.
+            entry_dst.parent.mkdir(true);
+
             auto out_file = std.stdio.File(entry_dst.toString, "wb");
             scope(exit) out_file.close();
 

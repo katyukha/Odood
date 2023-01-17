@@ -258,6 +258,28 @@ class CommandAddonsInstall: OdoodCommand {
 }
 
 
+class CommandAddonsAdd: OdoodCommand {
+    this() {
+        super("add", "Add addons to the project");
+        this.add(new Flag(
+            "o", "odoo-apps", "Add from odoo apps."));
+        this.add(new Argument(
+            "addon", "Name of addon to add.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        enforce!OdoodException(
+            args.flag("odoo-apps"),
+            "Currently only fetching from odoo apps storage supported");
+
+        project.addons.downloadFromOdooApps(args.arg("addon"));
+    }
+
+}
+
+
 class CommandAddons: OdoodCommand {
     this() {
         super("addons", "Manage third-party addons.");
@@ -266,6 +288,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsList());
         this.add(new CommandAddonsUpdate());
         this.add(new CommandAddonsInstall());
+        this.add(new CommandAddonsAdd());
     }
 }
 
