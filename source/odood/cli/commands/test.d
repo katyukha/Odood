@@ -10,7 +10,7 @@ private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
-private import consolecolors: cwritefln, escapeCCL;
+private import consolecolors: cwriteln, cwritefln, escapeCCL;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -58,6 +58,7 @@ class CommandTest: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         import std.process: wait, Redirect;
+        import std.array;
         auto project = Project.loadProject;
 
         auto testRunner = project.testRunner();
@@ -84,9 +85,13 @@ class CommandTest: OdoodCommand {
 
         auto res = testRunner.run();
         if (res.success) {
+            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
             cwritefln("Test result: <lgreen>SUCCESS</lgreen>");
         } else {
-            cwritefln("Test result: <red>FAILED</red>\nErrors listed below:");
+            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
+            cwritefln("Test result: <red>FAILED</red>");
+            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
+            cwritefln("Errors listed below:");
             foreach(error; res.errors) {
                 printLogRecord(error);
             }
