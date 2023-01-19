@@ -15,11 +15,13 @@ private import odood.lib.git: parseGitURL, gitClone;
 
 // TODO: Do we need this struct?
 struct AddonRepository {
+    private const Project _project;
     private const Path _path;
 
     @disable this();
 
-    this(in Path path) {
+    this(in Project project, in Path path) {
+        _project = project;
         _path = path;
     }
 
@@ -41,6 +43,25 @@ struct AddonRepository {
             path_segments ~= p;
         auto dest = project.directories.repositories.join(path_segments);
         gitClone(git_url, dest, branch);
-        return AddonRepository(dest);
+        return AddonRepository(project, dest);
     }
+
+    /// Check if repository has pre-commit configuration.
+    bool hasPreCommitConfig() const {
+        return _path.join(".pre-commit-config.yaml").exists;
+    }
+
+    /// Setup Precommit if needed
+    void setUpPreCommit() {
+        if (hasPreCommitConfig) {
+            _project.venv.installPyPackages("pre-commit");
+            _project.venv.runE(["pre-commit", "install"]);
+        } else {
+            warningf(
+                "Cannot set up pre-commit for repository %s, " ~
+                "because it does not have pre-commit configuration!",
+                _path);
+        }
+    }
+
 }

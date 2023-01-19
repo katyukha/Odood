@@ -268,4 +268,12 @@ struct AddonManager {
             processOdooRequirements(repo.path.join("odoo_requirements.txt"));
         }
     }
+
+    /// Get repository instance for specified path
+    auto getRepo(in Path path) {
+        enforce!OdoodException(
+            path.join(".git").exists,
+            "Is not a git root directory.");
+        return AddonRepository(_project, path);
+    }
 }

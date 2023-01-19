@@ -4,6 +4,8 @@ private import std.format: format;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
+private import thepath: Path;
+
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 
@@ -48,10 +50,31 @@ class CommandRepositoryAdd: OdoodCommand {
 }
 
 
+class CommandRepositorySetUpPreCommit: OdoodCommand {
+    this() {
+        super("set-up-pre-commit", "Set up pre-commit for specified repo.");
+        this.add(new Argument(
+            "path", "Path to repository to configure.").optional());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")) : Path.current);
+
+        repo.setUpPreCommit();
+    }
+
+}
+
+
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
+        this.add(new CommandRepositorySetUpPreCommit());
     }
 }
 
