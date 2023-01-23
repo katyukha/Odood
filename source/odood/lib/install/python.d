@@ -111,6 +111,5 @@ void installVirtualenv(in Project project,
 
     // Install javascript dependecies
     // TODO: Make it optional, install automatically only for odoo <= 11
-    project.venv.npm("install", "-g", "less@3.9.0", "rtlcss");
+    project.venv.installJSPackages("less@3.9.0", "rtlcss");
 }
-

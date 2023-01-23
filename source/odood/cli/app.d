@@ -19,6 +19,7 @@ private import odood.cli.commands.addons:
 private import odood.cli.commands.repository: CommandRepository;
 private import odood.cli.commands.config: CommandConfig;
 private import odood.cli.commands.test: CommandTest;
+private import odood.cli.commands.venv: CommandVenv;
 
 
 /** Custom logger for Odood CLI
@@ -77,6 +78,7 @@ class App: OdoodProgram {
         this.add(new CommandConfig());
         this.add(new CommandTest());
         this.add(new CommandRepository());
+        this.add(new CommandVenv());
 
         // shortcuts
         this.add(new CommandServerStart());

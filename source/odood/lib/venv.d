@@ -197,6 +197,13 @@ const struct VirtualEnv {
         return runE(["npm"] ~ args);
     }
 
+    /** Install JS dependencies
+      *
+      **/
+    auto installJSPackages(in string[] packages...) {
+        return npm(["install", "-g"] ~ packages);
+    }
+
     /** Build python
 
         Params:

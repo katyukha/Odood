@@ -250,9 +250,5 @@ class Project {
         return this.readOdooConfig;
     }
 
-    /// Add new repo to project
-    deprecated void addRepo(in string url, in string branch) {
-        this.addons.addRepo(url, branch);
-    }
 }
 
