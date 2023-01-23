@@ -228,7 +228,11 @@ class Project {
             in string node_version="lts") {
         import odood.lib.install;
 
-        this.initializeProjectDirs();
+        // Initialize project directories
+        this.project_root.mkdir(true);
+        this.directories.initializeDirecotires();
+
+        // Initialize project (install everything needed)
         this.installDownloadOdoo();
         this.installVirtualenv(python_version, node_version);
         this.installOdoo();

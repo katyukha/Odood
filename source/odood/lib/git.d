@@ -62,7 +62,7 @@ private struct GitURL {
 
         if (port) res ~= ":%s".format(port);
 
-        res ~= path;
+        res ~= "/" ~ path;
         return res;
     }
 
@@ -97,7 +97,7 @@ unittest {
         port.shouldBeNull;
         user.shouldEqual("git");
         password.shouldBeNull;
-        toUrl.shouldEqual("git@gitlab.crnd.pro:crnd-opensource/crnd-web");
+        toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd-opensource/crnd-web");
     }
 
     with (GitURL("git@gitlab.crnd.pro:crnd/crnd-account")) {
@@ -107,7 +107,7 @@ unittest {
         port.shouldBeNull;
         user.shouldEqual("git");
         password.shouldBeNull;
-        toUrl.shouldEqual("git@gitlab.crnd.pro:crnd/crnd-account");
+        toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
     }
 }
 

@@ -131,4 +131,18 @@ package struct ProjectConfigDirectories {
             "repositories": this.repositories.toString,
         ]);
     }
+
+    /** Initialize project directory structure.
+        This function will create all needed directories for project.
+     **/
+    package void initializeDirecotires() const {
+        this.conf.mkdir(true);
+        this.log.mkdir(true);
+        this.downloads.mkdir(true);
+        this.addons.mkdir(true);
+        this.data.mkdir(true);
+        this.backups.mkdir(true);
+        this.repositories.mkdir(true);
+    }
+
 }

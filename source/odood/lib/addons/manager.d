@@ -247,7 +247,7 @@ struct AddonManager {
 
     /// Process odoo_requirements.txt file, that is used by odoo-helper
     void processOdooRequirements(in Path path) {
-        foreach(line; parseOdooRequirements(path.join("odoo_requirements.txt"))) {
+        foreach(line; parseOdooRequirements(path)) {
             if (line.type == OdooRequirementsLineType.repo) {
                 addRepo(
                     line.repo_url,
