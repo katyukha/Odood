@@ -29,23 +29,6 @@ struct AddonRepository {
         return _path;
     }
 
-    // TODO: May be it have sense to create separate entity AddonRepoManager
-    static auto clone(
-            in Project project,
-            in string url,
-            in string branch) {
-        import std.algorithm: splitter;
-        import std.conv: to;
-        auto git_url = parseGitURL(url);
-
-        string[] path_segments;
-        foreach(p; git_url.path.splitter("/"))
-            path_segments ~= p;
-        auto dest = project.directories.repositories.join(path_segments);
-        gitClone(git_url, dest, branch);
-        return AddonRepository(project, dest);
-    }
-
     /// Check if repository has pre-commit configuration.
     bool hasPreCommitConfig() const {
         return _path.join(".pre-commit-config.yaml").exists;

@@ -259,7 +259,24 @@ struct AddonManager {
 
     /// Add new addon repo to project
     void addRepo(in string url, in string branch) {
-        auto repo = AddonRepository.clone(_project, url, branch);
+        import odood.lib.git: parseGitURL, gitClone;
+
+        auto git_url = parseGitURL(url);
+        auto dest = _project.directories.repositories.join(
+                git_url.toPathSegments);
+
+        // TODO: Add recursion protection
+        if (dest.exists) {
+            warningf(
+                "Repository %s seems to be already cloned to %s. Skipping...",
+                url, dest);
+            return;
+        }
+
+        gitClone(git_url, dest, branch);
+
+        // TODO: Do we need to create instance of repo here?
+        auto repo = AddonRepository(_project, dest);
         link(repo.path, true);
 
         // If there is odoo_requirements.txt file present, then we have to

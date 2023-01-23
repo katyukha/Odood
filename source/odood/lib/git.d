@@ -1,7 +1,7 @@
 module odood.lib.git;
 
 private import std.logger;
-private import std.regex;
+private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
 
@@ -48,6 +48,8 @@ private struct GitURL {
             scheme = re_match["scheme"];
     }
 
+    /** Convert to string that is suitable to pass to git clone
+      **/
     string toUrl() const {
         string res;
         if (scheme)
@@ -64,6 +66,16 @@ private struct GitURL {
 
         res ~= "/" ~ path;
         return res;
+    }
+
+    /** Split path on segments
+      **/
+    string[] toPathSegments() const {
+        import std.algorithm: splitter;
+        string[] path_segments;
+        foreach(p; path.splitter("/"))
+            path_segments ~= p;
+        return path_segments;
     }
 
     string toString() const {
