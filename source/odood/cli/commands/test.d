@@ -119,8 +119,10 @@ class CommandTest: OdoodCommand {
             cwritefln("Test result: <red>FAILED</red>");
             cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
             cwritefln("Errors listed below:");
+            cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
             foreach(error; res.errors) {
                 printLogRecord(error);
+                cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
             }
         }
 

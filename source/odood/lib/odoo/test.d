@@ -4,6 +4,7 @@
 module odood.lib.odoo.test;
 
 private import std.logger;
+private import std.regex;
 private import std.string: join, empty;
 private import std.format: format;
 private import std.algorithm: map;
@@ -23,6 +24,20 @@ private import odood.lib.utils: generateRandomString;
 
 private immutable ODOO_TEST_HTTP_PORT=8269;
 private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
+
+// Regular expressions to check for errors
+private immutable auto RE_ERROR_CHECKS = [
+    ctRegex!(`At least one test failed`),
+    ctRegex!(`invalid module names, ignored`),
+    ctRegex!(`no access rules, consider adding one`),
+    ctRegex!(`OperationalError: FATAL`),
+    ctRegex!(`Comparing apples and oranges`),
+    ctRegex!(`Module [a-zA-Z0-9_]\+ demo data failed to install, installed without demo data`),
+    ctRegex!(`[a-zA-Z0-9\\._]\+.create() includes unknown fields`),
+    ctRegex!(`[a-zA-Z0-9\\._]\+.write() includes unknown fields`),
+    ctRegex!(`The group [a-zA-Z0-9\\._]\+ defined in view [a-zA-Z0-9\\._]\+ [a-z]\+ does not exist!`),
+    ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
+];
 
 
 private struct OdooTestResult {
@@ -77,8 +92,16 @@ private struct OdooTestResult {
       **/
     auto errors() const {
         import std.algorithm;
-        return _log_records.filter!(
-            r => r.log_level == "ERROR" || r.log_level == "CRITICAL");
+        return _log_records.filter!((r) {
+            if (r.log_level == "ERROR" || r.log_level == "CRITICAL")
+                return true;
+
+            foreach(check; RE_ERROR_CHECKS)
+               if (r.msg.matchFirst(check))
+                   return true;
+
+            return false;
+        });
     }
 }
 
