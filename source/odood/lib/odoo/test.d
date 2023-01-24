@@ -26,9 +26,60 @@ private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
 
 
 private struct OdooTestResult {
-    bool success;
-    OdooLogRecord[] warnings;
-    OdooLogRecord[] errors;
+    private bool _success;
+    private OdooLogRecord[] _log_records;
+
+    /** Check if test was successfull
+      *
+      **/
+    pure const(bool) success() const {
+        return _success;
+    }
+
+    /** Get list of all log records
+      *
+      **/
+    pure const(OdooLogRecord[]) logRecords() const {
+        return _log_records;
+    }
+
+    /** Set the test result failed
+      *
+      **/
+    package pure void setFailed() {
+        _success = false;
+    }
+
+    /** Set the test result successful
+      *
+      **/
+    pure void setSuccess() {
+        _success = true;
+    }
+
+    /** Add log record to test result
+      *
+      **/
+    package pure void addLogRecord(in OdooLogRecord record) {
+        _log_records ~= record;
+    }
+
+    /** Return range on log records, each represent warning
+      *
+      **/
+    auto warnings() const {
+        import std.algorithm;
+        return _log_records.filter!(r => r.log_level == "WARNING");
+    }
+
+    /** Return range over log records that return only errors
+      *
+      **/
+    auto errors() const {
+        import std.algorithm;
+        return _log_records.filter!(
+            r => r.log_level == "ERROR" || r.log_level == "CRITICAL");
+    }
 }
 
 
@@ -40,7 +91,6 @@ struct OdooTestRunner {
 
     // TODO: Create separate struct to handle AddonsLists
     private const(OdooAddon)[] _addons;  // Addons to run tests for
-    private OdooLogRecord[] _log_records;
 
     private string _test_db_name;
     private bool _temporary_db;
@@ -173,25 +223,14 @@ struct OdooTestRunner {
             ]
         );
         foreach(log_record; init_res) {
-            _log_records ~= log_record;
             logToFile(log_record);
             if (_log_handler)
                 _log_handler(log_record);
-
-            switch (log_record.log_level) {
-                case "WARNING":
-                    result.warnings ~= log_record;
-                    break;
-                case "ERROR", "CRITICAL":
-                    result.errors ~= log_record;
-                    break;
-                default:
-                    break;
-            }
+            result.addLogRecord(log_record);
         }
 
         if(init_res.close != 0) {
-            result.success = false;
+            result.setFailed();
             cleanUp();
             return result;
         }
@@ -208,33 +247,23 @@ struct OdooTestRunner {
                 "--database=%s".format(_test_db_name),
             ]);
         foreach(log_record; update_res) {
-            _log_records ~= log_record;
             logToFile(log_record);
             if (_log_handler)
                 _log_handler(log_record);
 
-            switch (log_record.log_level) {
-                case "WARNING":
-                    result.warnings ~= log_record;
-                    break;
-                case "ERROR", "CRITICAL":
-                    result.errors ~= log_record;
-                    break;
-                default:
-                    break;
-            }
+            result.addLogRecord(log_record);
         }
 
         if (update_res.close != 0) {
-            result.success = false;
+            result.setFailed();
             cleanUp();
             return result;
         }
 
-        if (result.errors.length > 0)
-            result.success = false;
+        if (!result.errors.empty)
+            result.setFailed();
         else
-            result.success = true;
+            result.setSuccess();
 
         cleanUp();
         return result;

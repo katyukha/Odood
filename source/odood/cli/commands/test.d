@@ -113,6 +113,7 @@ class CommandTest: OdoodCommand {
         if (res.success) {
             cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
             cwritefln("Test result: <lgreen>SUCCESS</lgreen>");
+            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
         } else {
             cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
             cwritefln("Test result: <red>FAILED</red>");
