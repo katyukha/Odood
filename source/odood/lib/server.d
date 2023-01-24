@@ -163,6 +163,39 @@ struct OdooServer {
         ];
     }
 
+    /** Prepare command to be used to run the server
+      * with or without coverage.
+      **/
+    private string[] getServerCmd(in bool coverage=false) const {
+        string[] cmd = [
+            _project.venv.path.join("bin", "run-in-venv").toString];
+        if (coverage) {
+            if (!_project.directories.conf.join("coverage.cfg").exists)
+                _project.directories.conf.join("coverage.cfg").writeFile(
+                    import("coverage.cfg"));
+
+            cmd ~= [
+                "coverage",
+                "run",
+                "--rcfile=%s".format(
+                    _project.directories.conf.join("coverage.cfg").toString),
+                "--include=%s/*".format(Path.current.toString),
+            ];
+        }
+        cmd ~= [scriptPath.toString];
+        return cmd;
+    }
+
+    /** Prepare server command combined with server options
+      *
+      * Params:
+      *     coverage = run with code coverage or not
+      *     options = odoo server options
+      **/
+    private string[] getServerCmd(in bool coverage, in string[] options) const {
+        return getServerCmd(coverage) ~ options;
+    }
+
     /** Spawn the Odoo server
       *
       **/
@@ -187,10 +220,7 @@ struct OdooServer {
             server_opts ~= ["--logfile=%s".format(_project.odoo.logfile)];
 
         auto pid = std.process.spawnProcess(
-            [
-                _project.venv.path.join("bin", "run-in-venv").toString,
-                scriptPath.toString,
-            ] ~ server_opts,
+            getServerCmd(false, server_opts),
             getServerEnv,
             process_conf,
             _project.project_root.toString);
@@ -204,8 +234,9 @@ struct OdooServer {
       * Returns:
       *     Iterator over log entries produced by this call to the server.
       **/
-    auto pipeServerLog(string[] options...) const {
+    auto pipeServerLog(in bool coverage, string[] options...) const {
         import std.process: Config, Redirect;
+        import std.string: join;
 
         enforce!ServerAlreadyRuningException(
             !isRunning,
@@ -213,19 +244,21 @@ struct OdooServer {
 
         Config process_conf = Config.none;
 
-        tracef("Starting odoo server (pipe logs) with args %s", options);
+        tracef("Starting odoo server (pipe logs, coverage=%s) cmd: %s", coverage, getServerCmd(coverage, options).join(" "));
 
         auto server_pipes = std.process.pipeProcess(
-            [
-                _project.venv.path.join("bin", "run-in-venv").toString,
-                scriptPath.toString,
-            ] ~ options,
+            getServerCmd(coverage, options),
             Redirect.all,
             getServerEnv,
             process_conf,
-            _project.project_root.toString);
+            Path.current.toString);  // _project.project_root.toString);
 
         return OdooLogPipe(server_pipes);
+    }
+
+    /// ditto
+    auto pipeServerLog(string[] options...) const {
+        return pipeServerLog(false, options);
     }
 
     auto run(in string[] options...) const {

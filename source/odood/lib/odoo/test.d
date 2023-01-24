@@ -47,6 +47,9 @@ struct OdooTestRunner {
     private Path _log_file;
     private void delegate(in ref OdooLogRecord rec) _log_handler;
 
+    // Coverage configuration
+    private bool _coverage;
+
     this(in Project project) {
         _project = project;
         _lodoo = LOdoo(_project, _project.odoo.configfile);
@@ -93,6 +96,13 @@ struct OdooTestRunner {
         return setDatabaseName(
             "odood%s-test-%s".format(
                 _project.odoo.serie.major, generateRandomString(8)));
+    }
+
+    /** Enable Coverage
+      **/
+    auto ref setCoverage(in bool coverage) {
+        _coverage = coverage;
+        return this;
     }
 
     /// Add new module to test run
@@ -142,16 +152,19 @@ struct OdooTestRunner {
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
-        auto init_res =_server.pipeServerLog([
-            "--init=%s".format(_addons.map!(a => a.name).join(",")),
-            "--log-level=warn",
-            "--logfile=",
-            "--stop-after-init",
-            "--workers=0",
-            "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
-            opt_http_port,
-            "--database=%s".format(_test_db_name),
-        ]);
+        auto init_res =_server.pipeServerLog(
+            _coverage,
+            [
+                "--init=%s".format(_addons.map!(a => a.name).join(",")),
+                "--log-level=warn",
+                "--logfile=",
+                "--stop-after-init",
+                "--workers=0",
+                "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+                opt_http_port,
+                "--database=%s".format(_test_db_name),
+            ]
+        );
         foreach(log_record; init_res) {
             _log_records ~= log_record;
             logToFile(log_record);
@@ -176,15 +189,17 @@ struct OdooTestRunner {
             return result;
         }
 
-        auto update_res =_server.pipeServerLog([
-            "--update=%s".format(_addons.map!(a => a.name).join(",")),
-            "--log-level=info",
-            "--logfile=",
-            "--stop-after-init",
-            "--workers=0",
-            "--test-enable",
-            "--database=%s".format(_test_db_name),
-        ]);
+        auto update_res =_server.pipeServerLog(
+            _coverage,
+            [
+                "--update=%s".format(_addons.map!(a => a.name).join(",")),
+                "--log-level=info",
+                "--logfile=",
+                "--stop-after-init",
+                "--workers=0",
+                "--test-enable",
+                "--database=%s".format(_test_db_name),
+            ]);
         foreach(log_record; update_res) {
             _log_records ~= log_record;
             logToFile(log_record);

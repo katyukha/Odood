@@ -261,20 +261,22 @@ class CommandAddonsInstall: OdoodCommand {
 class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
-        this.add(new Flag(
-            "o", "odoo-apps", "Add from odoo apps."));
-        this.add(new Argument(
-            "addon", "Name of addon to add.").required());
+        this.add(new Option(
+            "o", "odoo-apps", "Add addon from odoo apps.").repeating);
+        this.add(new Option(
+            null, "odoo-requirements",
+            "Add modules (repos) from odoo_requirements.txt file, " ~
+            "that is used by odoo-helper-scripts.").repeating);
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        enforce!OdoodException(
-            args.flag("odoo-apps"),
-            "Currently only fetching from odoo apps storage supported");
+        foreach(app; args.options("odoo-apps"))
+            project.addons.downloadFromOdooApps(app);
 
-        project.addons.downloadFromOdooApps(args.arg("addon"));
+        foreach(requirements_path; args.options("odoo-requirements"))
+            project.addons.processOdooRequirements(Path(requirements_path));
     }
 
 }

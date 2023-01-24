@@ -45,6 +45,12 @@ class CommandTest: OdoodCommand {
         super("test", "Run tests for mudles.");
         this.add(new Flag(
             "t", "temp-db", "Create temporary database for tests."));
+        this.add(new Flag(
+            null, "coverage", "Calculate code coverage."));
+        this.add(new Flag(
+            null, "coverage-report", "Print coverage report."));
+        this.add(new Flag(
+            null, "coverage-html", "Prepare HTML report for coverage."));
         this.add(new Option(
             "d", "db", "Database to run tests for."));
         this.add(new Option(
@@ -83,7 +89,27 @@ class CommandTest: OdoodCommand {
         else if (args.option("db") && !args.option("db").empty)
             testRunner.setDatabaseName(args.option("db"));
 
+        bool coverage = args.flag("coverage");
+        bool coverage_report = false;
+        bool coverage_html = false;
+
+        if (args.flag("coverage-report")) {
+            coverage = true;
+            coverage_report = true;
+        }
+
+        if (args.flag("coverage-html")) {
+            coverage = true;
+            coverage_html = true;
+        }
+
+        testRunner.setCoverage(coverage);
+
         auto res = testRunner.run();
+
+        if (coverage)
+            project.venv.runE(["coverage", "combine"]);
+
         if (res.success) {
             cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
             cwritefln("Test result: <lgreen>SUCCESS</lgreen>");
@@ -96,6 +122,13 @@ class CommandTest: OdoodCommand {
                 printLogRecord(error);
             }
         }
+
+        if (coverage_html)
+            project.venv.runE([
+                "coverage", "html",
+                "--directory=%s".format(Path.current.join("htmlcov"))]);
+        if (coverage_report)
+            write(project.venv.runE(["coverage", "report"]).output);
     }
 }
 
