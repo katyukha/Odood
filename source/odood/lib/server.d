@@ -108,6 +108,19 @@ private struct OdooLogPipe {
 }
 
 
+package struct CoverageOptions {
+    Path[] include;
+    Path[] source;
+    bool enable;
+
+    @disable this();
+
+    this(in bool enable) {
+        this.enable = enable;
+    }
+}
+
+
 /** Wrapper struct to manage odoo server
   **/
 struct OdooServer {
@@ -122,7 +135,7 @@ struct OdooServer {
     }
 
     /// Get name of odoo server script, depending on odoo serie
-    @property string scriptName() const {
+    @property @safe pure string scriptName() const {
         if (_project.odoo.serie >= OdooSerie(11)) {
             return "odoo";
         } else if (_project.odoo.serie == OdooSerie(10)) {
@@ -136,7 +149,7 @@ struct OdooServer {
     }
 
     /// Get path to the odoo server script to run
-    @property Path scriptPath() const {
+    @property @safe pure Path scriptPath() const {
         return _project.venv.path.join("bin", scriptName());
     }
 
@@ -166,34 +179,40 @@ struct OdooServer {
     /** Prepare command to be used to run the server
       * with or without coverage.
       **/
-    private string[] getServerCmd(in bool coverage=false) const {
+    private string[] getServerCmd(
+            in CoverageOptions coverage,
+            in string[] options...) const {
+        import std.string: join;
+        import std.algorithm: map;
         string[] cmd = [
             _project.venv.path.join("bin", "run-in-venv").toString];
-        if (coverage) {
-            if (!_project.directories.conf.join("coverage.cfg").exists)
-                _project.directories.conf.join("coverage.cfg").writeFile(
-                    import("coverage.cfg"));
 
+        if (coverage.enable) {
+            string source = coverage.source.map!(p => p.toString).join(",");
             cmd ~= [
                 "coverage",
                 "run",
-                "--rcfile=%s".format(
-                    _project.directories.conf.join("coverage.cfg").toString),
-                "--include=%s/*".format(Path.current.toString),
+                "--parallel-mode",
+                "--source=%s".format(source),
+                "--omit=*/__openerp__.py,*/__manifest__.py",
+                //"--include=%s/*".format(Path.current.toString),
             ];
         }
         cmd ~= [scriptPath.toString];
+        cmd ~= options;
         return cmd;
     }
 
     /** Prepare server command combined with server options
       *
       * Params:
-      *     coverage = run with code coverage or not
       *     options = odoo server options
       **/
-    private string[] getServerCmd(in bool coverage, in string[] options) const {
-        return getServerCmd(coverage) ~ options;
+    private @safe pure string[] getServerCmd(in string[] options) const {
+        return [
+            _project.venv.path.join("bin", "run-in-venv").toString,
+            scriptPath.toString,
+        ] ~ options;
     }
 
     /** Spawn the Odoo server
@@ -220,7 +239,7 @@ struct OdooServer {
             server_opts ~= ["--logfile=%s".format(_project.odoo.logfile)];
 
         auto pid = std.process.spawnProcess(
-            getServerCmd(false, server_opts),
+            getServerCmd(server_opts),
             getServerEnv,
             process_conf,
             _project.project_root.toString);
@@ -234,7 +253,7 @@ struct OdooServer {
       * Returns:
       *     Iterator over log entries produced by this call to the server.
       **/
-    auto pipeServerLog(in bool coverage, string[] options...) const {
+    auto pipeServerLog(in CoverageOptions coverage, string[] options...) const {
         import std.process: Config, Redirect;
         import std.string: join;
 
@@ -244,7 +263,9 @@ struct OdooServer {
 
         Config process_conf = Config.none;
 
-        tracef("Starting odoo server (pipe logs, coverage=%s) cmd: %s", coverage, getServerCmd(coverage, options).join(" "));
+        tracef(
+            "Starting odoo server (pipe logs, coverage=%s) cmd: %s", 
+            coverage, getServerCmd(coverage, options).join(" "));
 
         auto server_pipes = std.process.pipeProcess(
             getServerCmd(coverage, options),
@@ -258,7 +279,7 @@ struct OdooServer {
 
     /// ditto
     auto pipeServerLog(string[] options...) const {
-        return pipeServerLog(false, options);
+        return pipeServerLog(CoverageOptions(false), options);
     }
 
     auto run(in string[] options...) const {

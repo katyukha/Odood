@@ -56,7 +56,7 @@ const struct VirtualEnv {
     }
 
     /// Path where virtualenv isntalled
-    @property const(Path) path() const {return _path;}
+    @property @safe pure nothrow const(Path) path() const {return _path;}
 
     /// Serie of python used for this virtualenv (py2 or py3)
     @property const(PySerie) py_serie() const {return _py_serie;}

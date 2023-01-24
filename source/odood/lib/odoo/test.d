@@ -17,7 +17,7 @@ private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.odoo.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
-private import odood.lib.server: OdooServer;
+private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
 
@@ -105,6 +105,13 @@ struct OdooTestRunner {
         return this;
     }
 
+    auto getCoverageOptions() {
+        CoverageOptions res = CoverageOptions(_coverage);
+        foreach(addon; _addons)
+            res.source ~= addon.path;
+        return res;
+    }
+
     /// Add new module to test run
     auto ref addModule(in ref OdooAddon addon) {
         tracef("Adding %s addon to test runner...", addon.name);
@@ -153,7 +160,7 @@ struct OdooTestRunner {
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
         auto init_res =_server.pipeServerLog(
-            _coverage,
+            getCoverageOptions(),
             [
                 "--init=%s".format(_addons.map!(a => a.name).join(",")),
                 "--log-level=warn",
@@ -190,7 +197,7 @@ struct OdooTestRunner {
         }
 
         auto update_res =_server.pipeServerLog(
-            _coverage,
+            getCoverageOptions(),
             [
                 "--update=%s".format(_addons.map!(a => a.name).join(",")),
                 "--log-level=info",
