@@ -23,6 +23,14 @@ configuration "executable" {
     mainSourceFile "source/odood/app.d"
 }
 
+configuration "bash-autocomplete" {
+    targetType "executable"
+    mainSourceFile "source/odood/app.d"
+    targetName "odood-bash-autocomplete"
+    versions "odood_bash_autocomplete"
+    postBuildCommands "$DUB_TARGET_PATH/$DUB_TARGET_NAME > $DUB_TARGET_PATH/odood.bash";
+}
+
 configuration "unittest" {
     mainSourceFile "source/odood/app.d"
     dependency "unit-threaded:assertions" version=">=2.0.0"
