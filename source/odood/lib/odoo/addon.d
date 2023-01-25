@@ -30,6 +30,8 @@ private struct OdooAddonManifest {
         return _manifest.get("application", false).to_d!bool;
     }
 
+    // TODO: Parse the version to some specific struct, that
+    //       have to automatically guess module version in same way as odoo do
     @property string module_version() {
         return _manifest.get("version", "").to_d!string;
     }

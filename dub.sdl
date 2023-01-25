@@ -16,8 +16,6 @@ dependency "pyd" version="~master"
 
 targetPath "build"
 
-stringImportPaths "templates/"
-
 subConfiguration "pyd" "python310"
 
 configuration "executable" {
