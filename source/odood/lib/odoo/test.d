@@ -21,6 +21,7 @@ private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
+private static import signal = odood.lib.signal;
 
 private immutable ODOO_TEST_HTTP_PORT=8269;
 private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
@@ -42,6 +43,8 @@ private immutable auto RE_ERROR_CHECKS = [
 
 private struct OdooTestResult {
     private bool _success;
+    private bool _cancelled;
+    private string _cancel_reason;
     private OdooLogRecord[] _log_records;
 
     /** Check if test was successfull
@@ -49,6 +52,20 @@ private struct OdooTestResult {
       **/
     pure const(bool) success() const {
         return _success;
+    }
+
+    /** Check if test was cancelled
+      *
+      **/
+    pure const(bool) cancelled() const {
+        return _cancelled;
+    }
+
+    /** Get the cancel reason
+      *
+      **/
+    pure string cancelReason() const {
+        return _cancel_reason;
     }
 
     /** Get list of all log records
@@ -63,6 +80,15 @@ private struct OdooTestResult {
       **/
     package pure void setFailed() {
         _success = false;
+    }
+
+    /** Set the test result status cancelled
+      * This will automatically make test failed
+      **/
+    package pure void setCancelled(in string reason) {
+        _cancelled = true;
+        _cancel_reason = reason;
+        setFailed();
     }
 
     /** Set the test result successful
@@ -232,6 +258,9 @@ struct OdooTestRunner {
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
+        signal.initSigIntHandling();
+        scope(exit) signal.deinitSigIntHandling();
+
         auto init_res =_server.pipeServerLog(
             getCoverageOptions(),
             [
@@ -250,6 +279,15 @@ struct OdooTestRunner {
             if (_log_handler)
                 _log_handler(log_record);
             result.addLogRecord(log_record);
+
+            if (signal.interrupted) {
+                warningf("Canceling test because of Keyboard Interrupt");
+                result.setCancelled("Keyboard interrupt");
+                cleanUp();
+                init_res.kill();
+                init_res.close();
+                return result;
+            }
         }
 
         if(init_res.close != 0) {
@@ -275,6 +313,15 @@ struct OdooTestRunner {
                 _log_handler(log_record);
 
             result.addLogRecord(log_record);
+
+            if (signal.interrupted) {
+                warningf("Canceling test because of Keyboard Interrupt");
+                result.setCancelled("Keyboard interrupt");
+                cleanUp();
+                update_res.kill();
+                update_res.close();
+                return result;
+            }
         }
 
         if (update_res.close != 0) {

@@ -2,7 +2,7 @@ module odood.lib.server.log_pipe;
 
 private static import std.process;
 private import std.logger;
-private import std.process: ProcessPipes;
+private import std.process: ProcessPipes, kill;
 private import std.typecons: Nullable, nullable;
 private import std.string: empty;
 
@@ -48,7 +48,7 @@ package struct OdooLogPipe {
         }
     public:
         /** This method have to be called to ensure that
-          * the child process is existed and properly awaited by
+          * the child process is exited and properly awaited by
           * parent process, to avoid zombies.
           * In case, if this struct used as range and completely
           * consumed, then it is not required to call this method.
@@ -79,6 +79,10 @@ package struct OdooLogPipe {
         void popFront() {
             tryReadLogRecordIfNeeded();
             _log_record.nullify;
+        }
+
+        void kill() {
+            _pipes.pid.kill();
         }
 }
 
