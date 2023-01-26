@@ -179,6 +179,11 @@ struct OdooServer {
             "Starting odoo server (pipe logs, coverage=%s) cmd: %s", 
             coverage, getServerCmd(coverage, options).join(" "));
 
+        // TODO: If there is no --logfile option in options list,
+        //       then, we have to manually specify '--logfile=' option,
+        //       to enforce output to stdout, even if there is other option
+        //       used in config.
+
         auto server_pipes = std.process.pipeProcess(
             getServerCmd(coverage, options),
             Redirect.all,

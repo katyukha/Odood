@@ -152,6 +152,7 @@ struct AddonManager {
             "--stop-after-init",
             _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=/dev/null",
+            "--logfile=%s".format(_project.odoo.logfile.toString),
         ];
 
         final switch(cmd) {

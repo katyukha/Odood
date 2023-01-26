@@ -12,6 +12,7 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.utils: generateRandomString;
+private import odood.lib.odoo.addon: OdooAddon;
 
 // TODO: Use specific exception tree for CLI part
 private import odood.lib.exception: OdoodException;
@@ -39,6 +40,7 @@ class CommandDatabaseList: OdoodCommand {
 class CommandDatabaseCreate: OdoodCommand {
     this() {
         super("create", "Create new odoo database.");
+        this.add(new Flag("d", "demo", "Load demo data for this db"));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -47,18 +49,42 @@ class CommandDatabaseCreate: OdoodCommand {
             null, "password", "Admin password for this database."));
         this.add(new Option(
             null, "country", "Country for this db."));
-        this.add(new Flag("d", "demo", "Load demo data for this db"));
+        this.add(new Option(
+            "i", "install", "Install module specified by name.").repeating);
+        this.add(new Option(
+            null, "install-dir", "Install all modules from directory.")
+                .repeating);
         this.add(new Argument("name", "Name of database").required());
     }
 
     public override void execute(ProgramArgs args) {
+        import std.array: empty;
+
         auto project = Project.loadProject;
+        string dbname = args.arg("name");
         project.lodoo.databaseCreate(
-            args.arg("name"),
+            dbname,
             args.flag("demo"),
             args.option("lang"),
             args.option("password"),
             args.option("country"));
+
+        OdooAddon[] to_install;
+        foreach(addon_name; args.options("install")) {
+            auto addon = project.addons.getByName(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "Cannot find addon %s".format(addon));
+            to_install ~= addon.get;
+        }
+        foreach(install_dir; args.options("install-dir")) {
+            to_install ~= project.addons.scan(Path(install_dir));
+        }
+
+        if (!to_install.empty) {
+            project.addons.install(to_install, dbname);
+        }
+
     }
 }
 
