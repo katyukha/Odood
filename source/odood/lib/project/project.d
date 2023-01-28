@@ -87,15 +87,26 @@ class Project {
       **/
     this(in Path project_root,
             in ProjectConfigDirectories directories,
-            in ProjectConfigOdoo odoo) {
-
+            in ProjectConfigOdoo odoo,
+            in VirtualEnv venv) {
         this.project_root = project_root.expandTilde.toAbsolute;
         this.directories = directories;
         this.odoo = odoo;
+        this._venv = venv;
+    }
 
-        this._venv = VirtualEnv(
-            this.project_root.join("venv"),
-            guessPySerie(odoo.serie));
+    /// ditto
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in ProjectConfigOdoo odoo) {
+        this(
+            project_root,
+            directories,
+            odoo,
+            VirtualEnv(
+                project_root.join("venv"),
+                guessPySerie(odoo.serie))
+        );
     }
 
     /// ditto
