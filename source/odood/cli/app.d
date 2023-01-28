@@ -8,6 +8,7 @@ import consolecolors: cwritefln, escapeCCL;
 
 private import odood.lib: _version;
 private import odood.lib.exception: OdoodException;
+private import odood.cli.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
 private import odood.cli.commands.server:
@@ -23,49 +24,8 @@ private import odood.cli.commands.venv: CommandVenv;
 private import odood.cli.commands.discover: CommandDiscover;
 
 
-/** Custom logger for Odood CLI
+/** Class that represents main OdoodProgram
   **/
-class OdoodLogger : Logger {
-
-    this(Args...)(auto ref Args args) { super(args); }
-
-    override protected void writeLogMsg(ref LogEntry payload)
-    {
-        auto msg = escapeCCL(payload.msg);
-        final switch (payload.logLevel) {
-            case LogLevel.trace:
-                cwritefln(
-                    "<grey>TRACE</grey>: %s", msg);
-                break;
-            case LogLevel.info:
-                cwritefln(
-                    "<blue>INFO</blue>: %s", msg);
-                break;
-            case LogLevel.warning:
-                cwritefln(
-                    "<orange>WARNING</orange>: %s", msg);
-                break;
-            case LogLevel.error:
-                cwritefln(
-                    "<lred>ERROR</lred>: %s", msg);
-                break;
-            case LogLevel.critical:
-                cwritefln(
-                    "<red>CRITICAL</red>: %s", msg);
-                break;
-            case LogLevel.fatal:
-                cwritefln(
-                    "<lmagenta>FATAL</lmagenta>: %s", msg);
-                break;
-            case LogLevel.off, LogLevel.all:
-                // No output; This log levels are not used in messages,
-                // but just as filters.
-                break;
-        }
-    }
-}
-
-
 class App: OdoodProgram {
 
     this() {
