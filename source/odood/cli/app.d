@@ -53,6 +53,8 @@ class App: OdoodProgram {
         // Options
         this.add(new Flag(
             "v", "verbose", "Enable verbose output").repeating());
+        this.add(new Flag(
+            "q", "quiet", "Hide unnecessary output").repeating());
     }
 
     /** Setup logging for provided verbosity
@@ -65,24 +67,31 @@ class App: OdoodProgram {
       * - warning (default)
       *
       **/
-    void setUpLogging(in int verbosity) {
-        auto log_level = LogLevel.warning;
-        if (verbosity >= 3)
-            log_level = LogLevel.all;
-        else if (verbosity >= 2)
-            log_level = LogLevel.trace;
-        else if (verbosity >= 1)
-            log_level = LogLevel.info;
+    void setUpLogging(in int verbosity, in int quietness) {
+        auto log_verbosity = verbosity - quietness;
 
-        sharedLog = cast(shared) new OdoodLogger(log_level);
+        auto log_level = LogLevel.info;  // Default log level
+        if (log_verbosity >= 2)
+            log_level = LogLevel.all;
+        else if (log_verbosity >= 1)
+            log_level = LogLevel.trace;
+        else if (log_verbosity >= 0)     // Default log level
+            log_level = LogLevel.info;
+        else if (log_verbosity >= 1)
+            log_level = LogLevel.warning;
+        else if (log_verbosity >= 2)
+            log_level = LogLevel.error;
+
+        std.logger.sharedLog = cast(shared) new OdoodLogger(log_level);
     }
 
     /** So setup actions before running any specific logic
       **/
     override void setup(scope ref ProgramArgs args) {
-        uint verbosity = args.occurencesOf("verbose");
+        int verbosity = args.occurencesOf("verbose");
+        int quietness = args.occurencesOf("quiet");
 
-        setUpLogging(verbosity);
+        setUpLogging(verbosity, quietness);
 
         return super.setup(args);
     }
