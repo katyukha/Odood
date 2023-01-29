@@ -89,14 +89,11 @@ const struct VirtualEnv {
         _path.join("bin", "run-in-venv").setAttributes(octal!755);
     }
 
-    /// Create run-in-env script if it does not exists yet.
-    /// Works only in debug builds
-    private void ensureRunInVenvExists() const {
-        // TODO: Remove this on release
-        debug {
-            if (!_path.join("bin", "run-in-venv").exists)
-                initRunInVenvScript();
-        }
+    /** Create run-in-env script if it does not exists yet.
+      **/
+    void ensureRunInVenvExists() const {
+        if (!_path.join("bin", "run-in-venv").exists)
+            initRunInVenvScript();
     }
 
     /** Run command in virtual environment
@@ -107,7 +104,6 @@ const struct VirtualEnv {
         tracef(
             "Running command in virtualenv: cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        ensureRunInVenvExists;
         return _path.join("bin", "run-in-venv").runCmd(args, workDir, env);
     }
 
@@ -136,7 +132,6 @@ const struct VirtualEnv {
             "Running command in virtualenv (with exit-code check): " ~
             "cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        ensureRunInVenvExists;
         return _path.join("bin", "run-in-venv").runCmdE(args, workDir, env);
     }
 

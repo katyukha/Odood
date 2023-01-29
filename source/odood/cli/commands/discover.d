@@ -26,6 +26,7 @@ class CommandDiscoverOdooHelper: OdoodCommand {
         auto project = discoverOdooHelper(
                 args.arg("path") ? Path(args.arg("path")) : Path.current);
         project.save();
+        project.venv.ensureRunInVenvExists();
     }
 }
 

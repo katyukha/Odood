@@ -160,8 +160,10 @@ struct OdooTestRunner {
         if (!_test_db_name)
             setDatabaseName(
                 "odood%s-odood-test".format(_project.odoo.serie.major));
-        if (!_lodoo.databaseExists(_test_db_name))
+        if (!_lodoo.databaseExists(_test_db_name)) {
+            infof("Creating database %s for the test...", _test_db_name);
             _lodoo.databaseCreate(_test_db_name, true);
+        }
     }
 
     private void logToFile(in ref OdooLogRecord log_record) {
@@ -227,6 +229,12 @@ struct OdooTestRunner {
         return addModule(addon.get);
     }
 
+    /** Get coma-separated list of modules to run tests for.
+      **/
+    string getModuleList() {
+        return _addons.map!(a => a.name).join(",");
+    }
+
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -261,10 +269,11 @@ struct OdooTestRunner {
         signal.initSigIntHandling();
         scope(exit) signal.deinitSigIntHandling();
 
+        infof("Installing modules before test...");
         auto init_res =_server.pipeServerLog(
             getCoverageOptions(),
             [
-                "--init=%s".format(_addons.map!(a => a.name).join(",")),
+                "--init=%s".format(getModuleList),
                 "--log-level=warn",
                 "--logfile=",
                 "--stop-after-init",
@@ -296,10 +305,11 @@ struct OdooTestRunner {
             return result;
         }
 
+        infof("Running tests for modules: %s", getModuleList);
         auto update_res =_server.pipeServerLog(
             getCoverageOptions(),
             [
-                "--update=%s".format(_addons.map!(a => a.name).join(",")),
+                "--update=%s".format(getModuleList),
                 "--log-level=info",
                 "--logfile=",
                 "--stop-after-init",
