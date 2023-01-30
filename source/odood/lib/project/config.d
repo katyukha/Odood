@@ -17,6 +17,13 @@ package struct ProjectConfigOdoo {
     /// Main odoo config file
     Path configfile;
 
+    /** Odoo configuration file, that have to be used to run tests.
+      * It is required to have separate config file, because older versions
+      * of odoo do not support overwriting config file options
+      * via CLI arguments.
+      **/
+    Path testconfigfile;
+
     /// Path to log file
     Path logfile;
 
@@ -41,6 +48,7 @@ package struct ProjectConfigOdoo {
             in string odoo_branch, in string odoo_repo) {
 
         configfile = directories.conf.join("odoo.conf");
+        configfile = directories.conf.join("odoo.test.conf");
         logfile = directories.log.join("odoo.log");
         pidfile = project_root.join("odoo.pid");
         path = project_root.join("odoo");
@@ -50,7 +58,16 @@ package struct ProjectConfigOdoo {
     }
 
     this(in ref dyaml.Node config) {
+        /* TODO: think about following structure of test config in yml:
+         * odoo:
+         *     configfile: some/path,
+         *     logfile: some/path,
+         *     test:
+         *         enable: true
+         *         configfule: some/path
+         **/
         this.configfile = config["configfile"].as!string;
+        this.testconfigfile = config["testconfigfile"].as!string;
         this.logfile = config["logfile"].as!string;
         this.pidfile = config["pidfile"].as!string;
         this.path = Path(config["path"].as!string);
@@ -66,6 +83,7 @@ package struct ProjectConfigOdoo {
             "repo": this.repo,
             "path": this.path.toString,
             "configfile": this.configfile.toString,
+            "testconfigfile": this.testconfigfile.toString,
             "logfile": this.logfile.toString,
             "pidfile": this.pidfile.toString,
         ]);

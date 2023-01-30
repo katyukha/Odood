@@ -62,6 +62,9 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
             case "ODOO_CONF_FILE":
                 project_odoo.configfile = Path(c["val"]);
                 break;
+            case "ODOO_TEST_CONF_FILE":
+                project_odoo.testconfigfile = Path(c["val"]);
+                break;
             case "ODOO_PATH":
                 project_odoo.path = Path(c["val"]);
                 break;
@@ -177,6 +180,7 @@ USE_UNBUFFER=1
     project.project_root.shouldEqual(Path("/home/me/odoo-16"));
 
     project.odoo.configfile.shouldEqual(Path("/home/me/odoo-16/conf/odoo.conf"));
+    project.odoo.testconfigfile.shouldEqual(Path("/home/me/odoo-16/conf/odoo.test.conf"));
     project.odoo.logfile.shouldEqual(Path("/home/me/odoo-16/logs/odoo.log"));
     project.odoo.path.shouldEqual(Path("/home/me/odoo-16/odoo"));
     project.odoo.pidfile.shouldEqual(Path("/home/me/odoo-16/odoo.pid"));
@@ -227,6 +231,7 @@ USE_UNBUFFER=1
     project.project_root.shouldEqual(Path("/home/me/odoo-16"));
 
     project.odoo.configfile.shouldEqual(Path("/home/me/odoo-16/conf/odoo.conf"));
+    project.odoo.testconfigfile.shouldEqual(Path("/home/me/odoo-16/conf/odoo.test.conf"));
     project.odoo.logfile.shouldEqual(Path("/home/me/odoo-16/logs/odoo.log"));
     project.odoo.path.shouldEqual(Path("/home/me/odoo-16/odoo"));
     project.odoo.pidfile.shouldEqual(Path("/home/me/odoo-16/odoo.pid"));

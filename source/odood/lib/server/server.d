@@ -37,13 +37,20 @@ package(odood) struct CoverageOptions {
   **/
 struct OdooServer {
     private const Project _project;
+    private const bool _test_mode;  // TODO: May be use path to conf file instead?
 
     @disable this();
 
     /** Construct new server wrapper for this project
       **/
-    this(in Project project) {
+    this(in Project project, in bool test_mode=false) {
         _project = project;
+        _test_mode = test_mode;
+    }
+
+    /// Return current test mode of the server
+    @safe pure nothrow const(bool) testMode() const {
+        return _test_mode;
     }
 
     /// Get name of odoo server script, depending on odoo serie
@@ -82,6 +89,11 @@ struct OdooServer {
     }
 
     private const(string[string]) getServerEnv() const {
+        if (_test_mode)
+            return [
+                "OPENERP_SERVER": _project.odoo.testconfigfile.toString,
+                "ODOO_RC": _project.odoo.testconfigfile.toString,
+            ];
         return [
             "OPENERP_SERVER": _project.odoo.configfile.toString,
             "ODOO_RC": _project.odoo.configfile.toString,
@@ -176,8 +188,8 @@ struct OdooServer {
         Config process_conf = Config.none;
 
         tracef(
-            "Starting odoo server (pipe logs, coverage=%s) cmd: %s", 
-            coverage, getServerCmd(coverage, options).join(" "));
+            "Starting odoo server (pipe logs, coverage=%s, test_mode=%s) cmd: %s",
+            coverage, _test_mode, getServerCmd(coverage, options).join(" "));
 
         // TODO: If there is no --logfile option in options list,
         //       then, we have to manually specify '--logfile=' option,

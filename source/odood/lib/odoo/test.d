@@ -151,8 +151,11 @@ struct OdooTestRunner {
 
     this(in Project project) {
         _project = project;
-        _lodoo = LOdoo(_project, _project.odoo.configfile);
-        _server = OdooServer(_project);
+        _lodoo = LOdoo(_project, _project.odoo.testconfigfile);
+        _server = OdooServer(
+                _project,
+                true,  // Enable test mode
+        );
         _temporary_db = false;
     }
 
@@ -275,7 +278,6 @@ struct OdooTestRunner {
             [
                 "--init=%s".format(getModuleList),
                 "--log-level=warn",
-                "--logfile=",
                 "--stop-after-init",
                 "--workers=0",
                 "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
@@ -311,7 +313,6 @@ struct OdooTestRunner {
             [
                 "--update=%s".format(getModuleList),
                 "--log-level=info",
-                "--logfile=",
                 "--stop-after-init",
                 "--workers=0",
                 "--test-enable",
