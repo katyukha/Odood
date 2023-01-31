@@ -77,12 +77,16 @@ const struct LOdoo {
 
             args ~= [name];
 
+            infof(
+                "Creating database %s (%s)",
+                name, demo ? "with demo-data" : "without demo-data");
             runE(args);
         }
 
         /** Drop specified database
           **/
         void databaseDrop(in string name) {
+            infof("Deleting database %s", name);
             runE("db-drop", name);
         }
 
@@ -96,12 +100,14 @@ const struct LOdoo {
         /** Rename database
           **/
         void databaseRename(in string old_name, in string new_name) {
+            infof("Renaming database %s to %s", old_name, new_name);
             runE("db-rename", old_name, new_name);
         }
 
         /** Copy database
           **/
         void databaseCopy(in string old_name, in string new_name) {
+            infof("Copying database %s to %s", old_name, new_name);
             runE("db-copy", old_name, new_name);
         }
 
@@ -109,6 +115,7 @@ const struct LOdoo {
           **/
         void databaseBackup(in string name, in Path backup_path,
                             in BackupFormat format = BackupFormat.zip) {
+            infof("Backing up database %s to %s", name, backup_path);
             final switch (format) {
                 case BackupFormat.zip:
                     runE("db-backup", name, backup_path.toString,
@@ -124,6 +131,7 @@ const struct LOdoo {
         /** Restore database
           **/
         void databaseRestore(in string name, in Path backup_path) {
+            infof("Restoring database %s from %s", name, backup_path);
             runE("db-restore", name, backup_path.toString);
         }
 

@@ -201,10 +201,7 @@ class CommandAddonsUpdate: OdoodCommand {
             foreach(addon; project.addons.scan(Path(dir), true))
                 addon_names ~= [addon.name];
 
-        tracef(
-            "Addons to be updated in databases %s: %s", dbnames, addon_names);
         foreach(db; dbnames) {
-            infof("Updating addons for <yellow>%s</yellow> database...", db);
             project.addons.update(addon_names, db);
         }
     }
@@ -248,10 +245,7 @@ class CommandAddonsInstall: OdoodCommand {
             foreach(addon; project.addons.scan(Path(dir), true))
                 addon_names ~= [addon.name];
 
-        tracef(
-            "Addons to be installed in databases %s: %s", dbnames, addon_names);
         foreach(db; dbnames) {
-            infof("Installing addons for <yellow>%s</yellow> database...", db);
             project.addons.install(addon_names, db);
         }
     }

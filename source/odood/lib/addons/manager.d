@@ -181,6 +181,9 @@ struct AddonManager {
             warning("No addons specified for 'update'.");
             return;
         }
+        infof(
+            "Updating modules %s into database %s...",
+            addon_names.join(", "), database);
         _run_install_update_addons(addon_names, database, cmdIU.update);
     }
 
@@ -202,6 +205,9 @@ struct AddonManager {
             warning("No addons specified for 'update'.");
             return;
         }
+        infof(
+            "Installing modules %s into database %s...",
+            addon_names.join(", "), database);
         _run_install_update_addons(addon_names, database, cmdIU.install);
     }
 
@@ -223,12 +229,12 @@ struct AddonManager {
         scope(exit) temp_dir.remove();
 
         auto download_path = temp_dir.join("%s.zip".format(addon_name));
-        tracef("Downloading addon %s from odoo apps...", addon_name);
+        infof("Downloading addon %s from odoo apps...", addon_name);
         download(
             "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
                 addon_name, _project.odoo.serie, addon_name),
             download_path);
-        tracef("Unpacking addon %s from odoo apps...", addon_name);
+        infof("Unpacking addon %s from odoo apps...", addon_name);
         extract_zip_archive(download_path, temp_dir.join("apps"));
 
         enforce!OdoodException(
@@ -239,7 +245,7 @@ struct AddonManager {
             if (_project.directories.addons.join(addon.name).exists) {
                 warningf("Cannot copy module %s. it is already present. Skipping.", addon_name);
             } else {
-                tracef("Copying addon %s...", addon.name);
+                infof("Copying addon %s...", addon.name);
                 addon.path.copyTo(_project.directories.downloads);
                 link(_project.directories.downloads.join(addon.name));
             }
