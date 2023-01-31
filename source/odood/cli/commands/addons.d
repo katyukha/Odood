@@ -8,6 +8,7 @@ private import std.algorithm: sort;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
+private import consolecolors: cwriteln, cwritefln, escapeCCL;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -48,6 +49,10 @@ class CommandAddonsList: OdoodCommand {
             null, "linked", "Filter only linked addons."));
         this.add(new Flag(
             null, "not-linked", "Filter only addons that are not linked."));
+        this.add(new Option(
+            "c", "color",
+            "Color output by selected scheme: " ~
+            "link - color addons by link status"));
         this.add(new Argument(
             "path", "Path to search for addons in.").optional);
     }
@@ -68,10 +73,10 @@ class CommandAddonsList: OdoodCommand {
 
         OdooAddon[] addons;
         if (args.flag("system")) {
-            info("Listing all addons available for Odoo");
+            cwriteln("Listing all addons available for Odoo");
             addons = project.addons.scan(args.flag("recursive"));
         } else  {
-            infof("Listing addons in %s", search_path);
+            cwritefln("Listing addons in %s", search_path);
             addons = project.addons.scan(search_path, args.flag("recursive"));
         }
 
@@ -85,17 +90,27 @@ class CommandAddonsList: OdoodCommand {
             if (args.flag("not-linked") && project.addons.isLinked(addon))
                 continue;
 
+            string addon_line;
             final switch(display_type) {
                 case AddonDisplayType.by_name:
-                    writeln(addon.name);
+                    addon_line = addon.name;
                     break;
                 case AddonDisplayType.by_path:
-                    writeln(addon.path);
+                    addon_line = addon.path.toString;
                     break;
                 case AddonDisplayType.by_name_version:
-                    writefln(
-                        "%10s\t%s", addon.manifest.module_version, addon.name);
+                    addon_line = "%10s\t%s".format(
+                        addon.manifest.module_version, addon.name);
                     break;
+            }
+
+            if (args.option("color") == "link") {
+                if (project.addons.isLinked(addon))
+                    cwritefln("<green>%s</green>", addon_line);
+                else
+                    cwritefln("<red>%s</red>", addon_line);
+            } else {
+                writeln(addon_line);
             }
         }
     }

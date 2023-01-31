@@ -133,9 +133,7 @@ struct AddonManager {
     /// Check if addon is linked or not
     bool isLinked(in ref OdooAddon addon) const {
         auto check_path = _project.directories.addons.join(addon.name);
-        if (check_path.exists &&
-                check_path.isSymlink &&
-                check_path.readLink().toAbsolute == addon.path.toAbsolute)
+        if (check_path.exists && check_path.realPath == addon.path.realPath)
             return true;
         return false;
     }
