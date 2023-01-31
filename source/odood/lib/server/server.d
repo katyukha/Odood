@@ -181,10 +181,6 @@ struct OdooServer {
         import std.process: Config, Redirect;
         import std.string: join;
 
-        enforce!ServerAlreadyRuningException(
-            !isRunning,
-            "Server already running!");
-
         Config process_conf = Config.none;
 
         tracef(

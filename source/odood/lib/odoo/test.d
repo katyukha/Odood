@@ -257,7 +257,7 @@ struct OdooTestRunner {
 
     /** Run tests
       **/
-    auto run() {
+    auto runImpl() {
         enforce!OdoodException(
             _addons.length > 0,
             "No addons specified for test");
@@ -348,5 +348,14 @@ struct OdooTestRunner {
 
         cleanUp();
         return result;
+    }
+
+    auto run() {
+        try {
+            return runImpl();
+        } catch (OdoodException e) {
+            cleanUp();
+            throw e;
+        }
     }
 }
