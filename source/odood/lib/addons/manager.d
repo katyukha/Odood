@@ -65,6 +65,24 @@ struct AddonManager {
         return Nullable!OdooAddon.init;
     }
 
+    Nullable!OdooAddon getByPath(in Path addon_path) {
+        if (addon_path.isOdooAddon)
+            return new OdooAddon(addon_path).nullable;
+        return Nullable!OdooAddon.init;
+    }
+
+    /** Check if it is addon path, then check if it is 
+      * odoo addon. If provided value is not path or it does not point to addon
+      * then assume that it is name of addon, and try to find addon by name.
+      **/
+    Nullable!OdooAddon getByString(in string addon_name) {
+        auto addon = getByPath(Path(addon_name));
+        if (!addon.isNull)
+            return addon;
+        return getByName(addon_name);
+    }
+
+
     /// Scan for all addons available in Odoo
     OdooAddon[] scan(in bool recursive=false) {
         OdooAddon[] res;

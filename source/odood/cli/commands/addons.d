@@ -206,18 +206,26 @@ class CommandAddonsUpdate: OdoodCommand {
         string[] dbnames = args.options("db") ?
             args.options("db") : project.lodoo.databaseList();
 
-        string[] addon_names = args.args("addon");
+        OdooAddon[] addons;
+        foreach(addon_name; args.args("addon")) {
+            auto addon = project.addons.getByString(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "%s does not look like addon name or path to addon".format(
+                    addon_name));
+            addons ~= addon.get;
+        }
 
         foreach(dir; args.options("dir"))
             foreach(addon; project.addons.scan(Path(dir)))
-                addon_names ~= [addon.name];
+                addons ~= addon;
 
         foreach(dir; args.options("dir-r"))
             foreach(addon; project.addons.scan(Path(dir), true))
-                addon_names ~= [addon.name];
+                addons ~= addon;
 
         foreach(db; dbnames) {
-            project.addons.update(addon_names, db);
+            project.addons.update(addons, db);
         }
     }
 
@@ -250,18 +258,26 @@ class CommandAddonsInstall: OdoodCommand {
         string[] dbnames = args.options("db") ?
             args.options("db") : project.lodoo.databaseList();
 
-        string[] addon_names = args.args("addon");
+        OdooAddon[] addons;
+        foreach(addon_name; args.args("addon")) {
+            auto addon = project.addons.getByString(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "%s does not look like addon name or path to addon".format(
+                    addon_name));
+            addons ~= addon.get;
+        }
 
         foreach(dir; args.options("dir"))
             foreach(addon; project.addons.scan(Path(dir)))
-                addon_names ~= [addon.name];
+                addons ~= addon;
 
         foreach(dir; args.options("dir-r"))
             foreach(addon; project.addons.scan(Path(dir), true))
-                addon_names ~= [addon.name];
+                addons ~= addon;
 
         foreach(db; dbnames) {
-            project.addons.install(addon_names, db);
+            project.addons.install(addons, db);
         }
     }
 }

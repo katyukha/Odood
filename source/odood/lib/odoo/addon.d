@@ -82,6 +82,11 @@ final class OdooAddon {
 
         return _manifest.get;
     }
+
+    /// Get module manifest
+    auto getManifest() const {
+        return OdooAddonManifest(_manifest_path);
+    }
 }
 
 

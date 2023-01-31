@@ -164,7 +164,6 @@ struct OdooTestRunner {
             setDatabaseName(
                 "odood%s-odood-test".format(_project.odoo.serie.major));
         if (!_lodoo.databaseExists(_test_db_name)) {
-            infof("Creating database %s for the test...", _test_db_name);
             _lodoo.databaseCreate(_test_db_name, true);
         }
     }
@@ -218,6 +217,11 @@ struct OdooTestRunner {
 
     /// Add new module to test run
     auto ref addModule(in ref OdooAddon addon) {
+        if (!addon.getManifest.installable) {
+            warningf("Addon %s is not installable. Skipping", addon.name);
+            return this;
+        }
+
         tracef("Adding %s addon to test runner...", addon.name);
         _addons ~= [addon];
         return this;
