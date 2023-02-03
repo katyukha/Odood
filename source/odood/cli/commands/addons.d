@@ -224,9 +224,18 @@ class CommandAddonsUpdate: OdoodCommand {
             foreach(addon; project.addons.scan(Path(dir), true))
                 addons ~= addon;
 
+        auto start_again=false;
+        if (project.server.isRunning) {
+            project.server.stop;
+            start_again=true;
+        }
+
         foreach(db; dbnames) {
             project.addons.update(addons, db);
         }
+
+        if (start_again)
+            project.server.spawn(true);
     }
 
 }
@@ -276,9 +285,18 @@ class CommandAddonsInstall: OdoodCommand {
             foreach(addon; project.addons.scan(Path(dir), true))
                 addons ~= addon;
 
+        auto start_again=false;
+        if (project.server.isRunning) {
+            project.server.stop;
+            start_again=true;
+        }
+
         foreach(db; dbnames) {
             project.addons.install(addons, db);
         }
+
+        if (start_again)
+            project.server.spawn(true);
     }
 }
 

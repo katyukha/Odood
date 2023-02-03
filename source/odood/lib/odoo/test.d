@@ -228,11 +228,11 @@ struct OdooTestRunner {
     }
 
     /// ditto
-    auto ref addModule(in string addon_name) {
-        auto addon = _project.addons.getByName(addon_name);
+    auto ref addModule(in string addon_name_or_path) {
+        auto addon = _project.addons.getByString(addon_name_or_path);
         enforce!OdoodException(
             !addon.isNull,
-            "Cannot find addon %s!".format(addon_name));
+            "Cannot find addon %s!".format(addon_name_or_path));
         return addModule(addon.get);
     }
 
