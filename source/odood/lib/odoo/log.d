@@ -59,6 +59,12 @@ immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
     string full_str;
 
     ulong consumed_length;
+
+    const(string) toString() const {
+        import std.format: format;
+        return "%s %s %s %s %s %s".format(
+            date, process_id, log_level, db, logger, msg);
+    }
 }
 
 

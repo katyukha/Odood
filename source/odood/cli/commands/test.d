@@ -46,6 +46,8 @@ class CommandTest: OdoodCommand {
         this.add(new Flag(
             "t", "temp-db", "Create temporary database for tests."));
         this.add(new Flag(
+            null, "isw", "Ignore warnings that are considered safe."));
+        this.add(new Flag(
             null, "coverage", "Calculate code coverage."));
         this.add(new Flag(
             null, "coverage-report", "Print coverage report."));
@@ -72,6 +74,9 @@ class CommandTest: OdoodCommand {
         testRunner.registerLogHandler((in ref rec) {
             printLogRecord(rec);
         });
+
+        if (args.flag("isw"))
+            testRunner.ignoreSafeWarnings();
 
         foreach(string search_path; args.options("dir"))
             foreach(addon; project.addons.scan(Path(search_path), false))

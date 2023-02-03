@@ -185,7 +185,7 @@ struct OdooServer {
 
         tracef(
             "Starting odoo server (pipe logs, coverage=%s, test_mode=%s) cmd: %s",
-            coverage, _test_mode, getServerCmd(coverage, options).join(" "));
+            coverage.enable, _test_mode, getServerCmd(coverage, options).join(" "));
 
         // TODO: If there is no --logfile option in options list,
         //       then, we have to manually specify '--logfile=' option,

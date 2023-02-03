@@ -38,8 +38,12 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`[a-zA-Z0-9\\._]\+.write() includes unknown fields`),
     ctRegex!(`The group [a-zA-Z0-9\\._]\+ defined in view [a-zA-Z0-9\\._]\+ [a-z]\+ does not exist!`),
     ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
+    ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
 ];
 
+private immutable auto RE_SAFE_WARNINGS = [
+    ctRegex!(`Two fields \(.+\) of .+\(\) have the same label`),
+];
 
 private struct OdooTestResult {
     private bool _success;
@@ -149,6 +153,9 @@ struct OdooTestRunner {
     // Coverage configuration
     private bool _coverage;
 
+    // Optionaly we can ignore non important warnings
+    private bool _ignore_safe_warnings;
+
     this(in Project project) {
         _project = project;
         _lodoo = LOdoo(_project, _project.odoo.testconfigfile);
@@ -236,12 +243,6 @@ struct OdooTestRunner {
         return addModule(addon.get);
     }
 
-    /** Get coma-separated list of modules to run tests for.
-      **/
-    string getModuleList() {
-        return _addons.map!(a => a.name).join(",");
-    }
-
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -251,12 +252,38 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Ignore safe warnings
+      **/
+    auto ref ignoreSafeWarnings(in bool flag=true) {
+        _ignore_safe_warnings = flag;
+    }
+
+    /** Get coma-separated list of modules to run tests for.
+      **/
+    string getModuleList() {
+        return _addons.map!(a => a.name).join(",");
+    }
+
     /** Take clean up actions before test finished
       **/
     void cleanUp() {
         if (_temporary_db && _lodoo.databaseExists(_test_db_name)) {
             _lodoo.databaseDrop(_test_db_name);
         }
+    }
+
+    /** Check if we need to ignore the record or not
+      * Returns: true if record have to be processed and
+      *          false if record have to be ignored.
+      **/
+    bool filterLogRecord(in ref OdooLogRecord record) {
+        if (this._ignore_safe_warnings && record.log_level == "WARNING") {
+            foreach(check; RE_SAFE_WARNINGS)
+                if (record.msg.matchFirst(check)) {
+                    return false;
+                }
+        }
+        return true;
     }
 
     /** Run tests
@@ -291,6 +318,10 @@ struct OdooTestRunner {
         );
         foreach(log_record; init_res) {
             logToFile(log_record);
+
+            if (!filterLogRecord(log_record))
+                continue;
+
             if (_log_handler)
                 _log_handler(log_record);
             result.addLogRecord(log_record);
@@ -324,6 +355,10 @@ struct OdooTestRunner {
             ]);
         foreach(log_record; update_res) {
             logToFile(log_record);
+
+            if (!filterLogRecord(log_record))
+                continue;
+
             if (_log_handler)
                 _log_handler(log_record);
 
