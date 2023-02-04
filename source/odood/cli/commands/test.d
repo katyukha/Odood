@@ -53,6 +53,8 @@ class CommandTest: OdoodCommand {
             null, "coverage-report", "Print coverage report."));
         this.add(new Flag(
             null, "coverage-html", "Prepare HTML report for coverage."));
+        this.add(new Flag(
+            null, "error-report", "Print all errors found in the end of output"));
         this.add(new Option(
             "d", "db", "Database to run tests for."));
         this.add(new Option(
@@ -123,20 +125,30 @@ class CommandTest: OdoodCommand {
             cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
             cwritefln("Test result: <red>FAILED</red>");
             cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
-            cwritefln("Errors listed below:");
-            cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
-            foreach(error; res.errors) {
-                printLogRecord(error);
+            if (args.flag("error-report")) {
+                cwritefln("Errors listed below:");
                 cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                foreach(error; res.errors) {
+                    printLogRecord(error);
+                    cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                }
             }
         }
 
-        if (coverage_html)
+        if (coverage_html) {
             project.venv.runE([
                 "coverage", "html",
                 "--directory=%s".format(Path.current.join("htmlcov"))]);
+            cwritefln(
+                "Coverage report saved at <blue>%s</blue>.\n" ~
+                "Just open url (<blue>file://%s/index.html</blue>) in " ~
+                "your browser to view coverage report.",
+                Path.current.join("htmlcov"),
+                Path.current.join("htmlcov"));
+        }
+
         if (coverage_report)
-            write(project.venv.runE(["coverage", "report"]).output);
+            writeln(project.venv.runE(["coverage", "report"]).output);
     }
 }
 
