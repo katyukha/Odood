@@ -5,8 +5,11 @@ private import std.logger;
 private import std.process: ProcessPipes, kill;
 private import std.typecons: Nullable, nullable;
 private import std.string: empty;
+private import std.format: format;
+private import core.time;
 
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
+private import odood.lib.exception: OdoodException;
 
 
 /** Struct to implement iterator (range) over log records captured
@@ -17,72 +20,34 @@ package struct OdooLogPipe {
     private:
         ProcessPipes _pipes;
         OdooLogProcessor _log_processor;
-        bool _is_closed;
-        Nullable!OdooLogRecord _log_record;
-        int _exit_code; 
-
-        void tryReadLogRecordIfNeeded() {
-            if (!_log_record.isNull)
-                // We already have log record in buffer, thus
-                // there is no need to read new record.
-                return;
-
-            while (_log_record.isNull && !_is_closed) {
-                string input = _pipes.stderr.readln();
-                if (!input.empty)
-                    _log_processor.feedInput(input);
-                else {
-                    // It seems that file is close, thus we have to
-                    // wait the child process.
-                    _exit_code = std.process.wait(_pipes.pid);       
-                    _is_closed = true;
-                    _log_processor.close();
-                }
-               _log_record = _log_processor.consumeRecord();
-            }
-        }
 
     package:
         this(ref ProcessPipes pipes) {
             _pipes = pipes;
+            _log_processor = OdooLogProcessor(_pipes.stderr);
         }
     public:
-        /** This method have to be called to ensure that
-          * the child process is exited and properly awaited by
-          * parent process, to avoid zombies.
-          * In case, if this struct used as range and completely
-          * consumed, then it is not required to call this method.
-          **/
-        int close() {
-            if (!_is_closed) {
-                _exit_code = std.process.wait(_pipes.pid);
-            }
-            return _exit_code;
-        }
-
-        /** Return exit code of the process managed by this pipe
-          **/
-        @property int exit_code() const {
-            return _exit_code;
-        }
-
         @property bool empty() {
-            tryReadLogRecordIfNeeded();
-            return _log_record.isNull;
+            return _log_processor.empty;
         }
 
-        @property OdooLogRecord front() {
-            tryReadLogRecordIfNeeded();
-            return _log_record.get;
+        @property ref OdooLogRecord front() {
+            return _log_processor.front;
         }
 
         void popFront() {
-            tryReadLogRecordIfNeeded();
-            _log_record.nullify;
+            _log_processor.popFront();
+            if (_pipes.stderr.eof)
+                wait();
         }
 
-        void kill() {
+        auto kill(in bool wait=true) {
             _pipes.pid.kill();
+            return this.wait();
+        }
+
+        auto wait() {
+            return std.process.wait(_pipes.pid);
         }
 }
 

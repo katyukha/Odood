@@ -1,0 +1,11 @@
+2023-01-02 15:34:15,656 115109 INFO ? odoo: Odoo version 15.0
+2023-01-02 15:34:22,452 115109 INFO odood15-ag-1 odoo.tests: skip sending email in test mode
+2023-01-02 15:34:26,872 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_author_changed_event_created ... 
+2023-01-02 15:34:26,873 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: ====================================================================== 
+2023-01-02 15:34:26,873 115109 ERROR odood15-ag-1 odoo.addons.generic_request.tests.test_request: FAIL: TestRequestBase.test_request_author_changed_event_created
+Traceback (most recent call last):
+  File "/data/projects/odoo/odood-15.0-ag/custom_addons/generic_request/tests/test_request.py", line 828, in test_request_author_changed_event_created
+    self.assertEqual(request.request_event_count, 1)
+AssertionError: 2 != 1
+
+2023-01-02 15:34:26,874 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_can_change_category ... 

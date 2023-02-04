@@ -6,45 +6,28 @@ private import std.exception: enforce;
 private import std.string: join, empty;
 private import std.regex;
 private import std.conv: to;
+private import std.format: format;
 private import std.typecons: Nullable, nullable;
+private import std.stdio: File;
 
 private import odood.lib.exception: OdoodException;
 
 
-/// Regex to parse odoo Line (match all text before next log record
-immutable auto RE_PARSE_ODOO_LOG = ctRegex!(
-    `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
-    `(?P<process_id>\d+)\s` ~
-    `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-\._]+)\s` ~
-    `(?P<logger>[\w\.]+):\s` ~
-    `(?P<msg>[\s\S]*?)\n*` ~
-    `(?=(\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d\s\d+\s[A-Z]+\s))`,
-    "gs");
-
-/// Same as previous but mutches log entry before end of input
-immutable auto RE_PARSE_ODOO_LOG_E = ctRegex!(
-    `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
-    `(?P<process_id>\d+)\s` ~
-    `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-\._]+)\s` ~
-    `(?P<logger>[\w\.]+):\s` ~
-    `(?P<msg>[\s\S]*?)\n*` ~
-    `(?=$)`,
-    "gs");
-
-/** Same as previous, but matches log entry that ends with start of
-  * next log entry or end of input
+/** Used to check if it is start of the log record
   **/
-immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
-    `(?P<date>\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d)\s` ~
+immutable auto RE_LOG_RECORD_START = ctRegex!(
+    r"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\,\d{3}\s\d+\s\S+\s\S+\s\S+:\s[^\`]");
+
+/** Used to parse the log record
+  **/
+immutable auto RE_LOG_RECORD_DATA = ctRegex!(
+    `^(?P<date>\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\,\d{3})\s` ~
     `(?P<process_id>\d+)\s` ~
-    `(?P<log_level>[A-Z]+)\s` ~
-    `(?P<db>\?|[\w\-\._]+)\s` ~
-    `(?P<logger>[\w\.]+):\s` ~
-    `(?P<msg>[\s\S]*?)\n*` ~
-    `(?=(\d\d\d\d-\d\d-\d\d\s\d\d:\d\d:\d\d\,\d\d\d\s\d+\s[A-Z]+\s)|$)`,
-    "gs");
+    `(?P<log_level>\S+)\s` ~
+    `(?P<db>\S+)\s` ~
+    `(?P<logger>\S+):\s` ~
+    `(?P<msg>[\s\S]*?)\n*$`);
+
 
 /** This struct represents single log record
   **/
@@ -62,8 +45,10 @@ immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
 
     const(string) toString() const {
         import std.format: format;
+        auto msg_truncated = msg.length > 200 ?
+            (msg[0..200] ~ "...") : msg[0..$];
         return "%s %s %s %s %s %s".format(
-            date, process_id, log_level, db, logger, msg);
+            date, process_id, log_level, db, logger, msg_truncated);
     }
 }
 
@@ -72,104 +57,108 @@ immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
   **/
 @safe struct OdooLogProcessor {
 
+    private File _source;
     private string _buffer="";
-    private bool _closed=false;
+    private Nullable!OdooLogRecord _log_record;
 
-    this(in string buffer, in bool close=false) {
-        _buffer = buffer;
-        _closed = close;
+    // Try to read next record fron log file
+    private void tryReadLogRecordIfNeeded() {
+        if (!_log_record.isNull)
+            // We already have log record in buffer, thus
+            // there is no need to read new record.
+            return;
+
+        if (_source.eof)
+            // Ensure, that we will not try to read from the end of file.
+            return;
+
+        if (_buffer.empty) {
+            // Skip everything before line start.
+            // After this code ran, buffer will contain first line of
+            // record to be read
+            while (_buffer.empty && !_source.eof) {
+                string line = _source.readln();
+
+                if (line.matchFirst(RE_LOG_RECORD_START)) {
+                    _buffer = line;
+                    break;
+                } else {
+                    debug warningf(
+                        "Skipping unparsed log content: '%s'", line);
+                }
+            }
+
+            if (_buffer.empty)
+                // We did not find anything suitable to parse, so return.
+                return;
+        }
+
+        // Read next line, in attempt to find the start of next log line
+        string line_read;
+        do {
+            line_read = _source.readln();
+
+            if (line_read.empty || line_read.matchFirst(RE_LOG_RECORD_START)) {
+                // Here we can assume that everything that is in the buffer
+                // represent complete single log record, so we can parse it,
+                // and store in _log_record and place 'line_read'
+                // in buffer instead.
+                auto captures = _buffer.matchFirst(RE_LOG_RECORD_DATA);
+
+                enforce!OdoodException(
+                    captures,
+                    "Cannot parse buffer:\n%s\n---".format(_buffer));
+
+                // Create resulting log record
+                OdooLogRecord res;
+                res.date = captures["date"];
+                res.process_id = captures["process_id"].to!ulong;
+                res.log_level = captures["log_level"];
+                res.db = captures["db"];
+                res.logger = captures["logger"];
+                res.msg = captures["msg"];
+                res.full_str = captures.hit;
+
+                // Save this record as current in processor
+                _log_record = res.nullable;
+
+                // Save line_read in buffer;
+                _buffer = line_read;
+            } else {
+                // It is not the new line, thus we can add it to buffer for
+                // futher processing
+                _buffer ~= line_read;
+            }
+
+        } while (!_source.eof && _log_record.isNull);
     }
 
-    /// Current content of processor's buffer
-    @property const(string) buffer() const {
-        return _buffer;
+    /** Create new instance of log processor attached to specified file.
+      **/
+    this(File f) {
+        _source = f;
     }
 
     /// Allows to check if processor is closed for new input or not.
     @property bool isClosed() const {
-        return _closed;
+        return _source.eof;
     }
 
-    /** Add some new input to processor.
-      * This method could be called multiple times to fed processor with
-      * chunks for text.
-      **/
-    void feedInput(in string input)
-    in {
-        assert (_closed == false, "Cannot modify closed log processor");
-    } do {
-        _buffer ~= input;
+    /// Check if there is no more input to handle
+    @property bool empty() const {
+        return _source.eof;
     }
 
-    /** Add new line to the processor.
-      * It is same as feedInput, but automatically adds '\n'
-      * to the end of line.
-      **/
-    void feedLine(in string line) 
-    in {
-        assert (_closed == false, "Cannot modify closed log processor");
-    } do {
-        feedInput(line ~ "\n");
+    /// Get front record
+    @property ref OdooLogRecord front() {
+        tryReadLogRecordIfNeeded();
+        return _log_record.get;
     }
 
-    /** Close processor. This means that no new input could be fed to
-      * processor.
-      **/
-    void close() {
-        enforce!OdoodException(
-            !_closed,
-            "OdooLogProcessor already closed");
-        _closed = true;
-    }
-
-    // Check if processor is empty
-    bool empty() const {
-        return _buffer.empty;
-    }
-
-    /** Consume single record from this processor.
-      * If record could not be consumed, then null will be returned
-      **/
-    Nullable!OdooLogRecord consumeRecord() {
-        if (_buffer.empty)
-            // Buffer is empty
-            return Nullable!OdooLogRecord.init;  // Return null
-
-        auto c = _closed ?
-            _buffer.matchFirst(RE_PARSE_ODOO_LOG_G) :
-            _buffer.matchFirst(RE_PARSE_ODOO_LOG);
-
-        if (c.empty)
-            // No match found in input
-            return Nullable!OdooLogRecord.init;  // Return null
-
-        if (!_closed && c.post.empty)
-            /* If there is no unparsed data,
-             * then it seems that record is not complete.
-             * Thus we have to return null and
-             * try to parse it one more time when we get more input.
-             */
-            return Nullable!OdooLogRecord.init;
-
-        OdooLogRecord res;
-        res.date = c["date"];
-        res.process_id = c["process_id"].to!ulong;
-        res.log_level = c["log_level"];
-        res.db = c["db"];
-        res.logger = c["logger"];
-        res.msg = c["msg"];
-        res.full_str = c.hit;
-
-        res.consumed_length = c.pre.length + c.hit.length;
-
-        warningf(
-            c.pre.length > 0 && c.pre != "\n",
-            "Consumed unparsed log data %s", c.pre);
-
-        // Remove parsed record from buffer
-        _buffer = _buffer[res.consumed_length .. $];
-
-        return res.nullable;
+    /// Pop front record
+    void popFront() {
+        tryReadLogRecordIfNeeded();
+        _log_record.nullify;
     }
 }
 
@@ -178,89 +167,62 @@ immutable auto RE_PARSE_ODOO_LOG_G = ctRegex!(
 unittest {
     import unit_threaded.assertions;
 
-    // Create processor based on full log. Thus we create it already closed.
-    auto processor = OdooLogProcessor("
-2023-01-02 15:34:15,656 115109 INFO ? odoo: Odoo version 15.0
-2023-01-02 15:34:22,452 115109 INFO odood15-ag-1 odoo.tests: skip sending email in test mode
-2023-01-02 15:34:26,872 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_author_changed_event_created ... 
-2023-01-02 15:34:26,873 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: ====================================================================== 
-2023-01-02 15:34:26,873 115109 ERROR odood15-ag-1 odoo.addons.generic_request.tests.test_request: FAIL: TestRequestBase.test_request_author_changed_event_created
-Traceback (most recent call last):
-  File \"/data/projects/odoo/odood-15.0-ag/custom_addons/generic_request/tests/test_request.py\", line 828, in test_request_author_changed_event_created
-    self.assertEqual(request.request_event_count, 1)
-AssertionError: 2 != 1
+    auto f = File("test-data/odoo.test.log.1", "rt");
+    auto processor = OdooLogProcessor(f);
 
-2023-01-02 15:34:26,874 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_can_change_category ... 
-", true);
-    processor.consumeRecord().get.msg.shouldEqual("Odoo version 15.0");
-    processor.consumeRecord().get.msg.shouldEqual("skip sending email in test mode");
-    processor.consumeRecord().get.msg.shouldEqual("Starting TestRequestBase.test_request_author_changed_event_created ... ");
-    processor.consumeRecord().get.msg.shouldEqual("====================================================================== ");
-    processor.consumeRecord().get.msg.shouldEqual("FAIL: TestRequestBase.test_request_author_changed_event_created
+    processor.front.msg.shouldEqual("Odoo version 15.0");
+    processor.popFront;
+    processor.front.msg.shouldEqual("skip sending email in test mode");
+    processor.popFront;
+    processor.front.msg.shouldEqual("Starting TestRequestBase.test_request_author_changed_event_created ... ");
+    processor.popFront;
+    processor.front.msg.shouldEqual("====================================================================== ");
+    processor.popFront;
+    processor.front.msg.shouldEqual("FAIL: TestRequestBase.test_request_author_changed_event_created
 Traceback (most recent call last):
   File \"/data/projects/odoo/odood-15.0-ag/custom_addons/generic_request/tests/test_request.py\", line 828, in test_request_author_changed_event_created
     self.assertEqual(request.request_event_count, 1)
 AssertionError: 2 != 1");
-    processor.consumeRecord().get.msg.shouldEqual("Starting TestRequestBase.test_request_can_change_category ... ");
+    processor.popFront;
+    processor.front.msg.shouldEqual("Starting TestRequestBase.test_request_can_change_category ... ");
+    processor.empty.shouldBeTrue();
 }
 
-///
 unittest {
     import unit_threaded.assertions;
 
-    auto processor = OdooLogProcessor();
-    processor.consumeRecord().isNull.shouldBeTrue;
+    auto f = File("test-data/odoo.test.log.2", "rt");
+    auto processor = OdooLogProcessor(f);
 
-    processor.feedLine(
-            "2023-01-02 15:34:15,656 115109 INFO ? odoo: Odoo version 15.0");
+    OdooLogRecord[] records = [];
 
-    // Because it is steaming processing, we do not know
-    // if we got full info about log record
-    processor.consumeRecord().isNull.shouldBeTrue;
+    processor.front.msg.shouldEqual("Odoo version 12.0 ");
 
-    processor.feedLine(
-            "2023-01-02 15:34:22,452 115109 INFO odood15-ag-1 odoo.tests: skip sending email in test mode");
+    foreach(ref record; processor)
+        records ~= record;
 
-    // Consume record returns previous record
-    processor.consumeRecord().get.msg.shouldEqual("Odoo version 15.0");
+    processor.isClosed.shouldBeTrue;
 
-    processor.feedLine("2023-01-02 15:34:26,872 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_author_changed_event_created ... ");
-    processor.consumeRecord().get.msg.shouldEqual("skip sending email in test mode");
+    records[$-1].msg.shouldEqual("Hit CTRL-C again or send a second signal to force the shutdown. ");
+    records.length.shouldEqual(229);
+}
 
-    processor.feedLine("2023-01-02 15:34:26,873 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: ====================================================================== ");
-    processor.consumeRecord().get.msg.shouldEqual("Starting TestRequestBase.test_request_author_changed_event_created ... ");
-    
-    processor.feedLine("2023-01-02 15:34:26,873 115109 ERROR odood15-ag-1 odoo.addons.generic_request.tests.test_request: FAIL: TestRequestBase.test_request_author_changed_event_created");
-    processor.consumeRecord().get.msg.shouldEqual("====================================================================== ");
+unittest {
+    import std.algorithm.searching: startsWith;
+    import unit_threaded.assertions;
 
-    processor.feedLine("Traceback (most recent call last):");
-    processor.consumeRecord().isNull.shouldBeTrue;
-  
-    processor.feedLine("  File \"/data/projects/odoo/odood-15.0-ag/custom_addons/generic_request/tests/test_request.py\", line 828, in test_request_author_changed_event_created");
-    processor.consumeRecord().isNull.shouldBeTrue;
- 
-    processor.feedLine("    self.assertEqual(request.request_event_count, 1)");
-    processor.consumeRecord().isNull.shouldBeTrue;
+    auto f = File("test-data/odoo.test.log.3", "rt");
+    auto processor = OdooLogProcessor(f);
 
-    processor.feedLine("AssertionError: 2 != 1");
-    processor.consumeRecord().isNull.shouldBeTrue;
+    OdooLogRecord[] records = [];
 
-    processor.feedLine("");
-    processor.consumeRecord().isNull.shouldBeTrue;
+    processor.front.msg.startsWith("Traceback (most recent call last): ").shouldBeTrue;
 
-    processor.feedLine("2023-01-02 15:34:26,874 115109 INFO odood15-ag-1 odoo.addons.generic_request.tests.test_request: Starting TestRequestBase.test_request_can_change_category ... ");
-    processor.consumeRecord().get.msg.shouldEqual("FAIL: TestRequestBase.test_request_author_changed_event_created
-Traceback (most recent call last):
-  File \"/data/projects/odoo/odood-15.0-ag/custom_addons/generic_request/tests/test_request.py\", line 828, in test_request_author_changed_event_created
-    self.assertEqual(request.request_event_count, 1)
-AssertionError: 2 != 1");
+    foreach(ref record; processor)
+        records ~= record;
 
-    processor.consumeRecord().isNull.shouldBeTrue;
-
-    // After we closed processor, we could read last line
-    processor.close();
-    processor.consumeRecord().get.msg.shouldEqual("Starting TestRequestBase.test_request_can_change_category ... ");
-
-    // No new lines expected
-    processor.consumeRecord().isNull.shouldBeTrue;
+    processor.isClosed.shouldBeTrue;
+    records[$-1].msg.shouldEqual(
+        "test_onchange_contract_restrict_service_clean_service (odoo.addons.generic_request_contract.tests.test_generic_request_contract_service.TestRequestContractService) ");
+    records.length.shouldEqual(15);
 }

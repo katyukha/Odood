@@ -34,4 +34,5 @@ configuration "bash-autocomplete" {
 configuration "unittest" {
     mainSourceFile "source/odood/app.d"
     dependency "unit-threaded:assertions" version=">=2.0.0"
+    stringImportPaths "test-data"
 }

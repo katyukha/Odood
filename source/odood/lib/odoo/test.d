@@ -49,7 +49,7 @@ private struct OdooTestResult {
     private bool _success;
     private bool _cancelled;
     private string _cancel_reason;
-    private OdooLogRecord[] _log_records;
+    private const(OdooLogRecord)[] _log_records;
 
     /** Check if test was successfull
       *
@@ -105,7 +105,7 @@ private struct OdooTestResult {
     /** Add log record to test result
       *
       **/
-    package pure void addLogRecord(in OdooLogRecord record) {
+    package pure void addLogRecord(in ref OdooLogRecord record) {
         _log_records ~= record;
     }
 
@@ -176,10 +176,7 @@ struct OdooTestRunner {
     }
 
     private void logToFile(in ref OdooLogRecord log_record) {
-        _log_file.appendFile(
-            "%s %s %s %s %s: %s\n".format(
-                log_record.date, log_record.process_id, log_record.log_level,
-                log_record.db, log_record.logger, log_record.msg));
+        _log_file.appendFile(log_record.full_str);
     }
 
     /** Set name of database to run test on
@@ -316,7 +313,7 @@ struct OdooTestRunner {
                 "--database=%s".format(_test_db_name),
             ]
         );
-        foreach(log_record; init_res) {
+        foreach(ref log_record; init_res) {
             logToFile(log_record);
 
             if (!filterLogRecord(log_record))
@@ -331,12 +328,11 @@ struct OdooTestRunner {
                 result.setCancelled("Keyboard interrupt");
                 cleanUp();
                 init_res.kill();
-                init_res.close();
                 return result;
             }
         }
 
-        if(init_res.close != 0) {
+        if(init_res.wait != 0) {
             result.setFailed();
             cleanUp();
             return result;
@@ -353,7 +349,7 @@ struct OdooTestRunner {
                 "--test-enable",
                 "--database=%s".format(_test_db_name),
             ]);
-        foreach(log_record; update_res) {
+        foreach(ref log_record; update_res) {
             logToFile(log_record);
 
             if (!filterLogRecord(log_record))
@@ -369,12 +365,11 @@ struct OdooTestRunner {
                 result.setCancelled("Keyboard interrupt");
                 cleanUp();
                 update_res.kill();
-                update_res.close();
                 return result;
             }
         }
 
-        if (update_res.close != 0) {
+        if (update_res.wait != 0) {
             result.setFailed();
             cleanUp();
             return result;
