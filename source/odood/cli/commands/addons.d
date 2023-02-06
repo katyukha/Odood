@@ -258,7 +258,7 @@ class CommandAddonsInstall: OdoodCommand {
             ).optional().repeating());
         this.add(
             new Argument(
-                "addon", "Name of addon to update").optional().repeating());
+                "addon", "Name of addon to install").optional().repeating());
     }
 
     public override void execute(ProgramArgs args) {
@@ -301,6 +301,66 @@ class CommandAddonsInstall: OdoodCommand {
 }
 
 
+class CommandAddonsUninstall: OdoodCommand {
+    this() {
+        super("uninstall", "Uninstall specified addons.");
+        this.add(
+            new Option(
+                "d", "db", "Database(s) to uninstall addons in."
+            ).optional().repeating());
+        this.add(
+            new Option(
+                null, "dir", "Directory to search for addons to be uninstalled"
+            ).optional().repeating());
+        this.add(
+            new Option(
+                null, "dir-r", "Directory to recursively search for addons to be uninstalled"
+            ).optional().repeating());
+        this.add(
+            new Argument(
+                "addon", "Name of addon to uninstall").optional().repeating());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        string[] dbnames = args.options("db") ?
+            args.options("db") : project.lodoo.databaseList();
+
+        OdooAddon[] addons;
+        foreach(addon_name; args.args("addon")) {
+            auto addon = project.addons.getByString(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "%s does not look like addon name or path to addon".format(
+                    addon_name));
+            addons ~= addon.get;
+        }
+
+        foreach(dir; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(dir)))
+                addons ~= addon;
+
+        foreach(dir; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(dir), true))
+                addons ~= addon;
+
+        auto start_again=false;
+        if (project.server.isRunning) {
+            project.server.stop;
+            start_again=true;
+        }
+
+        foreach(db; dbnames) {
+            project.addons.uninstall(addons, db);
+        }
+
+        if (start_again)
+            project.server.spawn(true);
+    }
+}
+
+
 class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
@@ -333,6 +393,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsList());
         this.add(new CommandAddonsUpdate());
         this.add(new CommandAddonsInstall());
+        this.add(new CommandAddonsUninstall());
         this.add(new CommandAddonsAdd());
     }
 }

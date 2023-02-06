@@ -137,7 +137,15 @@ const struct LOdoo {
 
         /** Update list of addons
           **/
+        // TODO: Rename
         void updateAddonsList(in string dbname) {
             runE("addons-update-list", dbname);
+        }
+
+        /** Uninstall addons
+          **/
+        void addonsUninstall(in string dbname, in string[] addon_names) {
+            import std.string: join;
+            runE("addons-uninstall", dbname, addon_names.join(","));
         }
 }

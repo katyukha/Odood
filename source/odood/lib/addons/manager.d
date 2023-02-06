@@ -192,7 +192,7 @@ struct AddonManager {
     }
 
     /// Update odoo addons
-    void update(in string[] addon_names, in string database) {
+    private void update(in string[] addon_names, in string database) {
         if (!addon_names) {
             warning("No addons specified for 'update'.");
             return;
@@ -216,7 +216,7 @@ struct AddonManager {
     }
 
     /// install odoo addons
-    void install(in string[] addon_names, in string database) {
+    private void install(in string[] addon_names, in string database) {
         if (!addon_names) {
             warning("No addons specified for 'update'.");
             return;
@@ -237,6 +237,18 @@ struct AddonManager {
     /// ditto
     void install(in Path search_path, in string database) {
         install(scan(search_path), database);
+    }
+
+    /// Uninstall odoo addons
+    void uninstall(in OdooAddon[] addons, in string database) {
+        import std.algorithm: map;
+        import std.array: array;
+        _project.lodoo.addonsUninstall(database, addons.map!(a => a.name).array);
+    }
+
+    /// ditto
+    void uninstall(in Path search_path, in string database) {
+        uninstall(scan(search_path), database);
     }
 
     /// Download from odoo apps
