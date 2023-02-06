@@ -2,11 +2,12 @@ module odood.lib.addons.manager;
 
 private import std.logger;
 private import std.typecons: Nullable, nullable;
-private import std.array: split, empty;
+private import std.array: split, empty, array;
 private import std.string: join;
 private import std.format: format;
 private import std.file: SpanMode;
 private import std.exception: enforce;
+private import std.algorithm: map;
 
 private import thepath: Path, createTempPath;
 
@@ -192,47 +193,27 @@ struct AddonManager {
     }
 
     /// Update odoo addons
-    private void update(in string[] addon_names, in string database) {
-        if (!addon_names) {
+    void update(in OdooAddon[] addons, in string database) {
+        if (!addons) {
             warning("No addons specified for 'update'.");
             return;
         }
-        infof(
-            "Updating modules %s into database %s...",
-            addon_names.join(", "), database);
-        _run_install_update_addons(addon_names, database, cmdIU.update);
-    }
-
-    /// ditto
-    void update(in OdooAddon[] addons, in string database) {
-        string[] addon_names;
-        foreach(addon; addons)
-            addon_names ~= addon.name;
-        update(addon_names, database);
+        _run_install_update_addons(
+            addons.map!(a => a.name).array, database, cmdIU.update);
     }
     /// ditto
     void update(in Path search_path, in string database) {
         update(scan(search_path), database);
     }
 
-    /// install odoo addons
-    private void install(in string[] addon_names, in string database) {
-        if (!addon_names) {
-            warning("No addons specified for 'update'.");
+    /// Install odoo addons
+    void install(in OdooAddon[] addons, in string database) {
+        if (!addons) {
+            warning("No addons specified for 'install'.");
             return;
         }
-        infof(
-            "Installing modules %s into database %s...",
-            addon_names.join(", "), database);
-        _run_install_update_addons(addon_names, database, cmdIU.install);
-    }
-
-    /// ditto
-    void install(in OdooAddon[] addons, in string database) {
-        string[] addon_names;
-        foreach(addon; addons)
-            addon_names ~= addon.name;
-        install(addon_names, database);
+        _run_install_update_addons(
+            addons.map!(a => a.name).array, database, cmdIU.install);
     }
     /// ditto
     void install(in Path search_path, in string database) {
@@ -241,8 +222,6 @@ struct AddonManager {
 
     /// Uninstall odoo addons
     void uninstall(in OdooAddon[] addons, in string database) {
-        import std.algorithm: map;
-        import std.array: array;
         _project.lodoo.addonsUninstall(database, addons.map!(a => a.name).array);
     }
 
