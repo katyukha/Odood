@@ -150,7 +150,7 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
     }
 
     /// Get front record
-    @property ref OdooLogRecord front() {
+    @property OdooLogRecord front() {
         tryReadLogRecordIfNeeded();
         return _log_record.get;
     }

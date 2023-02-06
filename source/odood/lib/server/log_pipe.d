@@ -31,7 +31,7 @@ package struct OdooLogPipe {
             return _log_processor.empty;
         }
 
-        @property ref OdooLogRecord front() {
+        @property OdooLogRecord front() {
             return _log_processor.front;
         }
 
