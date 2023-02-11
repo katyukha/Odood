@@ -8,11 +8,11 @@
 		"dlibzip": "1.9.2",
 		"dshould": "1.7.1",
 		"dyaml": "0.9.2",
-		"prettyprint": "1.0.8",
+		"prettyprint": "1.0.9",
 		"pyd": "~master",
 		"requests": "2.0.9",
 		"semver": "0.4.0",
-		"thepath": "0.0.14",
+		"thepath": "0.0.16",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.2"
 	}
