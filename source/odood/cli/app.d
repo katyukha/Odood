@@ -22,6 +22,7 @@ private import odood.cli.commands.config: CommandConfig;
 private import odood.cli.commands.test: CommandTest;
 private import odood.cli.commands.venv: CommandVenv;
 private import odood.cli.commands.discover: CommandDiscover;
+private import odood.cli.commands.log: CommandLogView;
 
 
 /** Class that represents main OdoodProgram
@@ -41,6 +42,7 @@ class App: OdoodProgram {
         this.add(new CommandRepository());
         this.add(new CommandVenv());
         this.add(new CommandDiscover());
+        this.add(new CommandLogView());
 
         // shortcuts
         this.add(new CommandServerStart());
