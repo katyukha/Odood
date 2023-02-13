@@ -362,8 +362,6 @@ const struct VirtualEnv {
             "nodeenv", "--python-virtualenv", "--clean-src",
             "--jobs", totalCPUs.to!string, "--node", node_version,
         ]);
-        npm("set", "user", "0");
-        npm("set", "unsafe-perm", "true");
 
         info("VirtualEnv initialized successfully!");
     }
