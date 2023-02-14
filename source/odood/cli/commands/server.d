@@ -76,7 +76,9 @@ class CommandServerRestart: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.server.stop();
+        if (project.server.isRunning)
+            project.server.stop();
+
         project.server.spawn(true);
     }
 
