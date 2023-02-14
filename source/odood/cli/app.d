@@ -29,6 +29,8 @@ private import odood.cli.commands.log: CommandLogView;
   **/
 class App: OdoodProgram {
 
+    private bool enable_debug = false;
+
     this() {
         super("odood", _version);
         this.summary("Easily manage odoo installations.");
@@ -57,6 +59,8 @@ class App: OdoodProgram {
             "v", "verbose", "Enable verbose output").repeating());
         this.add(new Flag(
             "q", "quiet", "Hide unnecessary output").repeating());
+        this.add(new Flag(
+            "d", "debug", "Show additional debug information."));
     }
 
     /** Setup logging for provided verbosity
@@ -93,6 +97,9 @@ class App: OdoodProgram {
         int verbosity = args.occurencesOf("verbose");
         int quietness = args.occurencesOf("quiet");
 
+        if (args.flag("debug"))
+            enable_debug = true;
+
         setUpLogging(verbosity, quietness);
 
         return super.setup(args);
@@ -104,11 +111,17 @@ class App: OdoodProgram {
             return super.run(args);
         } catch (OdoodException e) {
             // TODO: Use custom colodred formatting for errors
-            error(escapeCCL("Odood Exception catched: %s".format(e)));
+            if (enable_debug)
+                error(escapeCCL("Odood Exception catched:\n%s".format(e)));
+            else
+                error(escapeCCL("%s".format(e.msg)));
             return 1;
         } catch (Exception e) {
             // TODO: Use custom colodred formatting for errors
-            error(escapeCCL("Exception catched: %s".format(e)));
+            if (enable_debug)
+                error(escapeCCL("Exception catched:\n%s".format(e)));
+            else
+                error(escapeCCL("%s".format(e.msg)));
             return 1;
         }
     }
