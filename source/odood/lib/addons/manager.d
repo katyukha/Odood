@@ -14,7 +14,7 @@ private import thepath: Path, createTempPath;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
 private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.odoo.addon;
+private import odood.lib.addons.addon;
 private import odood.lib.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;

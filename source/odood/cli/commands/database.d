@@ -12,7 +12,7 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.utils: generateRandomString;
-private import odood.lib.odoo.addon: OdooAddon;
+private import odood.lib.addons.addon: OdooAddon;
 
 // TODO: Use specific exception tree for CLI part
 private import odood.lib.exception: OdoodException;

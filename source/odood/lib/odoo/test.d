@@ -16,7 +16,7 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
-private import odood.lib.odoo.addon: OdooAddon;
+private import odood.lib.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.exception: OdoodException;

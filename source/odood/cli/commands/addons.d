@@ -13,7 +13,7 @@ private import consolecolors: cwriteln, cwritefln, escapeCCL;
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.odoo.addon: OdooAddon;
+private import odood.lib.addons.addon: OdooAddon;
 private import odood.lib.exception: OdoodException;
 
 

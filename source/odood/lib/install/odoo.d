@@ -78,7 +78,6 @@ void installOdoo(in Project project) {
 }
 
 
-// TODO: Do we need this function?
 /** Generate and save Odoo configuration to project
   *
   * Params:
@@ -92,6 +91,16 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
 
     // Save odoo configs
     odoo_conf.save(project.odoo.configfile.toString);
+
+    /* NOTE: We need to generate separate config for tests,
+     *       because usualy, in case of running odoo normally, it have to print
+     *       log to some log file, but in case of running tests, it is required
+     *       to print logs to stderr or stdout, thus logs could be displayed
+     *       to user and processed on the fly. Unfortunately, older versions of
+     *       Odoo, do not support of passign empty value to '--logfile' option.
+     *       Thus, the only way to write logs to file or stdout conditionally
+     *       is to use separate config files for them.
+     */
 
     // Update test config with different xmlrpc/http port to avoid conflicts
     // with running odoo server
