@@ -114,19 +114,25 @@ struct AddonManager {
 
     /// Link single odoo addon
     void link(in OdooAddon addon, in bool force=false) const {
-        auto const dest = _project.directories.addons.join(addon.name);
+        auto dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
-            tracef("linking addon %s (%s -> %s)",
+            tracef("Linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
             addon.path.symlink(_project.directories.addons.join(addon.name));
         } else if (force) {
             tracef(
                 ("Removing allready existing addon %s at %s " ~
-                 "before linking from %s").format(
-                     addon.name, dest, addon.path));
+                 "before linking from %s"),
+                addon.name, dest, addon.path);
             dest.remove();
-            tracef("linking addon %s (%s -> %s)",
-                   addon.name, addon.path, dest);
+            tracef(
+                "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
+            addon.path.symlink(_project.directories.addons.join(addon.name));
+        } else if (dest.exists && dest.isSymlink && !dest.readLink.exists) {
+            tracef("Removing broken symlink at %s ...", dest);
+            dest.remove();
+            tracef(
+                "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
             addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
@@ -151,8 +157,22 @@ struct AddonManager {
 
     /// Check if addon is linked or not
     bool isLinked(in ref OdooAddon addon) const {
+        import std.exception: ErrnoException;
         auto check_path = _project.directories.addons.join(addon.name);
-        if (check_path.exists && check_path.realPath == addon.path.realPath)
+        if (!check_path.exists)
+            return false;
+
+        // Try to get realpath to check for. If there is broken symlink,
+        // then error will be raised
+        Path check_real_path;
+        try {
+            check_real_path = check_path.realPath;
+        } catch (ErrnoException e) {
+            return false;
+        }
+
+        // In check if check_path points to same directory as addon's path
+        if (check_real_path == addon.path.realPath)
             return true;
         return false;
     }
