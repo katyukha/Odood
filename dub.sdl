@@ -4,7 +4,7 @@ authors "Dmytro Katyukha"
 copyright "Copyright © 2022, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "requests" version="~>2"
-dependency "thepath" version=">=0.0.13"
+dependency "thepath" version=">=0.0.17"
 /*dependency "thepath" path="../thepath"*/
 dependency "console-colors" version="~>1"
 dependency "dlibzip" version="~>1.9.2"
