@@ -21,3 +21,8 @@ libssl-dev
 libffi-dev
 fontconfig
 libmagic1
+
+# For python2 support
+python2-dev
+python2-pip-whl
+python2-setuptools-whl

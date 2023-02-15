@@ -6,6 +6,7 @@ private import std.algorithm.searching: startsWith;
 private import std.string: strip;
 private import std.exception: enforce;
 private import std.conv: to;
+private import std.regex;
 
 private import dini: Ini;
 
@@ -66,11 +67,50 @@ void installOdoo(in Project project) {
         "phonenumbers", "python-slugify", "setuptools-odoo",
         "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo");
 
-    info("Installing odoo dependencies (requirements.txt)");
-    project.venv.installPyRequirements(
-        project.odoo.path.join("requirements.txt"));
+    if (project.odoo.serie < 8) {
+        info("Installing odoo dependencies (specific for Odoo 7.0)");
+        project.venv.installPyPackages(
+            "vobject < 0.9.0",
+            "psutil < 2",
+            "reportlab <= 3.0",
+            "Pillow < 4.0",
+            "lxml < 4.0",
+            "psycopg2 >= 2.2, < 2.8",
+            "python-dateutil < 2",
+            "babel",
+            "docutils",
+            "feedparser",
+            "gdata",
+            "Jinja2",
+            "mako",
+            "mock",
+            "pydot",
+            "python-ldap",
+            "python-openid",
+            "pytz",
+            "pywebdav < 0.9.8",
+            "pyyaml",
+            "simplejson",
+            "unittest2",
+            "vatnumber",
+            "Werkzeug<1",
+            "xlwt",
+        );
+    } else {
+        info("Installing odoo dependencies (requirements.txt)");
+        project.venv.installPyRequirements(
+            project.odoo.path.join("requirements.txt"));
+    }
 
     infof("Installing odoo to %s", project.odoo.path);
+
+    // Apply workarounds
+    if (project.odoo.serie < 8) {
+        auto setup_content = project.odoo.path.join("setup.py").readFileText()
+            .replaceAll(regex("PIL", "g"), "Pillow")
+            .replaceAll(regex("pychart"), "Python-Chart");
+        project.odoo.path.join("setup.py").writeFile(setup_content);
+    }
 
     project.venv.python(
         ["setup.py", "develop"],
