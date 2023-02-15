@@ -48,7 +48,7 @@ package struct ProjectConfigOdoo {
             in string odoo_branch, in string odoo_repo) {
 
         configfile = directories.conf.join("odoo.conf");
-        configfile = directories.conf.join("odoo.test.conf");
+        testconfigfile = directories.conf.join("odoo.test.conf");
         logfile = directories.log.join("odoo.log");
         pidfile = project_root.join("odoo.pid");
         path = project_root.join("odoo");
