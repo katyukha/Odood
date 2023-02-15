@@ -6,6 +6,9 @@ private import std.conv: to;
 private import std.string : format;
 
 
+/** This struct represetns Odoo serie, and provides convenient
+  * mechanics to parse and compare Odoo series
+  **/
 struct OdooSerie {
     private ubyte _major;
     private ubyte _minor;
@@ -87,6 +90,10 @@ struct OdooSerie {
         return this.opCmp(OdooSerie(other));
     }
 
+    @safe pure int opCmp(in ubyte other) const {
+        return this.opCmp(OdooSerie(other));
+    }
+
     @safe pure nothrow bool opEquals(in OdooSerie other) const
     in
     {
@@ -99,6 +106,10 @@ struct OdooSerie {
     }
 
     @safe pure int opEquals(in string other) const {
+        return this.opEquals(OdooSerie(other));
+    }
+
+    @safe pure int opEquals(in ubyte other) const {
         return this.opEquals(OdooSerie(other));
     }
 
@@ -123,6 +134,18 @@ struct OdooSerie {
         assert("12.1" > OdooSerie("12.0"));
         assert("12.1" != OdooSerie("12.0"));
         assert("12.0" != OdooSerie("13.0"));
+
+        assert(OdooSerie("12.0") < 13);
+        assert(OdooSerie("12.0") == 12);
+        assert(OdooSerie("12.1") > 12);
+        assert(OdooSerie("12.1") != 12);
+        assert(OdooSerie("12.0") != 13);
+
+        assert(13 > OdooSerie("12.0"));
+        assert(12 == OdooSerie("12.0"));
+        assert(12 < OdooSerie("12.1"));
+        assert(12 != OdooSerie("12.1"));
+        assert(13 != OdooSerie("12.0"));
     }
 }
 
