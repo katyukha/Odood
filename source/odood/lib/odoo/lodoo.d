@@ -1,14 +1,18 @@
 module odood.lib.odoo.lodoo;
 
 private import std.logger;
+private import std.exception: enforce;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
+private import odood.lib.exception: OdoodException;
 
 
+/** Supported backup formats
+  **/
 enum BackupFormat {
-    zip,
-    sql,
+    zip,  /// ZIP backup format that includes filestore
+    sql,  /// SQL-only backup, that contains only SQL dump
 }
 
 
@@ -56,7 +60,7 @@ const struct LOdoo {
 
         /** Create new Odoo database on this odoo instance
           **/
-        void databaseCreate(in string name, in bool demo=false,
+        auto databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
             string[] args = ["db-create"];
@@ -80,14 +84,14 @@ const struct LOdoo {
             infof(
                 "Creating database %s (%s)",
                 name, demo ? "with demo-data" : "without demo-data");
-            runE(args);
+            return runE(args);
         }
 
         /** Drop specified database
           **/
-        void databaseDrop(in string name) {
+        auto databaseDrop(in string name) {
             infof("Deleting database %s", name);
-            runE("db-drop", name);
+            return runE("db-drop", name);
         }
 
         /** Check if database eixsts
@@ -99,53 +103,60 @@ const struct LOdoo {
 
         /** Rename database
           **/
-        void databaseRename(in string old_name, in string new_name) {
+        auto databaseRename(in string old_name, in string new_name) {
             infof("Renaming database %s to %s", old_name, new_name);
-            runE("db-rename", old_name, new_name);
+            return runE("db-rename", old_name, new_name);
         }
 
         /** Copy database
           **/
-        void databaseCopy(in string old_name, in string new_name) {
+        auto databaseCopy(in string old_name, in string new_name) {
             infof("Copying database %s to %s", old_name, new_name);
-            runE("db-copy", old_name, new_name);
+            return runE("db-copy", old_name, new_name);
         }
 
         /** Backup database
           **/
-        void databaseBackup(in string name, in Path backup_path,
+        auto databaseBackup(in string name, in Path backup_path,
                             in BackupFormat format = BackupFormat.zip) {
             infof("Backing up database %s to %s", name, backup_path);
             final switch (format) {
                 case BackupFormat.zip:
-                    runE("db-backup", name, backup_path.toString,
+                    return runE("db-backup", name, backup_path.toString,
                          "--format", "zip");
-                    break;
                 case BackupFormat.sql:
-                    runE("db-backup", name, backup_path.toString,
+                    return runE("db-backup", name, backup_path.toString,
                          "--format", "sql");
-                    break;
             }
         }
 
         /** Restore database
           **/
-        void databaseRestore(in string name, in Path backup_path) {
+        auto databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
-            runE("db-restore", name, backup_path.toString);
+            return runE("db-restore", name, backup_path.toString);
         }
 
         /** Update list of addons
           **/
         // TODO: Rename
-        void updateAddonsList(in string dbname) {
-            runE("addons-update-list", dbname);
+        auto updateAddonsList(in string dbname) {
+            return runE("addons-update-list", dbname);
         }
 
         /** Uninstall addons
           **/
-        void addonsUninstall(in string dbname, in string[] addon_names) {
+        auto addonsUninstall(in string dbname, in string[] addon_names) {
             import std.string: join;
-            runE("addons-uninstall", dbname, addon_names.join(","));
+            return runE("addons-uninstall", dbname, addon_names.join(","));
+        }
+
+        /** Run python script for specific database
+          **/
+        auto runPyScript(in string dbname, in Path script_path) {
+            enforce!OdoodException(
+                script_path.exists,
+                "Script does not exists");
+            return runE("run-py-script", dbname, script_path.toString);
         }
 }
