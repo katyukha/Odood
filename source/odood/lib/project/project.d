@@ -194,6 +194,24 @@ class Project {
         return OdooTestRunner(this);
     }
 
+    /** Return dpq connection to database
+      **/
+    auto dbConnect(in string db_name) {
+        import dpq.connection;
+        auto odoo_conf = getOdooConfig;
+        return Connection(
+            "host=%s dbname=%s user=%s password=%s".format(
+                odoo_conf["options"].hasKey("db_host") ?
+                    odoo_conf["options"].getKey("db_host") : "localhost",
+                db_name,
+                odoo_conf["options"].hasKey("db_user") ?
+                    odoo_conf["options"].getKey("db_user") : "odoo",
+                odoo_conf["options"].hasKey("db_password") ?
+                    odoo_conf["options"].getKey("db_password") : "odoo",
+            )
+        );
+    }
+
     /** Save project configuration to specified config file.
 
         Params:

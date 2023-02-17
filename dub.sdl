@@ -13,6 +13,7 @@ dependency "semver" version=">=0.4.0"
 dependency "dyaml" version="~>0.9"
 dependency "commandr" version="~master"
 dependency "pyd" version="~master"
+dependency "dpq" version=">=0.11.6"
 
 targetPath "build"
 

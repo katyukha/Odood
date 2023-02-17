@@ -385,6 +385,43 @@ class CommandAddonsAdd: OdoodCommand {
 }
 
 
+class CommandAddonsIsInstalled: OdoodCommand {
+    this() {
+        super(
+            "is-installed",
+            "Print list of databases wehre specified addon is installed.");
+        this.add(new Argument(
+            "addon", "Name of addon or path to addon to check."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        import dpq.query;
+        auto project = Project.loadProject;
+
+        auto addon_n = project.addons.getByString(args.arg("addon"));
+        enforce!OdoodException(
+            !addon_n.isNull,
+            "Cannot find addon %s".format(args.arg("addon")));
+        auto addon = addon_n.get();
+
+        foreach(dbname; project.lodoo.databaseList) {
+            auto cn = project.dbConnect(dbname);
+            auto res = Query(
+                cn,
+                "SELECT EXISTS (" ~
+                "    SELECT 1" ~
+                "    FROM ir_module_module" ~
+                "    WHERE state = 'installed' AND name = $1" ~
+                ")"
+            ).run(addon.name);
+            if (res.get(0, 0).as!bool.get)
+                writeln(dbname);
+        }
+    }
+}
+
+
+
 class CommandAddons: OdoodCommand {
     this() {
         super("addons", "Manage third-party addons.");
@@ -395,6 +432,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsInstall());
         this.add(new CommandAddonsUninstall());
         this.add(new CommandAddonsAdd());
+        this.add(new CommandAddonsIsInstalled());
     }
 }
 
