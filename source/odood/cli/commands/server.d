@@ -85,6 +85,45 @@ class CommandServerRestart: OdoodCommand {
 }
 
 
+class CommandServerBrowse: OdoodCommand {
+
+    this() {
+        super("browse", "Open odoo in browser");
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.process;
+        auto project = Project.loadProject;
+        if (!project.server.isRunning)
+            project.server.spawn(true);
+
+        auto odoo_conf = project.getOdooConfig;
+
+        /** Get option with default value
+          **/
+        string get_option(
+                in string name,
+                lazy string default_val) {
+            if (odoo_conf["options"].hasKey(name))
+                return odoo_conf["options"].getKey(name);
+            return default_val;
+        }
+
+        string url = "http://%s:%s/".format(
+            get_option(
+                "http_interface",
+                get_option(
+                    "xmlrpc_interface", "localhost")),
+            get_option(
+                "http_port",
+                get_option(
+                    "xmlrpc_port", "8069"))
+        );
+        std.process.browse(url);
+    }
+
+}
+
 class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
@@ -93,6 +132,7 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerStatus());
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
+        this.add(new CommandServerBrowse());
     }
 }
 

@@ -12,7 +12,8 @@ private import odood.cli.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
 private import odood.cli.commands.server:
-    CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart;
+    CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart,
+    CommandServerBrowse;
 private import odood.cli.commands.database: CommandDatabase, CommandDatabaseList;
 private import odood.cli.commands.status: CommandStatus;
 private import odood.cli.commands.addons:
@@ -52,6 +53,7 @@ class App: OdoodProgram {
         this.add(new CommandServerStart());
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
+        this.add(new CommandServerBrowse());
         this.add(new CommandDatabaseList("lsd"));
         this.add(new CommandAddonsList("lsa"));
         this.add(new CommandAddonsUpdateList("ual"));
