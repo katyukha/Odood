@@ -8,7 +8,7 @@ dependency "commandr" version="~master"
 
 dependency "odood:lib" version="*"
 
-targetPath "../build"
+targetPath "build"
 targetType "library"
 
 configuration "library" {

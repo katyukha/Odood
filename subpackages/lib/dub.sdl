@@ -13,11 +13,8 @@ dependency "dyaml" version="~>0.9"
 dependency "pyd" version="~master"
 dependency "dpq" version=">=0.11.6"
 
-
-targetPath "../build"
+targetPath "build"
 targetType "library"
-
-subConfiguration "pyd" "python310"
 
 configuration "library" {
 }
