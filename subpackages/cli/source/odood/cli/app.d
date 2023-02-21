@@ -8,7 +8,7 @@ import consolecolors: cwritefln, escapeCCL;
 
 private import odood.lib: _version;
 private import odood.lib.exception: OdoodException;
-private import odood.cli.logger: OdoodLogger;
+private import odood.cli.core.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
 private import odood.cli.commands.server:

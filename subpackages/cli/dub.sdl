@@ -6,7 +6,7 @@ license "MPL-2.0"
 dependency "console-colors" version="~>1"
 dependency "commandr" version="~master"
 
-dependency "odood:lib" version="*"
+dependency "odood:lib" path="../../"
 
 targetPath "build"
 targetType "library"

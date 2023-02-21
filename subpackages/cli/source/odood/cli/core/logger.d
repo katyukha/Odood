@@ -1,4 +1,4 @@
-module odood.cli.logger;
+module odood.cli.core.logger;
 
 private import std.logger;
 private import std.format: format;
