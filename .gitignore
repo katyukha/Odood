@@ -18,3 +18,4 @@ odood-test-*
 *.sw[npo]
 /tmp/
 /build/
+/subpackages/build

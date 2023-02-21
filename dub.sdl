@@ -8,8 +8,8 @@ dependency "commandr" version="~master"
 
 dependency "odood:lib" version="*"
 dependency "odood:cli" version="*"
-subPackage "./odoodlib"
-subPackage "./odoodcli"
+subPackage "./subpackages/lib"
+subPackage "./subpackages/cli"
 
 targetPath "build"
 
