@@ -1,0 +1,22 @@
+name "cli"
+description "CLI Interface for Odood"
+authors "Dmytro Katyukha"
+copyright "Copyright © 2022, Dmytro Katyukha"
+license "MPL-2.0"
+dependency "console-colors" version="~>1"
+dependency "commandr" version="~master"
+
+dependency "odood:lib" version="*"
+
+targetPath "../build"
+targetType "library"
+
+configuration "library" {
+}
+
+configuration "sourceLibrary" {
+}
+
+configuration "unittest" {
+    dependency "unit-threaded:assertions" version=">=2.0.0"
+}

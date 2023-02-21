@@ -7,7 +7,9 @@ dependency "console-colors" version="~>1"
 dependency "commandr" version="~master"
 
 dependency "odood:lib" version="*"
+dependency "odood:cli" version="*"
 subPackage "./odoodlib"
+subPackage "./odoodcli"
 
 targetPath "build"
 
