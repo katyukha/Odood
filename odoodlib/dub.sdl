@@ -1,0 +1,31 @@
+name "lib"
+description "Odood core as a library"
+authors "Dmytro Katyukha"
+copyright "Copyright © 2022, Dmytro Katyukha"
+license "MPL-2.0"
+dependency "requests" version="~>2"
+dependency "thepath" version=">=0.0.18"
+/*dependency "thepath" path="../thepath"*/
+dependency "dlibzip" version="~>1.9.2"
+dependency "dini" version="~>2.0.0"
+dependency "semver" version=">=0.4.0"
+dependency "dyaml" version="~>0.9"
+dependency "pyd" version="~master"
+dependency "dpq" version=">=0.11.6"
+
+
+targetPath "../build"
+targetType "library"
+
+subConfiguration "pyd" "python310"
+
+configuration "library" {
+}
+
+configuration "sourceLibrary" {
+}
+
+configuration "unittest" {
+    dependency "unit-threaded:assertions" version=">=2.0.0"
+}
+

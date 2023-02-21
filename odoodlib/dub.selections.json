@@ -2,8 +2,6 @@
 	"fileVersion": 1,
 	"versions": {
 		"cachetools": "0.3.1",
-		"commandr": "~master",
-		"console-colors": "1.1.0",
 		"dini": "2.0.0",
 		"dlibzip": "1.9.2",
 		"dpq": "0.11.6",
