@@ -205,7 +205,7 @@ class Project {
 
     /** Return dpq connection to database
       **/
-    auto dbConnect(in string db_name) {
+    auto dbConnect(in string db_name) const {
         import dpq.connection;
         auto odoo_conf = getOdooConfig;
         return Connection(
@@ -284,39 +284,87 @@ class Project {
     }
 
     /// Get configuration for Odoo
-    auto getOdooConfig() {
+    auto getOdooConfig() const {
         return this.readOdooConfig;
     }
 
     /** Run python script for specific database
       **/
-    auto runPyScript(in string dbname, in Path script_path) {
+    auto runPyScript(in string dbname, in Path script_path) const {
         return lodoo.runPyScript(dbname, script_path);
+    }
+
+    /** Run SQL script for specific database
+      *
+      * Note, that this method does not check if database exists
+      *
+      * Params:
+      *     dbname = name of database
+      *     query = SQL query to run (possibly with parameters
+      *     no_commit = If we need to commit tranasaction or not
+      *     params = variadic parameters for query
+      **/
+    auto runSQLQuery(T...)(
+            in string dbname, in string query,
+            in bool no_commit, T params) const {
+        import dpq.query;
+        import dpq.result;
+        import dpq.exception;
+
+        auto conn = dbConnect(dbname);
+        conn.begin();  // Start new transaction
+        Result res;
+        try {
+            res = Query(conn, query).run(params);
+        } catch (DPQException e) {
+            // Rollback in case of any error
+            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
+            conn.rollback();
+            conn.close();
+            throw e;
+        }
+        if (no_commit) {
+            warningf("Rollback, because 'no_commit' option supplied!");
+            conn.rollback();
+        } else {
+            conn.commit();
+        }
+        conn.close();
+        return res;
     }
 
     /** Run SQL script for specific database
       **/
     void runSQLScript(
-            in string dbname, in Path script_path, in bool no_commit=false) {
+            in string dbname, in Path script_path,
+            in bool no_commit=false) const {
         import dpq.query;
+        import dpq.result;
+        import dpq.exception;
 
         enforce!OdoodException(
             script_path.exists,
             "SQL script %s does not exists!".format(script_path));
 
         infof("Running SQL script %s for databse %s ...", script_path, dbname);
-        auto conn = dbConnect(dbname);
-        conn.exec("BEGIN");  // Start new transaction
-        auto res = conn.exec(script_path.readFileText);
+        runSQLQuery(dbname, script_path.readFileText, no_commit);
         infof(
             "SQL script %s for database %s completed!\n", script_path, dbname);
-        if (no_commit) {
-            warningf("Rollback, because 'no_commit' option supplied!");
-            conn.exec("ROLLBACK");
-        } else {
-            conn.exec("COMMIT");
-        }
     }
 
+    /** Check if database contains demo data.
+      **/
+    const(bool) hasDatabaseDemoData(in string dbname) const {
+        auto res = runSQLQuery(
+            dbname,
+            "SELECT EXISTS (" ~
+            "    SELECT 1 FROM ir_module_module " ~
+            "    WHERE state = 'installed' " ~
+            "      AND name = 'base' " ~
+            "      AND demo = True " ~
+            ")",
+            false);
+        return res.get(0, 0).as!bool.get;
+    }
 }
 

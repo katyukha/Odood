@@ -192,6 +192,9 @@ struct AddonManager {
             "--logfile=%s".format(_project.odoo.logfile.toString),
         ];
 
+        if (!_project.hasDatabaseDemoData(database))
+            server_opts ~= ["--without-demo=all"];
+
         final switch(cmd) {
             case cmdIU.install:
                 server_opts ~= ["--init=%s".format(addon_names.join(","))];
@@ -201,15 +204,7 @@ struct AddonManager {
                 break;
         }
 
-
-        /* TODO: Handle demo data
-            if ! odoo_db_is_demo_enabled -q "$db"; then
-                odoo_options+=( "--without-demo=all" );
-            fi
-        */
-
         _project.server.runE(server_opts);
-
     }
 
     /// Update odoo addons

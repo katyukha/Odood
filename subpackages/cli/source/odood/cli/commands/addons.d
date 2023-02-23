@@ -405,15 +405,15 @@ class CommandAddonsIsInstalled: OdoodCommand {
         auto addon = addon_n.get();
 
         foreach(dbname; project.lodoo.databaseList) {
-            auto cn = project.dbConnect(dbname);
-            auto res = Query(
-                cn,
+            auto res = project.runSQLQuery(
+                dbname,
                 "SELECT EXISTS (" ~
                 "    SELECT 1" ~
                 "    FROM ir_module_module" ~
                 "    WHERE state = 'installed' AND name = $1" ~
-                ")"
-            ).run(addon.name);
+                ")",
+                false,
+                addon.name);
             if (res.get(0, 0).as!bool.get)
                 writeln(dbname);
         }
