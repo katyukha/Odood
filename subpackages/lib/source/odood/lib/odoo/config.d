@@ -32,7 +32,7 @@ Ini initOdooConfig(in Project project) {
 
     odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
     odoo_conf["options"].setKey("data_dir", project.directories.data.toString);
-    odoo_conf["options"].setKey("logfile", project.directories.log.toString);
+    odoo_conf["options"].setKey("logfile", project.odoo.logfile.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");
     return odoo_conf;
 }
