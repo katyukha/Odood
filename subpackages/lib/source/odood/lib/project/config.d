@@ -13,7 +13,7 @@ private import odood.lib.server: OdooServer;
 
 /** Struct that represents odoo-specific configuration
   **/
-package struct ProjectConfigOdoo {
+struct ProjectConfigOdoo {
     /// Main odoo config file
     Path configfile;
 
@@ -93,7 +93,7 @@ package struct ProjectConfigOdoo {
 
 /** Stuct that represents directory structure for the project
   **/
-package struct ProjectConfigDirectories {
+struct ProjectConfigDirectories {
 
     /// Directory to store odoo configurations
     Path conf;

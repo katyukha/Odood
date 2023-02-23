@@ -125,7 +125,8 @@ unittest {
 
 
 /// Clone git repository to provided destination directory
-void gitClone(in GitURL repo, in Path dest, in string branch) {
+void gitClone(in GitURL repo, in Path dest, in string branch,
+        in bool single_branch=false) {
     enforce!OdoodException(
         dest.isValid,
         "Cannot clone repo %s! Destination path %s is invalid!".format(
@@ -136,5 +137,9 @@ void gitClone(in GitURL repo, in Path dest, in string branch) {
     infof("Clonning repository (branch=%s): %s", branch, repo);
 
     // TODO: Make branch optional
-    runCmdE(["git", "clone", "-b", branch, repo.toUrl, dest.toString]);
+    string[] cmd = ["git", "clone", "-b", branch];
+    if (single_branch)
+        cmd ~= ["--signle-branch"];
+    cmd ~= [repo.toUrl, dest.toString];
+    cmd.runCmdE;
 }

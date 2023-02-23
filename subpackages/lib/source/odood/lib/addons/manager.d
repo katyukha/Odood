@@ -292,7 +292,8 @@ struct AddonManager {
     }
 
     /// Add new addon repo to project
-    void addRepo(in string url, in string branch) {
+    void addRepo(
+            in string url, in string branch, in bool single_branch=false) {
         import odood.lib.git: parseGitURL, gitClone;
 
         auto git_url = parseGitURL(url);
@@ -318,6 +319,11 @@ struct AddonManager {
         if (repo.path.join("odoo_requirements.txt").exists) {
             processOdooRequirements(repo.path.join("odoo_requirements.txt"));
         }
+    }
+
+    /// ditto
+    void addRepo(in string url, in bool single_branch=false) {
+        addRepo(url, _project.odoo.serie.toString, single_branch);
     }
 
     /// Get repository instance for specified path

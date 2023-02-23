@@ -31,11 +31,11 @@ class Project {
     private Nullable!Path _config_path;
 
     /// Root project directory
-    Path project_root;
+    Path _project_root;
 
-    ProjectConfigDirectories directories;
+    ProjectConfigDirectories _directories;
 
-    ProjectConfigOdoo odoo;
+    ProjectConfigOdoo _odoo;
 
     VirtualEnv _venv;
 
@@ -89,9 +89,9 @@ class Project {
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
             in VirtualEnv venv) {
-        this.project_root = project_root.expandTilde.toAbsolute;
-        this.directories = directories;
-        this.odoo = odoo;
+        this._project_root = project_root.toAbsolute;
+        this._directories = directories;
+        this._odoo = odoo;
         this._venv = venv;
     }
 
@@ -121,7 +121,7 @@ class Project {
     /// ditto
     this(in Path project_root, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
-        auto root = project_root.expandTilde.toAbsolute;
+        auto root = project_root.toAbsolute;
         auto directories = ProjectConfigDirectories(root);
         this(
             root,
@@ -160,6 +160,15 @@ class Project {
 
     /// Path to project config
     @property const (Path) config_path() const { return _config_path.get; }
+
+    /// Project root directory
+    @property const (Path) project_root() const { return _project_root; }
+
+    /// Project directories
+    @property auto directories() const { return _directories; }
+
+    /// Project odoo info
+    @property auto odoo() const { return _odoo; }
 
     /// LOdoo instance for this project
     @property const(LOdoo) lodoo() const {
@@ -277,6 +286,36 @@ class Project {
     /// Get configuration for Odoo
     auto getOdooConfig() {
         return this.readOdooConfig;
+    }
+
+    /** Run python script for specific database
+      **/
+    auto runPyScript(in string dbname, in Path script_path) {
+        return lodoo.runPyScript(dbname, script_path);
+    }
+
+    /** Run SQL script for specific database
+      **/
+    void runSQLScript(
+            in string dbname, in Path script_path, in bool no_commit=false) {
+        import dpq.query;
+
+        enforce!OdoodException(
+            script_path.exists,
+            "SQL script %s does not exists!".format(script_path));
+
+        infof("Running SQL script %s for databse %s ...", script_path, dbname);
+        auto conn = dbConnect(dbname);
+        conn.exec("BEGIN");  // Start new transaction
+        auto res = conn.exec(script_path.readFileText);
+        infof(
+            "SQL script %s for database %s completed!\n", script_path, dbname);
+        if (no_commit) {
+            warningf("Rollback, because 'no_commit' option supplied!");
+            conn.exec("ROLLBACK");
+        } else {
+            conn.exec("COMMIT");
+        }
     }
 
 }

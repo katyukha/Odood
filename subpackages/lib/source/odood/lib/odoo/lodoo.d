@@ -2,6 +2,7 @@ module odood.lib.odoo.lodoo;
 
 private import std.logger;
 private import std.exception: enforce;
+private import std.format: format;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
@@ -156,7 +157,10 @@ const struct LOdoo {
         auto runPyScript(in string dbname, in Path script_path) {
             enforce!OdoodException(
                 script_path.exists,
-                "Script does not exists");
+                "Python script %s does not exists!".format(script_path));
+            infof(
+                "Running SQL script %s for databse %s ...",
+                script_path, dbname);
             return runE("run-py-script", dbname, script_path.toString);
         }
 }

@@ -30,8 +30,7 @@ class CommandScriptPy: OdoodCommand {
             project.lodoo.databaseExists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
-        infof("Running python script %s for databse %s ...", script, dbname);
-        auto res = project.lodoo.runPyScript(dbname, script);
+        auto res = project.runPyScript(dbname, script);
         infof(
             "Python script %s for database %s completed!\nOutput:\n%s",
             script, dbname, res.output);
@@ -58,17 +57,7 @@ class CommandScriptSQL: OdoodCommand {
             project.lodoo.databaseExists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
-        infof("Running SQL script %s for databse %s ...", script, dbname);
-        auto conn = project.dbConnect(dbname);
-        conn.exec("BEGIN");  // Start new transaction
-        auto res = conn.exec(script.readFileText);
-        infof("SQL script %s for database %s completed!\n", script, dbname);
-        if (args.flag("no-commit")) {
-            warningf("Rollback, because --no-commit option supplied!");
-            conn.exec("ROLLBACK");
-        } else {
-            conn.exec("COMMIT");
-        }
+        project.runSQLScript(dbname, script, args.flag("no-commit"));
     }
 }
 
