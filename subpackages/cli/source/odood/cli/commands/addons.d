@@ -186,15 +186,18 @@ class CommandAddonsUpdate: OdoodCommand {
         this.add(
             new Option(
                 "d", "db", "Database(s) to update addons in."
-            ).optional().repeating());
+            ).repeating());
         this.add(
             new Option(
                 null, "dir", "Directory to search for addons to be updated"
-            ).optional().repeating());
+            ).repeating());
         this.add(
             new Option(
                 null, "dir-r", "Directory to recursively search for addons to be installed"
-            ).optional().repeating());
+            ).repeating());
+        this.add(
+            new Flag(
+                "a", "all", "Update all modules"));
         this.add(
             new Argument(
                 "addon", "Name of addon to update").optional().repeating());
@@ -207,22 +210,24 @@ class CommandAddonsUpdate: OdoodCommand {
             args.options("db") : project.lodoo.databaseList();
 
         OdooAddon[] addons;
-        foreach(addon_name; args.args("addon")) {
-            auto addon = project.addons.getByString(addon_name);
-            enforce!OdoodException(
-                !addon.isNull,
-                "%s does not look like addon name or path to addon".format(
-                    addon_name));
-            addons ~= addon.get;
+        if (!args.flag("all")) {
+            foreach(addon_name; args.args("addon")) {
+                auto addon = project.addons.getByString(addon_name);
+                enforce!OdoodException(
+                    !addon.isNull,
+                    "%s does not look like addon name or path to addon".format(
+                        addon_name));
+                addons ~= addon.get;
+            }
+
+            foreach(dir; args.options("dir"))
+                foreach(addon; project.addons.scan(Path(dir)))
+                    addons ~= addon;
+
+            foreach(dir; args.options("dir-r"))
+                foreach(addon; project.addons.scan(Path(dir), true))
+                    addons ~= addon;
         }
-
-        foreach(dir; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(dir)))
-                addons ~= addon;
-
-        foreach(dir; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(dir), true))
-                addons ~= addon;
 
         auto start_again=false;
         if (project.server.isRunning) {
@@ -231,7 +236,10 @@ class CommandAddonsUpdate: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.update(addons, db);
+            if (args.flag("all"))
+                project.addons.updateAll(db);
+            else
+                project.addons.update(addons, db);
         }
 
         if (start_again)

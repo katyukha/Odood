@@ -177,11 +177,20 @@ struct AddonManager {
         return false;
     }
 
-    /// Initial method, that can do install 
+    /** Install or update odoo adodns from specified database
+      *
+      * Params:
+      *     addon_names = list of names of addons to install or update
+      *     database = name of database to run operation for
+      *     cmd = Command that describes what to do: install or update
+      *     env = Extra environment variables to provide for the Odoo
+      *           if needed. Used by openupgrade.
+      **/
     private void _run_install_update_addons(
             in string[] addon_names,
             in string database,
-            in cmdIU cmd) {
+            in cmdIU cmd,
+            in string[string] env) const {
 
         string[] server_opts=[
             "-d", database,
@@ -200,44 +209,61 @@ struct AddonManager {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
                 _project.server.runE(
-                    server_opts ~ ["--init=%s".format(addon_names_csv)]);
+                    server_opts ~ ["--init=%s".format(addon_names_csv)], env);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
                 _project.server.runE(
-                    server_opts ~ ["--update=%s".format(addon_names_csv)]);
+                    server_opts ~ ["--update=%s".format(addon_names_csv)], env);
                 infof("Update of addons for database %s completed!", database);
                 break;
         }
     }
 
     /// Update odoo addons
-    void update(in OdooAddon[] addons, in string database) {
+    void update(
+            in OdooAddon[] addons,
+            in string database,
+            in string[string] env=null) const {
         if (!addons) {
             warning("No addons specified for 'update'.");
             return;
         }
         _run_install_update_addons(
-            addons.map!(a => a.name).array, database, cmdIU.update);
+            addons.map!(a => a.name).array, database, cmdIU.update, env);
     }
     /// ditto
-    void update(in Path search_path, in string database) {
-        update(scan(search_path), database);
+    void update(
+            in Path search_path,
+            in string database,
+            in string[string] env=null) const {
+        update(scan(search_path), database, env);
+    }
+
+    /// Update all odoo addons for specific database
+    void updateAll(in string database, in string[string] env=null) const {
+        _run_install_update_addons(["all"], database, cmdIU.update, env);
     }
 
     /// Install odoo addons
-    void install(in OdooAddon[] addons, in string database) {
+    void install(
+            in OdooAddon[] addons,
+            in string database,
+            in string[string] env=null) {
         if (!addons) {
             warning("No addons specified for 'install'.");
             return;
         }
         _run_install_update_addons(
-            addons.map!(a => a.name).array, database, cmdIU.install);
+            addons.map!(a => a.name).array, database, cmdIU.install, env);
     }
     /// ditto
-    void install(in Path search_path, in string database) {
-        install(scan(search_path), database);
+    void install(
+            in Path search_path,
+            in string database,
+            in string[string] env=null) {
+        install(scan(search_path), database, env);
     }
 
     /// Uninstall odoo addons

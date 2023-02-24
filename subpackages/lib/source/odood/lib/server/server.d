@@ -88,6 +88,11 @@ struct OdooServer {
         return -1;
     }
 
+    /** Get environment variables to apply when running Odoo server.
+      *
+      * Params:
+      *     env = extra environment variables to apply.
+      **/
     private const(string[string]) getServerEnv() const {
         if (_test_mode)
             return [
@@ -98,6 +103,16 @@ struct OdooServer {
             "OPENERP_SERVER": _project.odoo.configfile.toString,
             "ODOO_RC": _project.odoo.configfile.toString,
         ];
+    }
+
+    /// ditto
+    private const(string[string]) getServerEnv(in string[string] env) const {
+        string[string] res;
+        foreach(k, v; env)
+            res[k] = v;
+        foreach(k, v; getServerEnv())
+            res[k] = v;
+        return res;
     }
 
     /** Prepare command to be used to run the server
@@ -207,12 +222,52 @@ struct OdooServer {
         return pipeServerLog(CoverageOptions(false), options);
     }
 
-    auto run(in string[] options...) const {
-        _project.venv.run(scriptPath, options, _project.project_root, getServerEnv);
+    /** Run server with provided options.
+      *
+      * Params:
+      *     options = list of options to pass to the server
+      *     env = extra environment variables to pass to the server
+      **/
+    auto run(in string[] options, in string[string] env) const {
+        return _project.venv.run(
+            scriptPath,
+            options,
+            _project.project_root,
+            getServerEnv(env));
     }
 
+    /// ditto
+    auto run(in string[] options...) const {
+        return _project.venv.run(
+            scriptPath,
+            options,
+            _project.project_root,
+            getServerEnv);
+    }
+
+    /** Run server with provided options
+      *
+      * In case of non-zero exit code error will be raised.
+      *
+      * Params:
+      *     options = list of options to pass to the server
+      *     env = extra environment variables to pass to the server
+      **/
+    auto runE(in string[] options, in string[string] env) const {
+        return _project.venv.runE(
+            scriptPath,
+            options,
+            _project.project_root,
+            getServerEnv(env));
+    }
+
+    /// ditto
     auto runE(in string[] options...) const {
-        _project.venv.runE(scriptPath, options, _project.project_root, getServerEnv);
+        return _project.venv.runE(
+            scriptPath,
+            options,
+            _project.project_root,
+            getServerEnv);
     }
 
     /** Check if the Odoo server is running or not
