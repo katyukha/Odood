@@ -289,11 +289,14 @@ struct AddonManager {
     /// Add new addon repo to project
     void addRepo(
             in string url, in string branch, in bool single_branch=false) {
+        import std.algorithm;
+        import std.string: toLower;
+        import std.array: array;
         import odood.lib.git: parseGitURL, gitClone;
 
         auto git_url = parseGitURL(url);
         auto dest = _project.directories.repositories.join(
-                git_url.toPathSegments);
+                git_url.toPathSegments.map!((p) => p.toLower).array);
 
         // TODO: Add recursion protection
         if (dest.exists) {
