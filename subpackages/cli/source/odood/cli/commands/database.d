@@ -189,21 +189,10 @@ class CommandDatabaseBackup: OdoodCommand {
         Path dest;
         if (args.option("dest")) {
             dest = Path(args.option("dest"));
+            project.lodoo.databaseBackup(args.arg("name"), dest, b_format);
         } else {
-            import std.datetime.systime: Clock;
-            string dest_name="db-backup-%s-%s.%s.%s".format(
-                args.arg("name"),
-                "%s-%s-%s".format(
-                    Clock.currTime.year,
-                    Clock.currTime.month,
-                    Clock.currTime.day),
-                generateRandomString(4),
-                b_format
-            );
-            dest = project.directories.backups.join(dest_name);
+            dest = project.lodoo.databaseBackup(args.arg("name"), b_format);
         }
-
-        project.lodoo.databaseBackup(args.arg("name"), dest, b_format);
     }
 }
 

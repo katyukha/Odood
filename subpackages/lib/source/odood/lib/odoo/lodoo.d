@@ -117,18 +117,70 @@ const struct LOdoo {
         }
 
         /** Backup database
+          *
+          * Params:
+          *     dbname = name of database to backup
+          *     backup_path = path to store backup
+          *     format = Backup format: zip or SQL
+          *
+          * Returns:
+          *     Path where backup was stored.
           **/
-        auto databaseBackup(in string name, in Path backup_path,
-                            in BackupFormat format = BackupFormat.zip) {
-            infof("Backing up database %s to %s", name, backup_path);
-            final switch (format) {
+        Path databaseBackup(
+                in string dbname, in Path backup_path,
+                in BackupFormat backup_format = BackupFormat.zip) {
+            infof("Backing up database %s to %s", dbname, backup_path);
+            final switch (backup_format) {
                 case BackupFormat.zip:
-                    return runE("db-backup", name, backup_path.toString,
+                    runE("db-backup", dbname, backup_path.toString,
                          "--format", "zip");
+                    return backup_path;
                 case BackupFormat.sql:
-                    return runE("db-backup", name, backup_path.toString,
+                    runE("db-backup", dbname, backup_path.toString,
                          "--format", "sql");
+                    return backup_path;
             }
+        }
+
+        /** Backup database.
+          * Path to store backup will be computed automatically.
+          *
+          * By default, backup will be stored at 'backups' directory inside
+          * project root.
+          *
+          * Params:
+          *     dbname = name of database to backup
+          *     format = Backup format: zip or SQL
+          *
+          * Returns:
+          *     Path where backup was stored.
+          **/
+        Path databaseBackup(
+                in string dbname,
+                in BackupFormat backup_format = BackupFormat.zip) {
+            import std.datetime.systime: Clock;
+            import odood.lib.utils: generateRandomString;
+
+            string dest_name="db-backup-%s-%s.%s.%s".format(
+                dbname,
+                "%s-%s-%s".format(
+                    Clock.currTime.year,
+                    Clock.currTime.month,
+                    Clock.currTime.day),
+                generateRandomString(4),
+                (() {
+                    final switch (backup_format) {
+                        case BackupFormat.zip:
+                            return "zip";
+                        case BackupFormat.sql:
+                            return "zip";
+                    }
+                })(),
+            );
+            return databaseBackup(
+                dbname,
+                _project.directories.backups.join(dest_name),
+                backup_format);
         }
 
         /** Restore database

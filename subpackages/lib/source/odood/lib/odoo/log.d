@@ -77,7 +77,7 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
             // After this code ran, buffer will contain first line of
             // record to be read
             while (_buffer.empty && !_source.eof) {
-                string line = _source.readln();
+                string line = (() @trusted => _source.readln())();
 
                 if (line.matchFirst(RE_LOG_RECORD_START)) {
                     _buffer = line;
@@ -96,7 +96,7 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
         // Read next line, in attempt to find the start of next log line
         string line_read;
         do {
-            line_read = _source.readln();
+            line_read = (() @trusted => _source.readln())();
 
             if (line_read.empty || line_read.matchFirst(RE_LOG_RECORD_START)) {
                 // Here we can assume that everything that is in the buffer
