@@ -6,14 +6,16 @@ license "MPL-2.0"
 dependency "console-colors" version="~>1"
 dependency "commandr" version="~master"
 
-dependency "odood:lib" version="*"
-dependency "odood:cli" version="*"
+dependency "odood:lib" path="./subpackages/lib"
+dependency "odood:cli" path="./subpackages/cli"
 subPackage "./subpackages/lib"
 subPackage "./subpackages/cli"
 
 targetPath "build"
 
 subConfiguration "pyd" "python310"
+subConfiguration "odood:lib" "sourceLibrary"
+subConfiguration "odood:cli" "sourceLibrary"
 
 
 configuration "executable" {

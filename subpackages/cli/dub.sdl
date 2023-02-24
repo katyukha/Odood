@@ -15,6 +15,7 @@ configuration "library" {
 }
 
 configuration "sourceLibrary" {
+    subConfiguration "odood:lib" "sourceLibrary"
 }
 
 configuration "unittest" {
