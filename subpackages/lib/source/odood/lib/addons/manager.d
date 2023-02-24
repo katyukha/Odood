@@ -195,16 +195,21 @@ struct AddonManager {
         if (!_project.hasDatabaseDemoData(database))
             server_opts ~= ["--without-demo=all"];
 
+        auto addon_names_csv = addon_names.join(",");
         final switch(cmd) {
             case cmdIU.install:
-                server_opts ~= ["--init=%s".format(addon_names.join(","))];
+                infof("Installing addons (db=%s): %s", database, addon_names_csv);
+                _project.server.runE(
+                    server_opts ~ ["--init=%s".format(addon_names_csv)]);
+                infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
-                server_opts ~= ["--update=%s".format(addon_names.join(","))];
+                infof("Updating addons (db=%s): %s", database, addon_names_csv);
+                _project.server.runE(
+                    server_opts ~ ["--update=%s".format(addon_names_csv)]);
+                infof("Update of addons for database %s completed!", database);
                 break;
         }
-
-        _project.server.runE(server_opts);
     }
 
     /// Update odoo addons
