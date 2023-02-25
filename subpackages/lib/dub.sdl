@@ -1,11 +1,10 @@
 name "lib"
 description "Odood core as a library"
 authors "Dmytro Katyukha"
-copyright "Copyright © 2022, Dmytro Katyukha"
+copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "requests" version="~>2"
 dependency "thepath" version=">=0.0.18"
-/*dependency "thepath" path="../thepath"*/
 dependency "dlibzip" version="~>1.9.2"
 dependency "dini" version="~>2.0.0"
 dependency "semver" version=">=0.4.0"

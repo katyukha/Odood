@@ -6,7 +6,9 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 
 ## Current state
 
-Currently, the project is still *under development*, and could be used in parallel with [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/) for now.
+The project is still *under development*.
+
+Currently, this project could be used in parallel with [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
 
 ## License
 

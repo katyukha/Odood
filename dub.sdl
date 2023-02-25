@@ -1,7 +1,7 @@
 name "odood"
-description "Manage local odoo installations with no efforts"
+description "Manage local development odoo installations with no ease"
 authors "Dmytro Katyukha"
-copyright "Copyright © 2022, Dmytro Katyukha"
+copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "console-colors" version="~>1"
 dependency "commandr" version="~master"
@@ -34,5 +34,4 @@ configuration "bash-autocomplete" {
 configuration "unittest" {
     mainSourceFile "source/odood/app.d"
     dependency "unit-threaded:assertions" version=">=2.0.0"
-    /*stringImportPaths "test-data"*/
 }
