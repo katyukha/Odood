@@ -18,6 +18,11 @@ jobs:
         with:
           compiler: ${{ matrix.dc }}
 
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
       - name: Run tests
         run: dub test -b unittest-cov
 
