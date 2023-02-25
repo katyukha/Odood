@@ -295,7 +295,11 @@ class Project {
         return lodoo.runPyScript(dbname, script_path);
     }
 
-    /** Run SQL script for specific database
+    /** Run SQL script for specific database.
+      *
+      * Note, that this method allows to execut only one query.
+      * If you need to run multiple queries at single call,
+      * then you can use runSQLScript method.
       *
       * Note, that this method does not check if database exists
       *
@@ -339,10 +343,49 @@ class Project {
         return runSQLQuery(dbname, query, false);
     }
 
+    /** Exec SQL. Supports to run multiple SQL statements,
+      * and do not return value
+      *
+      * Params:
+      *     dbname = name of database
+      *     query = SQL query to run (possibly with parameters
+      *     no_commit = If we need to commit tranasaction or not
+      **/
+    void runSQLScript(
+            in string dbname,
+            in string query,
+            in bool no_commit=false) const {
+        import dpq.result;
+        import dpq.exception;
+
+        auto conn = dbConnect(dbname);
+
+        conn.begin();  // Start new transaction
+        Result res;
+        try {
+            conn.exec(query);
+        } catch (DPQException e) {
+            // Rollback in case of any error
+            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
+            conn.rollback();
+            conn.close();
+            throw e;
+        }
+        if (no_commit) {
+            warningf("Rollback, because 'no_commit' option supplied!");
+            conn.rollback();
+        } else {
+            conn.commit();
+        }
+        conn.close();
+    }
+
+
     /** Run SQL script for specific database
       **/
     void runSQLScript(
-            in string dbname, in Path script_path,
+            in string dbname,
+            in Path script_path,
             in bool no_commit=false) const {
         import dpq.query;
         import dpq.result;
@@ -353,7 +396,7 @@ class Project {
             "SQL script %s does not exists!".format(script_path));
 
         infof("Running SQL script %s for databse %s ...", script_path, dbname);
-        runSQLQuery(dbname, script_path.readFileText, no_commit);
+        runSQLScript(dbname, script_path.readFileText, no_commit);
         infof(
             "SQL script %s for database %s completed!\n", script_path, dbname);
     }
