@@ -167,7 +167,7 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
 unittest {
     import unit_threaded.assertions;
 
-    auto f = File("test-data/odoo.test.log.1", "rt");
+    auto f = File("test-data/odoo.test.1.log", "rt");
     auto processor = OdooLogProcessor(f);
 
     processor.front.msg.shouldEqual("Odoo version 15.0");
@@ -191,7 +191,7 @@ AssertionError: 2 != 1");
 unittest {
     import unit_threaded.assertions;
 
-    auto f = File("test-data/odoo.test.log.2", "rt");
+    auto f = File("test-data/odoo.test.2.log", "rt");
     auto processor = OdooLogProcessor(f);
 
     OdooLogRecord[] records = [];
@@ -211,7 +211,7 @@ unittest {
     import std.algorithm.searching: startsWith;
     import unit_threaded.assertions;
 
-    auto f = File("test-data/odoo.test.log.3", "rt");
+    auto f = File("test-data/odoo.test.3.log", "rt");
     auto processor = OdooLogProcessor(f);
 
     OdooLogRecord[] records = [];
