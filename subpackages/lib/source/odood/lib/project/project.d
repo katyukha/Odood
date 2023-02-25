@@ -20,7 +20,8 @@ private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 
-public import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
+public import odood.lib.project.config:
+    ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 
 /** The Odood project.
@@ -140,7 +141,7 @@ class Project {
         this(project_root,
              odoo_serie,
              odoo_serie.toString, 
-             "https://github.com/odoo/odoo");
+             DEFAULT_ODOO_REPO);
     }
 
     /// ditto
@@ -331,6 +332,11 @@ class Project {
         }
         conn.close();
         return res;
+    }
+
+    /// ditto
+    auto runSQLQuery(in string dbname, in string query) const {
+        return runSQLQuery(dbname, query, false);
     }
 
     /** Run SQL script for specific database

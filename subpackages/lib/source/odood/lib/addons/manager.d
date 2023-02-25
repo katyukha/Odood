@@ -58,6 +58,13 @@ struct AddonManager {
 
     }
 
+    /** Get addon instance by its name
+      *
+      * Params:
+      *    addon_name = Name of addon to check
+      * Returns:
+      *    Nullable instance of addon
+      **/
     Nullable!OdooAddon getByName(in string addon_name) {
         foreach(path; addons_paths) {
             if (path.join(addon_name).isOdooAddon)
@@ -66,6 +73,13 @@ struct AddonManager {
         return Nullable!OdooAddon.init;
     }
 
+    /** Get addon instance by its path
+      *
+      * Params:
+      *    addon_path = path to addon
+      * Returns:
+      *    Nullable instance of addon
+      **/
     Nullable!OdooAddon getByPath(in Path addon_path) {
         if (addon_path.isOdooAddon)
             return new OdooAddon(addon_path).nullable;
@@ -82,7 +96,6 @@ struct AddonManager {
             return addon;
         return getByName(addon_name);
     }
-
 
     /// Scan for all addons available in Odoo
     OdooAddon[] scan(in bool recursive=false) {

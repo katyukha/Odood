@@ -11,6 +11,9 @@ private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.server: OdooServer;
 
+package(odood)
+    immutable string DEFAULT_ODOO_REPO="https://github.com/odoo/odoo";
+
 /** Struct that represents odoo-specific configuration
   **/
 struct ProjectConfigOdoo {
@@ -47,14 +50,16 @@ struct ProjectConfigOdoo {
             in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
 
+        import std.string: empty;
+
         configfile = directories.conf.join("odoo.conf");
         testconfigfile = directories.conf.join("odoo.test.conf");
         logfile = directories.log.join("odoo.log");
         pidfile = project_root.join("odoo.pid");
         path = project_root.join("odoo");
         serie = odoo_serie;
-        branch = odoo_branch;
-        repo = odoo_repo;
+        branch = odoo_branch.empty ? odoo_serie.toString : odoo_branch;
+        repo = odoo_repo.empty ? DEFAULT_ODOO_REPO : odoo_repo;
     }
 
     this(in ref dyaml.Node config) {

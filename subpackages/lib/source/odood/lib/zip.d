@@ -76,8 +76,7 @@ void extract_zip_archive(
                     i, zip_error_strerror(zip_get_error(zip_obj)).fromStringz));
             enforce!OdoodException(
                 entry_name.startsWith(unfold_path),
-                "Cannot unfold path %s, because there is entry %s that is not " ~
-                "under this path".format(
+                "Cannot unfold path %s, because there is entry %s that is not under this path".format(
                     unfold_path, entry_name));
         }
     }

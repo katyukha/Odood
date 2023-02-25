@@ -3,7 +3,7 @@ module odood.lib.install.odoo;
 private import std.logger;
 private import std.format: format;
 private import std.algorithm.searching: startsWith;
-private import std.string: strip;
+private import std.string: split, chomp;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.regex;
@@ -35,13 +35,14 @@ void installDownloadOdoo(in Project project) {
         "from github repositories.");
 
     auto download_url = "%s/archive/%s.zip".format(
-        project.odoo.repo.strip("", ".git"), project.odoo.branch);
+        project.odoo.repo.chomp(".git"), project.odoo.branch);
+    auto repo_name = project.odoo.repo.chomp(".git").split("/")[$-1];
 
     // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
         infof(
-            "Downloading odoo from %s to %s",
-            download_url, odoo_archive_path);
+            "Downloading odoo (%s) from %s to %s",
+            project.odoo.branch, download_url, odoo_archive_path);
         download(download_url, odoo_archive_path);
     }
 
@@ -52,7 +53,7 @@ void installDownloadOdoo(in Project project) {
         odoo_archive_path, project.odoo.path);
     extract_zip_archive(
         odoo_archive_path, project.odoo.path,
-        "odoo-%s/".format(project.odoo.branch));
+        "%s-%s/".format(repo_name, project.odoo.branch));
 }
 
 
