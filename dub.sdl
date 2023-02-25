@@ -1,5 +1,5 @@
 name "odood"
-description "Manage local development odoo installations with no ease"
+description "Manage local development odoo installations with ease"
 authors "Dmytro Katyukha"
 copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
