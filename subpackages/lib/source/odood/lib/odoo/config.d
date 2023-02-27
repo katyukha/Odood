@@ -34,6 +34,11 @@ Ini initOdooConfig(in Project project) {
     odoo_conf["options"].setKey("data_dir", project.directories.data.toString);
     odoo_conf["options"].setKey("logfile", project.odoo.logfile.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");
+
+    if (project.odoo.serie < 8)
+        // Disable logrotate for Odoo version 7.0, because it seems to be buggy
+        odoo_conf["options"].setKey("logrotate", "False");
+
     return odoo_conf;
 }
 

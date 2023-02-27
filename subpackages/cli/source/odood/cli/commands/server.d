@@ -1,5 +1,6 @@
 module odood.cli.commands.server;
 
+private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
 
@@ -119,6 +120,7 @@ class CommandServerBrowse: OdoodCommand {
                 get_option(
                     "xmlrpc_port", "8069"))
         );
+        infof("Opening %s in browse....", url);
         std.process.browse(url);
     }
 
