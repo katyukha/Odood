@@ -24,7 +24,11 @@ jobs:
           linux: libzip-dev libpq-dev python3-dev
 
       - name: Run tests
-        run: dub test -b unittest-cov
+        if: matrix.os == 'ubuntu-20.04'
+        run: dub test -b unittest-cov --override-config=pyd/python38
+      - name: Run tests
+        if: matrix.os == 'ubuntu-22.04'
+        run: dub test -b unittest-cov --override-config=pyd/python310
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
