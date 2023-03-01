@@ -31,10 +31,46 @@ class CommandVenvInstallDevTools: OdoodCommand {
 }
 
 
+class CommandVenvReinstall: OdoodCommand {
+
+    this() {
+        super("reinstall", "Reinstall virtualenv.");
+        this.add(new Option(
+            null, "py-version", "Install specific python version.")
+                .defaultValue("auto"));
+        this.add(new Option(
+            null, "node-version", "Install specific node version.")
+                .defaultValue("lts"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        import odood.lib.install;
+        auto project = Project.loadProject;
+
+        if (project.venv.path.exists)
+            project.venv.path.remove();
+        if (project.project_root.join("python").exists)
+            project.project_root.join("python").remove();
+
+        project.installVirtualenv(
+            args.option("py-version", "auto"),
+            args.option("node-version", "lts"));
+        project.installOdoo();
+
+        foreach(addon; project.addons.scan())
+            if (addon.path.join("requirements.txt").exists())
+                project.venv.installPyRequirements(
+                    addon.path.join("requirements.txt"));
+    }
+
+}
+
+
 class CommandVenv: OdoodCommand {
     this() {
         super("venv", "Manage virtual environment for this project.");
         this.add(new CommandVenvInstallDevTools());
+        this.add(new CommandVenvReinstall());
     }
 }
 

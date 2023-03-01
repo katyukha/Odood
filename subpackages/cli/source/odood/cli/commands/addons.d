@@ -74,7 +74,7 @@ class CommandAddonsList: OdoodCommand {
         OdooAddon[] addons;
         if (args.flag("system")) {
             cwriteln("Listing all addons available for Odoo");
-            addons = project.addons.scan(args.flag("recursive"));
+            addons = project.addons.scan();
         } else  {
             cwritefln("Listing addons in %s", search_path);
             addons = project.addons.scan(search_path, args.flag("recursive"));
@@ -373,7 +373,7 @@ class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
         this.add(new Option(
-            "o", "odoo-apps", "Add addon from odoo apps.").repeating);
+            null, "odoo-apps", "Add addon from odoo apps.").repeating);
         this.add(new Option(
             null, "odoo-requirements",
             "Add modules (repos) from odoo_requirements.txt file, " ~

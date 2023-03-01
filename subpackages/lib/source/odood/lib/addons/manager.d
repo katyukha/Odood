@@ -98,10 +98,10 @@ struct AddonManager {
     }
 
     /// Scan for all addons available in Odoo
-    OdooAddon[] scan(in bool recursive=false) {
+    OdooAddon[] scan() {
         OdooAddon[] res;
         foreach(path; addons_paths)
-            res ~= scan(path, recursive);
+            res ~= scan(path);
         return res;
     }
 
