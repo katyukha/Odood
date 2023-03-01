@@ -1,5 +1,6 @@
 module odood.cli.commands.database;
 
+private import std.logger;
 private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
@@ -217,6 +218,30 @@ class CommandDatabaseRestore: OdoodCommand {
 }
 
 
+class CommandDatabaseStun: OdoodCommand {
+    this() {
+        super("stun", "Stun database (disable cron and main servers).");
+        this.add(new Argument(
+            "name", "Name of database to stun.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        auto dbname = args.arg("name");
+        infof("Disabling cron jobs and mail servers on database %s...".format(
+                    dbname));
+        project.runSQLScript(
+            dbname,
+            "UPDATE fetchmail_server SET active=False;
+             UPDATE ir_mail_server SET active=False;
+             UPDATE ir_cron SET active=False;",
+            false);
+        infof("Cron jobs and mail servers for database %s disabled!".format(
+            dbname));
+    }
+}
+
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
@@ -228,6 +253,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseCopy());
         this.add(new CommandDatabaseBackup());
         this.add(new CommandDatabaseRestore());
+        this.add(new CommandDatabaseStun());
     }
 }
 
