@@ -1,0 +1,214 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-RC*'
+
+env:
+  ODOOD_DLANG_COMPILER: ldc-1.31.0
+
+jobs:
+  build-ubuntu-20_04:
+    name: Build Ubuntu:20.04
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Build Odood
+        run: |
+          dub build -b release -c bash-autocomplete --override-config=pyd/python38
+          dub build -b release --override-config=pyd/python38
+
+      - name: Prepare debian build
+        run: |
+          mkdir -p .debpkg/usr/bin
+          mkdir -p .debpkg/etc/bash_completion.d
+          cp build/odood .debpkg/usr/bin/odood
+          cp build/odood.bash .debpkg/etc/bash_completion.d/odood.bash
+          chmod a+x .debpkg/usr/bin/odood
+      
+      - name: Build debian package
+        id: build_debian_package
+        uses: jiro4989/build-deb-action@v2
+        with:
+          package: odood
+          package_root: .debpkg
+          maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
+          version: ${{ github.ref_name }} # v*.*.*
+          arch: 'amd64'
+          depends: >-
+            sudo,
+            libzip5,
+            python3,
+            python3-virtualenv,
+            python3-dev,
+            libpq-dev,
+            libsass-dev,
+            libjpeg-dev,
+            libyaml-dev,
+            libfreetype6-dev,
+            zlib1g-dev,
+            libxml2-dev,
+            libxslt-dev,
+            bzip2,
+            libsasl2-dev,
+            libldap2-dev,
+            libssl-dev,
+            libffi-dev,
+            fontconfig,
+            libmagic1,
+            postgresql-client,
+            lsb-base
+          desc: 'Odood - the easy way to handle multiple local Odoo installations.'
+
+      - name: Move deb package to build dir with correct name
+        run: |
+          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_ubuntu_20_04.deb
+
+
+      - name: Upload Odood compiled assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: odood-ubuntu-20.04
+          path: |
+            build/odood
+            build/odood.bash
+            build/odood_${{ github.ref_name }}_ubuntu_20_04.deb
+
+  build-ubuntu-22_04:
+    name: Build Ubuntu:22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Build Odood
+        run: |
+          dub build -b release -c bash-autocomplete --override-config=pyd/python310
+          dub build -b release --override-config=pyd/python310
+
+      - name: Prepare debian build
+        run: |
+          mkdir -p .debpkg/usr/bin
+          mkdir -p .debpkg/etc/bash_completion.d
+          cp build/odood .debpkg/usr/bin/odood
+          cp build/odood.bash .debpkg/etc/bash_completion.d/odood.bash
+          chmod a+x .debpkg/usr/bin/odood
+      
+      - name: Build debian package
+        id: build_debian_package
+        uses: jiro4989/build-deb-action@v2
+        with:
+          package: odood
+          package_root: .debpkg
+          maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
+          version: ${{ github.ref_name }} # v*.*.*
+          arch: 'amd64'
+          depends: >-
+            sudo,
+            libzip4,
+            python3,
+            python3-virtualenv,
+            python3-dev,
+            libpq-dev,
+            libsass-dev,
+            libjpeg-dev,
+            libyaml-dev,
+            libfreetype6-dev,
+            zlib1g-dev,
+            libxml2-dev,
+            libxslt-dev,
+            bzip2,
+            libsasl2-dev,
+            libldap2-dev,
+            libssl-dev,
+            libffi-dev,
+            fontconfig,
+            libmagic1,
+            postgresql-client,
+            lsb-base
+          desc: 'Odood - the easy way to handle multiple local Odoo installations.'
+
+      - name: Move deb package to build dir with correct name
+        run: |
+          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_ubuntu_22_04.deb
+
+      - name: Upload Odood compiled assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: odood-ubuntu-22.04
+          path: |
+            build/odood
+            build/odood.bash
+            build/odood_${{ github.ref_name }}_ubuntu_22_04.deb
+
+  publish_release:
+    name: Build Ubuntu:22.04
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    needs:
+      - build-ubuntu-20_04
+      - build-ubuntu-22_04
+    steps:
+      - name: 'Download artifacts for ubuntu 20.04'
+        uses: actions/download-artifact@v3
+        with:
+          name: odood-ubuntu-20.04
+          path: build-ubuntu-20.04
+
+      - name: 'Download artifacts for ubuntu 22.04'
+        uses: actions/download-artifact@v3
+        with:
+          name: odood-ubuntu-22.04
+          path: build-ubuntu-22.04
+
+      - name: 'Show directory structure'
+        run: ls -R
+
+      - name: Check RC Release
+        id: check-rc-release
+        run: |
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-RC[0-9]+$ ]]; then
+              echo "is_rc_release=true" >> $GITHUB_OUTPUT
+          elif [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-RC[0-9]+$ ]]; then 
+              echo "is_rc_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Release (RC)
+        uses: softprops/action-gh-release@v1
+        if: steps.check-rc-release.outputs.is_rc_release == 'true'
+        with:
+          files: |
+            build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
+            build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
+          prerelease: true
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: steps.check-rc-release.outputs.is_rc_release == 'false'
+        with:
+          files: |
+            build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
+            build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
+          prerelease: false
