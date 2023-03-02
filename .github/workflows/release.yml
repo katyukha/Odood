@@ -49,6 +49,7 @@ jobs:
           arch: 'amd64'
           depends: >-
             sudo,
+            bash-completion,
             libzip5,
             python3,
             python3-virtualenv,
@@ -126,6 +127,7 @@ jobs:
           arch: 'amd64'
           depends: >-
             sudo,
+            bash-completion,
             libzip4,
             python3,
             python3-virtualenv,
