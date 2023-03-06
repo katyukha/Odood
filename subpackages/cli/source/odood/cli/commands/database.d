@@ -227,17 +227,11 @@ class CommandDatabaseStun: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        auto dbname = args.arg("name");
-        infof("Disabling cron jobs and mail servers on database %s...".format(
-                    dbname));
-        project.runSQLScript(
-            dbname,
-            "UPDATE fetchmail_server SET active=False;
-             UPDATE ir_mail_server SET active=False;
-             UPDATE ir_cron SET active=False;",
-            false);
-        infof("Cron jobs and mail servers for database %s disabled!".format(
-            dbname));
+
+        auto db = project.dbSQL(args.arg("name"));
+        scope(exit) db.close;
+
+        db.stunDb();
     }
 }
 

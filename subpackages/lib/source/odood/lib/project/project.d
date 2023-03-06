@@ -19,6 +19,7 @@ private import odood.lib.server: OdooServer;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
+private import odood.lib.odoo.db: OdooDatabase;
 
 public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
@@ -204,22 +205,14 @@ class Project {
         return OdooTestRunner(this);
     }
 
-    /** Return dpq connection to database
+    /** Return database wrapper, that allows to interact with database
+      * via plain SQL and contains some utility methods.
+      *
+      * Params:
+      *     dbname = name of database to interact with
       **/
-    auto dbConnect(in string db_name) const {
-        import dpq.connection;
-        auto odoo_conf = getOdooConfig;
-        return Connection(
-            "host=%s dbname=%s user=%s password=%s".format(
-                odoo_conf["options"].hasKey("db_host") ?
-                    odoo_conf["options"].getKey("db_host") : "localhost",
-                db_name,
-                odoo_conf["options"].hasKey("db_user") ?
-                    odoo_conf["options"].getKey("db_user") : "odoo",
-                odoo_conf["options"].hasKey("db_password") ?
-                    odoo_conf["options"].getKey("db_password") : "odoo",
-            )
-        );
+    auto dbSQL(in string dbname) const {
+        return OdooDatabase(this, dbname);
     }
 
     /** Save project configuration to specified config file.
@@ -291,129 +284,17 @@ class Project {
 
     /** Run python script for specific database
       **/
-    auto runPyScript(in string dbname, in Path script_path) const {
+    deprecated auto runPyScript(in string dbname, in Path script_path) const {
         return lodoo.runPyScript(dbname, script_path);
-    }
-
-    /** Run SQL script for specific database.
-      *
-      * Note, that this method allows to execut only one query.
-      * If you need to run multiple queries at single call,
-      * then you can use runSQLScript method.
-      *
-      * Note, that this method does not check if database exists
-      *
-      * Params:
-      *     dbname = name of database
-      *     query = SQL query to run (possibly with parameters
-      *     no_commit = If we need to commit tranasaction or not
-      *     params = variadic parameters for query
-      **/
-    auto runSQLQuery(T...)(
-            in string dbname, in string query,
-            in bool no_commit, T params) const {
-        import dpq.query;
-        import dpq.result;
-        import dpq.exception;
-
-        auto conn = dbConnect(dbname);
-        conn.begin();  // Start new transaction
-        Result res;
-        try {
-            res = Query(conn, query).run(params);
-        } catch (DPQException e) {
-            // Rollback in case of any error
-            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
-            conn.rollback();
-            conn.close();
-            throw e;
-        }
-        if (no_commit) {
-            warningf("Rollback, because 'no_commit' option supplied!");
-            conn.rollback();
-        } else {
-            conn.commit();
-        }
-        conn.close();
-        return res;
-    }
-
-    /// ditto
-    auto runSQLQuery(in string dbname, in string query) const {
-        return runSQLQuery(dbname, query, false);
-    }
-
-    /** Exec SQL. Supports to run multiple SQL statements,
-      * and do not return value
-      *
-      * Params:
-      *     dbname = name of database
-      *     query = SQL query to run (possibly with parameters
-      *     no_commit = If we need to commit tranasaction or not
-      **/
-    void runSQLScript(
-            in string dbname,
-            in string query,
-            in bool no_commit=false) const {
-        import dpq.result;
-        import dpq.exception;
-
-        auto conn = dbConnect(dbname);
-
-        conn.begin();  // Start new transaction
-        Result res;
-        try {
-            conn.exec(query);
-        } catch (DPQException e) {
-            // Rollback in case of any error
-            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
-            conn.rollback();
-            conn.close();
-            throw e;
-        }
-        if (no_commit) {
-            warningf("Rollback, because 'no_commit' option supplied!");
-            conn.rollback();
-        } else {
-            conn.commit();
-        }
-        conn.close();
-    }
-
-
-    /** Run SQL script for specific database
-      **/
-    void runSQLScript(
-            in string dbname,
-            in Path script_path,
-            in bool no_commit=false) const {
-        import dpq.query;
-        import dpq.result;
-        import dpq.exception;
-
-        enforce!OdoodException(
-            script_path.exists,
-            "SQL script %s does not exists!".format(script_path));
-
-        infof("Running SQL script %s for databse %s ...", script_path, dbname);
-        runSQLScript(dbname, script_path.readFileText, no_commit);
-        infof(
-            "SQL script %s for database %s completed!\n", script_path, dbname);
     }
 
     /** Check if database contains demo data.
       **/
-    const(bool) hasDatabaseDemoData(in string dbname) const {
-        auto res = runSQLQuery(
-            dbname,
-            "SELECT EXISTS (" ~
-            "    SELECT 1 FROM ir_module_module " ~
-            "    WHERE state = 'installed' " ~
-            "      AND name = 'base' " ~
-            "      AND demo = True " ~
-            ")",
-            false);
-        return res.get(0, 0).as!bool.get;
+    deprecated const(bool) hasDatabaseDemoData(in string dbname) const {
+        auto db = dbSQL(dbname);
+        scope(exit) db.close;
+
+        return db.hasDemoData();
     }
 }
 
