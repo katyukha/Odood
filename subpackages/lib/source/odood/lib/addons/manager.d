@@ -32,6 +32,7 @@ struct AddonManager {
     private enum cmdIU {
         install,
         update,
+        uninstall,
     }
 
     @disable this();
@@ -231,6 +232,13 @@ struct AddonManager {
                     server_opts ~ ["--update=%s".format(addon_names_csv)], env);
                 infof("Update of addons for database %s completed!", database);
                 break;
+            case cmdIU.uninstall:
+                infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
+                _project.lodoo.addonsUninstall(
+                    database,
+                    addon_names);
+                infof("Uninstallation of addons for database %s completed!", database);
+                break;
         }
     }
 
@@ -280,13 +288,23 @@ struct AddonManager {
     }
 
     /// Uninstall odoo addons
-    void uninstall(in OdooAddon[] addons, in string database) {
-        _project.lodoo.addonsUninstall(database, addons.map!(a => a.name).array);
+    void uninstall(
+            in OdooAddon[] addons,
+            in string database,
+            in string[string] env=null) {
+        _run_install_update_addons(
+            addons.map!(a => a.name).array,
+            database,
+            cmdIU.uninstall,
+            env);
     }
 
     /// ditto
-    void uninstall(in Path search_path, in string database) {
-        uninstall(scan(search_path), database);
+    void uninstall(
+            in Path search_path,
+            in string database,
+            in string[string] env=null) {
+        uninstall(scan(search_path), database, env);
     }
 
     /// Download from odoo apps
