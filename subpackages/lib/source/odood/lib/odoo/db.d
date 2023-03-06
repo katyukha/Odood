@@ -77,7 +77,6 @@ package(odood.lib) struct OdooDatabase {
             // Rollback in case of any error
             errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
             _connection.rollback();
-            //_connection.close();
             throw e;
         }
         if (no_commit) {
@@ -86,7 +85,6 @@ package(odood.lib) struct OdooDatabase {
         } else {
             _connection.commit();
         }
-        //conn.close();
         return res;
     }
 
@@ -116,7 +114,6 @@ package(odood.lib) struct OdooDatabase {
             // Rollback in case of any error
             errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
             _connection.rollback();
-            //_connection.close();
             throw e;
         }
         if (no_commit) {
@@ -125,7 +122,6 @@ package(odood.lib) struct OdooDatabase {
         } else {
             _connection.commit();
         }
-        _connection.close();
     }
 
 
