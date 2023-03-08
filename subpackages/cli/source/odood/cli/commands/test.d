@@ -22,16 +22,18 @@ private import odood.lib.exception: OdoodException;
 void printLogRecord(in ref OdooLogRecord rec) {
     string format_tmpl = () {
         switch (rec.log_level) {
+            case "DEBUG":
+                return "<lblue>%s</lblue> %s <blue>%s</blue> %s %s: %s";
             case "INFO":
-                return "%s %s <green>%s</green> %s %s: %s";
+                return "<lblue>%s</lblue> %s <green>%s</green> %s %s: %s";
             case "WARNING":
-                return "%s %s <yellow>%s</yellow> %s %s: %s";
+                return "<lblue>%s</lblue> %s <yellow>%s</yellow> %s %s: %s";
             case "ERROR":
-                return "%s %s <red>%s</red> %s %s: %s";
+                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
             case "CRITICAL":
-                return "%s %s <red>%s</red> %s %s: %s";
+                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
             default:
-                return "%s %s %s %s %s: %s";
+                return "<lblue>%s</lblue> %s %s %s %s: %s";
         }
     }();
     cwritefln(

@@ -3,8 +3,6 @@ description "Manage local development odoo installations with ease"
 authors "Dmytro Katyukha"
 copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
-dependency "console-colors" version="~>1"
-dependency "commandr" version="~master"
 dependency "pyd" version="~master"
 
 dependency ":lib" path="./subpackages/lib"

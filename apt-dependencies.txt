@@ -2,7 +2,6 @@ sudo
 
 libzip4
 
-libssl-dev
 python3
 python3-virtualenv
 
