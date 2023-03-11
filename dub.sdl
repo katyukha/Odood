@@ -20,7 +20,7 @@ subConfiguration "pyd" "python310"
 configuration "executable" {
     targetType "executable"
     mainSourceFile "source/odood/app.d"
-    }
+}
 
 configuration "library" {
     targetType "library"
