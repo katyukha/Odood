@@ -5,6 +5,7 @@ private import std.format: format;
 private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
+private static import std.process;
 
 private import thepath: Path;
 private static import dyaml;
@@ -98,56 +99,69 @@ const struct VirtualEnv {
 
     /** Run command in virtual environment
       **/
-    auto run(in string[] args,
-             in Nullable!Path workDir=Nullable!Path.init,
-             in string[string] env=null) {
+    auto run(
+            in string[] args,
+            in Nullable!Path workDir=Nullable!Path.init,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
         tracef(
             "Running command in virtualenv: cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        return _path.join("bin", "run-in-venv").runCmd(args, workDir, env);
+        return _path.join("bin", "run-in-venv").runCmd(args, workDir, env, config);
     }
 
     /// ditto
-    auto run(in string[] args,
-             in Path workDir,
-             in string[string] env=null) {
-        return run(args, Nullable!Path(workDir), env);
+    auto run(
+            in string[] args,
+            in Path workDir,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
+        return run(args, Nullable!Path(workDir), env, config);
     }
 
     /// ditto
-    auto run(in Path path,
-             in string[] args,
-             in Path workDir,
-             in string[string] env=null) {
-        return run([path.toString] ~ args,  workDir, env);
+    auto run(
+            in Path path,
+            in string[] args,
+            in Path workDir,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
+        return run([path.toString] ~ args,  workDir, env, config);
     }
 
     /** Run command in virtual environment.
       * Raise error on non-zero return code.
       **/
-    auto runE(in string[] args,
-              in Nullable!Path workDir=Nullable!Path.init,
-              in string[string] env=null) {
+    auto runE(
+            in string[] args,
+            in Nullable!Path workDir=Nullable!Path.init,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
         tracef(
             "Running command in virtualenv (with exit-code check): " ~
             "cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        return _path.join("bin", "run-in-venv").runCmdE(args, workDir, env);
+        return _path.join("bin", "run-in-venv").runCmdE(
+            args, workDir, env, config);
     }
 
     /// ditto
-    auto runE(in string[] args,
-              in Path workDir,
-              in string[string] env=null) {
-        return runE(args, Nullable!Path(workDir), env);
+    auto runE(
+            in string[] args,
+            in Path workDir,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
+        return runE(args, Nullable!Path(workDir), env, config);
     }
 
     /// ditto
-    auto runE(in Path path,
-              in string[] args,
-              in Path workDir,
-              in string[string] env=null) {
-        return runE([path.toString] ~ args,  workDir, env);
+    auto runE(
+            in Path path,
+            in string[] args,
+            in Path workDir,
+            in string[string] env=null,
+            std.process.Config config = std.process.Config.none) {
+        return runE([path.toString] ~ args,  workDir, env, config);
     }
 
 

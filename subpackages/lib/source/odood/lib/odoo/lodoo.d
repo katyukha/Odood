@@ -3,6 +3,9 @@ module odood.lib.odoo.lodoo;
 private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.typecons: Nullable;
+private static import std.process;
+
 private import thepath: Path;
 
 private import odood.lib.project: Project;
@@ -27,19 +30,39 @@ const struct LOdoo {
 
         /** Run lodoo with provided args
           **/
-        auto run(in string[] args...) {
+        auto run(
+                in string[] args,
+                std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
             return _project.venv.run(
-                ["lodoo", "--conf", _odoo_conf.toString] ~ args);
+                ["lodoo", "--conf", _odoo_conf.toString] ~ args,
+                Nullable!Path.init, // workdir
+                null,  // env
+                config);
+        }
+
+        /// ditto
+        auto run(in string[] args...) {
+            return run(args, std.process.Config.none);
         }
 
         /** Run lodoo with provided args, raising error
           * in case of non-zero exit status.
           **/
-        auto runE(in string[] args...) {
+        auto runE(
+                in string[] args,
+                std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
             return _project.venv.runE(
-                ["lodoo", "--conf", _odoo_conf.toString] ~ args);
+                ["lodoo", "--conf", _odoo_conf.toString] ~ args,
+                Nullable!Path.init,  // workdir
+                null,  // env
+                config);
+        }
+
+        /// ditto
+        auto runE(in string[] args...) {
+            return runE(args, std.process.Config.none);
         }
 
     public:
@@ -55,7 +78,8 @@ const struct LOdoo {
         string[] databaseList() {
             import std.array: split, array;
             import std.algorithm.iteration: filter;
-            auto res = runE("db-list");
+            import std.process: Config;
+            auto res = runE(["db-list"], Config.stderrPassThrough);
             return res.output.split("\n").filter!(db => db && db != "").array;
         }
 
@@ -95,9 +119,12 @@ const struct LOdoo {
             return runE("db-drop", name);
         }
 
-        /** Check if database eixsts
+        /** Check if database exists
           **/
         bool databaseExists(in string name) {
+            // TODO: replace with project's db wrapper to check if database exists
+            //       This could simplify performance by avoiding call to python
+            //       interpreter
             auto res = run("db-exists", name);
             return res.status == 0;
         }
