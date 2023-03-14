@@ -18,6 +18,7 @@ private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
+private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
@@ -156,6 +157,12 @@ struct OdooTestRunner {
     // Optionaly we can ignore non important warnings
     private bool _ignore_safe_warnings;
 
+    // Migration tests settings
+    private bool _test_migration=false;
+    private string _test_migration_start_ref=null;
+    private AddonRepository _test_migration_repo;
+
+
     this(in Project project) {
         _project = project;
         _lodoo = LOdoo(_project, _project.odoo.testconfigfile);
@@ -164,6 +171,12 @@ struct OdooTestRunner {
                 true,  // Enable test mode
         );
         _temporary_db = false;
+    }
+
+    @property auto test_migration() const { return _test_migration; }
+    @property auto migration_repo() const { return _test_migration_repo; }
+    @property auto migration_start_ref() const {
+        return _test_migration_start_ref;
     }
 
     private void getOrCreateTestDb() {
@@ -205,6 +218,29 @@ struct OdooTestRunner {
                 _project.odoo.serie.major, generateRandomString(8)));
     }
 
+    /** Enable migration testing
+      **/
+    auto ref enableMigrationTest() {
+        _test_migration = true;
+        return this;
+    }
+
+    /** Set start git ref (branch, commit, test) for migration test
+      **/
+    auto ref setMigrationStartRef(in string git_ref) {
+        _test_migration_start_ref = git_ref;
+        _test_migration = true;
+        return this;
+    }
+
+    /** Set git repo path for migration test
+      **/
+    auto ref setMigrationRepo(in Path path) {
+        _test_migration_repo = _project.addons.getRepo(path);
+        _test_migration = true;
+        return this;
+    }
+
     /** Enable Coverage
       **/
     auto ref setCoverage(in bool coverage) {
@@ -212,6 +248,8 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Return CoverageOptions to run server with
+      **/
     auto getCoverageOptions() {
         CoverageOptions res = CoverageOptions(_coverage);
         foreach(addon; _addons)
@@ -289,16 +327,58 @@ struct OdooTestRunner {
         enforce!OdoodException(
             _addons.length > 0,
             "No addons specified for test");
+        enforce!OdoodException(
+            !(_test_migration && _test_migration_repo is null),
+            "Migration test requested, but migration repo is not specified!");
+
+        // Configure test database (create if needed)
         getOrCreateTestDb();
+
+        // Set up signal handlers
+        signal.initSigIntHandling();
+        scope(exit) signal.deinitSigIntHandling();
 
         OdooTestResult result;
 
+        // Precompute option for http port
+        // (different on different odoo versions)
         auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
-        signal.initSigIntHandling();
-        scope(exit) signal.deinitSigIntHandling();
+        // Switch branch to migration start ref
+        string current_branch;
+        if (_test_migration) {
+            current_branch = _test_migration_repo.getCurrBranch();
+            if (_test_migration_start_ref) {
+                infof(
+                    "Switching to %s branch before running migration tests...",
+                    _test_migration_start_ref);
+                _test_migration_repo.fetchOrigin();
+                _test_migration_repo.switchBranchTo(_test_migration_start_ref);
+            } else {
+                infof(
+                    "Switching to origin/%s branch before running migration tests...",
+                    _project.odoo.serie);
+                _test_migration_repo.fetchOrigin(_project.odoo.serie.toString);
+                _test_migration_repo.switchBranchTo(
+                    "origin/" ~ _project.odoo.serie.toString);
+            }
+
+            // Link module from migration start ref
+            _project.addons.link(
+                _test_migration_repo.path,
+                false,  // No recursive
+                true,   // Force
+            );
+        }
+        scope(exit) {
+            // Ensure that on exit repo will be returned in it's correct state
+            if (_test_migration && _test_migration_repo.getCurrBranch() != current_branch) {
+                infof("Switching back to %s ...", current_branch);
+                _test_migration_repo.switchBranchTo(current_branch);
+            }
+        }
 
         infof("Installing modules before test...");
         auto init_res =_server.pipeServerLog(
@@ -336,6 +416,57 @@ struct OdooTestRunner {
             result.setFailed();
             cleanUp();
             return result;
+        }
+
+        if (_test_migration) {
+            infof("Switching back to %s ...", current_branch);
+            _test_migration_repo.switchBranchTo(current_branch);
+
+            // TODO: clean -fdx ?
+
+            // Link module from current branch
+            _project.addons.link(
+                _test_migration_repo.path,
+                false,  // No recursive
+                true,   // Force
+            );
+            _project.lodoo.updateAddonsList(_test_db_name);
+
+            infof("Updating modules to run migrations before running tests...");
+            auto update_res =_server.pipeServerLog(
+                getCoverageOptions(),
+                [
+                    "--update=%s".format(getModuleList),
+                    "--log-level=info",
+                    "--stop-after-init",
+                    "--workers=0",
+                    "--database=%s".format(_test_db_name),
+                ]);
+            foreach(ref log_record; update_res) {
+                logToFile(log_record);
+
+                if (!filterLogRecord(log_record))
+                    continue;
+
+                if (_log_handler)
+                    _log_handler(log_record);
+
+                result.addLogRecord(log_record);
+
+                if (signal.interrupted) {
+                    warningf("Canceling test because of Keyboard Interrupt");
+                    result.setCancelled("Keyboard interrupt");
+                    cleanUp();
+                    update_res.kill();
+                    return result;
+                }
+            }
+
+            if (update_res.wait != 0) {
+                result.setFailed();
+                cleanUp();
+                return result;
+            }
         }
 
         infof("Running tests for modules: %s", getModuleList);

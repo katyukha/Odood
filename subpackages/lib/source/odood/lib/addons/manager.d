@@ -371,7 +371,7 @@ struct AddonManager {
         gitClone(git_url, dest, branch);
 
         // TODO: Do we need to create instance of repo here?
-        auto repo = AddonRepository(_project, dest);
+        auto repo = new AddonRepository(_project, dest);
         link(repo.path, true);
 
         // If there is odoo_requirements.txt file present, then we have to
@@ -391,6 +391,6 @@ struct AddonManager {
         enforce!OdoodException(
             path.join(".git").exists,
             "Is not a git root directory.");
-        return AddonRepository(_project, path);
+        return new AddonRepository(_project, path);
     }
 }
