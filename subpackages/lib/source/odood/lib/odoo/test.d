@@ -344,21 +344,6 @@ struct OdooTestRunner {
             !(_test_migration && _test_migration_repo is null),
             "Migration test requested, but migration repo is not specified!");
 
-        // Configure test database (create if needed)
-        getOrCreateTestDb();
-
-        // Set up signal handlers
-        signal.initSigIntHandling();
-        scope(exit) signal.deinitSigIntHandling();
-
-        OdooTestResult result;
-
-        // Precompute option for http port
-        // (different on different odoo versions)
-        auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
-                "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
-                "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
-
         // Switch branch to migration start ref
         string current_branch;
         if (_test_migration) {
@@ -392,6 +377,21 @@ struct OdooTestRunner {
                 _test_migration_repo.switchBranchTo(current_branch);
             }
         }
+
+        // Configure test database (create if needed)
+        getOrCreateTestDb();
+
+        // Set up signal handlers
+        signal.initSigIntHandling();
+        scope(exit) signal.deinitSigIntHandling();
+
+        OdooTestResult result;
+
+        // Precompute option for http port
+        // (different on different odoo versions)
+        auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
+                "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
+                "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
         infof("Installing modules before test...");
         auto init_res =_server.pipeServerLog(
