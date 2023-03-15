@@ -146,8 +146,12 @@ struct OdooTestRunner {
     // TODO: Create separate struct to handle AddonsLists
     private const(OdooAddon)[] _addons;  // Addons to run tests for
 
+    // Database configuration
     private string _test_db_name;
     private bool _temporary_db;
+    private bool _db_no_drop;
+
+    // Logging config
     private Path _log_file;
     private void delegate(in ref OdooLogRecord rec) _log_handler;
 
@@ -241,6 +245,13 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Do not drop database after test completed
+      **/
+    auto ref setNoDropDatabase() {
+        _db_no_drop = true;
+        return this;
+    }
+
     /** Enable Coverage
       **/
     auto ref setCoverage(in bool coverage) {
@@ -302,7 +313,9 @@ struct OdooTestRunner {
     /** Take clean up actions before test finished
       **/
     void cleanUp() {
-        if (_temporary_db && _lodoo.databaseExists(_test_db_name)) {
+        if (_temporary_db &&
+                _db_no_drop == false &&
+                _lodoo.databaseExists(_test_db_name)) {
             _lodoo.databaseDrop(_test_db_name);
         }
     }

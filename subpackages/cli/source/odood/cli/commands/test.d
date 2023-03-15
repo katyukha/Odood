@@ -48,6 +48,9 @@ class CommandTest: OdoodCommand {
         this.add(new Flag(
             "t", "temp-db", "Create temporary database for tests."));
         this.add(new Flag(
+            null, "no-drop-db",
+            "Do not drop temporary database after test completed."));
+        this.add(new Flag(
             null, "isw", "Ignore warnings that are considered safe."));
         this.add(new Flag(
             null, "migration", "Run migration against stable branch."));
@@ -131,6 +134,9 @@ class CommandTest: OdoodCommand {
 
         if (testRunner.test_migration && !testRunner.migration_repo)
             testRunner.setMigrationRepo(Path.current);
+
+        if (args.flag("no-drop-db"))
+            testRunner.setNoDropDatabase();
 
         auto res = testRunner.run();
 
