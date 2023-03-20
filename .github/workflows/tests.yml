@@ -1,13 +1,13 @@
 name: Tests
-on: [push, pull_request]
+on: [push]
 
 jobs:
-  test:
+  tests:
     name: Tests
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
-        dc: [dmd-2.102.0, ldc-1.31.0]
+        dc: [dmd-2.102.2, ldc-1.32.0]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -32,4 +32,82 @@ jobs:
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
+        with:
+          flags: unittests
+          name: odood-unittests
+
+  integration-test:
+    name: Integration Tests
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+        dc: [dmd-2.102.2, ldc-1.32.0]
+
+    runs-on: ${{ matrix.os }}
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: Prepare dependencies for deb package
+        id: prepare_deb_deps
+        run: |
+          echo "ubuntu_20_04_deps=$(cat .ci/deps/ubuntu.20.04.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
+          echo "ubuntu_22_04_deps=$(cat .ci/deps/ubuntu.22.04.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
+
+      - name: Install system (build) dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Install system (runtime) dependencies (Ubuntu 20.04)
+        if: matrix.os == 'ubuntu-20.04'
+        uses: lyricwulf/abc@v1
+        with:
+          linux: ${{ steps.prepare_deb_deps.outputs.ubuntu_20_04_deps }}
+
+      - name: Install system (runtime) dependencies (Ubuntu 22.04)
+        if: matrix.os == 'ubuntu-22.04'
+        uses: lyricwulf/abc@v1
+        with:
+          linux: ${{ steps.prepare_deb_deps.outputs.ubuntu_22_04_deps }}
+
+      - name: Run tests (Ubuntu 20.04)
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        if: matrix.os == 'ubuntu-20.04'
+        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python38
+      - name: Run tests (Ubuntu 22.04)
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports[5432] }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        if: matrix.os == 'ubuntu-22.04'
+        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python310
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: integration-unittests
+          name: odood-integration-unittests
 

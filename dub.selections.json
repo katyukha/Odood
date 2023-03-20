@@ -13,6 +13,7 @@
 		"pyd": "~master",
 		"requests": "2.0.9",
 		"semver": "0.4.0",
+		"silly": "1.1.1",
 		"thepath": "0.0.18",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.3"

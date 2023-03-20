@@ -265,10 +265,12 @@ class Project {
         this.directories.initializeDirecotires();
 
         // Initialize project (install everything needed)
+        // TODO: parallelize download of Odoo and installation of virtualenv
         this.installDownloadOdoo();
         this.installVirtualenv(python_version, node_version);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
+        // TODO: Automatically save config
     }
 
     /// ditto
