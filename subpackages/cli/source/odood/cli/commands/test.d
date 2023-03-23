@@ -48,7 +48,12 @@ class CommandTest: OdoodCommand {
         this.add(new Flag(
             "t", "temp-db", "Create temporary database for tests."));
         this.add(new Flag(
+            null, "no-drop-db",
+            "Do not drop temporary database after test completed."));
+        this.add(new Flag(
             null, "isw", "Ignore warnings that are considered safe."));
+        this.add(new Flag(
+            null, "migration", "Run migration against stable branch."));
         this.add(new Flag(
             null, "coverage", "Calculate code coverage."));
         this.add(new Flag(
@@ -64,6 +69,12 @@ class CommandTest: OdoodCommand {
         this.add(new Option(
             null, "dir-r",
             "Directory to recursively search for addons to test").repeating);
+        this.add(new Option(
+            null, "migration-start-ref",
+            "git reference (branch/commit/tag) to start migration from"));
+        this.add(new Option(
+            null, "migration-repo",
+            "run migration tests for repo specified by path"));
         this.add(new Argument(
             "addon", "Name of addon to run tests for.").optional.repeating);
     }
@@ -113,6 +124,19 @@ class CommandTest: OdoodCommand {
         }
 
         testRunner.setCoverage(coverage);
+
+        if (args.flag("migration"))
+            testRunner.enableMigrationTest();
+        if (!args.option("migration-repo").empty)
+            testRunner.setMigrationRepo(Path(args.option("migration-repo")));
+        if (!args.option("migration-start-ref").empty)
+            testRunner.setMigrationStartRef(args.option("migration-start-ref"));
+
+        if (testRunner.test_migration && !testRunner.migration_repo)
+            testRunner.setMigrationRepo(Path.current);
+
+        if (args.flag("no-drop-db"))
+            testRunner.setNoDropDatabase();
 
         auto res = testRunner.run();
 

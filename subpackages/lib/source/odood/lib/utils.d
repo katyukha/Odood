@@ -26,7 +26,17 @@ private import odood.lib.exception: OdoodException;
 }
 
 /// ditto
-auto runCmd(
+@safe auto runCmd(
+        in string[] args,
+        in Path workDir,
+        in string[string] env = null,
+        in Config config = Config.none,
+        in size_t maxOutput = size_t.max) {
+    return runCmd(args, workDir.toString, env, config, maxOutput);
+}
+
+/// ditto
+@safe auto runCmd(
         in Path path,
         in string[] args = [],
         in Nullable!Path workDir = Nullable!Path.init,
@@ -52,7 +62,7 @@ auto runCmd(
 
 
 /// Run command raising exception for non-zero return code
-auto runCmdE(
+@safe auto runCmdE(
         scope const(char[])[] args,                        
         scope const(char)[] workDir = null,                
         const string[string] env = null,
@@ -63,10 +73,19 @@ auto runCmdE(
     enforce!OdoodException(
         result.status == 0,
         "Command %s returned non-zero error code!\nOutput: %s".format(
-            args, result.output));
+            args.dup, result.output));
     return result;
 }
 
+/// ditto
+@safe auto runCmdE(
+        in string[] args,
+        in Path workDir,
+        in string[string] env = null,
+        in Config config = Config.none,
+        in size_t maxOutput = size_t.max) {
+    return runCmdE(args, workDir.toString, env, config, maxOutput);
+}
 
 /// ditto
 auto runCmdE(
