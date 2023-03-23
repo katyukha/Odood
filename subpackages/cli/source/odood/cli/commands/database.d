@@ -42,6 +42,8 @@ class CommandDatabaseCreate: OdoodCommand {
     this() {
         super("create", "Create new odoo database.");
         this.add(new Flag("d", "demo", "Load demo data for this db"));
+        this.add(new Flag(
+            null, "recreate", "Recreate database if it already exists."));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -63,6 +65,17 @@ class CommandDatabaseCreate: OdoodCommand {
 
         auto project = Project.loadProject;
         string dbname = args.arg("name");
+        if (project.lodoo.databaseExists(dbname)) {
+            if (args.flag("recreate")) {
+                warningf(
+                    "Dropting database %s before recreating it " ~
+                    "(because --recreate option specified).", dbname);
+                project.lodoo.databaseDrop(dbname);
+            } else {
+                throw new OdoodException(
+                    "Database %s already exists!".format(dbname));
+            }
+        }
         project.lodoo.databaseCreate(
             dbname,
             args.flag("demo"),
