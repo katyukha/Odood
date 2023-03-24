@@ -12,6 +12,8 @@ import odood.lib.project;
 import odood.lib.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
 
+
+/// Create new database user in postgres db
 void createDbUser(in string user, in string password) {
     import dpq.connection: Connection;
     auto connection = Connection(
@@ -27,6 +29,60 @@ void createDbUser(in string user, in string password) {
             user, password));
 }
 
+/// Generate db name for the test for specified project
+string genDbName(in Project project, in string name) {
+    return "odood%s-%s".format(project.odoo.serie.major, name);
+}
+
+
+/// Test database management functions
+void testDatabaseManagement(in Project project) {
+    project.lodoo.databaseList().empty.shouldBeTrue();
+
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeFalse();
+    project.lodoo.databaseCreate(project.genDbName("test-1"), true);
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
+
+    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeFalse();
+    project.lodoo.databaseRename(project.genDbName("test-1"), project.genDbName("test-2"));
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeFalse();
+    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+
+    project.lodoo.databaseCopy(project.genDbName("test-2"), project.genDbName("test-1"));
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
+    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+
+    auto backup_path = project.lodoo.databaseBackup(project.genDbName("test-2"));
+
+    project.lodoo.databaseDrop(project.genDbName("test-2"));
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
+    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeFalse();
+
+    project.lodoo.databaseRestore(project.genDbName("test-2"), backup_path);
+    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
+    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+
+    // Drop databases
+    project.lodoo.databaseDrop(project.genDbName("test-1"));
+    project.lodoo.databaseDrop(project.genDbName("test-2"));
+    project.lodoo.databaseList().empty.shouldBeTrue();
+}
+
+
+/// Test addons manager
+void testAddonsManagementBasic(in Project project) {
+    project.lodoo.databaseCreate(project.genDbName("test-1"), true);
+
+    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
+    project.addons.install(project.genDbName("test-1"), "crm");
+    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeTrue();
+    project.addons.update(project.genDbName("test-1"), "crm");
+    project.addons.uninstall(project.genDbName("test-1"), "crm");
+    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
+
+    // Drop database
+    project.lodoo.databaseDrop(project.genDbName("test-1"));
+}
 
 @("Basic Test Odoo 15")
 unittest {
@@ -39,8 +95,7 @@ unittest {
     // Create database use for odoo 15 instance
     createDbUser("odoo15", "odoo");
 
-    auto serie = OdooSerie(15);
-    auto project = new Project(temp_path, serie);
+    auto project = new Project(temp_path, OdooSerie(15));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
@@ -53,7 +108,7 @@ unittest {
 
     // Test created project
     project.project_root.shouldEqual(temp_path);
-    project.odoo.serie.shouldEqual(serie);
+    project.odoo.serie.shouldEqual(OdooSerie(15));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     /* Plan:
@@ -64,45 +119,98 @@ unittest {
      */
 
     // Test LOdoo Database operations
-    project.lodoo.databaseList().empty.shouldBeTrue();
+    testDatabaseManagement(project);
 
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeFalse();
-    project.lodoo.databaseCreate("odoo15-test-1", true);
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
+    // Test basic addons management
+    testAddonsManagementBasic(project);
 
-    project.lodoo.databaseExists("odoo15-test-2").shouldBeFalse();
-    project.lodoo.databaseRename("odoo15-test-1", "odoo15-test-2");
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeFalse();
-    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+    // TODO: Complete the test
 
-    project.lodoo.databaseCopy("odoo15-test-2", "odoo15-test-1");
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
-    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+}
 
-    auto backup_path = project.lodoo.databaseBackup("odoo15-test-2");
+@("Basic Test Odoo 14")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood",
+    );
+    scope(exit) temp_path.remove();
 
-    project.lodoo.databaseDrop("odoo15-test-2");
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
-    project.lodoo.databaseExists("odoo15-test-2").shouldBeFalse();
+    // Create database use for odoo 14 instance
+    createDbUser("odoo14", "odoo");
 
-    project.lodoo.databaseRestore("odoo15-test-2", backup_path);
-    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
-    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+    auto project = new Project(temp_path, OdooSerie(14));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odoo14",
+            "odoo")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
 
-    // Drop databases
-    project.lodoo.databaseDrop("odoo15-test-1");
-    project.lodoo.databaseDrop("odoo15-test-2");
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(14));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
-    // Test addons installation
-    project.lodoo.databaseCreate("odoo15-test-1", true);
-    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeFalse();
-    project.addons.install("odoo15-test-1", "crm");
-    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeTrue();
-    project.addons.update("odoo15-test-1", "crm");
-    project.addons.uninstall("odoo15-test-1", "crm");
-    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeFalse();
-    project.lodoo.databaseDrop("odoo15-test-1");
+    /* Plan:
+     * - test server management
+     * - test database management
+     * - test repo downloading
+     * - test addons testing
+     */
 
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    testAddonsManagementBasic(project);
+
+    // TODO: Complete the test
+
+}
+
+@("Basic Test Odoo 13")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 14 instance
+    createDbUser("odoo13", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(13));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odoo14",
+            "odoo")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(13));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    /* Plan:
+     * - test server management
+     * - test database management
+     * - test repo downloading
+     * - test addons testing
+     */
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    testAddonsManagementBasic(project);
 
     // TODO: Complete the test
 
