@@ -191,6 +191,24 @@ struct AddonManager {
         return false;
     }
 
+    /** Check if specified addon is installed in specified db
+      *
+      * Params:
+      *     database = name of database to check if addon is installed
+      *     addon = name of addon to check if it is installed
+      **/
+    bool isInstalled(in string database, in string addon) {
+        auto db = _project.dbSQL(database);
+        scope(exit) db.close();
+
+        return db.isAddonInstalled(addon);
+    }
+
+    /// ditto
+    bool isInstalled(in string database, in OdooAddon addon) {
+        return isInstalled(database, addon.name);
+    }
+
     /** Install or update odoo adodns from specified database
       *
       * Params:
@@ -242,7 +260,14 @@ struct AddonManager {
         }
     }
 
-    /// Update odoo addons
+    /** Update odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to update
+      *     database = name of database to update addons in
+      *     env = additional environment variables to be used during update
+      *     search_path = path to search addons to update
+      **/
     void update(
             in OdooAddon[] addons,
             in string database,
@@ -254,6 +279,14 @@ struct AddonManager {
         _run_install_update_addons(
             addons.map!(a => a.name).array, database, cmdIU.update, env);
     }
+
+    /// ditto
+    void update(
+            in string database,
+            in string[] addons...) {
+        update(addons.map!((a) => getByName(a).get).array, database);
+    }
+
     /// ditto
     void update(
             in Path search_path,
@@ -267,7 +300,14 @@ struct AddonManager {
         _run_install_update_addons(["all"], database, cmdIU.update, env);
     }
 
-    /// Install odoo addons
+    /** Install odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to install
+      *     database = name of database to install addons in
+      *     env = additional environment variables to be used during install
+      *     search_path = path to search addons to install
+      **/
     void install(
             in OdooAddon[] addons,
             in string database,
@@ -279,6 +319,14 @@ struct AddonManager {
         _run_install_update_addons(
             addons.map!(a => a.name).array, database, cmdIU.install, env);
     }
+
+    /// ditto
+    void install(
+            in string database,
+            in string[] addons...) {
+        install(addons.map!((a) => getByName(a).get).array, database);
+    }
+
     /// ditto
     void install(
             in Path search_path,
@@ -287,7 +335,14 @@ struct AddonManager {
         install(scan(search_path), database, env);
     }
 
-    /// Uninstall odoo addons
+    /** Unnstall odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to uninstall
+      *     database = name of database to uninstall addons in
+      *     env = additional environment variables to be used during uninstall
+      *     search_path = path to search addons to uninstall
+      **/
     void uninstall(
             in OdooAddon[] addons,
             in string database,
@@ -297,6 +352,13 @@ struct AddonManager {
             database,
             cmdIU.uninstall,
             env);
+    }
+
+    /// ditto
+    void uninstall(
+            in string database,
+            in string[] addons...) {
+        uninstall(addons.map!((a) => getByName(a).get).array, database);
     }
 
     /// ditto

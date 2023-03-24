@@ -89,9 +89,21 @@ unittest {
     project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
     project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
 
-    // TODO: Complete the test
-
     // Drop databases
     project.lodoo.databaseDrop("odoo15-test-1");
     project.lodoo.databaseDrop("odoo15-test-2");
+
+    // Test addons installation
+    project.lodoo.databaseCreate("odoo15-test-1", true);
+    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeFalse();
+    project.addons.install("odoo15-test-1", "crm");
+    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeTrue();
+    project.addons.update("odoo15-test-1", "crm");
+    project.addons.uninstall("odoo15-test-1", "crm");
+    project.addons.isInstalled("odoo15-test-1", "crm").shouldBeFalse();
+    project.lodoo.databaseDrop("odoo15-test-1");
+
+
+    // TODO: Complete the test
+
 }

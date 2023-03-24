@@ -24,9 +24,11 @@ package(odood.lib) struct OdooDatabase {
 
         auto odoo_conf = _project.getOdooConfig;
         _connection = Connection(
-            "host=%s dbname=%s user=%s password=%s".format(
+            "host=%s port=%s dbname=%s user=%s password=%s".format(
                 odoo_conf["options"].hasKey("db_host") ?
                     odoo_conf["options"].getKey("db_host") : "localhost",
+                odoo_conf["options"].hasKey("db_port") ?
+                    odoo_conf["options"].getKey("db_port") : "5432",
                 _dbname,
                 odoo_conf["options"].hasKey("db_user") ?
                     odoo_conf["options"].getKey("db_user") : "odoo",

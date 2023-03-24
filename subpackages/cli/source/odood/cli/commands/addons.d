@@ -412,13 +412,9 @@ class CommandAddonsIsInstalled: OdoodCommand {
             "Cannot find addon %s".format(args.arg("addon")));
         auto addon = addon_n.get();
 
-        foreach(dbname; project.lodoo.databaseList) {
-            auto db = project.dbSQL(dbname);
-            scope(exit) db.close();
-
-            if (db.isAddonInstalled(addon))
+        foreach(dbname; project.lodoo.databaseList)
+            if (project.addons.isInstalled(dbname, addon))
                 writeln(dbname);
-        }
     }
 }
 
