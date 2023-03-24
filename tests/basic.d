@@ -63,6 +63,35 @@ unittest {
      * - test addons testing
      */
 
+    // Test LOdoo Database operations
     project.lodoo.databaseList().empty.shouldBeTrue();
+
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeFalse();
+    project.lodoo.databaseCreate("odoo15-test-1", true);
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
+
+    project.lodoo.databaseExists("odoo15-test-2").shouldBeFalse();
+    project.lodoo.databaseRename("odoo15-test-1", "odoo15-test-2");
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeFalse();
+    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+
+    project.lodoo.databaseCopy("odoo15-test-2", "odoo15-test-1");
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
+    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+
+    auto backup_path = project.lodoo.databaseBackup("odoo15-test-2");
+
+    project.lodoo.databaseDrop("odoo15-test-2");
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
+    project.lodoo.databaseExists("odoo15-test-2").shouldBeFalse();
+
+    project.lodoo.databaseRestore("odoo15-test-2", backup_path);
+    project.lodoo.databaseExists("odoo15-test-1").shouldBeTrue();
+    project.lodoo.databaseExists("odoo15-test-2").shouldBeTrue();
+
     // TODO: Complete the test
+
+    // Drop databases
+    project.lodoo.databaseDrop("odoo15-test-1");
+    project.lodoo.databaseDrop("odoo15-test-2");
 }
