@@ -21,4 +21,3 @@ fontconfig
 libmagic1
 postgresql-client
 lsb-base
-
