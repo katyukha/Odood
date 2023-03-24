@@ -23,17 +23,17 @@ void printLogRecord(in ref OdooLogRecord rec) {
     string format_tmpl = () {
         switch (rec.log_level) {
             case "DEBUG":
-                return "<lblue>%s</lblue> %s <blue>%s</blue> %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <blue>%s</blue> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
             case "INFO":
-                return "<lblue>%s</lblue> %s <green>%s</green> %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <green>%s</green> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
             case "WARNING":
-                return "<lblue>%s</lblue> %s <yellow>%s</yellow> %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <yellow>%s</yellow> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
             case "ERROR":
-                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <red>%s</red> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
             case "CRITICAL":
-                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <red>%s</red> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
             default:
-                return "<lblue>%s</lblue> %s %s %s %s: %s";
+                return "<lblue>%s</lblue> <lgrey>%s</lgrey> %s <cyan>%s</cyan> <magenta>%s</magenta>: %s";
         }
     }();
     cwritefln(
