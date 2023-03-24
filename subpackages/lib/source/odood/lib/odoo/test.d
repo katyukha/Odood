@@ -350,13 +350,13 @@ struct OdooTestRunner {
             current_branch = _test_migration_repo.getCurrBranch();
             if (_test_migration_start_ref) {
                 infof(
-                    "Switching to %s branch before running migration tests...",
+                    "Switching to %s ref before running migration tests...",
                     _test_migration_start_ref);
                 _test_migration_repo.fetchOrigin();
                 _test_migration_repo.switchBranchTo(_test_migration_start_ref);
             } else {
                 infof(
-                    "Switching to origin/%s branch before running migration tests...",
+                    "Switching to origin/%s ref before running migration tests...",
                     _project.odoo.serie);
                 _test_migration_repo.fetchOrigin(_project.odoo.serie.toString);
                 _test_migration_repo.switchBranchTo(
@@ -366,7 +366,7 @@ struct OdooTestRunner {
             // Link module from migration start ref
             _project.addons.link(
                 _test_migration_repo.path,
-                false,  // No recursive
+                true,   // Recursive
                 true,   // Force
             );
         }
@@ -440,7 +440,7 @@ struct OdooTestRunner {
             // Link module from current branch
             _project.addons.link(
                 _test_migration_repo.path,
-                false,  // No recursive
+                true,   // recursive
                 true,   // Force
             );
             _project.lodoo.updateAddonsList(_test_db_name);

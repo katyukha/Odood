@@ -148,6 +148,12 @@ struct AddonManager {
             tracef(
                 "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
             addon.path.symlink(_project.directories.addons.join(addon.name));
+        } else if (dest.exists && dest.isSymlink && !dest.readLink.isOdooAddon) {
+            tracef("Removing symlink %s to directory that is not odoo addon ...", dest);
+            dest.remove();
+            tracef(
+                "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
+            addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
         if (dest.join("requirements.txt").exists) {
