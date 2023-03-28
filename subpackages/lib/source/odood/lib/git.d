@@ -7,7 +7,7 @@ private import std.format: format;
 
 private import thepath: Path;
 
-private import odood.lib.utils: runCmdE;
+private import odood.lib.utils: runCmd, runCmdE;
 private import odood.lib.exception: OdoodException;
 
 // TODO: Add parsing of branch name from url
@@ -142,4 +142,16 @@ void gitClone(in GitURL repo, in Path dest, in string branch,
         cmd ~= ["--signle-branch"];
     cmd ~= [repo.toUrl, dest.toString];
     cmd.runCmdE;
+}
+
+/** Check if specified path is git repository
+  **/
+bool isGitRepo(in Path path) {
+    if (path.join(".git").exists)
+        return true;
+
+    if (runCmd(["git", "rev-parse", "--git-dir"], path).status == 0)
+        return true;
+
+    return false;
 }
