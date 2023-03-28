@@ -113,6 +113,26 @@ void installOdoo(in Project project) {
         project.odoo.path.join("setup.py").writeFile(setup_content);
     }
 
+    // Apply patch to fix chrome "forbidden" errors
+    // See https://github.com/odoo/odoo/pull/114930
+    // And https://github.com/odoo/odoo/pull/115782
+    if (project.odoo.serie == 12) {
+        infof("Applying automatic patch to be able to run tours with Chrome 111");
+        auto common_content = project.odoo.path.join(
+            "odoo", "tests", "common.py"
+        ).readFileText().
+            replaceAll(
+                regex(r"^([\t ]+)(self\.ws = websocket\.create_connection\(self\.ws_url\))$", "gm"),
+                "$1# Automatic Odood patch for ability to run tours in Chrome 111.\n" ~
+                "$1# See: https://github.com/odoo/odoo/pull/114930\n" ~
+                "$1# See: https://github.com/odoo/odoo/pull/115782\n" ~
+                "$1# $2\n" ~
+                "$1self.ws = websocket.create_connection(self.ws_url, suppress_origin=True)");
+        project.odoo.path.join(
+            "odoo", "tests", "common.py"
+        ).writeFile(common_content);
+    }
+
     project.venv.python(
         ["setup.py", "develop"],
         project.odoo.path);
