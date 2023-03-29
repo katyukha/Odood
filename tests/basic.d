@@ -125,8 +125,8 @@ unittest {
     testAddonsManagementBasic(project);
 
     // TODO: Complete the test
-
 }
+
 
 @("Basic Test Odoo 14")
 unittest {
@@ -169,7 +169,6 @@ unittest {
     testAddonsManagementBasic(project);
 
     // TODO: Complete the test
-
 }
 
 @("Basic Test Odoo 13")
@@ -188,7 +187,7 @@ unittest {
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odoo14",
+            "odoo13",
             "odoo")
         .result();
     project.initialize(odoo_conf);
@@ -213,5 +212,48 @@ unittest {
     testAddonsManagementBasic(project);
 
     // TODO: Complete the test
+}
 
+
+@("Basic Test Odoo 12")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 14 instance
+    createDbUser("odoo12", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(12));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odoo12",
+            "odoo")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(12));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    /* Plan:
+     * - test server management
+     * - test database management
+     * - test repo downloading
+     * - test addons testing
+     */
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    testAddonsManagementBasic(project);
+
+    // TODO: Complete the test
 }
