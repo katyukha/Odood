@@ -13,7 +13,7 @@ jobs:
     name: Build Ubuntu:20.04
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -72,7 +72,7 @@ jobs:
     name: Build Ubuntu:22.04
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
