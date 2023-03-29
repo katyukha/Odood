@@ -17,15 +17,25 @@ private import odood.lib.project.discover: discoverOdooHelper;
 class CommandDiscoverOdooHelper: OdoodCommand {
     this() {
         super("odoo-helper", "Discover odoo-helper-scripts project.");
+        this.add(new Flag(
+            "s", "system",
+            "Discover system (server-wide) odoo-helper project installation."));
         this.add(new Argument(
             "path", "Try to discover odoo-helper project in specified path."
         ).optional);
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = discoverOdooHelper(
-                args.arg("path") ? Path(args.arg("path")) : Path.current);
-        project.save();
+        auto search_path = args.flag("system") ?
+            Path("/", "etc", "odoo-helper.conf") :
+            args.arg("path") ?
+                Path(args.arg("path")) :
+                Path.current;
+        auto project = discoverOdooHelper(search_path);
+        if (args.flag("system"))
+            project.save(Path("/", "etc", "odood.yml"));
+        else
+            project.save();
         project.venv.ensureRunInVenvExists();
     }
 }

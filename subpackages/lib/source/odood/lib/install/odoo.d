@@ -28,6 +28,12 @@ void installDownloadOdoo(in Project project) {
     import std.stdio;
     auto odoo_archive_path = project.directories.downloads.join(
             "odoo.%s.zip".format(project.odoo.branch));
+    scope(exit) {
+        // Automatically remove downloaded odoo archive on extraction
+        // completed
+        if (odoo_archive_path.exists)
+            odoo_archive_path.remove();
+    }
 
     enforce!OdoodException(
         project.odoo.repo.startsWith("https://github.com"),

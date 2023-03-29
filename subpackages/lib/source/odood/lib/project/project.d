@@ -47,9 +47,16 @@ class Project {
       **/
     static auto loadProject() {
         auto s_config_path = Path.current.searchFileUp("odood.yml");
+
+        // If config is not found in current directory and above,
+        // check server-wide config (may be it is installed in server-mode)
+        if (s_config_path.isNull && Path("/", "etc", "odood.yml").exists)
+            s_config_path = Path("/", "etc", "odood.yml").nullable;
+
         enforce!OdoodException(
             !s_config_path.isNull,
             "Cannot find OdooD configuration file!");
+
         return loadProject(s_config_path.get);
     }
 
