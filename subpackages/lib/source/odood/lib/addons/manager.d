@@ -395,7 +395,7 @@ struct AddonManager {
 
         foreach(addon; scan(temp_dir.join("apps"))) {
             if (_project.directories.addons.join(addon.name).exists) {
-                warningf("Cannot copy module %s. it is already present. Skipping.", addon_name);
+                warningf("Cannot copy module %s. it is already present. Skipping.", addon.name);
             } else {
                 infof("Copying addon %s...", addon.name);
                 addon.path.copyTo(_project.directories.downloads);
