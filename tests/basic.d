@@ -110,7 +110,7 @@ void testAddonsManagementBasic(in Project project) {
     project.directories.addons.join("bureaucrat_helpdesk_lite").exists.shouldBeTrue;
     project.directories.addons.join("bureaucrat_helpdesk_lite").isSymlink.shouldBeTrue;
     project.directories.addons.join("bureaucrat_helpdesk_lite").readLink.shouldEqual(
-        project.directories.downloads.join("bureaucrat_helpdeks_lite"));
+        project.directories.downloads.join("bureaucrat_helpdesk_lite"));
 
     // Drop database
     project.lodoo.databaseDrop(project.genDbName("test-1"));
