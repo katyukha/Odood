@@ -80,6 +80,38 @@ void testAddonsManagementBasic(in Project project) {
     project.addons.uninstall(project.genDbName("test-1"), "crm");
     project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
 
+    // Add repo 'generic-addons'
+    project.addons.addRepo("https://github.com/crnd-inc/generic-addons.git");
+    project.directories.repositories.join(
+        "crnd-inc", "generic-addons", ".git").exists.shouldBeTrue;
+    project.directories.addons.join("generic_location").exists.shouldBeTrue;
+    project.directories.addons.join("generic_location").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_location").readLink.shouldEqual(
+        project.directories.repositories.join(
+            "crnd-inc", "generic-addons", "generic_location"));
+
+    // Try to install generic_location module
+    project.addons.isInstalled(
+            project.genDbName("test-1"), "generic_location").shouldBeFalse;
+    project.addons.install(
+            project.genDbName("test-1"), "generic_location");
+    project.addons.isInstalled(
+            project.genDbName("test-1"), "generic_location").shouldBeTrue;
+
+    // Try to run tests for module generic_location
+    auto test_result = project.testRunner()
+        .addModule("generic_location")
+        .useTemporaryDatabase()
+        .run();
+    test_result.success.shouldBeTrue();
+
+    // Try to fetch bureaucrate-helpdesk-lite from odoo apps
+    project.addons.downloadFromOdooApps("bureaucrat_helpdesk_lite");
+    project.directories.addons.join("bureaucrat_helpdesk_lite").exists.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_helpdesk_lite").isSymlink.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_helpdesk_lite").readLink.shouldEqual(
+        project.directories.downloads.join("bureaucrat_helpdeks_lite"));
+
     // Drop database
     project.lodoo.databaseDrop(project.genDbName("test-1"));
 }
