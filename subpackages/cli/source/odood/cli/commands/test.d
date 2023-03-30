@@ -61,6 +61,10 @@ class CommandTest: OdoodCommand {
         this.add(new Flag(
             null, "coverage-html", "Prepare HTML report for coverage."));
         this.add(new Flag(
+            null, "coverage-skip-covered", "Skip covered files in coverage report."));
+        this.add(new Option(
+            null, "coverage-fail-under", "Fail if coverage is less then specified value."));
+        this.add(new Flag(
             null, "error-report", "Print all errors found in the end of output"));
         this.add(new Option(
             "d", "db", "Database to run tests for."));
@@ -109,19 +113,10 @@ class CommandTest: OdoodCommand {
         else if (args.option("db") && !args.option("db").empty)
             testRunner.setDatabaseName(args.option("db"));
 
+        // Enable coverage if one of coverage opts passed
         bool coverage = args.flag("coverage");
-        bool coverage_report = false;
-        bool coverage_html = false;
-
-        if (args.flag("coverage-report")) {
-            coverage = true;
-            coverage_report = true;
-        }
-
-        if (args.flag("coverage-html")) {
-            coverage = true;
-            coverage_html = true;
-        }
+        if (args.flag("coverage-report")) coverage = true;
+        if (args.flag("coverage-html")) coverage = true;
 
         testRunner.setCoverage(coverage);
 
@@ -139,9 +134,6 @@ class CommandTest: OdoodCommand {
             testRunner.setNoDropDatabase();
 
         auto res = testRunner.run();
-
-        if (coverage)
-            project.venv.runE(["coverage", "combine"]);
 
         if (res.success) {
             cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
@@ -161,10 +153,20 @@ class CommandTest: OdoodCommand {
             }
         }
 
-        if (coverage_html) {
+        // Handle coverage report
+        if (coverage)
+            project.venv.runE(["coverage", "combine"]);
+
+        if (args.flag("coverage-html")) {
+            auto coverage_html_options = [
+                "--directory=%s".format(Path.current.join("htmlcov")),
+            ];
+            if (args.flag("coverage-skip-covered"))
+                coverage_html_options ~= "--skip-covered";
+
             project.venv.runE([
                 "coverage", "html",
-                "--directory=%s".format(Path.current.join("htmlcov"))]);
+            ] ~ coverage_html_options);
             cwritefln(
                 "Coverage report saved at <blue>%s</blue>.\n" ~
                 "Just open url (<blue>file://%s/index.html</blue>) in " ~
@@ -173,8 +175,22 @@ class CommandTest: OdoodCommand {
                 Path.current.join("htmlcov"));
         }
 
-        if (coverage_report)
-            writeln(project.venv.runE(["coverage", "report"]).output);
+        if (args.flag("coverage-report")) {
+            string[] coverage_report_options = [];
+            if (args.flag("coverage-skip-covered"))
+                coverage_report_options ~= "--skip-covered";
+            if (!args.option("coverage-fail-under").empty)
+                coverage_report_options ~= [
+                    "--fail-under",
+                    args.option("coverage-fail-under"),
+                ];
+
+            writeln(
+                project.venv.runE(
+                    ["coverage", "report",] ~ coverage_report_options
+                ).output
+            );
+        }
     }
 }
 
