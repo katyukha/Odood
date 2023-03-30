@@ -12,6 +12,8 @@ import odood.lib.project;
 import odood.lib.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
 
+import odood.cli.commands.test: printLogRecord;
+
 
 /// Create new database user in postgres db
 void createDbUser(in string user, in string password) {
@@ -102,6 +104,7 @@ void testAddonsManagementBasic(in Project project) {
     auto test_result = project.testRunner()
         .addModule("generic_location")
         .useTemporaryDatabase()
+        .registerLogHandler((in ref rec) { printLogRecord(rec); })
         .run();
     test_result.success.shouldBeTrue();
 
