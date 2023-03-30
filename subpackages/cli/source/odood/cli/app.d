@@ -101,9 +101,9 @@ class App: OdoodProgram {
     /** So setup actions before running any specific logic
       **/
     override void setup(scope ref ProgramArgs args) {
-        // Enable line buffering of stdout and stderr
-        stdout.setvbuf(1024*10, _IOLBF);
-        stderr.setvbuf(1024*10, _IOLBF);
+        // Disable buffering of stdout and stderr
+        stdout.setvbuf(1024, _IONBF);
+        stderr.setvbuf(1024, _IONBF);
 
         int verbosity = args.occurencesOf("verbose");
         int quietness = args.occurencesOf("quiet");
