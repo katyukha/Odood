@@ -52,4 +52,5 @@ configuration "unittest-silly" {
     sourcePaths "tests"
     dependency "unit-threaded:assertions" version="*"
     dependency "silly" version="*"
+    /*subConfiguration "colored" "library"*/
 }
