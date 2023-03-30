@@ -10,7 +10,7 @@ private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
-private import consolecolors: cwriteln, cwritefln, escapeCCL;
+private import colored;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -20,25 +20,30 @@ private import odood.lib.exception: OdoodException;
 
 
 void printLogRecord(in ref OdooLogRecord rec) {
-    string format_tmpl = () {
+    auto colored_log_level = () {
         switch (rec.log_level) {
             case "DEBUG":
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <blue>%s</blue> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold.lightGray;
             case "INFO":
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <green>%s</green> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold.green;
             case "WARNING":
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <yellow>%s</yellow> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold.yellow;
             case "ERROR":
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <red>%s</red> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold.red;
             case "CRITICAL":
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> <red>%s</red> <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold.red;
             default:
-                return "<lblue>%s</lblue> <lgrey>%s</lgrey> %s <cyan>%s</cyan> <magenta>%s</magenta>: %s";
+                return rec.log_level.bold;
         }
     }();
-    cwritefln(
-        format_tmpl,
-        rec.date.escapeCCL, rec.process_id, rec.log_level.escapeCCL, rec.db.escapeCCL, rec.logger.escapeCCL, rec.msg.escapeCCL);
+    writefln(
+        "%s %s %s %s %s: %s",
+        rec.date.lightBlue,
+        rec.process_id.to!string.lightGray,
+        colored_log_level,
+        rec.db.cyan,
+        rec.logger.magenta,
+        rec.msg);
 }
 
 
@@ -136,19 +141,19 @@ class CommandTest: OdoodCommand {
         auto res = testRunner.run();
 
         if (res.success) {
-            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
-            cwritefln("Test result: <lgreen>SUCCESS</lgreen>");
-            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
+            writeln("-".replicate(80).green);
+            writeln("Test result: ", "SUCCESS".bold.green);
+            writeln("-".replicate(80).green);
         } else {
-            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
-            cwritefln("Test result: <red>FAILED</red>");
-            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
+            writeln("-".replicate(80).red);
+            writefln("Test result: ", "FAILED".bold.red);
+            writeln("-".replicate(80).red);
             if (args.flag("error-report")) {
-                cwritefln("Errors listed below:");
-                cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                writeln("Errors listed below:");
+                writeln("-".replicate(80).lightGray);
                 foreach(error; res.errors) {
                     printLogRecord(error);
-                    cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                    writeln("-".replicate(80).lightGray);
                 }
             }
         }
@@ -167,12 +172,12 @@ class CommandTest: OdoodCommand {
             project.venv.runE([
                 "coverage", "html",
             ] ~ coverage_html_options);
-            cwritefln(
+            writefln(
                 "Coverage report saved at <blue>%s</blue>.\n" ~
                 "Just open url (<blue>file://%s/index.html</blue>) in " ~
                 "your browser to view coverage report.",
-                Path.current.join("htmlcov"),
-                Path.current.join("htmlcov"));
+                Path.current.join("htmlcov").toString.underlined.blue,
+                Path.current.join("htmlcov").toString.underlined.blue);
         }
 
         if (args.flag("coverage-report")) {

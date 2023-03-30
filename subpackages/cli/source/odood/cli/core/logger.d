@@ -1,9 +1,10 @@
 module odood.cli.core.logger;
 
+private import std.stdio;
 private import std.logger;
 private import std.format: format;
 
-private import consolecolors: cwritefln, escapeCCL;
+private import colored;
 
 
 /** Custom logger for Odood CLI
@@ -14,31 +15,25 @@ class OdoodLogger : Logger {
 
     override protected void writeLogMsg(ref LogEntry payload)
     {
-        auto msg = escapeCCL(payload.msg);
+        auto msg = payload.msg;
         final switch (payload.logLevel) {
             case LogLevel.trace:
-                cwritefln(
-                    "<grey>TRACE</grey>: %s", msg);
+                writeln("TRACE".darkGray, ": ", msg);
                 break;
             case LogLevel.info:
-                cwritefln(
-                    "<blue>INFO</blue>: %s", msg);
+                writeln("INFO".blue, ": ", msg);
                 break;
             case LogLevel.warning:
-                cwritefln(
-                    "<orange>WARNING</orange>: %s", msg);
+                writeln("WARNING".yellow, ": ", msg);
                 break;
             case LogLevel.error:
-                cwritefln(
-                    "<lred>ERROR</lred>: %s", msg);
+                writeln("ERROR".lightRed, ": ", msg);
                 break;
             case LogLevel.critical:
-                cwritefln(
-                    "<red>CRITICAL</red>: %s", msg);
+                writeln("CRITICAL".red, ": ", msg);
                 break;
             case LogLevel.fatal:
-                cwritefln(
-                    "<lmagenta>FATAL</lmagenta>: %s", msg);
+                writeln("FATAL".lightMagenta, ": ", msg);
                 break;
             case LogLevel.off, LogLevel.all:
                 // No output; This log levels are not used in messages,

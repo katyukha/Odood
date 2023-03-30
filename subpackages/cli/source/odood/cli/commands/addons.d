@@ -8,7 +8,7 @@ private import std.algorithm: sort;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
-private import consolecolors: cwriteln, cwritefln, escapeCCL;
+private import colored;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -73,10 +73,10 @@ class CommandAddonsList: OdoodCommand {
 
         OdooAddon[] addons;
         if (args.flag("system")) {
-            cwriteln("Listing all addons available for Odoo");
+            writeln("Listing all addons available for Odoo");
             addons = project.addons.scan();
         } else  {
-            cwritefln("Listing addons in %s", search_path);
+            writeln("Listing addons in ", search_path.toString.yellow);
             addons = project.addons.scan(search_path, args.flag("recursive"));
         }
 
@@ -106,9 +106,9 @@ class CommandAddonsList: OdoodCommand {
 
             if (args.option("color") == "link") {
                 if (project.addons.isLinked(addon))
-                    cwritefln("<green>%s</green>", addon_line);
+                    writeln(addon_line.green);
                 else
-                    cwritefln("<red>%s</red>", addon_line);
+                    writeln(addon_line.red);
             } else {
                 writeln(addon_line);
             }
