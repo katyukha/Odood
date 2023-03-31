@@ -214,6 +214,10 @@ class CommandDatabaseBackup: OdoodCommand {
 class CommandDatabaseRestore: OdoodCommand {
     this() {
         super("restore", "Restore database.");
+        this.add(new Flag(
+            null, "stun", "Stun database (disable cron and mail servers)"));
+        this.add(new Flag(
+            null, "selfish", "Stop the server while database being restored."));
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
@@ -226,7 +230,24 @@ class CommandDatabaseRestore: OdoodCommand {
         enforce!OdoodException(
             backup_path.exists && backup_path.isFile,
             "Wrong backup path specified!");
+
+        bool start_server = false;
+        if (project.server.isRunning) {
+            project.server.stop;
+            start_server = true;
+        }
+
         project.lodoo.databaseRestore(args.arg("name"), backup_path);
+
+        // Optionally stun database
+        if (args.flag("stun")) {
+            auto db = project.dbSQL(args.arg("name"));
+            scope(exit) db.close;
+            db.stunDb();
+        }
+
+        if (start_server)
+            project.server.spawn(true);
     }
 }
 
