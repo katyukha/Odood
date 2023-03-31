@@ -24,9 +24,9 @@ Ini initOdooConfig(in Project project) {
 
     string[] addons_path =[project.odoo.path.join("addons").toString];
     if (project.odoo.serie <= OdooSerie(9)) {
-        addons_path ~= project.odoo.path.join("openerp").toString;
+        addons_path ~= project.odoo.path.join("openerp", "addons").toString;
     } else {
-        addons_path ~= project.odoo.path.join("odoo").toString;
+        addons_path ~= project.odoo.path.join("odoo", "addons").toString;
     }
     addons_path ~= project.directories.addons.toString;
 

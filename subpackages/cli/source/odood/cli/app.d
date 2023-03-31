@@ -1,6 +1,5 @@
 module odood.cli.app;
 
-private import std.stdio;
 private import std.logger;
 private import std.format: format;
 
@@ -101,7 +100,9 @@ class App: OdoodProgram {
     /** So setup actions before running any specific logic
       **/
     override void setup(scope ref ProgramArgs args) {
+        import std.stdio;
         // Disable buffering of stdout and stderr
+        // TODO: Make it configurable with option
         stdout.setvbuf(1024, _IONBF);
         stderr.setvbuf(1024, _IONBF);
 
