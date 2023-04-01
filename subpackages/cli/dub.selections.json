@@ -14,7 +14,7 @@
 		"prettyprint": "1.0.9",
 		"pyd": "~master",
 		"requests": "2.0.9",
-		"semver": "0.4.0",
+		"semver": "0.5.0",
 		"thepath": "0.0.18",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.5"
