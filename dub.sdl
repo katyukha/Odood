@@ -13,8 +13,6 @@ subPackage "./subpackages/cli"
 
 targetPath "build"
 
-subConfiguration "odood:lib" "sourceLibrary"
-subConfiguration "odood:cli" "sourceLibrary"
 subConfiguration "pyd" "python310"
 
 
