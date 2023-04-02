@@ -295,6 +295,14 @@ struct AddonManager {
 
     /// ditto
     void update(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        update(addons.map!((a) => getByName(a).get).array, database, env);
+    }
+
+    /// ditto
+    void update(
             in Path search_path,
             in string database,
             in string[string] env=null) const {
@@ -335,6 +343,14 @@ struct AddonManager {
 
     /// ditto
     void install(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        install(addons.map!((a) => getByName(a).get).array, database, env);
+    }
+
+    /// ditto
+    void install(
             in Path search_path,
             in string database,
             in string[string] env=null) {
@@ -365,6 +381,14 @@ struct AddonManager {
             in string database,
             in string[] addons...) {
         uninstall(addons.map!((a) => getByName(a).get).array, database);
+    }
+
+    /// ditto
+    void uninstall(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        uninstall(addons.map!((a) => getByName(a).get).array, database, env);
     }
 
     /// ditto
