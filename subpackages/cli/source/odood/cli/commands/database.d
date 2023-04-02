@@ -96,7 +96,7 @@ class CommandDatabaseCreate: OdoodCommand {
         }
 
         if (!to_install.empty) {
-            project.addons.install(to_install, dbname);
+            project.addons.install(dbname, to_install);
         }
 
     }

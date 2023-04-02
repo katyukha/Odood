@@ -239,7 +239,7 @@ class CommandAddonsUpdate: OdoodCommand {
             if (args.flag("all"))
                 project.addons.updateAll(db);
             else
-                project.addons.update(addons, db);
+                project.addons.update(db, addons);
         }
 
         if (start_again)
@@ -300,7 +300,7 @@ class CommandAddonsInstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.install(addons, db);
+            project.addons.install(db, addons);
         }
 
         if (start_again)
@@ -360,7 +360,7 @@ class CommandAddonsUninstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.uninstall(addons, db);
+            project.addons.uninstall(db, addons);
         }
 
         if (start_again)
