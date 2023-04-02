@@ -436,7 +436,7 @@ struct AddonManager {
             return;
         }
 
-        gitClone(git_url, dest, branch);
+        gitClone(git_url, dest, branch, single_branch);
 
         // TODO: Do we need to create instance of repo here?
         auto repo = new AddonRepository(_project, dest);
