@@ -139,7 +139,7 @@ void gitClone(in GitURL repo, in Path dest, in string branch,
     // TODO: Make branch optional
     string[] cmd = ["git", "clone", "-b", branch];
     if (single_branch)
-        cmd ~= ["--signle-branch"];
+        cmd ~= ["--single-branch"];
     cmd ~= [repo.toUrl, dest.toString];
     cmd.runCmdE;
 }
