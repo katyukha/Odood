@@ -382,11 +382,13 @@ struct OdooTestRunner {
         }
         scope(exit) {
             // Ensure that on exit repo will be returned in it's correct state
-            string current_git_ref = _test_migration_repo.getCurrBranch.get(
-                _test_migration_repo.getCurrCommit);
-            if (_test_migration && current_git_ref != initial_git_ref) {
-                infof("Switching back to %s ...", initial_git_ref);
-                _test_migration_repo.switchBranchTo(initial_git_ref);
+            if (_test_migration && _test_migration_repo) {
+                string current_git_ref = _test_migration_repo.getCurrBranch.get(
+                    _test_migration_repo.getCurrCommit);
+                if (_test_migration && current_git_ref != initial_git_ref) {
+                    infof("Switching back to %s ...", initial_git_ref);
+                    _test_migration_repo.switchBranchTo(initial_git_ref);
+                }
             }
         }
 
