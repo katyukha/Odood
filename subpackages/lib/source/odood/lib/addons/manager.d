@@ -430,15 +430,19 @@ struct AddonManager {
 
     /// Process odoo_requirements.txt file, that is used by odoo-helper
     void processOdooRequirements(in Path path, in bool single_branch=false) {
-        foreach(line; parseOdooRequirements(path)) {
-            if (line.type == OdooRequirementsLineType.repo) {
-                addRepo(
-                    line.repo_url,
-                    line.branch.empty ?
-                        _project.odoo.serie.toString : line.branch,
-                    single_branch);
+        foreach(line; parseOdooRequirements(path))
+            final switch (line.type) {
+                case OdooRequirementsLineType.repo:
+                    addRepo(
+                        line.repo_url,
+                        line.branch.empty ?
+                            _project.odoo.serie.toString : line.branch,
+                        single_branch);
+                    break;
+                case OdooRequirementsLineType.odoo_apps:
+                    downloadFromOdooApps(line.addon);
+                    break;
             }
-        }
     }
 
     /// Add new addon repo to project
