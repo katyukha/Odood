@@ -367,6 +367,12 @@ struct OdooTestRunner {
                     "origin/" ~ _project.odoo.serie.toString);
             }
 
+            // process odoo_requirements.txt if needed
+            // (to ensure all dependencies present)
+            if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
+                _project.addons.processOdooRequirements(
+                    _test_migration_repo.path.join("odoo_requirements.txt"));
+
             // Link module from migration start ref
             _project.addons.link(
                 _test_migration_repo.path,
@@ -442,6 +448,11 @@ struct OdooTestRunner {
             _test_migration_repo.switchBranchTo(initial_git_ref);
 
             // TODO: clean -fdx ?
+
+            // process odoo_requirements.txt if needed
+            if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
+                _project.addons.processOdooRequirements(
+                    _test_migration_repo.path.join("odoo_requirements.txt"));
 
             // Link module from current branch
             _project.addons.link(
