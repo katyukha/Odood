@@ -345,9 +345,13 @@ struct OdooTestRunner {
             "Migration test requested, but migration repo is not specified!");
 
         // Switch branch to migration start ref
-        string current_branch;
+        string current_git_ref;
         if (_test_migration) {
-            current_branch = _test_migration_repo.getCurrBranch();
+            // Get current branch, and if repo is in detached head mode,
+            // then save current commit, to return to after migration.
+            current_git_ref = _test_migration_repo.getCurrBranch.get(
+                _test_migration_repo.getCurrCommit);
+
             if (_test_migration_start_ref) {
                 infof(
                     "Switching to %s ref before running migration tests...",
@@ -372,9 +376,9 @@ struct OdooTestRunner {
         }
         scope(exit) {
             // Ensure that on exit repo will be returned in it's correct state
-            if (_test_migration && _test_migration_repo.getCurrBranch() != current_branch) {
-                infof("Switching back to %s ...", current_branch);
-                _test_migration_repo.switchBranchTo(current_branch);
+            if (_test_migration && _test_migration_repo.getCurrBranch() != current_git_ref) {
+                infof("Switching back to %s ...", current_git_ref);
+                _test_migration_repo.switchBranchTo(current_git_ref);
             }
         }
 
@@ -432,8 +436,8 @@ struct OdooTestRunner {
         }
 
         if (_test_migration) {
-            infof("Switching back to %s ...", current_branch);
-            _test_migration_repo.switchBranchTo(current_branch);
+            infof("Switching back to %s ...", current_git_ref);
+            _test_migration_repo.switchBranchTo(current_git_ref);
 
             // TODO: clean -fdx ?
 
