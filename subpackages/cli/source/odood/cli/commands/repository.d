@@ -25,6 +25,11 @@ class CommandRepositoryAdd: OdoodCommand {
             "If set, then 'repo' argument could be specified as " ~
             "'owner/name' that will be converted to " ~
             "'https://github.com/owner/name'.")),
+        this.add(new Flag(
+            null, "single-branch",
+            "Clone repository wihth --single-branch options. " ~
+            "This could significantly reduce size of data to be downloaded " ~
+            "and increase performance."));
         this.add(new Option(
             "b", "branch", "Branch to clone"));
         this.add(new Argument("repo", "Repository URL to clone from.").required());
@@ -44,7 +49,8 @@ class CommandRepositoryAdd: OdoodCommand {
         project.addons.addRepo(
             git_url,
             args.option("branch") ?
-                args.option("branch") : project.odoo.branch);
+                args.option("branch") : project.odoo.branch,
+            args.flag("single-branch"));
     }
 
 }

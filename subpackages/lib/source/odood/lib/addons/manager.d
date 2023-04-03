@@ -429,13 +429,14 @@ struct AddonManager {
     }
 
     /// Process odoo_requirements.txt file, that is used by odoo-helper
-    void processOdooRequirements(in Path path) {
+    void processOdooRequirements(in Path path, in bool single_branch=false) {
         foreach(line; parseOdooRequirements(path)) {
             if (line.type == OdooRequirementsLineType.repo) {
                 addRepo(
                     line.repo_url,
                     line.branch.empty ?
-                        _project.odoo.serie.toString : line.branch);
+                        _project.odoo.serie.toString : line.branch,
+                    single_branch);
             }
         }
     }
@@ -469,7 +470,9 @@ struct AddonManager {
         // If there is odoo_requirements.txt file present, then we have to
         // process it.
         if (repo.path.join("odoo_requirements.txt").exists) {
-            processOdooRequirements(repo.path.join("odoo_requirements.txt"));
+            processOdooRequirements(
+                repo.path.join("odoo_requirements.txt"),
+                single_branch);
         }
     }
 

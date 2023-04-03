@@ -372,6 +372,11 @@ class CommandAddonsUninstall: OdoodCommand {
 class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
+        this.add(new Flag(
+            null, "single-branch",
+            "Clone repository wihth --single-branch options. " ~
+            "This could significantly reduce size of data to be downloaded " ~
+            "and increase performance."));
         this.add(new Option(
             null, "odoo-apps", "Add addon from odoo apps.").repeating);
         this.add(new Option(
@@ -387,7 +392,9 @@ class CommandAddonsAdd: OdoodCommand {
             project.addons.downloadFromOdooApps(app);
 
         foreach(requirements_path; args.options("odoo-requirements"))
-            project.addons.processOdooRequirements(Path(requirements_path));
+            project.addons.processOdooRequirements(
+                Path(requirements_path),
+                args.flag("single-branch"));
     }
 
 }
