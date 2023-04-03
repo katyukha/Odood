@@ -152,6 +152,7 @@ void installOdoo(in Project project) {
   *     odoo_config = Ini struture that represents desired odoo config
   **/
 void installOdooConfig(in Project project, in Ini odoo_config) {
+    import std.random;
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
     Ini odoo_test_conf = cast(Ini) odoo_config;
@@ -172,11 +173,27 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
     // Update test config with different xmlrpc/http port to avoid conflicts
     // with running odoo server
     if (project.odoo.serie < OdooSerie(11)) {
-        odoo_test_conf["options"].setKey("xmlrpc_port", "8269");
-        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+        odoo_test_conf["options"].setKey(
+            "xmlrpc_port",
+            "%s%s69".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+        odoo_test_conf["options"].setKey(
+            "longpolling_port",
+            "%s%s72".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
     } else {
-        odoo_test_conf["options"].setKey("http_port", "8269");
-        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+        odoo_test_conf["options"].setKey(
+            "http_port",
+            "%s%s69".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+        odoo_test_conf["options"].setKey(
+            "longpolling_port",
+            "%s%s72".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
     }
 
     // Disable logfile for test config, to enforce log to
