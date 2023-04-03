@@ -10,7 +10,7 @@ private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
-private import consolecolors: cwriteln, cwritefln, escapeCCL;
+private import colored;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -20,25 +20,30 @@ private import odood.lib.exception: OdoodException;
 
 
 void printLogRecord(in ref OdooLogRecord rec) {
-    string format_tmpl = () {
+    auto colored_log_level = () {
         switch (rec.log_level) {
             case "DEBUG":
-                return "<lblue>%s</lblue> %s <blue>%s</blue> %s %s: %s";
+                return rec.log_level.bold.lightGray;
             case "INFO":
-                return "<lblue>%s</lblue> %s <green>%s</green> %s %s: %s";
+                return rec.log_level.bold.green;
             case "WARNING":
-                return "<lblue>%s</lblue> %s <yellow>%s</yellow> %s %s: %s";
+                return rec.log_level.bold.yellow;
             case "ERROR":
-                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
+                return rec.log_level.bold.red;
             case "CRITICAL":
-                return "<lblue>%s</lblue> %s <red>%s</red> %s %s: %s";
+                return rec.log_level.bold.red;
             default:
-                return "<lblue>%s</lblue> %s %s %s %s: %s";
+                return rec.log_level.bold;
         }
     }();
-    cwritefln(
-        format_tmpl,
-        rec.date.escapeCCL, rec.process_id, rec.log_level.escapeCCL, rec.db.escapeCCL, rec.logger.escapeCCL, rec.msg.escapeCCL);
+    writefln(
+        "%s %s %s %s %s: %s",
+        rec.date.lightBlue,
+        rec.process_id.to!string.lightGray,
+        colored_log_level,
+        rec.db.cyan,
+        rec.logger.magenta,
+        rec.msg);
 }
 
 
@@ -60,6 +65,10 @@ class CommandTest: OdoodCommand {
             null, "coverage-report", "Print coverage report."));
         this.add(new Flag(
             null, "coverage-html", "Prepare HTML report for coverage."));
+        this.add(new Flag(
+            null, "coverage-skip-covered", "Skip covered files in coverage report."));
+        this.add(new Option(
+            null, "coverage-fail-under", "Fail if coverage is less then specified value."));
         this.add(new Flag(
             null, "error-report", "Print all errors found in the end of output"));
         this.add(new Option(
@@ -109,19 +118,10 @@ class CommandTest: OdoodCommand {
         else if (args.option("db") && !args.option("db").empty)
             testRunner.setDatabaseName(args.option("db"));
 
+        // Enable coverage if one of coverage opts passed
         bool coverage = args.flag("coverage");
-        bool coverage_report = false;
-        bool coverage_html = false;
-
-        if (args.flag("coverage-report")) {
-            coverage = true;
-            coverage_report = true;
-        }
-
-        if (args.flag("coverage-html")) {
-            coverage = true;
-            coverage_html = true;
-        }
+        if (args.flag("coverage-report")) coverage = true;
+        if (args.flag("coverage-html")) coverage = true;
 
         testRunner.setCoverage(coverage);
 
@@ -140,41 +140,62 @@ class CommandTest: OdoodCommand {
 
         auto res = testRunner.run();
 
-        if (coverage)
-            project.venv.runE(["coverage", "combine"]);
-
         if (res.success) {
-            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
-            cwritefln("Test result: <lgreen>SUCCESS</lgreen>");
-            cwriteln("<green>" ~ "-".replicate(80) ~ "</green>");
+            writeln("-".replicate(80).green);
+            writeln("Test result: ", "SUCCESS".bold.green);
+            writeln("-".replicate(80).green);
         } else {
-            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
-            cwritefln("Test result: <red>FAILED</red>");
-            cwriteln("<red>" ~ "-".replicate(80) ~ "</red>");
+            writeln("-".replicate(80).red);
+            writefln("Test result: ", "FAILED".bold.red);
+            writeln("-".replicate(80).red);
             if (args.flag("error-report")) {
-                cwritefln("Errors listed below:");
-                cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                writeln("Errors listed below:");
+                writeln("-".replicate(80).lightGray);
                 foreach(error; res.errors) {
                     printLogRecord(error);
-                    cwriteln("<grey>" ~ "-".replicate(80) ~ "</grey>");
+                    writeln("-".replicate(80).lightGray);
                 }
             }
         }
 
-        if (coverage_html) {
+        // Handle coverage report
+        if (coverage)
+            project.venv.runE(["coverage", "combine"]);
+
+        if (args.flag("coverage-html")) {
+            auto coverage_html_options = [
+                "--directory=%s".format(Path.current.join("htmlcov")),
+            ];
+            if (args.flag("coverage-skip-covered"))
+                coverage_html_options ~= "--skip-covered";
+
             project.venv.runE([
                 "coverage", "html",
-                "--directory=%s".format(Path.current.join("htmlcov"))]);
-            cwritefln(
+            ] ~ coverage_html_options);
+            writefln(
                 "Coverage report saved at <blue>%s</blue>.\n" ~
                 "Just open url (<blue>file://%s/index.html</blue>) in " ~
                 "your browser to view coverage report.",
-                Path.current.join("htmlcov"),
-                Path.current.join("htmlcov"));
+                Path.current.join("htmlcov").toString.underlined.blue,
+                Path.current.join("htmlcov").toString.underlined.blue);
         }
 
-        if (coverage_report)
-            writeln(project.venv.runE(["coverage", "report"]).output);
+        if (args.flag("coverage-report")) {
+            string[] coverage_report_options = [];
+            if (args.flag("coverage-skip-covered"))
+                coverage_report_options ~= "--skip-covered";
+            if (!args.option("coverage-fail-under").empty)
+                coverage_report_options ~= [
+                    "--fail-under",
+                    args.option("coverage-fail-under"),
+                ];
+
+            writeln(
+                project.venv.runE(
+                    ["coverage", "report",] ~ coverage_report_options
+                ).output
+            );
+        }
     }
 }
 

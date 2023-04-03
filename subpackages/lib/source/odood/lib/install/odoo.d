@@ -28,6 +28,12 @@ void installDownloadOdoo(in Project project) {
     import std.stdio;
     auto odoo_archive_path = project.directories.downloads.join(
             "odoo.%s.zip".format(project.odoo.branch));
+    scope(exit) {
+        // Automatically remove downloaded odoo archive on extraction
+        // completed
+        if (odoo_archive_path.exists)
+            odoo_archive_path.remove();
+    }
 
     enforce!OdoodException(
         project.odoo.repo.startsWith("https://github.com"),
@@ -113,6 +119,26 @@ void installOdoo(in Project project) {
         project.odoo.path.join("setup.py").writeFile(setup_content);
     }
 
+    // Apply patch to fix chrome "forbidden" errors
+    // See https://github.com/odoo/odoo/pull/114930
+    // And https://github.com/odoo/odoo/pull/115782
+    if (project.odoo.serie == 12) {
+        infof("Applying automatic patch to be able to run tours with Chrome 111");
+        auto common_content = project.odoo.path.join(
+            "odoo", "tests", "common.py"
+        ).readFileText().
+            replaceAll(
+                regex(r"^([\t ]+)(self\.ws = websocket\.create_connection\(self\.ws_url\))$", "gm"),
+                "$1# Automatic Odood patch for ability to run tours in Chrome 111.\n" ~
+                "$1# See: https://github.com/odoo/odoo/pull/114930\n" ~
+                "$1# See: https://github.com/odoo/odoo/pull/115782\n" ~
+                "$1# $2\n" ~
+                "$1self.ws = websocket.create_connection(self.ws_url, suppress_origin=True)");
+        project.odoo.path.join(
+            "odoo", "tests", "common.py"
+        ).writeFile(common_content);
+    }
+
     project.venv.python(
         ["setup.py", "develop"],
         project.odoo.path);
@@ -126,6 +152,7 @@ void installOdoo(in Project project) {
   *     odoo_config = Ini struture that represents desired odoo config
   **/
 void installOdooConfig(in Project project, in Ini odoo_config) {
+    import std.random;
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
     Ini odoo_test_conf = cast(Ini) odoo_config;
@@ -146,11 +173,27 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
     // Update test config with different xmlrpc/http port to avoid conflicts
     // with running odoo server
     if (project.odoo.serie < OdooSerie(11)) {
-        odoo_test_conf["options"].setKey("xmlrpc_port", "8269");
-        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+        odoo_test_conf["options"].setKey(
+            "xmlrpc_port",
+            "%s%s69".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+        odoo_test_conf["options"].setKey(
+            "longpolling_port",
+            "%s%s72".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
     } else {
-        odoo_test_conf["options"].setKey("http_port", "8269");
-        odoo_test_conf["options"].setKey("longpolling_port", "8272");
+        odoo_test_conf["options"].setKey(
+            "http_port",
+            "%s%s69".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+        odoo_test_conf["options"].setKey(
+            "longpolling_port",
+            "%s%s72".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
     }
 
     // Disable logfile for test config, to enforce log to

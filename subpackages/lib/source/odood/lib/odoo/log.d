@@ -145,8 +145,9 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
     }
 
     /// Check if there is no more input to handle
-    @property bool empty() const {
-        return _source.eof;
+    @property bool empty() {
+        tryReadLogRecordIfNeeded();
+        return _log_record.isNull;
     }
 
     /// Get front record

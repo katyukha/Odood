@@ -148,6 +148,12 @@ struct AddonManager {
             tracef(
                 "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
             addon.path.symlink(_project.directories.addons.join(addon.name));
+        } else if (dest.exists && dest.isSymlink && !dest.readLink.isOdooAddon) {
+            tracef("Removing symlink %s to directory that is not odoo addon ...", dest);
+            dest.remove();
+            tracef(
+                "Linking addon %s (%s -> %s)", addon.name, addon.path, dest);
+            addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
         if (dest.join("requirements.txt").exists) {
@@ -191,6 +197,24 @@ struct AddonManager {
         return false;
     }
 
+    /** Check if specified addon is installed in specified db
+      *
+      * Params:
+      *     database = name of database to check if addon is installed
+      *     addon = name of addon to check if it is installed
+      **/
+    bool isInstalled(in string database, in string addon) {
+        auto db = _project.dbSQL(database);
+        scope(exit) db.close();
+
+        return db.isAddonInstalled(addon);
+    }
+
+    /// ditto
+    bool isInstalled(in string database, in OdooAddon addon) {
+        return isInstalled(database, addon.name);
+    }
+
     /** Install or update odoo adodns from specified database
       *
       * Params:
@@ -201,8 +225,8 @@ struct AddonManager {
       *           if needed. Used by openupgrade.
       **/
     private void _run_install_update_addons(
-            in string[] addon_names,
             in string database,
+            in string[] addon_names,
             in cmdIU cmd,
             in string[string] env) const {
 
@@ -242,69 +266,137 @@ struct AddonManager {
         }
     }
 
-    /// Update odoo addons
+    /** Update odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to update
+      *     database = name of database to update addons in
+      *     env = additional environment variables to be used during update
+      *     search_path = path to search addons to update
+      **/
     void update(
-            in OdooAddon[] addons,
             in string database,
+            in OdooAddon[] addons,
             in string[string] env=null) const {
         if (!addons) {
             warning("No addons specified for 'update'.");
             return;
         }
         _run_install_update_addons(
-            addons.map!(a => a.name).array, database, cmdIU.update, env);
+            database, addons.map!(a => a.name).array, cmdIU.update, env);
     }
+
     /// ditto
     void update(
-            in Path search_path,
             in string database,
+            in string[] addons...) {
+        update(database, addons.map!((a) => getByName(a).get).array);
+    }
+
+    /// ditto
+    void update(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        update(database, addons.map!((a) => getByName(a).get).array, env);
+    }
+
+    /// ditto
+    void update(
+            in string database,
+            in Path search_path,
             in string[string] env=null) const {
-        update(scan(search_path), database, env);
+        update(database, scan(search_path), env);
     }
 
     /// Update all odoo addons for specific database
     void updateAll(in string database, in string[string] env=null) const {
-        _run_install_update_addons(["all"], database, cmdIU.update, env);
+        _run_install_update_addons(database, ["all"], cmdIU.update, env);
     }
 
-    /// Install odoo addons
+    /** Install odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to install
+      *     database = name of database to install addons in
+      *     env = additional environment variables to be used during install
+      *     search_path = path to search addons to install
+      **/
     void install(
-            in OdooAddon[] addons,
             in string database,
+            in OdooAddon[] addons,
             in string[string] env=null) {
         if (!addons) {
             warning("No addons specified for 'install'.");
             return;
         }
         _run_install_update_addons(
-            addons.map!(a => a.name).array, database, cmdIU.install, env);
-    }
-    /// ditto
-    void install(
-            in Path search_path,
-            in string database,
-            in string[string] env=null) {
-        install(scan(search_path), database, env);
+            database, addons.map!(a => a.name).array, cmdIU.install, env);
     }
 
-    /// Uninstall odoo addons
-    void uninstall(
-            in OdooAddon[] addons,
+    /// ditto
+    void install(
             in string database,
+            in string[] addons...) {
+        install(database, addons.map!((a) => getByName(a).get).array);
+    }
+
+    /// ditto
+    void install(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        install(database, addons.map!((a) => getByName(a).get).array, env);
+    }
+
+    /// ditto
+    void install(
+            in string database,
+            in Path search_path,
+            in string[string] env=null) {
+        install(database, scan(search_path), env);
+    }
+
+    /** Unnstall odoo addons
+      *
+      * Params:
+      *     addons = list of addons (or names of addons) to uninstall
+      *     database = name of database to uninstall addons in
+      *     env = additional environment variables to be used during uninstall
+      *     search_path = path to search addons to uninstall
+      **/
+    void uninstall(
+            in string database,
+            in OdooAddon[] addons,
             in string[string] env=null) {
         _run_install_update_addons(
-            addons.map!(a => a.name).array,
             database,
+            addons.map!(a => a.name).array,
             cmdIU.uninstall,
             env);
     }
 
     /// ditto
     void uninstall(
-            in Path search_path,
             in string database,
+            in string[] addons...) {
+        uninstall(database, addons.map!((a) => getByName(a).get).array);
+    }
+
+    /// ditto
+    void uninstall(
+            in string database,
+            in string[] addons,
+            in string[string] env) {
+        uninstall(database, addons.map!((a) => getByName(a).get).array, env);
+    }
+
+    /// ditto
+    void uninstall(
+            in string database,
+            in Path search_path,
             in string[string] env=null) {
-        uninstall(scan(search_path), database, env);
+        uninstall(database, scan(search_path), env);
     }
 
     /// Download from odoo apps
@@ -327,7 +419,7 @@ struct AddonManager {
 
         foreach(addon; scan(temp_dir.join("apps"))) {
             if (_project.directories.addons.join(addon.name).exists) {
-                warningf("Cannot copy module %s. it is already present. Skipping.", addon_name);
+                warningf("Cannot copy module %s. it is already present. Skipping.", addon.name);
             } else {
                 infof("Copying addon %s...", addon.name);
                 addon.path.copyTo(_project.directories.downloads);
@@ -337,15 +429,20 @@ struct AddonManager {
     }
 
     /// Process odoo_requirements.txt file, that is used by odoo-helper
-    void processOdooRequirements(in Path path) {
-        foreach(line; parseOdooRequirements(path)) {
-            if (line.type == OdooRequirementsLineType.repo) {
-                addRepo(
-                    line.repo_url,
-                    line.branch.empty ?
-                        _project.odoo.serie.toString : line.branch);
+    void processOdooRequirements(in Path path, in bool single_branch=false) {
+        foreach(line; parseOdooRequirements(path))
+            final switch (line.type) {
+                case OdooRequirementsLineType.repo:
+                    addRepo(
+                        line.repo_url,
+                        line.branch.empty ?
+                            _project.odoo.serie.toString : line.branch,
+                        single_branch);
+                    break;
+                case OdooRequirementsLineType.odoo_apps:
+                    downloadFromOdooApps(line.addon);
+                    break;
             }
-        }
     }
 
     /// Add new addon repo to project
@@ -368,7 +465,7 @@ struct AddonManager {
             return;
         }
 
-        gitClone(git_url, dest, branch);
+        gitClone(git_url, dest, branch, single_branch);
 
         // TODO: Do we need to create instance of repo here?
         auto repo = new AddonRepository(_project, dest);
@@ -377,7 +474,9 @@ struct AddonManager {
         // If there is odoo_requirements.txt file present, then we have to
         // process it.
         if (repo.path.join("odoo_requirements.txt").exists) {
-            processOdooRequirements(repo.path.join("odoo_requirements.txt"));
+            processOdooRequirements(
+                repo.path.join("odoo_requirements.txt"),
+                single_branch);
         }
     }
 

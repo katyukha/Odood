@@ -24,9 +24,9 @@ Ini initOdooConfig(in Project project) {
 
     string[] addons_path =[project.odoo.path.join("addons").toString];
     if (project.odoo.serie <= OdooSerie(9)) {
-        addons_path ~= project.odoo.path.join("openerp").toString;
+        addons_path ~= project.odoo.path.join("openerp", "addons").toString;
     } else {
-        addons_path ~= project.odoo.path.join("odoo").toString;
+        addons_path ~= project.odoo.path.join("odoo", "addons").toString;
     }
     addons_path ~= project.directories.addons.toString;
 
@@ -66,4 +66,52 @@ Ini readOdooConfig(in Path odoo_conf_path) {
   **/
 Ini readOdooConfig(in Project project) {
     return readOdooConfig(project.odoo.configfile);
+}
+
+
+/** Odoo config builder - struct that helps to build complex odoo configs
+  **/
+struct OdooConfigBuilder {
+    private Ini _odoo_conf;
+    private const Project _project;
+
+    @disable this();
+
+    this(in Project project) {
+        _project = project;
+        _odoo_conf = _project.initOdooConfig;
+    }
+
+    /** Set configuration for database connection
+      **/
+    ref typeof(this) setDBConfig(
+            in string db_host,
+            in string db_port,
+            in string db_user,
+            in string db_password) {
+        _odoo_conf["options"].setKey("db_host", db_host);
+        _odoo_conf["options"].setKey("db_port", db_port);
+        _odoo_conf["options"].setKey("db_user", db_user);
+        _odoo_conf["options"].setKey("db_password", db_password);
+        return this;
+    }
+
+    /** Set Http configuration
+      **/
+    ref typeof(this) setHttp(in string host, in string port) {
+        if (_project.odoo.serie < 11) {
+            _odoo_conf["options"].setKey("xmlrpc_interface", host);
+            _odoo_conf["options"].setKey("xmlrpc_port", port);
+        } else {
+            _odoo_conf["options"].setKey("http_interface", host);
+            _odoo_conf["options"].setKey("http_port", port);
+        }
+        return this;
+    }
+
+    /** Return resulting odoo configuration (Ini)
+      **/
+    auto result() {
+        return _odoo_conf;
+    }
 }

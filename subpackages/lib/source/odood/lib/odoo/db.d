@@ -23,17 +23,27 @@ package(odood.lib) struct OdooDatabase {
         _dbname = dbname;
 
         auto odoo_conf = _project.getOdooConfig;
-        _connection = Connection(
-            "host=%s dbname=%s user=%s password=%s".format(
-                odoo_conf["options"].hasKey("db_host") ?
-                    odoo_conf["options"].getKey("db_host") : "localhost",
-                _dbname,
-                odoo_conf["options"].hasKey("db_user") ?
-                    odoo_conf["options"].getKey("db_user") : "odoo",
-                odoo_conf["options"].hasKey("db_password") ?
-                    odoo_conf["options"].getKey("db_password") : "odoo",
-            )
-        );
+
+        auto conn_host = odoo_conf["options"].hasKey("db_host") ?
+            odoo_conf["options"].getKey("db_host") : "localhost";
+        auto conn_port = odoo_conf["options"].hasKey("db_port") ?
+            odoo_conf["options"].getKey("db_port") : "5432";
+        auto conn_user = odoo_conf["options"].hasKey("db_user") ?
+            odoo_conf["options"].getKey("db_user") : "odoo";
+        auto conn_password = odoo_conf["options"].hasKey("db_password") ?
+            odoo_conf["options"].getKey("db_password") : "odoo";
+
+        string conn_str = "dbname='%s'".format(dbname);
+        if (conn_host != "False" && conn_host != "None")
+            conn_str ~= " host='%s'".format(conn_host);
+        if (conn_port != "False" && conn_port != "None")
+            conn_str ~= " port='%s'".format(conn_port);
+        if (conn_user != "False" && conn_user != "None")
+            conn_str ~= " user='%s'".format(conn_user);
+        if (conn_password != "False" && conn_password != "None")
+            conn_str ~= " password='%s'".format(conn_password);
+
+        _connection = Connection(conn_str);
     }
 
     /** Return dpq connection to database

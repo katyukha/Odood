@@ -345,36 +345,50 @@ struct OdooTestRunner {
             "Migration test requested, but migration repo is not specified!");
 
         // Switch branch to migration start ref
-        string current_branch;
+        string initial_git_ref;
         if (_test_migration) {
-            current_branch = _test_migration_repo.getCurrBranch();
+            // Get current branch, and if repo is in detached head mode,
+            // then save current commit, to return to after migration.
+            initial_git_ref = _test_migration_repo.getCurrBranch.get(
+                _test_migration_repo.getCurrCommit);
+
             if (_test_migration_start_ref) {
                 infof(
-                    "Switching to %s branch before running migration tests...",
+                    "Switching to %s ref before running migration tests...",
                     _test_migration_start_ref);
                 _test_migration_repo.fetchOrigin();
                 _test_migration_repo.switchBranchTo(_test_migration_start_ref);
             } else {
                 infof(
-                    "Switching to origin/%s branch before running migration tests...",
+                    "Switching to origin/%s ref before running migration tests...",
                     _project.odoo.serie);
                 _test_migration_repo.fetchOrigin(_project.odoo.serie.toString);
                 _test_migration_repo.switchBranchTo(
                     "origin/" ~ _project.odoo.serie.toString);
             }
 
+            // process odoo_requirements.txt if needed
+            // (to ensure all dependencies present)
+            if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
+                _project.addons.processOdooRequirements(
+                    _test_migration_repo.path.join("odoo_requirements.txt"));
+
             // Link module from migration start ref
             _project.addons.link(
                 _test_migration_repo.path,
-                false,  // No recursive
+                true,   // Recursive
                 true,   // Force
             );
         }
         scope(exit) {
             // Ensure that on exit repo will be returned in it's correct state
-            if (_test_migration && _test_migration_repo.getCurrBranch() != current_branch) {
-                infof("Switching back to %s ...", current_branch);
-                _test_migration_repo.switchBranchTo(current_branch);
+            if (_test_migration && _test_migration_repo) {
+                string current_git_ref = _test_migration_repo.getCurrBranch.get(
+                    _test_migration_repo.getCurrCommit);
+                if (_test_migration && current_git_ref != initial_git_ref) {
+                    infof("Switching back to %s ...", initial_git_ref);
+                    _test_migration_repo.switchBranchTo(initial_git_ref);
+                }
             }
         }
 
@@ -432,15 +446,20 @@ struct OdooTestRunner {
         }
 
         if (_test_migration) {
-            infof("Switching back to %s ...", current_branch);
-            _test_migration_repo.switchBranchTo(current_branch);
+            infof("Switching back to %s ...", initial_git_ref);
+            _test_migration_repo.switchBranchTo(initial_git_ref);
 
             // TODO: clean -fdx ?
+
+            // process odoo_requirements.txt if needed
+            if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
+                _project.addons.processOdooRequirements(
+                    _test_migration_repo.path.join("odoo_requirements.txt"));
 
             // Link module from current branch
             _project.addons.link(
                 _test_migration_repo.path,
-                false,  // No recursive
+                true,   // recursive
                 true,   // Force
             );
             _project.lodoo.updateAddonsList(_test_db_name);

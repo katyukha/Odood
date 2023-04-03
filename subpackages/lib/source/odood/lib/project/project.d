@@ -20,6 +20,7 @@ private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.lib.git: isGitRepo;
 
 public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
@@ -46,9 +47,16 @@ class Project {
       **/
     static auto loadProject() {
         auto s_config_path = Path.current.searchFileUp("odood.yml");
+
+        // If config is not found in current directory and above,
+        // check server-wide config (may be it is installed in server-mode)
+        if (s_config_path.isNull && Path("/", "etc", "odood.yml").exists)
+            s_config_path = Path("/", "etc", "odood.yml").nullable;
+
         enforce!OdoodException(
             !s_config_path.isNull,
             "Cannot find OdooD configuration file!");
+
         return loadProject(s_config_path.get);
     }
 
@@ -265,16 +273,40 @@ class Project {
         this.directories.initializeDirecotires();
 
         // Initialize project (install everything needed)
+        // TODO: parallelize download of Odoo and installation of virtualenv
         this.installDownloadOdoo();
         this.installVirtualenv(python_version, node_version);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
+        // TODO: Automatically save config
     }
 
     /// ditto
     void initialize() {
         auto odoo_config = this.initOdooConfig();
         initialize(odoo_config);
+    }
+
+    /** Update odoo to newer version
+      *
+      **/
+    void updateOdoo() {
+        import odood.lib.install;
+
+        // TODO: Add support for backup old odoo sources before updating
+        //       Could be useful in case if there were some customizations
+        // TODO: Add support for cases when odoo installed via git
+        //       In this case it is better to just run git pull
+        enforce!OdoodException(
+            !this.odoo.path.isGitRepo,
+            "Cannot update odoo that is git repo yet!");
+
+        infof("Removing odoo installation at %s", this.odoo.path);
+        this.odoo.path.remove();
+
+        this.installDownloadOdoo();
+        this.installOdoo();
+        infof("Odoo update completed.", this.odoo.path);
     }
 
     /// Get configuration for Odoo

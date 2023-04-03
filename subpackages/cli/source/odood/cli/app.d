@@ -4,7 +4,7 @@ private import std.logger;
 private import std.format: format;
 
 private import commandr: Program, ProgramArgs, Option, Flag, parse;
-import consolecolors: cwritefln, escapeCCL;
+private import colored;
 
 private import odood.lib: _version;
 private import odood.lib.exception: OdoodException;
@@ -100,6 +100,12 @@ class App: OdoodProgram {
     /** So setup actions before running any specific logic
       **/
     override void setup(scope ref ProgramArgs args) {
+        import std.stdio;
+        // Disable buffering of stdout and stderr
+        // TODO: Make it configurable with option
+        stdout.setvbuf(1024, _IONBF);
+        stderr.setvbuf(1024, _IONBF);
+
         int verbosity = args.occurencesOf("verbose");
         int quietness = args.occurencesOf("quiet");
 
@@ -118,16 +124,16 @@ class App: OdoodProgram {
         } catch (OdoodException e) {
             // TODO: Use custom colodred formatting for errors
             if (enable_debug)
-                error(escapeCCL("Odood Exception catched:\n%s".format(e)));
+                error("Odood Exception catched:\n%s".format(e));
             else
-                error(escapeCCL("%s".format(e.msg)));
+                error("%s".format(e.msg));
             return 1;
         } catch (Exception e) {
             // TODO: Use custom colodred formatting for errors
             if (enable_debug)
-                error(escapeCCL("Exception catched:\n%s".format(e)));
+                error("Exception catched:\n%s".format(e));
             else
-                error(escapeCCL("%s".format(e.msg)));
+                error("%s".format(e.msg));
             return 1;
         }
     }

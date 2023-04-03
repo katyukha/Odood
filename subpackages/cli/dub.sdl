@@ -3,7 +3,9 @@ description "CLI Interface for Odood"
 authors "Dmytro Katyukha"
 copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
-dependency "console-colors" version="~>1"
+/*dependency "colored" version=">=0.0.29"*/
+/*dependency "colored" path="../../../colored"*/
+dependency "colored" repository="git+https://gitlab.com/katyukha/colored.git" version="8267cd260ccd4dcb35ae8da8de5e81cd146c8828"
 dependency "commandr" version="~master"
 /*dependency "commandr" path="../../../commandr"*/
 /*dependency "commandr" repository="git+https://github.com/katyukha/commandr.git" version="~dev-fx"*/

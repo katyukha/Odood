@@ -8,7 +8,7 @@ private import std.algorithm: sort;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
-private import consolecolors: cwriteln, cwritefln, escapeCCL;
+private import colored;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -73,10 +73,10 @@ class CommandAddonsList: OdoodCommand {
 
         OdooAddon[] addons;
         if (args.flag("system")) {
-            cwriteln("Listing all addons available for Odoo");
+            writeln("Listing all addons available for Odoo");
             addons = project.addons.scan();
         } else  {
-            cwritefln("Listing addons in %s", search_path);
+            writeln("Listing addons in ", search_path.toString.yellow);
             addons = project.addons.scan(search_path, args.flag("recursive"));
         }
 
@@ -106,9 +106,9 @@ class CommandAddonsList: OdoodCommand {
 
             if (args.option("color") == "link") {
                 if (project.addons.isLinked(addon))
-                    cwritefln("<green>%s</green>", addon_line);
+                    writeln(addon_line.green);
                 else
-                    cwritefln("<red>%s</red>", addon_line);
+                    writeln(addon_line.red);
             } else {
                 writeln(addon_line);
             }
@@ -239,7 +239,7 @@ class CommandAddonsUpdate: OdoodCommand {
             if (args.flag("all"))
                 project.addons.updateAll(db);
             else
-                project.addons.update(addons, db);
+                project.addons.update(db, addons);
         }
 
         if (start_again)
@@ -300,7 +300,7 @@ class CommandAddonsInstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.install(addons, db);
+            project.addons.install(db, addons);
         }
 
         if (start_again)
@@ -360,7 +360,7 @@ class CommandAddonsUninstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.uninstall(addons, db);
+            project.addons.uninstall(db, addons);
         }
 
         if (start_again)
@@ -372,6 +372,11 @@ class CommandAddonsUninstall: OdoodCommand {
 class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
+        this.add(new Flag(
+            null, "single-branch",
+            "Clone repository wihth --single-branch options. " ~
+            "This could significantly reduce size of data to be downloaded " ~
+            "and increase performance."));
         this.add(new Option(
             null, "odoo-apps", "Add addon from odoo apps.").repeating);
         this.add(new Option(
@@ -387,7 +392,9 @@ class CommandAddonsAdd: OdoodCommand {
             project.addons.downloadFromOdooApps(app);
 
         foreach(requirements_path; args.options("odoo-requirements"))
-            project.addons.processOdooRequirements(Path(requirements_path));
+            project.addons.processOdooRequirements(
+                Path(requirements_path),
+                args.flag("single-branch"));
     }
 
 }
@@ -412,13 +419,9 @@ class CommandAddonsIsInstalled: OdoodCommand {
             "Cannot find addon %s".format(args.arg("addon")));
         auto addon = addon_n.get();
 
-        foreach(dbname; project.lodoo.databaseList) {
-            auto db = project.dbSQL(dbname);
-            scope(exit) db.close();
-
-            if (db.isAddonInstalled(addon))
+        foreach(dbname; project.lodoo.databaseList)
+            if (project.addons.isInstalled(dbname, addon))
                 writeln(dbname);
-        }
     }
 }
 

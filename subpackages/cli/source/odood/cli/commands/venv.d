@@ -66,11 +66,36 @@ class CommandVenvReinstall: OdoodCommand {
 }
 
 
+class CommandVenvUpdateOdoo: OdoodCommand {
+
+    this() {
+        super("update-odoo", "Update Odoo itself.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        import odood.lib.install;
+        auto project = Project.loadProject;
+        bool start_server = false;
+        if (project.server.isRunning()) {
+            start_server = true;
+            project.server.stop();
+        }
+
+        project.updateOdoo();
+
+        if (start_server)
+            project.server.spawn(true);
+    }
+
+}
+
+
 class CommandVenv: OdoodCommand {
     this() {
         super("venv", "Manage virtual environment for this project.");
         this.add(new CommandVenvInstallDevTools());
         this.add(new CommandVenvReinstall());
+        this.add(new CommandVenvUpdateOdoo());
     }
 }
 

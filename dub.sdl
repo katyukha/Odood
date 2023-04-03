@@ -5,6 +5,7 @@ copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "pyd" version="~master"
 
+
 dependency ":lib" path="./subpackages/lib"
 dependency ":cli" path="./subpackages/cli"
 subPackage "./subpackages/lib"
@@ -12,8 +13,6 @@ subPackage "./subpackages/cli"
 
 targetPath "build"
 
-subConfiguration "odood:lib" "sourceLibrary"
-subConfiguration "odood:cli" "sourceLibrary"
 subConfiguration "pyd" "python310"
 
 
@@ -35,7 +34,21 @@ configuration "bash-autocomplete" {
     postBuildCommands "$DUB_TARGET_PATH/$DUB_TARGET_NAME > $DUB_TARGET_PATH/odood.bash";
 }
 
+/* Simple and fast unittests */
 configuration "unittest" {
+    targetType "executable"
+    targetName "odood-unittest"
     mainSourceFile "source/odood/app.d"
-    dependency "unit-threaded:assertions" version=">=2.0.0"
+    dependency "unit-threaded:assertions" version="*"
+}
+
+/* Integration tests with silly */
+configuration "unittest-silly" {
+    targetType "executable"
+    targetName "odood-unittest"
+    mainSourceFile "source/odood/app.d"
+    sourcePaths "tests"
+    dependency "unit-threaded:assertions" version="*"
+    dependency "silly" version="*"
+    /*subConfiguration "colored" "library"*/
 }
