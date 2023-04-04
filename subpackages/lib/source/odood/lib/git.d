@@ -123,6 +123,16 @@ unittest {
     }
 }
 
+/** TODO: Update git URL according to CI env variables config
+  *
+  *  if [ -n "$CI_JOB_TOKEN_GIT_HOST" ] && [ -n "$GITLAB_CI" ] && [ -n "$CI_JOB_TOKEN" ]; then
+  *      extra_git_opt="$extra_git_opt -c url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_JOB_TOKEN_GIT_HOST}/\".insteadOf=\"git@${CI_JOB_TOKEN_GIT_HOST}:\"";
+  *      extra_git_opt="$extra_git_opt -c url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_JOB_TOKEN_GIT_HOST}/\".insteadOf=\"https://${CI_JOB_TOKEN_GIT_HOST}/\"";
+  *      extra_git_opt="$extra_git_opt -c url.\"https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_JOB_TOKEN_GIT_HOST}/\".insteadOf=\"${CI_JOB_TOKEN_GIT_HOST}/\"";
+  *      echoe -e "${BLUEC}Use ${YELLOWC}gitlab-ci-token${BLUEC} for auth to repository ${YELLOWC}${CI_JOB_TOKEN_GIT_HOST}${NC}";
+  *  fi
+  **/
+
 
 /// Clone git repository to provided destination directory
 void gitClone(in GitURL repo, in Path dest, in string branch,
