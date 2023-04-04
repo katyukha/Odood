@@ -12,38 +12,72 @@ private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 private import colored;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
 private import odood.lib.exception: OdoodException;
 
 
+/** Color log level, depending on log level itself
+  *
+  * Params:
+  *     rec = OdooLogRecord, that represents single log statement
+  * Returns:
+  *     string that contains colored log level
+  **/
+auto colorLogLevel(in ref OdooLogRecord rec) {
+    switch (rec.log_level) {
+        case "DEBUG":
+            return rec.log_level.bold.lightGray;
+        case "INFO":
+            return rec.log_level.bold.green;
+        case "WARNING":
+            return rec.log_level.bold.yellow;
+        case "ERROR":
+            return rec.log_level.bold.red;
+        case "CRITICAL":
+            return rec.log_level.bold.red;
+        default:
+            return rec.log_level.bold;
+    }
+}
+
+
+/** Print single log record to stdout, applying colors
+  **/
 void printLogRecord(in ref OdooLogRecord rec) {
-    auto colored_log_level = () {
-        switch (rec.log_level) {
-            case "DEBUG":
-                return rec.log_level.bold.lightGray;
-            case "INFO":
-                return rec.log_level.bold.green;
-            case "WARNING":
-                return rec.log_level.bold.yellow;
-            case "ERROR":
-                return rec.log_level.bold.red;
-            case "CRITICAL":
-                return rec.log_level.bold.red;
-            default:
-                return rec.log_level.bold;
-        }
-    }();
     writefln(
         "%s %s %s %s %s: %s",
         rec.date.lightBlue,
         rec.process_id.to!string.lightGray,
-        colored_log_level,
+        rec.colorLogLevel,
         rec.db.cyan,
         rec.logger.magenta,
         rec.msg);
+}
+
+
+/** Print single log record to stdout in simplified form, applying colors
+  **/
+void printLogRecordSimplified(in ref OdooLogRecord rec) {
+    import std.regex;
+
+    immutable auto RE_LOG_RECORD_START = ctRegex!(
+        r"(?P<date>\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\,\d{3})\s" ~
+        r"(?P<processid>\d+)\s" ~
+        r"(?P<loglevel>\S+)\s" ~
+        r"(?P<db>\S+)\s" ~
+        r"(?P<logger>\S+):\s(?=\`)");
+
+    auto msg = rec.msg.replaceAll(
+        RE_LOG_RECORD_START, "${loglevel} ${logger}: ");
+
+    writefln(
+        "%s %s: %s",
+        rec.colorLogLevel,
+        rec.logger.magenta,
+        msg);
 }
 
 
@@ -141,21 +175,24 @@ class CommandTest: OdoodCommand {
         auto res = testRunner.run();
 
         if (res.success) {
-            writeln("-".replicate(80).green);
-            writeln("Test result: ", "SUCCESS".bold.green);
-            writeln("-".replicate(80).green);
+            writeln();
+            writeln("*".replicate(24).green);
+            writeln("* ".green, "Test result: ".bold, "SUCCESS".bold.green, " *".red);
+            writeln("*".replicate(24).green);
         } else {
-            writeln("-".replicate(80).red);
-            writefln("Test result: ", "FAILED".bold.red);
-            writeln("-".replicate(80).red);
             if (args.flag("error-report")) {
-                writeln("Errors listed below:");
-                writeln("-".replicate(80).lightGray);
+                writeln();
+                writeln("*".replicate(19).red);
+                writeln("* ".red, "Reported errors".bold, " *".red);
+                writeln("*".replicate(19).red);
                 foreach(error; res.errors) {
-                    printLogRecord(error);
-                    writeln("-".replicate(80).lightGray);
+                    printLogRecordSimplified(error);
                 }
             }
+            writeln();
+            writeln("*".replicate(23).red);
+            writeln("* ".red, "Test result: ".bold, "FAILED".bold.red, " *".red);
+            writeln("*".replicate(23).red);
         }
 
         // Handle coverage report
@@ -190,12 +227,31 @@ class CommandTest: OdoodCommand {
                     args.option("coverage-fail-under"),
                 ];
 
-            writeln(
-                project.venv.runE(
-                    ["coverage", "report",] ~ coverage_report_options
-                ).output
+            auto coverage_report_res = project.venv.run(
+                ["coverage", "report",] ~ coverage_report_options
             );
+
+            writeln();
+            if (coverage_report_res.status == 0) {
+                writeln("*".replicate(23).blue);
+                writeln("* ".blue, "Coverage Report: ".bold, "OK".bold.green, " *".blue);
+                writeln("*".replicate(23).blue);
+                writeln(coverage_report_res.output);
+            } else {
+                writeln("*".replicate(27).blue);
+                writeln("* ".blue, "Coverage Report: ".bold, "FAILED".bold.red, " *".blue);
+                writeln("*".replicate(27).blue);
+                writeln(coverage_report_res.output);
+
+                // Exit with error code
+                // TODO: Try to avoid exception;
+                exitWithCode(1, "Test failed");
+            }
         }
+
+        if (!res.success)
+            // TODO: Try to avoid exception, and just return non-zero exit-code
+            exitWithCode(1, "Test failed");
     }
 }
 
