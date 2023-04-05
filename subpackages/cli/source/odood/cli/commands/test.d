@@ -177,7 +177,7 @@ class CommandTest: OdoodCommand {
         if (res.success) {
             writeln();
             writeln("*".replicate(24).green);
-            writeln("* ".green, "Test result: ".bold, "SUCCESS".bold.green, " *".red);
+            writeln("* ".green, "Test result: ".bold, "SUCCESS".bold.green, " *".green);
             writeln("*".replicate(24).green);
         } else {
             if (args.flag("error-report")) {
