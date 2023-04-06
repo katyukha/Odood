@@ -210,11 +210,11 @@ class CommandTest: OdoodCommand {
                 "coverage", "html",
             ] ~ coverage_html_options);
             writefln(
-                "Coverage report saved at <blue>%s</blue>.\n" ~
-                "Just open url (<blue>file://%s/index.html</blue>) in " ~
-                "your browser to view coverage report.",
+                "Coverage report saved at %s.\n" ~
+                "Just open url (%s) in your browser to view coverage report.",
                 Path.current.join("htmlcov").toString.underlined.blue,
-                Path.current.join("htmlcov").toString.underlined.blue);
+                "file://%s/index.html".format(
+                    Path.current.join("htmlcov").toString).underlined.blue);
         }
 
         if (args.flag("coverage-report")) {
