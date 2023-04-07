@@ -445,7 +445,7 @@ struct AddonManager {
             }
     }
 
-    /// Add new addon repo to project
+    /// Add new addon repository to project
     void addRepo(
             in string url, in string branch, in bool single_branch=false) {
         import std.algorithm;
