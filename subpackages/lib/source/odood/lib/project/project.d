@@ -203,8 +203,8 @@ class Project {
     /** AddonManager related to this project
       * Allows to manage addons of this project
       **/
-    @property auto addons() const {
-        return AddonManager(this);
+    @property auto addons(in bool test_mode=false) const {
+        return AddonManager(this, test_mode);
     }
 
     /** Return database manager instance, that provides high-level

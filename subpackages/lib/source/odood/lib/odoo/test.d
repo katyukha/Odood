@@ -179,7 +179,7 @@ struct OdooTestRunner {
         // Instantiate Odoo server in test mode
         _server = _project.server(true);
 
-        // Instantiate database manager
+        // Instantiate database manager in test mode
         _databases = _project.databases(true);
 
         // By default, do not use temporary database,
@@ -250,7 +250,7 @@ struct OdooTestRunner {
     /** Set git repo path for migration test
       **/
     auto ref setMigrationRepo(in Path path) {
-        _test_migration_repo = _project.addons.getRepo(path);
+        _test_migration_repo = _project.addons(true).getRepo(path);
         _test_migration = true;
         return this;
     }
@@ -292,7 +292,7 @@ struct OdooTestRunner {
 
     /// ditto
     auto ref addModule(in string addon_name_or_path) {
-        auto addon = _project.addons.getByString(addon_name_or_path);
+        auto addon = _project.addons(true).getByString(addon_name_or_path);
         enforce!OdoodException(
             !addon.isNull,
             "Cannot find addon %s!".format(addon_name_or_path));
@@ -380,11 +380,11 @@ struct OdooTestRunner {
             // process odoo_requirements.txt if needed
             // (to ensure all dependencies present)
             if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
-                _project.addons.processOdooRequirements(
+                _project.addons(true).processOdooRequirements(
                     _test_migration_repo.path.join("odoo_requirements.txt"));
 
             // Link module from migration start ref
-            _project.addons.link(
+            _project.addons(true).link(
                 _test_migration_repo.path,
                 true,   // Recursive
                 true,   // Force
@@ -463,11 +463,11 @@ struct OdooTestRunner {
 
             // process odoo_requirements.txt if needed
             if (_test_migration_repo.path.join("odoo_requirements.txt").exists)
-                _project.addons.processOdooRequirements(
+                _project.addons(true).processOdooRequirements(
                     _test_migration_repo.path.join("odoo_requirements.txt"));
 
             // Link module from current branch
-            _project.addons.link(
+            _project.addons(true).link(
                 _test_migration_repo.path,
                 true,   // recursive
                 true,   // Force

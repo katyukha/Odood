@@ -128,6 +128,10 @@ struct OdooDatabaseManager {
     }
 
     /** Restore database
+      *
+      * Params:
+      *     name = name of database to restore
+      *     backup_path = path to database backup to restore
       **/
     auto restore(in string name, in Path backup_path) const {
         return _project.lodoo(_test_mode).databaseRestore(name, backup_path);

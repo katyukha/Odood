@@ -26,6 +26,7 @@ private import odood.lib.exception: OdoodException;
 /// Struct that provide API to manage odoo addons for the project
 struct AddonManager {
     private const Project _project;
+    private const bool _test_mode;
     private Nullable!(Path[]) _addons_paths;
 
     /// Cmd for Install, Update addons
@@ -37,8 +38,9 @@ struct AddonManager {
 
     @disable this();
 
-    this(in Project project) {
+    this(in Project project, in bool test_mode=false) {
         _project = project;
+        _test_mode = test_mode;
     }
 
     /// Get list of paths to search for addons
@@ -246,19 +248,19 @@ struct AddonManager {
         final switch(cmd) {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
-                _project.server.runE(
+                _project.server(_test_mode).runE(
                     server_opts ~ ["--init=%s".format(addon_names_csv)], env);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
-                _project.server.runE(
+                _project.server(_test_mode).runE(
                     server_opts ~ ["--update=%s".format(addon_names_csv)], env);
                 infof("Update of addons for database %s completed!", database);
                 break;
             case cmdIU.uninstall:
                 infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
-                _project.lodoo.addonsUninstall(
+                _project.lodoo(_test_mode).addonsUninstall(
                     database,
                     addon_names);
                 infof("Uninstallation of addons for database %s completed!", database);
