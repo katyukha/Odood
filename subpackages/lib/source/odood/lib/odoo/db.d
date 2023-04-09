@@ -13,6 +13,9 @@ private import odood.lib.addons.addon: OdooAddon;
 private import odood.lib.exception: OdoodException;
 
 
+/** This struct represents single Odoo database, and allows to run SQL
+  * queries and SQL scripts for this database
+  **/
 package(odood.lib) struct OdooDatabase {
     private const Project _project;
     private const string _dbname;

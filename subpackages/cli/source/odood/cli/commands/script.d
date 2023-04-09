@@ -27,7 +27,7 @@ class CommandScriptPy: OdoodCommand {
         Path script = args.arg("script");
 
         enforce!OdoodException(
-            project.lodoo.databaseExists(args.option("db")),
+            project.databases.exists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
         auto res = project.lodoo.runPyScript(dbname, script);
@@ -55,7 +55,7 @@ class CommandScriptSQL: OdoodCommand {
 
         // TODO: check existense of db via SQL
         enforce!OdoodException(
-            project.lodoo.databaseExists(dbname),
+            project.databases.exists(dbname),
             "Database %s does not exists!".format(dbname));
 
         auto db = project.dbSQL(dbname);

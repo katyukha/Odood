@@ -30,7 +30,7 @@ class CommandDatabaseList: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        foreach(db; project.lodoo.databaseList()) {
+        foreach(db; project.databases.list()) {
             writeln(db);
         }
     }
@@ -65,18 +65,18 @@ class CommandDatabaseCreate: OdoodCommand {
 
         auto project = Project.loadProject;
         string dbname = args.arg("name");
-        if (project.lodoo.databaseExists(dbname)) {
+        if (project.databases.exists(dbname)) {
             if (args.flag("recreate")) {
                 warningf(
                     "Dropting database %s before recreating it " ~
                     "(because --recreate option specified).", dbname);
-                project.lodoo.databaseDrop(dbname);
+                project.databases.drop(dbname);
             } else {
                 throw new OdoodException(
                     "Database %s already exists!".format(dbname));
             }
         }
-        project.lodoo.databaseCreate(
+        project.databases.create(
             dbname,
             args.flag("demo"),
             args.option("lang"),
@@ -111,8 +111,8 @@ class CommandDatabaseDrop: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
         foreach(dbname; args.args("name"))
-            if (project.lodoo.databaseExists(dbname))
-                project.lodoo.databaseDrop(dbname);
+            if (project.databases.exists(dbname))
+                project.databases.drop(dbname);
     }
 }
 
@@ -127,7 +127,7 @@ class CommandDatabaseExists: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        bool db_exists = project.lodoo.databaseExists(args.arg("name"));
+        bool db_exists = project.databases.exists(args.arg("name"));
         if (db_exists) {
             if (!args.flag("quiet"))
                 writeln("Database %s exists!".format(args.arg("name")));
@@ -152,7 +152,7 @@ class CommandDatabaseRename: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.lodoo.databaseRename(
+        project.databases.rename(
             args.arg("old-name"), args.arg("new-name"));
     }
 }
@@ -169,7 +169,7 @@ class CommandDatabaseCopy: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.lodoo.databaseCopy(
+        project.databases.copy(
             args.arg("old-name"), args.arg("new-name"));
     }
 }
@@ -203,9 +203,9 @@ class CommandDatabaseBackup: OdoodCommand {
         Path dest;
         if (args.option("dest")) {
             dest = Path(args.option("dest"));
-            project.lodoo.databaseBackup(args.arg("name"), dest, b_format);
+            project.databases.backup(args.arg("name"), dest, b_format);
         } else {
-            dest = project.lodoo.databaseBackup(args.arg("name"), b_format);
+            dest = project.databases.backup(args.arg("name"), b_format);
         }
     }
 }
@@ -237,7 +237,7 @@ class CommandDatabaseRestore: OdoodCommand {
             start_server = true;
         }
 
-        project.lodoo.databaseRestore(args.arg("name"), backup_path);
+        project.databases.restore(args.arg("name"), backup_path);
 
         // Optionally stun database
         if (args.flag("stun")) {

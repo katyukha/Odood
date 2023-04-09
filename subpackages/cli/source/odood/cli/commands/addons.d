@@ -141,7 +141,7 @@ class CommandAddonsLink: OdoodCommand {
             args.flag("force"));
 
         if (args.flag("ual"))
-            foreach(dbname; project.lodoo.databaseList())
+            foreach(dbname; project.databases.list())
                 project.lodoo.updateAddonsList(dbname);
     }
 
@@ -166,7 +166,7 @@ class CommandAddonsUpdateList: OdoodCommand {
         auto project = Project.loadProject;
 
         string[] dbnames = args.flag("all") ?
-            project.lodoo.databaseList() : args.args("database");
+            project.databases.list() : args.args("database");
 
         if (!dbnames)
             errorf("No databases specified.");
@@ -207,7 +207,7 @@ class CommandAddonsUpdate: OdoodCommand {
         auto project = Project.loadProject;
 
         string[] dbnames = args.options("db") ?
-            args.options("db") : project.lodoo.databaseList();
+            args.options("db") : project.databases.list();
 
         OdooAddon[] addons;
         if (!args.flag("all")) {
@@ -273,7 +273,7 @@ class CommandAddonsInstall: OdoodCommand {
         auto project = Project.loadProject;
 
         string[] dbnames = args.options("db") ?
-            args.options("db") : project.lodoo.databaseList();
+            args.options("db") : project.databases.list();
 
         OdooAddon[] addons;
         foreach(addon_name; args.args("addon")) {
@@ -333,7 +333,7 @@ class CommandAddonsUninstall: OdoodCommand {
         auto project = Project.loadProject;
 
         string[] dbnames = args.options("db") ?
-            args.options("db") : project.lodoo.databaseList();
+            args.options("db") : project.databases.list();
 
         OdooAddon[] addons;
         foreach(addon_name; args.args("addon")) {
@@ -419,7 +419,7 @@ class CommandAddonsIsInstalled: OdoodCommand {
             "Cannot find addon %s".format(args.arg("addon")));
         auto addon = addon_n.get();
 
-        foreach(dbname; project.lodoo.databaseList)
+        foreach(dbname; project.databases.list)
             if (project.addons.isInstalled(dbname, addon))
                 writeln(dbname);
     }

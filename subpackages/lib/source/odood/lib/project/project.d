@@ -19,7 +19,7 @@ private import odood.lib.server: OdooServer;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
-private import odood.lib.odoo.db: OdooDatabase;
+private import odood.lib.odoo.db_manager: OdooDatabaseManager;
 private import odood.lib.git: isGitRepo;
 
 public import odood.lib.project.config:
@@ -207,6 +207,10 @@ class Project {
         return AddonManager(this);
     }
 
+    @property auto databases() const {
+        return OdooDatabaseManager(this);
+    }
+
     /** Create new test-runner instance.
       **/
     @property auto testRunner() const {
@@ -220,7 +224,7 @@ class Project {
       *     dbname = name of database to interact with
       **/
     auto dbSQL(in string dbname) const {
-        return OdooDatabase(this, dbname);
+        return databases.get(dbname);
     }
 
     /** Save project configuration to specified config file.
