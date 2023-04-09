@@ -15,7 +15,6 @@ targetPath "build"
 
 subConfiguration "pyd" "python310"
 
-
 configuration "executable" {
     targetType "executable"
     mainSourceFile "source/odood/app.d"
@@ -36,6 +35,10 @@ configuration "bash-autocomplete" {
 
 /* Simple and fast unittests */
 configuration "unittest" {
+    /* Build subpackages as sourceLibrary to run tests of subpackages */
+    subConfiguration ":lib" "sourceLibrary"
+    subConfiguration ":cli" "sourceLibrary"
+
     targetType "executable"
     targetName "odood-unittest"
     mainSourceFile "source/odood/app.d"

@@ -158,7 +158,6 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
 
     /// Pop front record
     void popFront() {
-        tryReadLogRecordIfNeeded();
         _log_record.nullify;
     }
 }
@@ -186,6 +185,7 @@ Traceback (most recent call last):
 AssertionError: 2 != 1");
     processor.popFront;
     processor.front.msg.shouldEqual("Starting TestRequestBase.test_request_can_change_category ... ");
+    processor.popFront;
     processor.empty.shouldBeTrue();
 }
 
