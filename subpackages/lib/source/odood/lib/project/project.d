@@ -181,26 +181,23 @@ class Project {
     @property auto odoo() const { return _odoo; }
 
     /// LOdoo instance for this project
-    @property const(LOdoo) lodoo() const {
-        return LOdoo(
-            this,
-            false,  // No test mode
-        );
+    const(LOdoo) lodoo(in bool test_mode=false) const {
+        return LOdoo(this, test_mode);
     }
 
     /** VirtualEnv related to this project.
       * Allows to run commands in convext of virtual environment,
       * install packages, etc
       **/
-    @property auto venv() const {
+    auto venv() const {
         return _venv;
     }
 
     /** OdooServer wrapper to manage server of this Odood project
       * Provides basic methods to start/stop/etc odoo server.
       **/
-    @property auto server() const {
-        return OdooServer(this);
+    auto server(in bool test_mode=false) const {
+        return OdooServer(this, test_mode);
     }
 
     /** AddonManager related to this project
@@ -210,8 +207,11 @@ class Project {
         return AddonManager(this);
     }
 
-    @property auto databases() const {
-        return OdooDatabaseManager(this);
+    /** Return database manager instance, that provides high-level
+      * interface to manage Odoo databases
+      **/
+    auto databases(in bool test_mode=false) const {
+        return OdooDatabaseManager(this, test_mode);
     }
 
     /** Create new test-runner instance.

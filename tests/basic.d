@@ -39,41 +39,41 @@ string genDbName(in Project project, in string name) {
 
 /// Test database management functions
 void testDatabaseManagement(in Project project) {
-    project.lodoo.databaseList().empty.shouldBeTrue();
+    project.databases.list.empty.shouldBeTrue();
 
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeFalse();
-    project.lodoo.databaseCreate(project.genDbName("test-1"), true);
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
+    project.databases.create(project.genDbName("test-1"), true);
+    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
 
-    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeFalse();
-    project.lodoo.databaseRename(project.genDbName("test-1"), project.genDbName("test-2"));
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeFalse();
-    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
+    project.databases.rename(project.genDbName("test-1"), project.genDbName("test-2"));
+    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
+    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
-    project.lodoo.databaseCopy(project.genDbName("test-2"), project.genDbName("test-1"));
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
-    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.copy(project.genDbName("test-2"), project.genDbName("test-1"));
+    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
-    auto backup_path = project.lodoo.databaseBackup(project.genDbName("test-2"));
+    auto backup_path = project.databases.backup(project.genDbName("test-2"));
 
-    project.lodoo.databaseDrop(project.genDbName("test-2"));
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
-    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeFalse();
+    project.databases.drop(project.genDbName("test-2"));
+    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
 
-    project.lodoo.databaseRestore(project.genDbName("test-2"), backup_path);
-    project.lodoo.databaseExists(project.genDbName("test-1")).shouldBeTrue();
-    project.lodoo.databaseExists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.restore(project.genDbName("test-2"), backup_path);
+    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
     // Drop databases
-    project.lodoo.databaseDrop(project.genDbName("test-1"));
-    project.lodoo.databaseDrop(project.genDbName("test-2"));
-    project.lodoo.databaseList().empty.shouldBeTrue();
+    project.databases.drop(project.genDbName("test-1"));
+    project.databases.drop(project.genDbName("test-2"));
+    project.databases.list.empty.shouldBeTrue();
 }
 
 
 /// Test addons manager
 void testAddonsManagementBasic(in Project project) {
-    project.lodoo.databaseCreate(project.genDbName("test-1"), true);
+    project.databases.create(project.genDbName("test-1"), true);
 
     project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
     project.addons.install(project.genDbName("test-1"), "crm");
@@ -116,7 +116,7 @@ void testAddonsManagementBasic(in Project project) {
         project.directories.downloads.join("bureaucrat_helpdesk_lite"));
 
     // Drop database
-    project.lodoo.databaseDrop(project.genDbName("test-1"));
+    project.databases.drop(project.genDbName("test-1"));
 }
 
 @("Basic Test Odoo 15")

@@ -21,50 +21,52 @@ private import odood.lib.odoo.db: OdooDatabase;
   **/
 struct OdooDatabaseManager {
     private const Project _project;
+    private const bool _test_mode;
 
-    this(in Project project) {
+    this(in Project project, in bool test_mode) {
         _project = project;
+        _test_mode = test_mode;
     }
 
     /** Return list of databases available on this odoo instance
       **/
-    string[] list() {
-        return _project.lodoo.databaseList();
+    string[] list() const {
+        return _project.lodoo(_test_mode).databaseList();
     }
 
     /** Create new Odoo database on this odoo instance
       **/
     auto create(in string name, in bool demo=false,
                 in string lang=null, in string password=null,
-                in string country=null) {
-        return _project.lodoo.databaseCreate(name, demo, lang, password, country);
+                in string country=null) const {
+        return _project.lodoo(_test_mode).databaseCreate(name, demo, lang, password, country);
     }
 
     /** Drop specified database
       **/
-    auto drop(in string name) {
-        return _project.lodoo.databaseDrop(name);
+    auto drop(in string name) const {
+        return _project.lodoo(_test_mode).databaseDrop(name);
     }
 
     /** Check if database exists
       **/
-    bool exists(in string name) {
+    bool exists(in string name) const {
         // TODO: replace with project's db wrapper to check if database exists
         //       This could simplify performance by avoiding call to python
         //       interpreter
-        return _project.lodoo.databaseExists(name);
+        return _project.lodoo(_test_mode).databaseExists(name);
     }
 
     /** Rename database
       **/
-    auto rename(in string old_name, in string new_name) {
-        return _project.lodoo.databaseRename(old_name, new_name);
+    auto rename(in string old_name, in string new_name) const {
+        return _project.lodoo(_test_mode).databaseRename(old_name, new_name);
     }
 
     /** Copy database
       **/
-    auto copy(in string old_name, in string new_name) {
-        return _project.lodoo.databaseCopy(old_name, new_name);
+    auto copy(in string old_name, in string new_name) const {
+        return _project.lodoo(_test_mode).databaseCopy(old_name, new_name);
     }
 
     /** Backup database
@@ -79,8 +81,8 @@ struct OdooDatabaseManager {
       **/
     Path backup(
             in string dbname, in Path backup_path,
-            in BackupFormat backup_format = BackupFormat.zip) {
-        return _project.lodoo.databaseBackup(dbname, backup_path, backup_format);
+            in BackupFormat backup_format = BackupFormat.zip) const {
+        return _project.lodoo(_test_mode).databaseBackup(dbname, backup_path, backup_format);
     }
 
     /** Backup database.
@@ -98,7 +100,7 @@ struct OdooDatabaseManager {
       **/
     Path backup(
             in string dbname,
-            in BackupFormat backup_format = BackupFormat.zip) {
+            in BackupFormat backup_format = BackupFormat.zip) const {
         // TODO: Add ability to specify backup path
         import std.datetime.systime: Clock;
         import odood.lib.utils: generateRandomString;
@@ -127,8 +129,8 @@ struct OdooDatabaseManager {
 
     /** Restore database
       **/
-    auto restore(in string name, in Path backup_path) {
-        return _project.lodoo.databaseRestore(name, backup_path);
+    auto restore(in string name, in Path backup_path) const {
+        return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
     }
 
     /** Return database wrapper, that allows to interact with database

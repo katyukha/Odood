@@ -16,6 +16,7 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
+private import odood.lib.odoo.db_manager: OdooDatabaseManager;
 private import odood.lib.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
@@ -141,6 +142,7 @@ struct OdooTestRunner {
 
     private const Project _project;
     private const LOdoo _lodoo;
+    private const OdooDatabaseManager _databases;
     private const OdooServer _server;
 
     // TODO: Create separate struct to handle AddonsLists
@@ -172,15 +174,16 @@ struct OdooTestRunner {
 
         // We have to instantiate LOdoo instance that will use
         // test odoo config
-        _lodoo = LOdoo(
-            _project,
-            true,  // Enable test mode
-        );
+        _lodoo = _project.lodoo(true);
 
-        _server = OdooServer(
-            _project,
-            true,  // Enable test mode
-        );
+        // Instantiate Odoo server in test mode
+        _server = _project.server(true);
+
+        // Instantiate database manager
+        _databases = _project.databases(true);
+
+        // By default, do not use temporary database,
+        // instead, use default test database
         _temporary_db = false;
     }
 
@@ -322,8 +325,8 @@ struct OdooTestRunner {
     void cleanUp() {
         if (_temporary_db &&
                 _db_no_drop == false &&
-                _lodoo.databaseExists(_test_db_name)) {
-            _lodoo.databaseDrop(_test_db_name);
+                _databases.exists(_test_db_name)) {
+            _databases.drop(_test_db_name);
         }
     }
 
