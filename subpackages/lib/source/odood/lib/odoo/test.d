@@ -172,11 +172,14 @@ struct OdooTestRunner {
 
         // We have to instantiate LOdoo instance that will use
         // test odoo config
-        _lodoo = LOdoo(_project, _project.odoo.testconfigfile);
+        _lodoo = LOdoo(
+            _project,
+            true,  // Enable test mode
+        );
 
         _server = OdooServer(
-                _project,
-                true,  // Enable test mode
+            _project,
+            true,  // Enable test mode
         );
         _temporary_db = false;
     }

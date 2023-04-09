@@ -25,8 +25,17 @@ enum BackupFormat {
   **/
 const struct LOdoo {
     private:
-        const Path _odoo_conf;
         const Project _project;
+        const bool _test_mode;
+
+        /// Is test mode enabled?
+        @property const(bool) test_mode() const => _test_mode;
+
+        /// Compute config path for lodoo, depending on _test_mode flag
+        @property Path odoo_conf_path() const {
+            return _test_mode ?
+                _project.odoo.testconfigfile : _project.odoo.configfile;
+        }
 
         /** Run lodoo with provided args
           **/
@@ -35,7 +44,7 @@ const struct LOdoo {
                 std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
             return _project.venv.run(
-                ["lodoo", "--conf", _odoo_conf.toString] ~ args,
+                ["lodoo", "--conf", odoo_conf_path.toString] ~ args,
                 Nullable!Path.init, // workdir
                 null,  // env
                 config);
@@ -54,7 +63,7 @@ const struct LOdoo {
                 std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
             return _project.venv.runE(
-                ["lodoo", "--conf", _odoo_conf.toString] ~ args,
+                ["lodoo", "--conf", odoo_conf_path.toString] ~ args,
                 Nullable!Path.init,  // workdir
                 null,  // env
                 config);
@@ -68,9 +77,9 @@ const struct LOdoo {
     public:
         @disable this();
 
-        this(in Project project, in Path odoo_conf) {
-            _odoo_conf = odoo_conf;
+        this(in Project project, in bool test_mode=false) {
             _project = project;
+            _test_mode = test_mode;
         }
 
         /** Return list of databases available on this odoo instance

@@ -182,7 +182,10 @@ class Project {
 
     /// LOdoo instance for this project
     @property const(LOdoo) lodoo() const {
-        return LOdoo(this, this.odoo.configfile);
+        return LOdoo(
+            this,
+            false,  // No test mode
+        );
     }
 
     /** VirtualEnv related to this project.
