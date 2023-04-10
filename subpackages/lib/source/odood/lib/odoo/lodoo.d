@@ -131,9 +131,6 @@ const struct LOdoo {
         /** Check if database exists
           **/
         bool databaseExists(in string name) {
-            // TODO: replace with project's db wrapper to check if database exists
-            //       This could simplify performance by avoiding call to python
-            //       interpreter
             auto res = run("db-exists", name);
             return res.status == 0;
         }

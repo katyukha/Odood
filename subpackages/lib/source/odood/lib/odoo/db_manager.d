@@ -5,12 +5,15 @@ module odood.lib.odoo.db_manager;
 
 private import std.logger;
 private import std.format: format;
+private import std.exception: enforce;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.lib.odoo.serie: OdooSerie;
+private import odood.lib.exception: OdoodException;
 
 
 /** Struct designed to manage databases
@@ -127,13 +130,81 @@ struct OdooDatabaseManager {
             backup_format);
     }
 
+    /** Validate backup provided for restore method.
+      *
+      * Params:
+      *     backup_path = Path to database backup to validate
+      *     strict = if set to true, then will raise error if backup
+      *         requires addons that are not available in this odoo install.
+      **/
+    void _restoreValidateBackup(in Path backup_path, in bool strict) const {
+        import std.json;
+        import std.string: join;
+        import std.algorithm: canFind;
+        import odood.lib.odoo.utils: parseDatabaseBackupManifest;
+
+        enforce!OdoodException(
+            [".sql", ".zip"].canFind(backup_path.extension),
+            "Cannot restore database backup %s" ~ backup_path.toString ~
+            ": unsupported backup format!\n" ~
+            "Supported backup formats: .zip, .sql");
+
+        if (backup_path.extension == ".sql")
+            // No validation available for SQL
+            return;
+
+        JSONValue manifest;
+        try {
+            manifest = parseDatabaseBackupManifest(backup_path);
+        } catch (OdoodException e) {
+            warningf(
+                "Cannot find/parse backup (%s) manifest: %s",
+                backup_path, e);
+            // TODO: try to guess if it is SQL backup or ZIP backup, and
+            //       do correct validation;
+            return;
+        }
+
+        OdooSerie backup_serie = manifest["version"].get!string;
+        enforce!OdoodException(
+            backup_serie == _project.odoo.serie,
+            "Cannot restore backup %s: backup version %s do not match odoo version %s".format(
+                backup_path, backup_serie, _project.odoo.serie));
+
+        // TODO: check PG version
+
+        string[] missing_addons;
+        foreach(string name, ver; manifest["modules"]) {
+            auto addon = _project.addons(_test_mode).getByName(name);
+            if (addon.isNull) {
+                missing_addons ~= name;
+                warningf(
+                    "Addon %s is not available, but used in backup %s",
+                    name, backup_path);
+            }
+        }
+        if (strict && missing_addons.length > 0)
+            throw new OdoodException(
+                "Cannot restore backup %s, because following addons missing:\n%s".format(
+                    backup_path, missing_addons.join("\n")));
+
+    }
+
     /** Restore database
       *
       * Params:
       *     name = name of database to restore
       *     backup_path = path to database backup to restore
+      *     validate_strict = if set to true,
+      *         then raise error if backup is not valid,
+      *         otherwise only warning will be emited to log.
       **/
-    auto restore(in string name, in Path backup_path) const {
+    auto restore(
+            in string name,
+            in Path backup_path,
+            in bool validate_strict=true) const {
+        _restoreValidateBackup(backup_path, validate_strict);
+
         return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
     }
 

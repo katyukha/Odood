@@ -218,6 +218,8 @@ class CommandDatabaseRestore: OdoodCommand {
             null, "stun", "Stun database (disable cron and mail servers)"));
         this.add(new Flag(
             null, "selfish", "Stop the server while database being restored."));
+        this.add(new Flag(
+            "f", "force", "Enforce restore, even if backup is not valid."));
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
@@ -237,7 +239,11 @@ class CommandDatabaseRestore: OdoodCommand {
             start_server = true;
         }
 
-        project.databases.restore(args.arg("name"), backup_path);
+        project.databases.restore(
+            args.arg("name"),
+            backup_path,
+            args.flag("force") ? false : true,  // validate strict
+        );
 
         // Optionally stun database
         if (args.flag("stun")) {

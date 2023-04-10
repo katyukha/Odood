@@ -21,7 +21,7 @@ private import odood.lib.zip;
   *
   * Returns: JSONValue that contains parsed database backup manifest
   **/
-auto parse_database_backup_manifest(in Path path) {
+auto parseDatabaseBackupManifest(in Path path) {
     int error_code;
     auto zip_obj = zip_open(path.toStringz, ZIP_RDONLY, &error_code);
     scope(exit) zip_close(zip_obj);
