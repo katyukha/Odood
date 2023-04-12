@@ -82,10 +82,10 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
                 if (line.matchFirst(RE_LOG_RECORD_START)) {
                     _buffer = line;
                     break;
-                } else {
-                    debug warningf(
-                        "Skipping unparsed log content: '%s'", line);
                 }
+
+                debug if (!line.empty)
+                    warningf("Skipping unparsed log content: '%s'", line);
             }
 
             if (_buffer.empty)
