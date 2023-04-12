@@ -128,8 +128,19 @@ struct AddonManager {
         return res;
     }
 
-    /// Link single odoo addon
-    void link(in OdooAddon addon, in bool force=false) const {
+    /** Link all addons inside specified directories
+      *
+      * Params:
+      *     addon = Instance of OdooAddon to link.
+      *     force = if set, then rewrite link to this addon
+      *         (if it was already linked).
+      *     py_requirements = if set, then automatically install python
+      *         requirements for requirements.txt file
+      **/
+    void link(
+            in OdooAddon addon,
+            in bool force=false,
+            in bool py_requirements=true) const {
         auto dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("Linking addon %s (%s -> %s)",
@@ -158,23 +169,42 @@ struct AddonManager {
             addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
-        if (dest.join("requirements.txt").exists) {
+        if (py_requirements && dest.join("requirements.txt").exists) {
             infof("Installing python requirements for addon '%s'",
                   addon.name);
             _project.venv.installPyRequirements(dest.join("requirements.txt"));
         }
     }
 
-    /// Link all addons inside specified directories
+    /** Link all addons inside specified directories
+      *
+      * Params:
+      *     search_path = path to search for addons in.
+      *         Could be path to single addon.
+      *     recursive = if set to true, the search for addons recursively,
+      *         otherwise, search for addons only directly in specified path.
+      *     force = if set, then rewrite link to this addon
+      *         (if it was already linked).
+      *     py_requirements = if set, then automatically install python
+      *         requirements for requirements.txt file
+      **/
     void link(
             in Path search_path,
             in bool recursive=false,
-            in bool force=false) const {
+            in bool force=false,
+            in bool py_requirements=true) const {
         if (search_path.isOdooAddon)
-            link(new OdooAddon(search_path), force);
+            link(new OdooAddon(search_path), force, py_requirements);
             
         foreach(addon; scan(search_path, recursive))
-            link(addon, force);
+            link(addon, force, py_requirements);
+
+        if (py_requirements && search_path.join("requirements.txt").exists) {
+            infof("Installing python requirements from '%s'",
+                  search_path.join("requirements.txt"));
+            _project.venv.installPyRequirements(
+                search_path.join("requirements.txt"));
+        }
     }
 
     /// Check if addon is linked or not

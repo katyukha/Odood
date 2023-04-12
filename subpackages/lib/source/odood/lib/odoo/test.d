@@ -28,6 +28,7 @@ private static import signal = odood.lib.signal;
 private immutable ODOO_TEST_HTTP_PORT=8269;
 private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
 
+
 // Regular expressions to check for errors
 private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`At least one test failed`),
@@ -43,10 +44,17 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
 ];
 
+
+/* Regular expression, that could be used to list "safe" warnings,
+ * that could be optionally ignored in output
+ */
 private immutable auto RE_SAFE_WARNINGS = [
     ctRegex!(`Two fields \(.+\) of .+\(\) have the same label`),
 ];
 
+
+/** Struct that represents test result
+  **/
 private struct OdooTestResult {
     private bool _success;
     private bool _cancelled;
@@ -138,8 +146,9 @@ private struct OdooTestResult {
 }
 
 
+/** Struct that represents configurable test runner.
+  **/
 struct OdooTestRunner {
-
     private const Project _project;
     private const LOdoo _lodoo;
     private const OdooDatabaseManager _databases;
@@ -167,7 +176,6 @@ struct OdooTestRunner {
     private bool _test_migration=false;
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
-
 
     this(in Project project) {
         _project = project;
@@ -334,7 +342,7 @@ struct OdooTestRunner {
       * Returns: true if record have to be processed and
       *          false if record have to be ignored.
       **/
-    bool filterLogRecord(in ref OdooLogRecord record) {
+    private bool filterLogRecord(in ref OdooLogRecord record) {
         if (this._ignore_safe_warnings && record.log_level == "WARNING") {
             foreach(check; RE_SAFE_WARNINGS)
                 if (record.msg.matchFirst(check)) {
@@ -344,9 +352,9 @@ struct OdooTestRunner {
         return true;
     }
 
-    /** Run tests
+    /** Run tests (private implementation)
       **/
-    auto runImpl() {
+    private auto runImpl() {
         enforce!OdoodException(
             _addons.length > 0,
             "No addons specified for test");
@@ -557,6 +565,8 @@ struct OdooTestRunner {
         return result;
     }
 
+    /** Run the test
+      **/
     auto run() {
         try {
             return runImpl();
