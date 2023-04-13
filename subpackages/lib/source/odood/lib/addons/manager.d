@@ -260,7 +260,7 @@ struct AddonManager {
             in string database,
             in string[] addon_names,
             in cmdIU cmd,
-            in string[string] env) const {
+            in string[string] env=null) const {
 
         string[] server_opts=[
             "-d", database,
@@ -322,7 +322,8 @@ struct AddonManager {
     void update(
             in string database,
             in string[] addons...) {
-        update(database, addons.map!((a) => getByName(a).get).array);
+        _run_install_update_addons(
+            database, addons, cmdIU.update);
     }
 
     /// ditto
@@ -330,7 +331,8 @@ struct AddonManager {
             in string database,
             in string[] addons,
             in string[string] env) {
-        update(database, addons.map!((a) => getByName(a).get).array, env);
+        _run_install_update_addons(
+            database, addons, cmdIU.update, env);
     }
 
     /// ditto
@@ -370,7 +372,7 @@ struct AddonManager {
     void install(
             in string database,
             in string[] addons...) {
-        install(database, addons.map!((a) => getByName(a).get).array);
+        _run_install_update_addons(database, addons, cmdIU.install);
     }
 
     /// ditto
@@ -378,7 +380,7 @@ struct AddonManager {
             in string database,
             in string[] addons,
             in string[string] env) {
-        install(database, addons.map!((a) => getByName(a).get).array, env);
+        _run_install_update_addons(database, addons, cmdIU.install, env);
     }
 
     /// ditto
@@ -412,7 +414,7 @@ struct AddonManager {
     void uninstall(
             in string database,
             in string[] addons...) {
-        uninstall(database, addons.map!((a) => getByName(a).get).array);
+        _run_install_update_addons(database, addons, cmdIU.uninstall);
     }
 
     /// ditto
@@ -420,7 +422,7 @@ struct AddonManager {
             in string database,
             in string[] addons,
             in string[string] env) {
-        uninstall(database, addons.map!((a) => getByName(a).get).array, env);
+        _run_install_update_addons(database, addons, cmdIU.uninstall, env);
     }
 
     /// ditto
