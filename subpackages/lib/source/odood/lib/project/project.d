@@ -83,6 +83,16 @@ class Project {
             "Cannot initialize project. Config not found");
     }
 
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils;
+
+        Path temp_dir = createTempPath();
+        scope(exit) temp_dir.remove();
+
+        Project.loadProject(temp_dir).shouldThrow!OdoodException;
+    }
+
     /** Create new project from basic parameters.
       *
       * Params:
@@ -252,6 +262,7 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
+        infof("Saving Odood config at %s", path);
         dumper.dump(out_file.lockingTextWriter, yaml_data);
     }
 
