@@ -245,7 +245,7 @@ const struct LOdoo {
                 script_path.exists,
                 "Python script %s does not exists!".format(script_path));
             infof(
-                "Running SQL script %s for databse %s ...",
+                "Running python script %s for databse %s ...",
                 script_path, dbname);
             return runE("run-py-script", dbname, script_path.toString);
         }
