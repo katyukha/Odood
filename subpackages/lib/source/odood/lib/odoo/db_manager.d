@@ -96,6 +96,7 @@ struct OdooDatabaseManager {
       *
       * Params:
       *     dbname = name of database to backup
+      *     prefix = prefix for name of database backup
       *     format = Backup format: zip or SQL
       *
       * Returns:
@@ -103,12 +104,14 @@ struct OdooDatabaseManager {
       **/
     Path backup(
             in string dbname,
+            in string prefix,
             in BackupFormat backup_format = BackupFormat.zip) const {
         // TODO: Add ability to specify backup path
         import std.datetime.systime: Clock;
         import odood.lib.utils: generateRandomString;
 
-        string dest_name="db-backup-%s-%s.%s.%s".format(
+        string dest_name="%s-%s-%s.%s.%s".format(
+            prefix,
             dbname,
             "%s-%s-%s".format(
                 Clock.currTime.year,
@@ -120,7 +123,7 @@ struct OdooDatabaseManager {
                     case BackupFormat.zip:
                         return "zip";
                     case BackupFormat.sql:
-                        return "zip";
+                        return "sql";
                 }
             })(),
         );
@@ -128,6 +131,13 @@ struct OdooDatabaseManager {
             dbname,
             _project.directories.backups.join(dest_name),
             backup_format);
+    }
+
+    /// ditto
+    Path backup(
+            in string dbname,
+            in BackupFormat backup_format = BackupFormat.zip) const {
+        return backup(dbname, "db-backup", backup_format);
     }
 
     /** Validate backup provided for restore method.
