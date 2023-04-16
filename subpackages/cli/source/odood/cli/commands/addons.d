@@ -52,7 +52,8 @@ class CommandAddonsList: OdoodCommand {
         this.add(new Option(
             "c", "color",
             "Color output by selected scheme: " ~
-            "link - color addons by link status"));
+            "link - color addons by link status, " ~
+            "installable - color addons by installable state."));
         this.add(new Argument(
             "path", "Path to search for addons in.").optional);
     }
@@ -106,6 +107,11 @@ class CommandAddonsList: OdoodCommand {
 
             if (args.option("color") == "link") {
                 if (project.addons.isLinked(addon))
+                    writeln(addon_line.green);
+                else
+                    writeln(addon_line.red);
+            } else if (args.option("color") == "installable") {
+                if (addon.manifest.installable)
                     writeln(addon_line.green);
                 else
                     writeln(addon_line.red);
