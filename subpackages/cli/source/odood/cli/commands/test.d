@@ -104,7 +104,9 @@ class CommandTest: OdoodCommand {
         this.add(new Option(
             null, "coverage-fail-under", "Fail if coverage is less then specified value."));
         this.add(new Flag(
-            null, "error-report", "Print all errors found in the end of output"));
+            null, "no-error-report", "Do not print error report in the end of the test."));
+        this.add(new Flag(
+            null, "error-report", "Print error report in the end of the test."));
         this.add(new Option(
             "d", "db", "Database to run tests for."));
         this.add(new Option(
@@ -180,7 +182,7 @@ class CommandTest: OdoodCommand {
             writeln("* ".green, "Test result: ".bold, "SUCCESS".bold.green, " *".green);
             writeln("*".replicate(24).green);
         } else {
-            if (args.flag("error-report")) {
+            if (args.flag("error-report") || !args.flag("no-error-report")) {
                 writeln();
                 writeln("*".replicate(19).red);
                 writeln("* ".red, "Reported errors".bold, " *".red);
