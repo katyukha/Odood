@@ -481,7 +481,10 @@ struct AddonManager {
 
     /// Add new addon repository to project
     void addRepo(
-            in string url, in string branch, in bool single_branch=false) {
+            in string url,
+            in string branch,
+            in bool single_branch=false,
+            in bool recursive=true) {
         import std.algorithm;
         import std.string: toLower;
         import std.array: array;
@@ -507,7 +510,7 @@ struct AddonManager {
 
         // If there is odoo_requirements.txt file present, then we have to
         // process it.
-        if (repo.path.join("odoo_requirements.txt").exists) {
+        if (recursive && repo.path.join("odoo_requirements.txt").exists) {
             processOdooRequirements(
                 repo.path.join("odoo_requirements.txt"),
                 single_branch);
@@ -515,8 +518,11 @@ struct AddonManager {
     }
 
     /// ditto
-    void addRepo(in string url, in bool single_branch=false) {
-        addRepo(url, _project.odoo.serie.toString, single_branch);
+    void addRepo(
+            in string url,
+            in bool single_branch=false,
+            in bool recursive=true) {
+        addRepo(url, _project.odoo.serie.toString, single_branch, recursive);
     }
 
     /// Get repository instance for specified path
