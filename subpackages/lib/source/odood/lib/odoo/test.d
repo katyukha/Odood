@@ -480,7 +480,7 @@ struct OdooTestRunner {
                 true,   // recursive
                 true,   // Force
             );
-            _project.lodoo.updateAddonsList(_test_db_name);
+            _project.lodoo.addonsUpdateList(_test_db_name, true);
 
             infof("Updating modules to run migrations before running tests...");
             auto update_res =_server.pipeServerLog(

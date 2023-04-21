@@ -148,7 +148,7 @@ class CommandAddonsLink: OdoodCommand {
 
         if (args.flag("ual"))
             foreach(dbname; project.databases.list())
-                project.lodoo.updateAddonsList(dbname);
+                project.lodoo.addonsUpdateList(dbname);
     }
 
 }
@@ -179,7 +179,7 @@ class CommandAddonsUpdateList: OdoodCommand {
 
         foreach(db; dbnames) {
             infof("Updating list of addons for database %s", db);
-            project.lodoo.updateAddonsList(db);
+            project.lodoo.addonsUpdateList(db);
         }
     }
 

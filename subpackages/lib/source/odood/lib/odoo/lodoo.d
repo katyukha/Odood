@@ -225,9 +225,17 @@ const struct LOdoo {
         }
 
         /** Update list of addons
+          *
+          * Params:
+          *     dbname = name of database to update addons list for
+          *     ignore_error = if set to true, then no exception will be raised
+          *         if lodoo returned non-zero exit code, otherwise
+          *         OdoodException will be thrown if lodoo
+          *         command addons-update-list failed with non-zero exit code
           **/
-        // TODO: Rename
-        auto updateAddonsList(in string dbname) {
+        auto addonsUpdateList(in string dbname, in bool ignore_error=false) {
+            if (ignore_error)
+                return run("addons-update-list", dbname);
             return runE("addons-update-list", dbname);
         }
 
