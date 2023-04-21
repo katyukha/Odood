@@ -26,6 +26,7 @@ private import odood.cli.commands.discover: CommandDiscover;
 private import odood.cli.commands.log: CommandLogView;
 private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
+private import odood.cli.commands.ci: CommandCi;
 
 
 /** Class that represents main OdoodProgram
@@ -50,6 +51,7 @@ class App: OdoodProgram {
         this.add(new CommandLogView());
         this.add(new CommandScript());
         this.add(new CommandPSQL());
+        this.add(new CommandCi());
 
         // shortcuts
         this.add(new CommandServerStart());
