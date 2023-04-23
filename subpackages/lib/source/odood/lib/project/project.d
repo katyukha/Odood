@@ -316,7 +316,7 @@ class Project {
         // TODO: Add support for cases when odoo installed via git
         //       In this case it is better to just run git pull
         enforce!OdoodException(
-            !this.odoo.path.isGitRepo,
+            !this.odoo.path.join(".git").exists,
             "Cannot update odoo that is git repo yet!");
 
         infof("Removing odoo installation at %s", this.odoo.path);
