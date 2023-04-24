@@ -249,12 +249,23 @@ const struct LOdoo {
         /** Run python script for specific database
           **/
         auto runPyScript(in string dbname, in Path script_path) {
+            import std.datetime.stopwatch;
             enforce!OdoodException(
                 script_path.exists,
                 "Python script %s does not exists!".format(script_path));
             infof(
                 "Running python script %s for databse %s ...",
                 script_path, dbname);
-            return runE("run-py-script", dbname, script_path.toString);
+            auto sw = StopWatch(AutoStart.yes);
+            auto result = run("run-py-script", dbname, script_path.toString);
+            sw.stop();
+            enforce!OdoodException(
+                result.status == 0,
+                "Python script %s for database %s failed with error (exit-code)!\nOutput: %s".format(
+                    script_path, dbname, result.output));
+            infof(
+                "Python script %s for database %s completed in %s:\nOutput: %s".format(
+                    script_path, dbname, sw.peek, result.output));
+            return result;
         }
 }

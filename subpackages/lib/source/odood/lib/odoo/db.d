@@ -146,15 +146,19 @@ package(odood.lib) struct OdooDatabase {
         import dpq.query;
         import dpq.result;
         import dpq.exception;
+        import std.datetime.stopwatch;
 
         enforce!OdoodException(
             script_path.exists,
             "SQL script %s does not exists!".format(script_path));
 
         infof("Running SQL script %s for databse %s ...", script_path, _dbname);
+        auto sw = StopWatch(AutoStart.yes);
         runSQLScript(script_path.readFileText, no_commit);
+        sw.stop();
         infof(
-            "SQL script %s for database %s completed!\n", script_path, _dbname);
+            "SQL script %s for database %s completed in %s.",
+            script_path, _dbname, sw.peek);
     }
 
     /** Check if database contains demo data.

@@ -119,6 +119,41 @@ void testAddonsManagementBasic(in Project project) {
     project.databases.drop(project.genDbName("test-1"));
 }
 
+
+/// Test addons manager
+void testRunningScripts(in Project project) {
+    auto dbname = project.genDbName("test-1");
+    project.databases.create(dbname, true);
+    scope(exit) project.databases.drop(dbname);
+
+    // Run SQL Script
+    project.databases.get(dbname).runSQLScript("test-data/test-sql-script.sql");
+
+    // Check if data in database was updated
+    with (project.databases.get(dbname)) {
+        runSQLQuery(
+            "SELECT name FROM res_partner WHERE id = 1"
+        ).get(0, 0).as!string.get.shouldEqual("Test SQL 72");
+        runSQLQuery(
+            "SELECT name FROM res_partner WHERE id = 2"
+        ).get(0, 0).as!string.get.shouldEqual("Test SQL 75");
+    }
+
+    // Run Python Script
+    project.lodoo.runPyScript(dbname, "test-data/test-py-script.py");
+
+    // Check if data in database was updated
+    with (project.databases.get(dbname)) {
+        runSQLQuery(
+            "SELECT name FROM res_partner WHERE id = 1"
+        ).get(0, 0).as!string.get.shouldEqual("Test PY 41");
+        runSQLQuery(
+            "SELECT name FROM res_partner WHERE id = 2"
+        ).get(0, 0).as!string.get.shouldEqual("Test PY 42");
+    }
+}
+
+
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
@@ -158,6 +193,9 @@ unittest {
 
     // Test basic addons management
     testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
 
     // TODO: Complete the test
 }
@@ -203,6 +241,9 @@ unittest {
     // Test basic addons management
     testAddonsManagementBasic(project);
 
+    // Test running scripts
+    testRunningScripts(project);
+
     // TODO: Complete the test
 }
 
@@ -245,6 +286,9 @@ unittest {
 
     // Test basic addons management
     testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
 
     // TODO: Complete the test
 }
@@ -289,6 +333,9 @@ unittest {
 
     // Test basic addons management
     testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
 
     // TODO: Complete the test
 }
