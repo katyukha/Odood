@@ -127,7 +127,8 @@ void testRunningScripts(in Project project) {
     scope(exit) project.databases.drop(dbname);
 
     // Run SQL Script
-    project.databases.get(dbname).runSQLScript("test-data/test-sql-script.sql");
+    project.databases.get(dbname).runSQLScript(
+        Path("test-data", "test-sql-script.sql"));
 
     // Check if data in database was updated
     with (project.databases.get(dbname)) {
@@ -140,7 +141,8 @@ void testRunningScripts(in Project project) {
     }
 
     // Run Python Script
-    project.lodoo.runPyScript(dbname, "test-data/test-py-script.py");
+    project.lodoo.runPyScript(
+        dbname, Path("test-data", "test-py-script.py"));
 
     // Check if data in database was updated
     with (project.databases.get(dbname)) {
@@ -246,6 +248,7 @@ unittest {
 
     // TODO: Complete the test
 }
+
 
 @("Basic Test Odoo 13")
 unittest {
