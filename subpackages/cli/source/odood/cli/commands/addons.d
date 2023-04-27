@@ -383,6 +383,12 @@ class CommandAddonsAdd: OdoodCommand {
             "Clone repository wihth --single-branch options. " ~
             "This could significantly reduce size of data to be downloaded " ~
             "and increase performance."));
+        this.add(new Flag(
+            "r", "recursive",
+            "Recursively process odoo_requirements.txt. " ~
+            "If set, then Odood will automatically process " ~
+            "odoo_requirements.txt file inside repositories mentioned in " ~
+            "provided odoo_requirements.txt"));
         this.add(new Option(
             null, "odoo-apps", "Add addon from odoo apps.").repeating);
         this.add(new Option(
@@ -400,7 +406,8 @@ class CommandAddonsAdd: OdoodCommand {
         foreach(requirements_path; args.options("odoo-requirements"))
             project.addons.processOdooRequirements(
                 Path(requirements_path),
-                args.flag("single-branch"));
+                args.flag("single-branch"),
+                args.flag("recursive"));
     }
 
 }

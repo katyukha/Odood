@@ -462,8 +462,27 @@ struct AddonManager {
         }
     }
 
-    /// Process odoo_requirements.txt file, that is used by odoo-helper
-    void processOdooRequirements(in Path path, in bool single_branch=false) {
+    /** Process odoo_requirements.txt file, that is used by odoo-helper
+      * Can process lines that specify repository to clone or name of module
+      * that have to be downloaded from Odoo Apps
+      *
+      * In case if recursive is set to false, then only specified
+      * odoo_requirements.txt file will be processed.
+      * In case if recursive is set to true, then system will search
+      * for odoo_requirements.txt file in root of each clonned repo
+      * and thus will try to recursively clone repo dependencies.
+      *
+      * Params:
+      *     path = path of odoo_requirements.txt file to process
+      *     single_branch = clone only single branch of repositories specified
+      *         by path
+      *     recurisve = recursively process odoo_requirements.txt in
+      *         clonned repositories
+      **/
+    void processOdooRequirements(
+            in Path path,
+            in bool single_branch=false,
+            in bool recursive=false) {
         foreach(line; parseOdooRequirements(path))
             final switch (line.type) {
                 case OdooRequirementsLineType.repo:
@@ -471,7 +490,8 @@ struct AddonManager {
                         line.repo_url,
                         line.branch.empty ?
                             _project.odoo.serie.toString : line.branch,
-                        single_branch);
+                        single_branch,
+                        recursive);
                     break;
                 case OdooRequirementsLineType.odoo_apps:
                     downloadFromOdooApps(line.addon);
@@ -479,7 +499,18 @@ struct AddonManager {
             }
     }
 
-    /// Add new addon repository to project
+    /** Add new addon repository to project, and optionally
+      * clone repository dependencies, specified in odoo_requirements.txt file
+      *
+      * If branch is not specified, the serie branch will be clonned.
+      *
+      * Params:
+      *     url = repository url to clone from
+      *     branch = repository branch to clone
+      *     single_branch = if set, then clone only single branch of repo
+      *     recursive = if set, then automatically process odoo_requirements.txt
+      *         inside clonned repo, to recursively fetch its dependencies
+      **/
     void addRepo(
             in string url,
             in string branch,
@@ -494,7 +525,6 @@ struct AddonManager {
         auto dest = _project.directories.repositories.join(
                 git_url.toPathSegments.map!((p) => p.toLower).array);
 
-        // TODO: Add recursion protection
         if (dest.exists) {
             warningf(
                 "Repository %s seems to be already cloned to %s. Skipping...",
@@ -513,7 +543,8 @@ struct AddonManager {
         if (recursive && repo.path.join("odoo_requirements.txt").exists) {
             processOdooRequirements(
                 repo.path.join("odoo_requirements.txt"),
-                single_branch);
+                single_branch,
+                recursive);
         }
     }
 

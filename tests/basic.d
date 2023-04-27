@@ -83,7 +83,11 @@ void testAddonsManagementBasic(in Project project) {
     project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
 
     // Add repo 'generic-addons'
-    project.addons.addRepo("https://github.com/crnd-inc/generic-addons.git");
+    project.addons.addRepo(
+        "https://github.com/crnd-inc/generic-addons.git",
+        false,  // single branch
+        true,   // recursive
+    );
     project.directories.repositories.join(
         "crnd-inc", "generic-addons", ".git").exists.shouldBeTrue;
     project.directories.addons.join("generic_location").exists.shouldBeTrue;

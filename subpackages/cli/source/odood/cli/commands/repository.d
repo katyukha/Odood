@@ -30,6 +30,11 @@ class CommandRepositoryAdd: OdoodCommand {
             "Clone repository wihth --single-branch options. " ~
             "This could significantly reduce size of data to be downloaded " ~
             "and increase performance."));
+        this.add(new Flag(
+            "r", "recursive",
+            "If set, then system will automatically fetch recursively " ~
+            "dependencies of this repository, specified in " ~
+            "odoo_requirements.txt file inside clonned repo."));
         this.add(new Option(
             "b", "branch", "Branch to clone"));
         this.add(new Argument("repo", "Repository URL to clone from.").required());
@@ -50,7 +55,8 @@ class CommandRepositoryAdd: OdoodCommand {
             git_url,
             args.option("branch") ?
                 args.option("branch") : project.odoo.branch,
-            args.flag("single-branch"));
+            args.flag("single-branch"),
+            args.flag("recursive"));
     }
 
 }
