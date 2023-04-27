@@ -70,9 +70,19 @@ void installDownloadOdoo(in Project project) {
   **/
 void installOdoo(in Project project) {
     // Install python dependecnies
-    project.venv.installPyPackages(
+    string[] py_packages = [
         "phonenumbers", "python-slugify", "setuptools-odoo",
-        "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo");
+        "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo",
+    ];
+
+    // Add version-specific py packages
+    if (project.odoo.serie >= 14)
+        py_packages ~= "pdfminer.six";
+    if (project.odoo.serie >= 15)
+        py_packages ~= "flanker";
+
+    // Install py packages
+    project.venv.installPyPackages(py_packages);
 
     if (project.odoo.serie < 8) {
         info("Installing odoo dependencies (specific for Odoo 7.0)");
