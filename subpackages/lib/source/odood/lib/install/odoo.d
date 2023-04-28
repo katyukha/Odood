@@ -78,8 +78,17 @@ void installOdoo(in Project project) {
     // Add version-specific py packages
     if (project.odoo.serie >= 14)
         py_packages ~= "pdfminer.six";
-    if (project.odoo.serie >= 15)
-        py_packages ~= "flanker";
+
+    /* On Odoo 15, there are some warnings in the logs, that ask to install
+     * flanker, but it seems to be unstable, buggy and with bad support for
+     * newer versions of Python. Thus we will not install it automatically
+     * by default.
+     * One more point to avoid installation of flanker by default,
+     * is that it requires redis server, that is not needed for most of
+     * simple Odoo installations.
+     */
+    //if (project.odoo.serie >= 15)
+        //py_packages ~= "flanker";
 
     // Install py packages
     project.venv.installPyPackages(py_packages);

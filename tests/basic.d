@@ -169,14 +169,14 @@ unittest {
     scope(exit) temp_path.remove();
 
     // Create database use for odoo 15 instance
-    createDbUser("odoo15", "odoo");
+    createDbUser("odood15test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(15));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odoo15",
+            "odood15test",
             "odoo")
         .result();
     project.initialize(odoo_conf);
@@ -216,14 +216,14 @@ unittest {
     scope(exit) temp_path.remove();
 
     // Create database use for odoo 14 instance
-    createDbUser("odoo14", "odoo");
+    createDbUser("odood14test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(14));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odoo14",
+            "odood14test",
             "odoo")
         .result();
     project.initialize(odoo_conf);
@@ -263,14 +263,14 @@ unittest {
     scope(exit) temp_path.remove();
 
     // Create database use for odoo 14 instance
-    createDbUser("odoo13", "odoo");
+    createDbUser("odood13test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(13));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odoo13",
+            "odood13test",
             "odoo")
         .result();
     project.initialize(odoo_conf);
@@ -310,14 +310,14 @@ unittest {
     scope(exit) temp_path.remove();
 
     // Create database use for odoo 14 instance
-    createDbUser("odoo12", "odoo");
+    createDbUser("odood12test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(12));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odoo12",
+            "odood12test",
             "odoo")
         .result();
     project.initialize(odoo_conf);
