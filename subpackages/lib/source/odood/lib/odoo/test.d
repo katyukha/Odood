@@ -50,6 +50,7 @@ private immutable auto RE_ERROR_CHECKS = [
  */
 private immutable auto RE_SAFE_WARNINGS = [
     ctRegex!(`Two fields \(.+\) of .+\(\) have the same label`),
+    ctRegex!(`Field [\w\.]+: unknown parameter 'tracking', if this is an actual parameter you may want to override the method _valid_field_parameter on the relevant model in order to allow it`),
 ];
 
 
