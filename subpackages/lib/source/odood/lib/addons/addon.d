@@ -95,6 +95,10 @@ bool isOdooAddon(in Path path) {
     if (!path.exists)
         return false;
 
+    if (path.exists && path.isSymlink && !path.readLink.exists)
+        // Broken symlink, so it is not valid addon
+        return false;
+
     if (!path.isDir)
         return false;
 
