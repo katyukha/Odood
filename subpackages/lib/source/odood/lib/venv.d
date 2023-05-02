@@ -45,7 +45,7 @@ const struct VirtualEnv {
     /** Construct new venv wrapper for this project
       **/
     this(in Path path, in PySerie py_serie) {
-        _path = path.realPath;
+        _path = path;
         _py_serie = py_serie;
     }
 
