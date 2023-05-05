@@ -148,6 +148,9 @@ jobs:
           name: odood-ubuntu-22.04
           path: build-ubuntu-22.04
 
+      - name: "Prepare release notes"
+        run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
+
       - name: 'Show directory structure'
         run: ls -R
 
@@ -168,6 +171,7 @@ jobs:
             build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
             build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
           prerelease: true
+          body_path: CHANGELOG.00.md
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -177,3 +181,4 @@ jobs:
             build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
             build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
           prerelease: false
+          body_path: CHANGELOG.00.md

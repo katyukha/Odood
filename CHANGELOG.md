@@ -20,4 +20,4 @@
 - `odoo test` with option `--isw` will additionally ignore following warning:
   `unknown parameter 'tracking'`
 
-
+---
