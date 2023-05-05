@@ -141,9 +141,16 @@ bool isProcessRunning(scope Pid pid) {
   *     url = the url to download file from
   *     dest_path = the destination path to download file to
   *     timeout = optional timeout. Default is 15 seconds.
+  *     max_retries = optional max numer of retries in case of ConnectError.
   **/
-void download(in string url, in Path dest_path, in Duration timeout=15.seconds) {
-    import requests: Request;
+void download(
+        in string url,
+        in Path dest_path,
+        in Duration timeout=15.seconds,
+        in ubyte max_retries=3) {
+    import requests: Request, Response;
+    import requests.streams: ConnectError;
+    import core.thread: Thread;
 
     enforce!OdoodException(
         !dest_path.exists,
@@ -154,7 +161,25 @@ void download(in string url, in Path dest_path, in Duration timeout=15.seconds) 
     request.useStreaming = true;
     request.timeout = timeout;
 
-    auto response = request.get(url);
+    Response response;
+    for(ubyte attempt = 0; attempt <= max_retries; ++attempt) {
+        try {
+            response = request.get(url);
+        } catch (ConnectError e) {
+            // if it is last attempt and we got error, then throw it as is
+            if (attempt == max_retries) throw e;
+
+            // sleep for 1 second in case of failure
+            Thread.sleep(1.seconds);
+            warningf(
+                "Cannot download %s because %s. Attempt %s/%s. Retrying",
+                url, e.msg, attempt, max_retries);
+            // and try again
+            continue;
+        }
+        // connected
+        break;
+    }
     auto stream = response.receiveAsRange();
 
     auto f_dest = dest_path.openFile("wb");

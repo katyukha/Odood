@@ -1,6 +1,6 @@
 module odood.lib;
 
-public immutable string _version = "0.0.8";
+public immutable string _version = "0.0.9";
 
 public import odood.lib.project;
 
