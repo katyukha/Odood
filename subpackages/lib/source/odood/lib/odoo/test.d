@@ -25,6 +25,7 @@ private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: generateRandomString;
 private static import signal = odood.lib.signal;
 
+// TODO: Make randomized ports
 private immutable ODOO_TEST_HTTP_PORT=8269;
 private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
 
