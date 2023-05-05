@@ -284,7 +284,12 @@ struct OdooTestRunner {
     auto getCoverageOptions() {
         CoverageOptions res = CoverageOptions(_coverage);
         foreach(addon; _addons)
-            res.source ~= addon.path;
+            /*
+             * Prefer include over source, because in case of source,
+             * coverage mark __init__ files uncovered for some reason.
+             * But with 'include' it seems that it works.
+             */
+            res.include ~= addon.path;
         return res;
     }
 

@@ -127,15 +127,24 @@ struct OdooServer {
             _project.venv.path.join("bin", "run-in-venv").toString];
 
         if (coverage.enable) {
-            string source = coverage.source.map!(p => p.toString).join(",");
             cmd ~= [
                 "coverage",
                 "run",
                 "--parallel-mode",
-                "--source=%s".format(source),
                 "--omit=*/__openerp__.py,*/__manifest__.py",
-                //"--include=%s/*".format(Path.current.toString),
             ];
+            if (coverage.source.length > 0)
+                cmd ~= [
+                    "--source=%s".format(
+                        coverage.source.map!(
+                            p => p.toString).join(",")),
+                ];
+            if (coverage.include.length > 0)
+                cmd ~= [
+                    "--include=%s".format(
+                        coverage.include.map!(
+                            p => p.toString ~ "/*").join(",")),
+                ];
         }
         cmd ~= [scriptPath.toString];
         cmd ~= options;
