@@ -1,6 +1,6 @@
 # Changelog
 
-## Release 0.0.8
+## Release 0.0.8 (2023-05-05)
 
 ### Added
 
