@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- New option `--ual` to `odood addons install` and `odood addons update` comands
+- New option `--additional-addon` to `odood test` command
+
 ## Release 0.0.8 (2023-05-05)
 
 ### Added

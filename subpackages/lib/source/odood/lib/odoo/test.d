@@ -159,6 +159,9 @@ struct OdooTestRunner {
     // TODO: Create separate struct to handle AddonsLists
     private const(OdooAddon)[] _addons;  // Addons to run tests for
 
+    // Additional addons to install before test
+    private const(OdooAddon)[] _additional_addons;
+
     // Database configuration
     private string _test_db_name;
     private bool _temporary_db;
@@ -314,6 +317,27 @@ struct OdooTestRunner {
         return addModule(addon.get);
     }
 
+    /// Add new additional module to install before test
+    auto ref addAdditionalModule(in ref OdooAddon addon) {
+        if (!addon.getManifest.installable) {
+            warningf("Additional addon %s is not installable. Skipping", addon.name);
+            return this;
+        }
+
+        tracef("Adding additional addon %s to test runner...", addon.name);
+        _additional_addons ~= [addon];
+        return this;
+    }
+
+    /// ditto
+    auto ref addAdditionalModule(in string addon_name_or_path) {
+        auto addon = _project.addons(true).getByString(addon_name_or_path);
+        enforce!OdoodException(
+            !addon.isNull,
+            "Cannot find addon %s!".format(addon_name_or_path));
+        return addAdditionalModule(addon.get);
+    }
+
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -330,9 +354,19 @@ struct OdooTestRunner {
     }
 
     /** Get coma-separated list of modules to run tests for.
+      *
+      * Params:
+      *     additional = If set, then include additional addons to the
+      *         module list.
+      *
+      * Returns: string, that include coma-separated list of addons
       **/
-    string getModuleList() {
-        return _addons.map!(a => a.name).join(",");
+    string getModuleList(in bool additional=false) {
+        const(OdooAddon)[] res_addons = _addons;
+        if (additional)
+            res_addons ~= _additional_addons;
+
+        return res_addons.map!(a => a.name).join(",");
     }
 
     /** Take clean up actions before test finished
@@ -436,7 +470,7 @@ struct OdooTestRunner {
         auto init_res =_server.pipeServerLog(
             getCoverageOptions(),
             [
-                "--init=%s".format(getModuleList),
+                "--init=%s".format(getModuleList(true)),
                 "--log-level=warn",
                 "--stop-after-init",
                 "--workers=0",

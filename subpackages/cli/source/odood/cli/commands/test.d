@@ -115,6 +115,9 @@ class CommandTest: OdoodCommand {
             null, "dir-r",
             "Directory to recursively search for addons to test").repeating);
         this.add(new Option(
+            null, "additional-addon",
+            "Specify additional addon to install before test. ").repeating);
+        this.add(new Option(
             null, "migration-start-ref",
             "git reference (branch/commit/tag) to start migration from"));
         this.add(new Option(
@@ -148,6 +151,9 @@ class CommandTest: OdoodCommand {
 
         foreach(addon_name; args.args("addon"))
             testRunner.addModule(addon_name);
+
+        foreach(addon_name; args.options("additional-addon"))
+            testRunner.addAdditionalModule(addon_name);
 
         if (args.flag("temp-db"))
             testRunner.useTemporaryDatabase();

@@ -190,6 +190,9 @@ class CommandAddonsUpdate: OdoodCommand {
     this() {
         super("update", "Update specified addons.");
         this.add(
+            new Flag(
+                null, "ual", "Update addons list before install.")),
+        this.add(
             new Option(
                 "d", "db", "Database(s) to update addons in."
             ).repeating());
@@ -242,6 +245,8 @@ class CommandAddonsUpdate: OdoodCommand {
         }
 
         foreach(db; dbnames) {
+            if (args.flag("ual"))
+                project.lodoo.addonsUpdateList(db, true);
             if (args.flag("all"))
                 project.addons.updateAll(db);
             else
@@ -258,6 +263,9 @@ class CommandAddonsUpdate: OdoodCommand {
 class CommandAddonsInstall: OdoodCommand {
     this() {
         super("install", "Install specified addons.");
+        this.add(
+            new Flag(
+                null, "ual", "Update addons list before install.")),
         this.add(
             new Option(
                 "d", "db", "Database(s) to install addons in."
@@ -306,6 +314,8 @@ class CommandAddonsInstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
+            if (args.flag("ual"))
+                project.lodoo.addonsUpdateList(db, true);
             project.addons.install(db, addons);
         }
 
