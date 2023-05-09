@@ -5,6 +5,7 @@ private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.algorithm: sort;
+private import std.conv: to;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -100,38 +101,41 @@ class CommandAddonsList: OdoodCommand {
             if (args.flag("without-price") && addon.manifest.price.is_set)
                 continue;
 
-            string addon_line;
+            // Choose the way to display addon line
+            StyledString addon_line;
             final switch(display_type) {
                 case AddonDisplayType.by_name:
-                    addon_line = addon.name;
+                    addon_line = StyledString(addon.name);
                     break;
                 case AddonDisplayType.by_path:
-                    addon_line = addon.path.toString;
+                    addon_line = StyledString(addon.path.toString);
                     break;
                 case AddonDisplayType.by_name_version:
-                    addon_line = "%10s\t%s".format(
-                        addon.manifest.module_version, addon.name);
+                    addon_line = StyledString("%10s\t%s".format(
+                        addon.manifest.module_version, addon.name));
                     break;
             }
 
+            // Color the addon line to be displayed
             if (args.option("color") == "link") {
                 if (project.addons.isLinked(addon))
-                    writeln(addon_line.green);
+                    addon_line = addon_line.green;
                 else
-                    writeln(addon_line.red);
+                    addon_line = addon_line.red;
             } else if (args.option("color") == "installable") {
                 if (addon.manifest.installable)
-                    writeln(addon_line.green);
+                    addon_line = addon_line.green;
                 else
-                    writeln(addon_line.red);
+                    addon_line = addon_line.red;
             } else if (args.option("color") == "price") {
                 if (addon.manifest.price.is_set)
-                    writeln(addon_line.yellow);
+                    addon_line = addon_line.yellow;
                 else
-                    writeln(addon_line.blue);
-            } else {
-                writeln(addon_line);
+                    addon_line = addon_line.blue;
             }
+
+            // Display addon line
+            writeln(addon_line);
         }
     }
 
