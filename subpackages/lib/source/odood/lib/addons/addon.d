@@ -1,12 +1,13 @@
 module odood.lib.addons.addon;
 
-private import std.typecons: Nullable, nullable, Tuple;
+private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;
 private import std.exception : enforce;
 private import std.conv : to;
 
 private import pyd.embedded: py_eval;
 private import pyd.pydobject: PydObject;
+private import pyd.make_object: PydConversionException;
 
 private import thepath: Path;
 
@@ -21,18 +22,44 @@ private struct OdooAddonManifest {
     }
 
     /// Is addon installable
-    @property bool installable() {
+    bool installable() {
         return _manifest.get("installable", true).to_d!bool;
     }
 
-    /// Is this addons application
-    @property bool application() {
+    /// Is this addon application
+    bool application() {
         return _manifest.get("application", false).to_d!bool;
     }
 
+    /** Price info for this addon
+      *
+      * Returns:
+      *     tuple with following fields:
+      *     - currency
+      *     - price
+      *     - is_set
+      **/
+    auto price() {
+        string currency = _manifest.get("currency","EUR").to_d!string;
+        float price;
+        if (_manifest.has_key("price")) {
+            try
+                price = _manifest["price"].to_d!float;
+            catch (PydConversionException)
+                price = _manifest["price"].to_d!(string).to!float;
+            return tuple!(
+                "currency", "price", "is_set"
+            )(currency, price, true);
+        }
+        return tuple!(
+            "currency", "price", "is_set"
+        )(currency, price, false);
+    }
+
+
     // TODO: Parse the version to some specific struct, that
     //       have to automatically guess module version in same way as odoo do
-    @property string module_version() {
+    string module_version() {
         return _manifest.get("version", "").to_d!string;
     }
 }

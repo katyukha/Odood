@@ -49,6 +49,11 @@ class CommandAddonsList: OdoodCommand {
             null, "linked", "Filter only linked addons."));
         this.add(new Flag(
             null, "not-linked", "Filter only addons that are not linked."));
+        this.add(new Flag(
+            null, "with-price", "Filter only addons that has price defined."));
+        this.add(new Flag(
+            null, "without-price",
+            "Filter only addons that does not have price defined."));
         this.add(new Option(
             "c", "color",
             "Color output by selected scheme: " ~
@@ -90,6 +95,10 @@ class CommandAddonsList: OdoodCommand {
                 continue;
             if (args.flag("not-linked") && project.addons.isLinked(addon))
                 continue;
+            if (args.flag("with-price") && !addon.manifest.price.is_set)
+                continue;
+            if (args.flag("without-price") && addon.manifest.price.is_set)
+                continue;
 
             string addon_line;
             final switch(display_type) {
@@ -115,6 +124,11 @@ class CommandAddonsList: OdoodCommand {
                     writeln(addon_line.green);
                 else
                     writeln(addon_line.red);
+            } else if (args.option("color") == "price") {
+                if (addon.manifest.price.is_set)
+                    writeln(addon_line.yellow);
+                else
+                    writeln(addon_line.blue);
             } else {
                 writeln(addon_line);
             }
