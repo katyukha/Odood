@@ -4,7 +4,7 @@ private import std.stdio;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.algorithm: sort;
+private import std.algorithm: sort, filter;
 private import std.conv: to;
 
 private import thepath: Path;
@@ -64,78 +64,97 @@ class CommandAddonsList: OdoodCommand {
             "path", "Path to search for addons in.").optional);
     }
 
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
+    private auto parseDisplayType(ProgramArgs args) {
+        if (args.flag("by-path"))
+            return AddonDisplayType.by_path;
+        if (args.flag("by-name"))
+            return AddonDisplayType.by_name;
+        if (args.flag("by-name-version"))
+            return AddonDisplayType.by_name_version;
+        return AddonDisplayType.by_name;
+    }
 
+    private auto findAddons(ProgramArgs args, in Project project) {
         auto search_path = args.arg("path") ?
             Path(args.arg("path")) : Path.current;
 
-        auto display_type = AddonDisplayType.by_name;
-        if (args.flag("by-path"))
-            display_type = AddonDisplayType.by_path;
-        if (args.flag("by-name"))
-            display_type = AddonDisplayType.by_name;
-        if (args.flag("by-name-version"))
-            display_type = AddonDisplayType.by_name_version;
-
         OdooAddon[] addons;
         if (args.flag("system")) {
-            writeln("Listing all addons available for Odoo");
+            info("Listing all addons available for Odoo");
             addons = project.addons.scan();
         } else  {
-            writeln("Listing addons in ", search_path.toString.yellow);
+            infof("Listing addons in %s", search_path.toString.yellow);
             addons = project.addons.scan(search_path, args.flag("recursive"));
         }
 
-        foreach(addon; addons.sort!((a, b) => a.name < b.name)) {
-            if (args.flag("installable") && !addon.manifest.installable)
-                continue;
-            if (args.flag("not-installable") && addon.manifest.installable)
-                continue;
-            if (args.flag("linked") && !project.addons.isLinked(addon))
-                continue;
-            if (args.flag("not-linked") && project.addons.isLinked(addon))
-                continue;
-            if (args.flag("with-price") && !addon.manifest.price.is_set)
-                continue;
-            if (args.flag("without-price") && addon.manifest.price.is_set)
-                continue;
+        return addons
+            .sort!((a, b) => a.name < b.name)
+            .filter!((addon) {
+                if (args.flag("installable") && !addon.manifest.installable)
+                    return false;
+                if (args.flag("not-installable") && addon.manifest.installable)
+                    return false;
+                if (args.flag("linked") && !project.addons.isLinked(addon))
+                    return false;
+                if (args.flag("not-linked") && project.addons.isLinked(addon))
+                    return false;
+                if (args.flag("with-price") && !addon.manifest.price.is_set)
+                    return false;
+                if (args.flag("without-price") && addon.manifest.price.is_set)
+                    return false;
+                return true;
+            });
+    }
 
+    private auto getColoredAddonLine(
+            ProgramArgs args,
+            in Project project,
+            OdooAddon addon,
+            in AddonDisplayType display_type) {
+
+        // Choose the way to display addon line
+        StyledString addon_line;
+        final switch(display_type) {
+            case AddonDisplayType.by_name:
+                addon_line = StyledString(addon.name);
+                break;
+            case AddonDisplayType.by_path:
+                addon_line = StyledString(addon.path.toString);
+                break;
+            case AddonDisplayType.by_name_version:
+                addon_line = StyledString("%10s\t%s".format(
+                    addon.manifest.module_version, addon.name));
+                break;
+        }
+
+        // Color the addon line to be displayed
+        switch(args.option("color")) {
+            case "link":
+                return project.addons.isLinked(addon) ?
+                    addon_line.green : addon_line.red;
+            case "installable":
+                return addon.manifest.installable ?
+                    addon_line.green : addon_line.red;
+            case "price":
+                return addon.manifest.price.is_set ?
+                    addon_line.yellow : addon_line.blue;
+            default:
+                // Do nothing in case of wrong color or no color
+                warningf(
+                    args.option("color").length > 0,
+                    "Unknown color option '%s'", args.option("color"));
+                break;
+        }
+        return addon_line;
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        auto display_type = parseDisplayType(args);
+
+        foreach(addon; findAddons(args, project)) {
             // Choose the way to display addon line
-            StyledString addon_line;
-            final switch(display_type) {
-                case AddonDisplayType.by_name:
-                    addon_line = StyledString(addon.name);
-                    break;
-                case AddonDisplayType.by_path:
-                    addon_line = StyledString(addon.path.toString);
-                    break;
-                case AddonDisplayType.by_name_version:
-                    addon_line = StyledString("%10s\t%s".format(
-                        addon.manifest.module_version, addon.name));
-                    break;
-            }
-
-            // Color the addon line to be displayed
-            if (args.option("color") == "link") {
-                if (project.addons.isLinked(addon))
-                    addon_line = addon_line.green;
-                else
-                    addon_line = addon_line.red;
-            } else if (args.option("color") == "installable") {
-                if (addon.manifest.installable)
-                    addon_line = addon_line.green;
-                else
-                    addon_line = addon_line.red;
-            } else if (args.option("color") == "price") {
-                if (addon.manifest.price.is_set)
-                    addon_line = addon_line.yellow;
-                else
-                    addon_line = addon_line.blue;
-            }
-
-            // Display addon line
-            writeln(addon_line);
+            writeln(getColoredAddonLine(args, project, addon, display_type));
         }
     }
 
