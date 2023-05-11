@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
+## Release 0.0.9 (unreleased)
 
 ### Added
 
 - New option `--ual` to `odood addons install` and `odood addons update` comands
 - New option `--additional-addon` to `odood test` command
-- New option `--with-price` and `--without-price` for `odood addons list` command
-- New option `--color=price` for `odood addons list` command
+- New options for `odood addons list` command:
+    - `--with-price` and `--without-price` for `odood addons list` command
+    - `--color=price` to highlight addons that have or have no prices
+    - `--table` to output list of addons as table
+
+---
 
 ## Release 0.0.8 (2023-05-05)
 

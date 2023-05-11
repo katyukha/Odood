@@ -55,6 +55,8 @@ class CommandAddonsList: OdoodCommand {
         this.add(new Flag(
             null, "without-price",
             "Filter only addons that does not have price defined."));
+        this.add(new Flag(
+            "t", "table", "Display list of addons as table"));
         this.add(new Option(
             "c", "color",
             "Color output by selected scheme: " ~
@@ -106,6 +108,20 @@ class CommandAddonsList: OdoodCommand {
             });
     }
 
+    private string getAddonDisplayName(
+            OdooAddon addon,
+            in AddonDisplayType display_type) {
+        final switch(display_type) {
+            case AddonDisplayType.by_name:
+                return addon.name;
+            case AddonDisplayType.by_path:
+                return addon.path.toString;
+            case AddonDisplayType.by_name_version:
+                return "%10s\t%s".format(
+                    addon.manifest.module_version, addon.name);
+        }
+    }
+
     private auto getColoredAddonLine(
             ProgramArgs args,
             in Project project,
@@ -113,19 +129,7 @@ class CommandAddonsList: OdoodCommand {
             in AddonDisplayType display_type) {
 
         // Choose the way to display addon line
-        StyledString addon_line;
-        final switch(display_type) {
-            case AddonDisplayType.by_name:
-                addon_line = StyledString(addon.name);
-                break;
-            case AddonDisplayType.by_path:
-                addon_line = StyledString(addon.path.toString);
-                break;
-            case AddonDisplayType.by_name_version:
-                addon_line = StyledString("%10s\t%s".format(
-                    addon.manifest.module_version, addon.name));
-                break;
-        }
+        auto addon_line = StyledString(getAddonDisplayName(addon, display_type));
 
         // Color the addon line to be displayed
         switch(args.option("color")) {
@@ -148,14 +152,48 @@ class CommandAddonsList: OdoodCommand {
         return addon_line;
     }
 
+    /** Display addons as plain list
+      **/
+    private void displayAddonsList(ProgramArgs args, in Project project) {
+        auto display_type = parseDisplayType(args);
+        foreach(addon; findAddons(args, project))
+            writeln(
+                getColoredAddonLine(args, project, addon, display_type));
+    }
+
+    /** Display addons as table
+      **/
+    private void displayAddonsTable(ProgramArgs args, in Project project) {
+        import tabletool;
+        string[][] table_data;
+        auto display_type = parseDisplayType(args);
+        foreach(addon; findAddons(args, project)) {
+            table_data ~= [
+                getColoredAddonLine(
+                    args, project, addon, display_type).to!string,
+                addon.manifest.module_version,
+                addon.manifest.price.price.to!string,
+                addon.manifest.price.currency];
+        }
+        writeln(
+            tabulate(
+                table_data,
+                tabletool.Config(
+                    tabletool.Style.grid,
+                    tabletool.Align.left,
+                    true,
+                )
+            )
+        );
+    }
+
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        auto display_type = parseDisplayType(args);
 
-        foreach(addon; findAddons(args, project)) {
-            // Choose the way to display addon line
-            writeln(getColoredAddonLine(args, project, addon, display_type));
-        }
+        if (args.flag("table"))
+            displayAddonsTable(args, project);
+        else
+            displayAddonsList(args, project);
     }
 
 }
