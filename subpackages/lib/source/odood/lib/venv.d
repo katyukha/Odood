@@ -141,8 +141,12 @@ const struct VirtualEnv {
             "Running command in virtualenv (with exit-code check): " ~
             "cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        return _path.join("bin", "run-in-venv").runCmdE(
-            args, workDir, env, config);
+        auto result = run(args, workDir, env, config);
+        enforce!OdoodException(
+            result.status == 0,
+            "Running %s in virtualenv failed! Output: %s".format(
+                args, result.output));
+        return result;
     }
 
     /// ditto
