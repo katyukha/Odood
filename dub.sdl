@@ -6,8 +6,8 @@ license "MPL-2.0"
 dependency "pyd" version=">=0.14.4"
 
 
-dependency ":lib" path="./subpackages/lib"
-dependency ":cli" path="./subpackages/cli"
+dependency ":lib" version="*"
+dependency ":cli" version="*"
 subPackage "./subpackages/lib"
 subPackage "./subpackages/cli"
 
