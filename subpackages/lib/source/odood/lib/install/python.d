@@ -18,12 +18,38 @@ private import odood.lib.utils: runCmd, runCmdE, download;
 private import odood.lib.venv: PySerie;
 
 
-/** Find version of system python
+/** Find version of system python for specified project.
+  * This function will check the version of python required for specified project.
   *
+  * Params:
+  *     project = instance of Odood project to get version of system python for.
   * Returns: SemVer version of system python interpreter
   **/
 SemVer getSystemPythonVersion(in Project project) {
-    import std.process: execute;
+    import std.process: execute, environment;
+    import std.path: pathSplitter;
+
+    // Check if there is system python of desired version for this odoo
+    // install (python3 or python2)
+    bool sys_python_available = false;
+    foreach(sys_path; pathSplitter(environment["PATH"])) {
+        auto sys_py_path = Path(sys_path).join(
+            project.venv.py_interpreter_name);
+        if (!sys_py_path.exists)
+            continue;
+        if (sys_py_path.isSymlink && !sys_py_path.readLink.exists)
+            continue;
+        sys_python_available = true;
+        break;
+    }
+
+    if (!sys_python_available)
+        /* If system python is not available, then return version 0.0.0.
+         * In this case, system python will not be suitable, and thus
+         * Odood will try to build python from sources.
+         */
+        return SemVer(0, 0, 0);
+
 
     auto python_interpreter = project.venv.py_interpreter_name;
     auto res = execute([python_interpreter, "--version"]);
@@ -40,7 +66,8 @@ SemVer getSystemPythonVersion(in Project project) {
 }
 
 
-/// Is system python suitable for specified project
+/** Check if system python suitable for specified project.
+  **/
 bool isSystemPythonSuitable(in Project project) {
     auto sys_py_ver = project.getSystemPythonVersion;
     if (project.odoo.serie <= OdooSerie(10))
