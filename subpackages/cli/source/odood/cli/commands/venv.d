@@ -1,6 +1,7 @@
 module odood.cli.commands.venv;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
+private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
@@ -30,6 +31,28 @@ class CommandVenvInstallDevTools: OdoodCommand {
 
 }
 
+
+class CommandVenvInstallPyPackages: OdoodCommand {
+
+    this() {
+        super("install-py-packages", "Install Python packages");
+        this.add(new Option(
+            "r", "requirements", "Path to requirements.txt to install python packages from"));
+        this.add(new Argument(
+            "package", "Python package specification to install").repeating.optional);
+
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        if (args.option("requirements"))
+            project.venv.installPyRequirements(Path(args.option("requirements")));
+        if (args.args("package").length > 0)
+            project.venv.installPyPackages(args.args("package"));
+    }
+
+}
 
 class CommandVenvReinstall: OdoodCommand {
 
@@ -94,6 +117,7 @@ class CommandVenv: OdoodCommand {
     this() {
         super("venv", "Manage virtual environment for this project.");
         this.add(new CommandVenvInstallDevTools());
+        this.add(new CommandVenvInstallPyPackages());
         this.add(new CommandVenvReinstall());
         this.add(new CommandVenvUpdateOdoo());
     }

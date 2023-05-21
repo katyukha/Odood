@@ -10,6 +10,8 @@
     - `--with-price` and `--without-price` for `odood addons list` command
     - `--color=price` to highlight addons that have or have no prices
     - `--table` to output list of addons as table
+- New command `odood venv install-py-packages` that could be used to easily
+  install python packages in Odood virtualenv environment
 
 ---
 
