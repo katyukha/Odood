@@ -58,15 +58,13 @@ const struct LOdoo {
         /** Run lodoo with provided args, raising error
           * in case of non-zero exit status.
           **/
-        auto runE(
-                in string[] args,
-                std.process.Config config) {
-            tracef("Running LOdoo with args %s", args);
-            return _project.venv.runE(
-                ["lodoo", "--conf", odoo_conf_path.toString] ~ args,
-                Nullable!Path.init,  // workdir
-                null,  // env
-                config);
+        auto runE(in string[] args, std.process.Config config) {
+            auto result = run(args, config);
+            enforce!OdoodException(
+                result.status == 0,
+                "Running lodoo with args %s failed!\nOutput: %s".format(
+                    args.dup, result.output));
+            return result;
         }
 
         /// ditto
