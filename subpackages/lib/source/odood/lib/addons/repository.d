@@ -9,18 +9,17 @@ private static import std.process;
 
 private import thepath: Path;
 
-private import odood.lib.utils: runCmd, runCmdE;
 private import odood.lib.project: Project;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.git: parseGitURL, gitClone;
+private import odood.lib.theprocess;
 
 
-// TODO: Do we need this struct?
 class AddonRepository {
     private const Project _project;
     private const Path _path;
 
-    //@disable this();
+    @disable this();
 
     this(in Project project, in Path path) {
         _project = project;
@@ -57,12 +56,11 @@ class AddonRepository {
       **/
     Nullable!string getCurrBranch() {
         import std.string: chompPrefix, strip;
-        auto result = runCmd(
-            ["git", "symbolic-ref", "-q", "HEAD"],
-            _path,
-            null,
-            std.process.Config.stderrPassThrough,
-        );
+        auto result = Process("git")
+            .setArgs(["symbolic-ref", "-q", "HEAD"])
+            .setWorkDir(_path)
+            .setFlag(std.process.Config.Flags.stderrPassThrough)
+            .execute();
         if (result.status == 0)
             return result.output.strip().chompPrefix("refs/heads/").nullable;
         return Nullable!(string).init;
@@ -75,29 +73,42 @@ class AddonRepository {
       **/
     string getCurrCommit() {
         import std.string: strip;
-        return runCmdE(
-            ["git", "rev-parse", "-q", "HEAD"],
-            _path,
-            null,
-            std.process.Config.stderrPassThrough,
-        ).output.strip();
+        return Process("git")
+            .setArgs(["rev-parse", "-q", "HEAD"])
+            .setWorkDir(_path)
+            .setFlag(std.process.Config.stderrPassThrough)
+            .execute()
+            .ensureStatus()
+            .output.strip();
     }
 
     /** Fetch remote 'origin'
       **/
     void fetchOrigin() {
-        runCmdE(["git", "fetch", "origin"], _path);
+        Process("git")
+            .setArgs("fetch", "origin")
+            .setWorkDir(_path)
+            .execute()
+            .ensureStatus();
     }
 
     /// ditto
     void fetchOrigin(in string branch) {
-        runCmdE(["git", "fetch", "origin", branch], _path);
+        Process("git")
+            .setArgs("fetch", "origin", branch)
+            .setWorkDir(_path)
+            .execute()
+            .ensureStatus();
     }
 
     /** Switch repo to specified branch
       **/
     void switchBranchTo(in string branch_name) {
-        runCmdE(["git", "checkout", branch_name], _path);
+        Process("git")
+            .setArgs("checkout", branch_name)
+            .setWorkDir(_path)
+            .execute()
+            .ensureStatus();
 
     }
 }

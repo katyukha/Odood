@@ -14,7 +14,7 @@ private import std.logger;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: runCmd, runCmdE, download;
+private import odood.lib.utils: download;
 private import odood.lib.venv: PySerie;
 
 

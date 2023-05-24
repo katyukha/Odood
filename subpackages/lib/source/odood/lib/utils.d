@@ -3,7 +3,7 @@ module odood.lib.utils;
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
 private import std.logger;
-private import std.process: execute, Config, Pid;
+private import std.process: Pid;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.random: uniform;
@@ -12,110 +12,6 @@ private import std.typecons: Nullable, nullable;
 private import thepath: Path;
 
 private import odood.lib.exception: OdoodException;
-
-
-/// Run command. Same as std.process.execute, with different order of arguments.
-@safe auto runCmd(
-        scope const(char[])[] args,
-        scope const(char)[] workDir = null,
-        const string[string] env = null,
-        Config config = Config.none,
-        size_t maxOutput = size_t.max) {
-    tracef("Running %s in workdir %s with env %s", args, workDir, env);
-    return execute(args, env, config, maxOutput, workDir); 
-}
-
-/// ditto
-@safe auto runCmd(
-        in string[] args,
-        in Path workDir,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-    return runCmd(args, workDir.toString, env, config, maxOutput);
-}
-
-/// ditto
-@safe auto runCmd(
-        in Path path,
-        in string[] args = [],
-        in Nullable!Path workDir = Nullable!Path.init,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-    tracef("Running %s with args %s in workdir %s with env %s", path, args, workDir, env);
-    return path.execute(args, env, workDir, config, maxOutput);
-}
-
-/// ditto
-auto runCmd(
-        in Path path,
-        in string[] args,
-        in Path workDir,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-    return runCmd(
-        path, args, cast(const Nullable!Path)workDir.nullable,
-        env, config, maxOutput);
-}
-
-
-/// Run command raising exception for non-zero return code
-@safe auto runCmdE(
-        scope const(char[])[] args,                        
-        scope const(char)[] workDir = null,                
-        const string[string] env = null,
-        Config config = Config.none,                       
-        size_t maxOutput = size_t.max) {                   
-
-    auto result = runCmd(args, workDir, env, config, maxOutput);
-    enforce!OdoodException(
-        result.status == 0,
-        "Command %s returned non-zero error code!\nOutput: %s".format(
-            args.dup, result.output));
-    return result;
-}
-
-/// ditto
-@safe auto runCmdE(
-        in string[] args,
-        in Path workDir,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-    return runCmdE(args, workDir.toString, env, config, maxOutput);
-}
-
-/// ditto
-auto runCmdE(
-        in Path path,
-        in string[] args = [],
-        in Nullable!Path workDir = Nullable!Path.init,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-
-    auto result = runCmd(path, args, workDir, env, config, maxOutput);
-    enforce!OdoodException(
-        result.status == 0,
-        "Command %s with args %s returned non-zero error code!\nOutput: %s".format(
-            path, args, result.output));
-    return result;
-}
-
-/// ditto
-auto runCmdE(
-        in Path path,
-        in string[] args,
-        in Path workDir,
-        in string[string] env = null,
-        in Config config = Config.none,
-        in size_t maxOutput = size_t.max) {
-    return runCmdE(
-        path, args, cast(const Nullable!Path)workDir.nullable,
-        env, config, maxOutput);
-}
 
 
 /// Check if process is alive

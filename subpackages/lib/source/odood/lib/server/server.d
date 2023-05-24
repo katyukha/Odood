@@ -9,6 +9,8 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.format: format;
+private import std.string: join;
+private import std.algorithm: map;
 
 private import thepath: Path;
 
@@ -18,6 +20,7 @@ private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
+private import odood.lib.theprocess;
 
 
 package(odood) struct CoverageOptions {
@@ -108,56 +111,56 @@ struct OdooServer {
         return res;
     }
 
-    /** Prepare command to be used to run the server
-      * with or without coverage.
+    /** Prepare preconfigured server runner,
+      * optionally with provided coverage settings
+      *
+      * Params:
+      *     coverage = coverage options
+      *     options = odoo server options
       **/
-    private string[] getServerCmd(
+    private auto getServerRunner(
             in CoverageOptions coverage,
             in string[] options...) const {
-        import std.string: join;
-        import std.algorithm: map;
-        string[] cmd = [
-            _project.venv.path.join("bin", "run-in-venv").toString];
+        auto runner = _project.venv.runner()
+            .inWorkDir(_project.project_root.toString)
+            .withEnv(getServerEnv);
 
         if (coverage.enable) {
-            cmd ~= [
-                "coverage",
+            // Run server with coverage mode
+            runner.addArgs(
+                _project.venv.path.join("bin", "coverage").toString,
                 "run",
                 "--parallel-mode",
                 "--omit=*/__openerp__.py,*/__manifest__.py",
-            ];
+                // TODO: Add --data-file option. possibly store it in CoverageOptions
+            );
             if (coverage.source.length > 0)
-                cmd ~= [
+                runner.addArgs(
                     "--source=%s".format(
-                        coverage.source.map!(
-                            p => p.toString).join(",")),
-                ];
+                        coverage.source.map!(p => p.toString).join(",")),
+                );
             if (coverage.include.length > 0)
-                cmd ~= [
+                runner.addArgs(
                     "--include=%s".format(
                         coverage.include.map!(
                             p => p.toString ~ "/*").join(",")),
-                ];
+                );
         }
-        cmd ~= [scriptPath.toString];
-        cmd ~= options;
-        return cmd;
+
+        runner.addArgs(scriptPath.toString);
+        runner.addArgs(options);
+        return runner;
     }
 
-    /** Prepare server command combined with server options
-      *
-      * Params:
-      *     options = odoo server options
-      **/
-    private @safe pure string[] getServerCmd(in string[] options) const {
-        return [
-            _project.venv.path.join("bin", "run-in-venv").toString,
-            scriptPath.toString,
-        ] ~ options;
+    /// ditto
+    private auto getServerRunner(in string[] options...) const {
+        return getServerRunner(CoverageOptions(false), options);
     }
 
     /** Spawn the Odoo server
       *
+      * Params:
+      *     detach = if set, then run server in background
       **/
     pid_t spawn(bool detach=false) const {
         import std.process: Config;
@@ -166,24 +169,15 @@ struct OdooServer {
             !isRunning,
             "Server already running!");
 
-        Config process_conf = Config.none;
-        if (detach)
-            process_conf |= Config.detached;
+        auto runner = getServerRunner(
+            "--pidfile=%s".format(_project.odoo.pidfile));
+        if (detach) {
+            runner.setFlag(Config.detached);
+            runner.addArgs("--logfile=%s".format(_project.odoo.logfile));
+        }
 
         info("Starting odoo server...");
-
-        // TODO: move this to virtualenv logic?
-        auto server_opts = [
-            "--pidfile=%s".format(_project.odoo.pidfile),
-        ];
-        if (detach)
-            server_opts ~= ["--logfile=%s".format(_project.odoo.logfile)];
-
-        auto pid = std.process.spawnProcess(
-            getServerCmd(server_opts),
-            getServerEnv,
-            process_conf,
-            _project.project_root.toString);
+        auto pid = runner.spawn();
 
         infof("Odoo server is started. PID: %s", pid.osHandle);
         if (!detach)
@@ -196,26 +190,15 @@ struct OdooServer {
       *     Iterator over log entries produced by this call to the server.
       **/
     auto pipeServerLog(in CoverageOptions coverage, string[] options...) const {
-        import std.process: Config, Redirect;
-        import std.string: join;
-
-        Config process_conf = Config.none;
+        auto runner = getServerRunner(coverage, options)
+            // TODO: Do we need to run it in current work dir?
+            .inWorkDir(Path.current); // Run in current directory to make coverage work.
 
         tracef(
             "Starting odoo server (pipe logs, coverage=%s, test_mode=%s) cmd: %s",
-            coverage.enable, _test_mode, getServerCmd(coverage, options).join(" "));
+            coverage.enable, _test_mode, runner);
 
-        // TODO: If there is no --logfile option in options list,
-        //       then, we have to manually specify '--logfile=' option,
-        //       to enforce output to stdout, even if there is other option
-        //       used in config.
-
-        auto server_pipes = std.process.pipeProcess(
-            getServerCmd(coverage, options),
-            Redirect.all,
-            getServerEnv,
-            process_conf,
-            Path.current.toString);  // _project.project_root.toString);
+        auto server_pipes = runner.pipe(std.process.Redirect.all);
 
         return OdooLogPipe(server_pipes);
     }
@@ -255,11 +238,7 @@ struct OdooServer {
       *     env = extra environment variables to pass to the server
       **/
     auto runE(in string[] options, in string[string] env=null) const {
-        auto result = run(options, env);
-        enforce!OdoodException(
-            result.status == 0,
-            "Running server with options %s failed!\nOutput: %s".format(
-                options.dup, result.output));
+        auto result = run(options, env).ensureStatus();
         return result;
     }
 

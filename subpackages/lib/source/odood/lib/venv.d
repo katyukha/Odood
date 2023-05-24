@@ -11,7 +11,7 @@ private import thepath: Path;
 private static import dyaml;
 
 private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: runCmd, runCmdE;
+private import odood.lib.theprocess;
 
 
 // Define template for simple script that allows to run any command in
@@ -97,6 +97,10 @@ const struct VirtualEnv {
             initRunInVenvScript();
     }
 
+    auto runner() const {
+        return Process(_path.join("bin", "run-in-venv"));
+    }
+
     /** Run command in virtual environment
       **/
     auto run(
@@ -107,7 +111,12 @@ const struct VirtualEnv {
         tracef(
             "Running command in virtualenv: cmd=%s, work dir=%s, env=%s",
             args, workDir, env);
-        return _path.join("bin", "run-in-venv").runCmd(args, workDir, env, config);
+        auto process = runner();
+        if (args.length > 0) process.setArgs(args);
+        if (!workDir.isNull) process.setWorkDir(workDir.get);
+        if (env) process.setEnv(env);
+        if (config != std.process.Config.none) process.setConfig(config);
+        return process.execute();
     }
 
     /// ditto
@@ -137,16 +146,7 @@ const struct VirtualEnv {
             in Nullable!Path workDir=Nullable!Path.init,
             in string[string] env=null,
             std.process.Config config = std.process.Config.none) {
-        tracef(
-            "Running command in virtualenv (with exit-code check): " ~
-            "cmd=%s, work dir=%s, env=%s",
-            args, workDir, env);
-        auto result = run(args, workDir, env, config);
-        enforce!OdoodException(
-            result.status == 0,
-            "Running %s in virtualenv failed! Output: %s".format(
-                args, result.output));
-        return result;
+        return run(args, workDir, env, config).ensureStatus();
     }
 
     /// ditto
@@ -278,9 +278,11 @@ const struct VirtualEnv {
         if (!python_build_dir.exists) {
             // Extract only if needed
             info("Unpacking python...");
-            runCmdE(
-                ["tar", "-xzf", python_download_path.toString],
-                tmp_dir.toString);
+            Process("tar")
+                .withArgs(["-xzf", python_download_path.toString])
+                .inWorkDir(tmp_dir)
+                .execute()
+                .ensureStatus();
         }
 
         // TODO: Install 'make' and 'libsqlite3-dev' if needed
@@ -289,23 +291,29 @@ const struct VirtualEnv {
 
         // Configure python build
         info("Running python's configure script...");
-        python_build_dir.join("configure").runCmdE(
-            python_configure_opts,
-            python_build_dir);
+        Process(python_build_dir.join("configure"))
+            .withArgs(python_configure_opts)
+            .inWorkDir(python_build_dir)
+            .execute()
+            .ensureStatus();
 
         // Build python itself
         info("Building python...");
-        runCmdE(
-            ["make", "--jobs=%s".format(totalCPUs > 1 ? totalCPUs -1 : 1)],
-            python_build_dir.toString);
+        Process("make")
+            .withArgs(["--jobs=%s".format(totalCPUs > 1 ? totalCPUs -1 : 1)])
+            .inWorkDir(python_build_dir)
+            .execute()
+            .ensureStatus();
 
         // Install python
         info("Installing python...");
-        runCmdE(
-            ["make",
-             "--jobs=%s".format(totalCPUs > 1 ? totalCPUs -1 : 1),
-             "install"],
-            python_build_dir.toString);
+        Process("make")
+            .withArgs([
+                "--jobs=%s".format(totalCPUs > 1 ? totalCPUs -1 : 1),
+                "install"])
+            .inWorkDir(python_build_dir)
+            .execute()
+            .ensureStatus();
 
         // Create symlink to 'python' if needed
         if (!python_path.join("bin", "python").exists) {
@@ -346,28 +354,33 @@ const struct VirtualEnv {
         if (python_version == "system") {
             final switch(_py_serie) {
                 case PySerie.py2:
-                    runCmdE([
-                        "python3",
-                        "-m", "virtualenv",
-                        "-p", "python2",
-                        _path.toString]);
+                    Process("python3")
+                        .withArgs([
+                            "-m", "virtualenv",
+                            "-p", "python2",
+                            _path.toString])
+                        .execute()
+                        .ensureStatus();
                     break;
                 case PySerie.py3:
-                    runCmdE([
-                        "python3",
-                        "-m", "virtualenv",
-                        "-p", "python3",
-                        _path.toString]);
+                    Process("python3")
+                        .withArgs([
+                            "-m", "virtualenv",
+                            "-p", "python3",
+                            _path.toString])
+                        .execute()
+                        .ensureStatus();
                     break;
             }
         } else {
             buildPython(python_version);
-            runCmdE([
-                "python3",
-                "-m", "virtualenv",
-                "-p", _path.join(
-                    "python", "bin", "python").toString,
-                _path.toString]);
+            Process("python3")
+                .withArgs([
+                    "-m", "virtualenv",
+                    "-p", _path.join("python", "bin", "python").toString,
+                    _path.toString])
+                .execute()
+                .ensureStatus();
         }
 
         //// Add bash script to run any command in virtual env

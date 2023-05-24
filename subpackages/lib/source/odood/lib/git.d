@@ -7,8 +7,9 @@ private import std.format: format;
 
 private import thepath: Path;
 
-private import odood.lib.utils: runCmd, runCmdE;
 private import odood.lib.exception: OdoodException;
+private import odood.lib.theprocess;
+
 
 // TODO: Add parsing of branch name from url
 /// Regex for parsing git URL
@@ -278,11 +279,14 @@ void gitClone(
     infof("Clonning repository (branch=%s): %s", branch, repo);
 
     // TODO: Make branch optional
-    string[] cmd = ["git", "clone", "-b", branch];
+    string[] git_options = ["clone", "-b", branch];
     if (single_branch)
-        cmd ~= ["--single-branch"];
-    cmd ~= [repo.applyCIRewrites.toUrl, dest.toString];
-    cmd.runCmdE;
+        git_options ~= ["--single-branch"];
+    git_options ~= [repo.applyCIRewrites.toUrl, dest.toString];
+    Process("git")
+        .setArgs(git_options)
+        .execute()
+        .ensureStatus();
 }
 
 /** Check if specified path is git repository
@@ -291,7 +295,11 @@ bool isGitRepo(in Path path) {
     if (path.join(".git").exists)
         return true;
 
-    if (runCmd(["git", "rev-parse", "--git-dir"], path).status == 0)
+    auto result = Process("git")
+        .setArgs("rev-parse", "--git-dir")
+        .setWorkDir(path)
+        .execute();
+    if (result.status == 0)
         return true;
 
     return false;
