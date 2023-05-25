@@ -9,8 +9,32 @@ private import std.file;
 private import std.stdio;
 private import std.exception;
 private import std.string: join;
+private import std.typecons;
 
 private import thepath;
+
+
+/** Resolve program name according to system path
+  *
+  * Params:
+  *     name = name of program to find
+  * Returns:
+  *     Nullable path to program.
+  **/
+Nullable!Path resolveProgram(in string program) {
+    import std.path: pathSplitter;
+    bool sys_python_available = false;
+    foreach(sys_path; pathSplitter(environment["PATH"])) {
+        auto sys_program_path = Path(sys_path).join(program);
+        if (!sys_program_path.exists)
+            continue;
+        if (sys_program_path.isSymlink && !sys_program_path.readLink.exists)
+            // It is broken symlink
+            continue;
+        return sys_program_path.nullable;
+    }
+    return Nullable!Path.init;
+}
 
 
 class ProcessException : Exception
@@ -41,13 +65,24 @@ class ProcessException : Exception
     }
 
     /** Ensure that program exited with expected exit code
+      *
+      * Params:
+      *     msg = message to throw in exception in case of check failure
+      *     expected = expected exit-code, if differ, then
+      *         exception will be thrown.
       **/
-    auto ref ensureStatus(E : Throwable = ProcessException)(in int expected=0) const {
-        enforce!E(
-            status == expected, 
-            "Program %s with args %s failed! Expected exit code %s, got %s.\nOutput: %s".format(
-                _program, _args, expected, status, output));
+    auto ref ensureStatus(E : Throwable = ProcessException)(
+            in string msg, in int expected=0) const {
+        enforce!E(status == expected, msg);
         return this;
+    }
+
+    /// ditto
+    auto ref ensureStatus(E : Throwable = ProcessException)(in int expected=0) const {
+        return ensureStatus(
+            "Program %s with args %s failed! Expected exit code %s, got %s.\nOutput: %s".format(
+                _program, _args, expected, status, output),
+            expected);
     }
 }
 

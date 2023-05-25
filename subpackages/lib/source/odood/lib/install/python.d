@@ -16,6 +16,7 @@ private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
 private import odood.lib.utils: download;
 private import odood.lib.venv: PySerie;
+private import odood.lib.theprocess;
 
 
 /** Find version of system python for specified project.
@@ -26,42 +27,30 @@ private import odood.lib.venv: PySerie;
   * Returns: SemVer version of system python interpreter
   **/
 SemVer getSystemPythonVersion(in Project project) {
-    import std.process: execute, environment;
+    import std.process: environment;
     import std.path: pathSplitter;
 
-    // Check if there is system python of desired version for this odoo
-    // install (python3 or python2)
-    bool sys_python_available = false;
-    foreach(sys_path; pathSplitter(environment["PATH"])) {
-        auto sys_py_path = Path(sys_path).join(
-            project.venv.py_interpreter_name);
-        if (!sys_py_path.exists)
-            continue;
-        if (sys_py_path.isSymlink && !sys_py_path.readLink.exists)
-            continue;
-        sys_python_available = true;
-        break;
-    }
-
-    if (!sys_python_available)
-        /* If system python is not available, then return version 0.0.0.
-         * In this case, system python will not be suitable, and thus
-         * Odood will try to build python from sources.
-         */
+    /* If system python is not available, then return version 0.0.0.
+     * In this case, system python will not be suitable, and thus
+     * Odood will try to build python from sources.
+     */
+    if (resolveProgram(project.venv.py_interpreter_name).isNull)
         return SemVer(0, 0, 0);
 
-
     auto python_interpreter = project.venv.py_interpreter_name;
-    auto res = execute([python_interpreter, "--version"]);
-    enforce!OdoodException(
-        res.status == 0,
-        "Cannot get version of python interpreter '%s'".format(python_interpreter));
+    auto python_version_raw = Process(python_interpreter)
+        .withArgs("--version")
+        .execute()
+        .ensureStatus(
+            "Cannot get version of python interpreter '%s'".format(
+                python_interpreter))
+        .output;
 
     immutable auto re_py_version = ctRegex!(`Python (\d+.\d+.\d+)`);
-    auto re_match = res.output.matchFirst(re_py_version);
+    auto re_match = python_version_raw.matchFirst(re_py_version);
     enforce!OdoodException(
         !re_match.empty,
-        "Cannot parse system python's version '%s'".format(res.output));
+        "Cannot parse system python's version '%s'".format(python_version_raw));
     return SemVer(re_match[1]);
 }
 

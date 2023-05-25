@@ -374,7 +374,15 @@ const struct VirtualEnv {
             }
         } else {
             buildPython(python_version);
-            Process("python3")
+
+            // Install virtualenv inside built python environment
+            Process(_path.join("python", "bin", "pip"))
+                .withArgs("install", "virtualenv")
+                .execute()
+                .ensureStatus();
+
+            // Initialize virtualenv inside built python env
+            Process(_path.join("python", "bin", "python"))
                 .withArgs([
                     "-m", "virtualenv",
                     "-p", _path.join("python", "bin", "python").toString,
