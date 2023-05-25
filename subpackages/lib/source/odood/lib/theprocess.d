@@ -22,21 +22,31 @@ private import thepath;
   *     Nullable path to program.
   **/
 Nullable!Path resolveProgram(in string program) {
-    import std.path: pathSplitter;
-    bool sys_python_available = false;
-    foreach(sys_path; pathSplitter(environment["PATH"])) {
+    import std.path: pathSeparator;
+    import std.array: split;
+    foreach(sys_path; environment["PATH"].split(pathSeparator)) {
         auto sys_program_path = Path(sys_path).join(program);
         if (!sys_program_path.exists)
             continue;
-        if (sys_program_path.isSymlink && !sys_program_path.readLink.exists)
-            // It is broken symlink
-            continue;
+
+        // TODO: check with lstat if link is not broken
         return sys_program_path.nullable;
     }
     return Nullable!Path.init;
 }
 
+///
+version(Posix) unittest {
+    import unit_threaded.assertions;
 
+    resolveProgram("sh").isNull.shouldBeFalse;
+    resolveProgram("sh").get.toString.shouldEqual("/usr/bin/sh");
+
+    resolveProgram("unexisting_program").isNull.shouldBeTrue;
+}
+
+
+/// Exception to be raise by Process struct
 class ProcessException : Exception
 {
     mixin basicExceptionCtors;
