@@ -37,17 +37,24 @@ const struct LOdoo {
                 _project.odoo.testconfigfile : _project.odoo.configfile;
         }
 
+        auto runner() const {
+            auto process = _project.venv.runner()
+                .addArgs("lodoo", "--conf", odoo_conf_path.toString);
+            if (_project.odoo.server_user)
+                process.setUser(_project.odoo.server_user);
+            return process;
+        }
+
         /** Run lodoo with provided args
           **/
         auto run(
                 in string[] args,
                 std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
-            return _project.venv.run(
-                ["lodoo", "--conf", odoo_conf_path.toString] ~ args,
-                Nullable!Path.init, // workdir
-                null,  // env
-                config);
+            auto process = runner().addArgs(args);
+            if (config != std.process.Config.none)
+                process.setConfig(config);
+            return process.execute();
         }
 
         /// ditto
@@ -59,12 +66,7 @@ const struct LOdoo {
           * in case of non-zero exit status.
           **/
         auto runE(in string[] args, std.process.Config config) {
-            auto result = run(args, config);
-            enforce!OdoodException(
-                result.status == 0,
-                "Running lodoo with args %s failed!\nOutput: %s".format(
-                    args.dup, result.output));
-            return result;
+            return run(args, config).ensureStatus!OdoodException;
         }
 
         /// ditto

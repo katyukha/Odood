@@ -125,6 +125,9 @@ struct OdooServer {
             .inWorkDir(_project.project_root.toString)
             .withEnv(getServerEnv);
 
+        if (_project.odoo.server_user)
+            runner.setUser(_project.odoo.server_user);
+
         if (coverage.enable) {
             // Run server with coverage mode
             runner.addArgs(

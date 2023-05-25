@@ -45,6 +45,9 @@ struct ProjectConfigOdoo {
     /// Repo, odoo is installed from.
     string repo;
 
+    /// Name of the user that have to run Odoo
+    string server_user;
+
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in OdooSerie odoo_serie,
@@ -79,10 +82,12 @@ struct ProjectConfigOdoo {
         this.serie = OdooSerie(config["version"].as!string);
         this.branch = config["branch"].as!string;
         this.repo = config["repo"].as!string;
+        if (config.containsKey("server-user"))
+            this.server_user = config["server-user"].as!string;
     }
 
     dyaml.Node toYAML() const {
-        return dyaml.Node([
+        auto result = dyaml.Node([
             "version": this.serie.toString,
             "branch": this.branch,
             "repo": this.repo,
@@ -92,6 +97,9 @@ struct ProjectConfigOdoo {
             "logfile": this.logfile.toString,
             "pidfile": this.pidfile.toString,
         ]);
+        if (this.server_user)
+            result["server-user"] = this.server_user;
+        return result;
     }
 }
 

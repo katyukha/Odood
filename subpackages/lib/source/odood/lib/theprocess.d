@@ -11,6 +11,12 @@ private import std.exception;
 private import std.string: join;
 private import std.typecons;
 
+version(Posix) {
+    private import core.sys.posix.unistd;
+    private import core.sys.posix.pwd;
+}
+
+
 private import thepath;
 
 
@@ -104,6 +110,15 @@ class ProcessException : Exception
     private string _workdir=null;
     private std.process.Config _config=std.process.Config.none;
 
+    version(Posix) {
+        // On posix we have ability to run process with different user
+        private Nullable!uid_t _uid;
+        private Nullable!gid_t _gid;
+
+        private Nullable!uid_t _original_uid;
+        private Nullable!gid_t _original_gid;
+    }
+
     this(in string program) {
         _program = program;
     }
@@ -193,14 +208,145 @@ class ProcessException : Exception
     /// ditto
     alias withFlag = setFlag;
 
+    version(Posix) auto ref setUID(in uid_t uid) {
+        _uid = uid;
+        return this;
+    }
+
+    /// ditto
+    version(Posix) alias withUID = setUID;
+
+    version(Posix) auto ref setGID(in gid_t gid) {
+        _gid = gid;
+        return this;
+    }
+
+    /// ditto
+    version(Posix) alias withGID = setGID;
+
+    /// Run process as specified user
+    version(Posix) auto ref setUser(in string username) @trusted {
+        import std.string: toStringz;
+
+        /* pw info has following fields:
+         *     - pw_name,
+         *     - pw_passwd,
+         *     - pw_uid,
+         *     - pw_gid,
+         *     - pw_gecos,
+         *     - pw_dir,
+         *     - pw_shell,
+         */
+        auto pw = getpwnam(username.toStringz);
+        errnoEnforce(
+            pw !is null,
+            "Cannot get info about user %s".format(username));
+        setUID(pw.pw_uid);
+        setGID(pw.pw_gid);
+        return this;
+    }
+
+    ///
+    version(Posix) alias withUser = setUser;
+
+    /// Called before running process to run pre-exec hooks;
+    private void setUpProcess() {
+        version(Posix) {
+            /* We set real user and real group here,
+             * keeping original effective user and effective group
+             * (usually original user/group is root, when such logic used)
+             * Later in preExecFunction, we can update effective user
+             * for child process to be same as real user.
+             * This is needed, because bash, changes effective user to real
+             * user when effective user is different from real.
+             * Thus, we have to set both real user and effective user
+             * for child process.
+             *
+             * We can accomplish this in two steps:
+             *     - Change real uid/gid here for current process
+             *     - Change effective uid/gid to match real uid/gid
+             *       in preexec fuction.
+             * Because preexec function is executed in child process,
+             * that will be replaced by specified command proces, it works.
+             *
+             * Also, note, that first we have to change group ID, because
+             * when we change user id first, it may not be possible to change
+             * group.
+             */
+
+             /*
+              * TODO: May be it have sense to change effective user/group
+              *       instead of real user, and update real user in
+              *       child process.
+              */
+            if (!_gid.isNull && _gid.get != getgid) {
+                _original_gid = getgid().nullable;
+                errnoEnforce(
+                    setregid(_gid.get, -1) == 0,
+                    "Cannot set real GID to %s before starting process: %s".format(
+                        _gid, this.toString));
+            }
+            if (!_uid.isNull && _uid.get != getuid) {
+                _original_uid = getuid().nullable;
+                errnoEnforce(
+                    setreuid(_uid.get, -1) == 0,
+                    "Cannot set real UID to %s before starting process: %s".format(
+                        _uid, this.toString));
+            }
+
+            if (!_original_uid.isNull || !_original_gid.isNull)
+                _config.preExecFunction = () @trusted nothrow @nogc {
+                    /* Because we cannot pass any parameters here,
+                     * we just need to make real user/group equal to
+                     * effective user/group for child proces.
+                     * This is needed, because bash could change effective user
+                     * when it is different from real user.
+                     *
+                     * We change here effective user/group equal
+                     * to real user/group because we have changed
+                     * real user/group in parent process
+                     * before running this function.
+                     *
+                     * Also, note, that this function will be executed
+                     * in child process, just before calling execve.
+                     */
+                    if (setegid(getgid) != 0)
+                        return false;
+                    if (seteuid(getuid) != 0)
+                        return false;
+                    return true;
+                };
+
+        }
+    }
+
+    /// Called after process started to run post-exec hooks;
+    private void tearDownProcess() {
+        version(Posix) {
+            // Restore original uid/gid after process started.
+            if (!_original_gid.isNull)
+                errnoEnforce(
+                    setregid(_original_gid.get, -1) == 0,
+                    "Cannot restore real GID to %s after process started: %s".format(
+                        _original_gid, this.toString));
+            if (!_original_uid.isNull)
+                errnoEnforce(
+                    setreuid(_original_uid.get, -1) == 0,
+                    "Cannot restore real UID to %s after process started: %s".format(
+                        _original_uid, this.toString));
+        }
+    }
+
     /// Execute program
     auto execute(in size_t max_output=size_t.max) {
+        setUpProcess();
         auto res = std.process.execute(
             [_program] ~ _args,
             _env,
             _config,
             max_output,
             _workdir);
+        tearDownProcess();
         return ProcessResult(_program, _args, res.status, res.output);
     }
 
@@ -208,7 +354,8 @@ class ProcessException : Exception
     auto spawn(File stdin=std.stdio.stdin,
                File stdout=std.stdio.stdout,
                File stderr=std.stdio.stderr) {
-        return std.process.spawnProcess(
+        setUpProcess();
+        auto res = std.process.spawnProcess(
             [_program] ~ _args,
             stdin,
             stdout,
@@ -216,15 +363,20 @@ class ProcessException : Exception
             _env,
             _config,
             _workdir);
+        tearDownProcess();
+        return res;
     }
 
     /// Pipe process
     auto pipe(in Redirect redirect=Redirect.all) {
-        return std.process.pipeProcess(
+        setUpProcess();
+        auto res = std.process.pipeProcess(
             [_program] ~ _args,
             redirect,
             _env,
             _config,
             _workdir);
+        tearDownProcess();
+        return res;
     }
 }
