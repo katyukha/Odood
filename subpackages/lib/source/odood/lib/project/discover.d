@@ -1,5 +1,6 @@
 module odood.lib.project.discover;
 
+private import std.logger;
 private import std.string: splitLines, strip;
 private import std.algorithm: startsWith;
 private import std.regex;
@@ -16,8 +17,6 @@ private import odood.lib.venv: VirtualEnv;
 private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.exception: OdoodException;
 
-
-// TODO: Implement commands that could allow odood to dicscover configuration
 
 private auto RE_CONF_LINE=ctRegex!(
     `^\s*(?P<name>[\w_]+)\s*=\s*(?P<val>[^\s;#]+).*$`, "m");
@@ -98,10 +97,16 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
             case "VENV_DIR":
                 project_venv_path = Path(c["val"]).nullable;
                 break;
+            case "SERVER_RUN_USER":
+                project_odoo.server_user = c["val"];
+                break;
 
             default:
                 // Nothing todo for unknown options
-                continue;
+                infof(
+                    "Unknown param %s in odoo-helper config. Skipping...",
+                    c["name"]);
+                break;
         }
 
         result[c["name"]] = c["val"];
