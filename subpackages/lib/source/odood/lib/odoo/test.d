@@ -3,6 +3,8 @@
   **/
 module odood.lib.odoo.test;
 
+private import std.datetime.stopwatch;
+
 private import std.logger;
 private import std.regex;
 private import std.string: join, empty;
@@ -63,6 +65,9 @@ private struct OdooTestResult {
     private string _cancel_reason;
     private const(OdooLogRecord)[] _log_records;
 
+    private Duration _duration_total;
+    private Duration _duration_tests;
+
     /** Check if test was successfull
       *
       **/
@@ -110,7 +115,7 @@ private struct OdooTestResult {
     /** Set the test result successful
       *
       **/
-    pure void setSuccess() {
+    package pure void setSuccess() {
         _success = true;
     }
 
@@ -119,6 +124,20 @@ private struct OdooTestResult {
       **/
     package pure void addLogRecord(in ref OdooLogRecord record) {
         _log_records ~= record;
+    }
+
+    /** Set the total duration of test run
+      *
+      **/
+    package pure void setDurationTotal(in Duration dur) {
+        _duration_total = dur;
+    }
+
+    /** Set the duration of tests for this test run
+      *
+      **/
+    package pure void setDurationTests(in Duration dur) {
+        _duration_tests = dur;
     }
 
     /** Return range on log records, each represent warning
@@ -145,6 +164,14 @@ private struct OdooTestResult {
             return false;
         });
     }
+
+    /** Return total duration of this test run.
+      **/
+    auto totalDuration() const { return _duration_total; };
+
+    /** Return duration of tests for this test run.
+      **/
+    auto testsDuration() const { return _duration_tests; };
 }
 
 
@@ -403,6 +430,11 @@ struct OdooTestRunner {
             !(_test_migration && _test_migration_repo is null),
             "Migration test requested, but migration repo is not specified!");
 
+        OdooTestResult result;
+
+        auto watch_total = StopWatch(AutoStart.yes);
+        scope(exit) result.setDurationTotal(watch_total.peek());
+
         // Switch branch to migration start ref
         string initial_git_ref;
         if (_test_migration) {
@@ -457,8 +489,6 @@ struct OdooTestRunner {
         // Set up signal handlers
         signal.initSigIntHandling();
         scope(exit) signal.deinitSigIntHandling();
-
-        OdooTestResult result;
 
         // Precompute option for http port
         // (different on different odoo versions)
@@ -559,6 +589,9 @@ struct OdooTestRunner {
                 return result;
             }
         }
+
+        auto watch_tests = StopWatch(AutoStart.yes);
+        scope(exit) result.setDurationTests(watch_tests.peek());
 
         infof("Running tests for modules: %s", getModuleList);
         auto update_res =_server.pipeServerLog(

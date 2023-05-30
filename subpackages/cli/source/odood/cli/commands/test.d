@@ -1,10 +1,12 @@
 module odood.cli.commands.test;
 
+private import core.time;
+
 private import std.logger;
 private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.string: join, empty;
+private import std.string: join, empty, rightJustify;
 private import std.conv: to;
 private import std.typecons: Nullable, nullable;
 
@@ -184,9 +186,12 @@ class CommandTest: OdoodCommand {
 
         if (res.success) {
             writeln();
-            writeln("*".replicate(24).green);
-            writeln("* ".green, "Test result: ".bold, "SUCCESS".bold.green, " *".green);
-            writeln("*".replicate(24).green);
+            writeln("*".replicate(45).green);
+            writeln("* ".green, "Test result:    ".bold, "SUCCESS".rightJustify(25).bold.green, " *".green);
+            writeln("* ".green, "-".replicate(41).lightGray, " *".green);
+            writeln("* ".green, "Tests duration: ", res.testsDuration.total!"seconds".seconds.to!string.rightJustify(25).blue, " *".green);
+            writeln("* ".green, "Total duration: ", res.totalDuration.total!"seconds".seconds.to!string.rightJustify(25).blue, " *".green);
+            writeln("*".replicate(45).green);
         } else {
             if (args.flag("error-report") || !args.flag("no-error-report")) {
                 writeln();
@@ -198,9 +203,12 @@ class CommandTest: OdoodCommand {
                 }
             }
             writeln();
-            writeln("*".replicate(23).red);
-            writeln("* ".red, "Test result: ".bold, "FAILED".bold.red, " *".red);
-            writeln("*".replicate(23).red);
+            writeln("*".replicate(45).red);
+            writeln("* ".red, "Test result:    ".bold, "FAILED".rightJustify(25).bold.red, " *".red);
+            writeln("* ".red, "-".replicate(41).lightGray, " *".red);
+            writeln("* ".red, "Tests duration: ", res.testsDuration.total!"seconds".seconds.to!string.rightJustify(25).blue, " *".red);
+            writeln("* ".red, "Total duration: ", res.totalDuration.total!"seconds".seconds.to!string.rightJustify(25).blue, " *".red);
+            writeln("*".replicate(45).red);
         }
 
         // Handle coverage report
