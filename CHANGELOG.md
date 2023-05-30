@@ -12,6 +12,9 @@
     - `--table` to output list of addons as table
 - New command `odood venv install-py-packages` that could be used to easily
   install python packages in Odood virtualenv environment
+- New option `--warning-report` to `odood test` command:
+  if this option provided, then Odood will print uniq list of warnings
+  in the end of test run
 
 ---
 

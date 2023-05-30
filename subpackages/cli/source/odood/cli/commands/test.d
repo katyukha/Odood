@@ -9,6 +9,7 @@ private import std.exception: enforce;
 private import std.string: join, empty, rightJustify;
 private import std.conv: to;
 private import std.typecons: Nullable, nullable;
+private import std.algorithm;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -109,6 +110,8 @@ class CommandTest: OdoodCommand {
             null, "no-error-report", "Do not print error report in the end of the test."));
         this.add(new Flag(
             null, "error-report", "Print error report in the end of the test."));
+        this.add(new Flag(
+            null, "warning-report", "Print warning report in the end of the test."));
         this.add(new Option(
             "d", "db", "Database to run tests for."));
         this.add(new Option(
@@ -184,6 +187,15 @@ class CommandTest: OdoodCommand {
 
         auto res = testRunner.run();
 
+        if (args.flag("warning-report") && !res.warnings.empty) {
+            writeln();
+            writeln("*".replicate(21).yellow);
+            writeln("* ".yellow, "Reported warnings".bold, " *".yellow);
+            writeln("*".replicate(21).yellow);
+            foreach(warning; res.warnings.array.dup.sort!((a, b) => a.msg < b.msg).uniq!((a, b) => a.msg == b.msg))
+                printLogRecordSimplified(warning);
+        }
+
         if (res.success) {
             writeln();
             writeln("*".replicate(45).green);
@@ -198,9 +210,8 @@ class CommandTest: OdoodCommand {
                 writeln("*".replicate(19).red);
                 writeln("* ".red, "Reported errors".bold, " *".red);
                 writeln("*".replicate(19).red);
-                foreach(error; res.errors) {
+                foreach(error; res.errors)
                     printLogRecordSimplified(error);
-                }
             }
             writeln();
             writeln("*".replicate(45).red);

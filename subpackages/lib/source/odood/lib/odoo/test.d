@@ -227,12 +227,12 @@ struct OdooTestRunner {
         _temporary_db = false;
     }
 
-    @property auto test_migration() const { return _test_migration; }
-    @property auto migration_repo() const { return _test_migration_repo; }
-    @property auto migration_start_ref() const {
-        return _test_migration_start_ref;
-    }
+    auto test_migration() const { return _test_migration; }
+    auto migration_repo() const { return _test_migration_repo; }
+    auto migration_start_ref() const { return _test_migration_start_ref; }
 
+    /** Ensure test database exests, and create it if it does not exists
+      **/
     private void getOrCreateTestDb() {
         if (!_test_db_name)
             setDatabaseName(
@@ -242,6 +242,9 @@ struct OdooTestRunner {
         }
     }
 
+    /** Write specified log record to log file linked with this
+      * test runner.
+      **/
     private void logToFile(in ref OdooLogRecord log_record) {
         _log_file.appendFile(log_record.full_str);
     }
@@ -378,6 +381,7 @@ struct OdooTestRunner {
       **/
     auto ref ignoreSafeWarnings(in bool flag=true) {
         _ignore_safe_warnings = flag;
+        return this;
     }
 
     /** Get coma-separated list of modules to run tests for.
@@ -407,15 +411,15 @@ struct OdooTestRunner {
     }
 
     /** Check if we need to ignore the record or not
+      *
       * Returns: true if record have to be processed and
       *          false if record have to be ignored.
       **/
     private bool filterLogRecord(in ref OdooLogRecord record) {
         if (this._ignore_safe_warnings && record.log_level == "WARNING") {
             foreach(check; RE_SAFE_WARNINGS)
-                if (record.msg.matchFirst(check)) {
+                if (record.msg.matchFirst(check))
                     return false;
-                }
         }
         return true;
     }
