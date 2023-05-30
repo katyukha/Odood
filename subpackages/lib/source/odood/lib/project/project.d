@@ -319,8 +319,10 @@ class Project {
             !this.odoo.path.join(".git").exists,
             "Cannot update odoo that is git repo yet!");
 
-        infof("Removing odoo installation at %s", this.odoo.path);
-        this.odoo.path.remove();
+        if (this.odoo.path.exists()) {
+            infof("Removing odoo installation at %s", this.odoo.path);
+            this.odoo.path.remove();
+        }
 
         this.installDownloadOdoo();
         this.installOdoo();

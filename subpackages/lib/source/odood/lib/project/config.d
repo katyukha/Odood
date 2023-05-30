@@ -81,7 +81,10 @@ struct ProjectConfigOdoo {
         this.path = Path(config["path"].as!string);
         this.serie = OdooSerie(config["version"].as!string);
         this.branch = config["branch"].as!string;
-        this.repo = config["repo"].as!string;
+        if (config["repo"].as!string.length > 0)
+            this.repo = config["repo"].as!string;
+        else
+            this.repo = "https://github.com/odoo/odoo";
         if (config.containsKey("server-user"))
             this.server_user = config["server-user"].as!string;
     }
