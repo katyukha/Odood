@@ -103,7 +103,7 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
 
             default:
                 // Nothing todo for unknown options
-                infof(
+                tracef(
                     "Unknown param %s in odoo-helper config. Skipping...",
                     c["name"]);
                 break;
