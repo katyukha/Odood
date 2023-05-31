@@ -9,12 +9,12 @@ private import std.string : format;
 /** This struct represetns Odoo serie, and provides convenient
   * mechanics to parse and compare Odoo series
   **/
-struct OdooSerie {
+@safe struct OdooSerie {
     private ubyte _major;
     private ubyte _minor;
     private bool _isValid = false;
 
-    @safe pure this(in string ver) {
+    pure this(in string ver) {
         auto parts = ver.split(".");
         if (parts.length == 2) {
             this(parts[0].to!ubyte, parts[1].to!ubyte);
@@ -24,14 +24,14 @@ struct OdooSerie {
             this(0, 0);
         }
     }
-    @safe pure this(in ubyte major, in ubyte minor=0) {
+    pure this(in ubyte major, in ubyte minor=0) {
         this._major = major;
         this._minor = minor;
         if (_major > 0) _isValid = true;
         else _isValid = false;
     }
 
-    @safe pure string toString() const
+    pure string toString() const
     {
         if (this._isValid) {
             return "%s.%s".format(this._major, this._minor);
@@ -39,9 +39,9 @@ struct OdooSerie {
         return "<invalid odoo serie>";
     }
 
-    @safe pure nothrow bool isValid() const { return this._isValid; }
-    @safe pure nothrow ubyte major() const { return this._major; }
-    @safe pure nothrow ubyte minor() const { return this._minor; }
+    pure nothrow bool isValid() const { return this._isValid; }
+    pure nothrow ubyte major() const { return this._major; }
+    pure nothrow ubyte minor() const { return this._minor; }
 
     unittest {
         auto s = OdooSerie("12.0");
@@ -69,7 +69,7 @@ struct OdooSerie {
         assert(s4.toString() == "<invalid odoo serie>");
     }
 
-    @safe pure nothrow int opCmp(in OdooSerie other) const
+    pure nothrow int opCmp(in OdooSerie other) const
     in
     {
         assert(this.isValid);
@@ -86,15 +86,15 @@ struct OdooSerie {
         return this.major < other.major ? -1 : 1;
     }
 
-    @safe pure int opCmp(in string other) const {
+    pure int opCmp(in string other) const {
         return this.opCmp(OdooSerie(other));
     }
 
-    @safe pure int opCmp(in ubyte other) const {
+    pure int opCmp(in ubyte other) const {
         return this.opCmp(OdooSerie(other));
     }
 
-    @safe pure nothrow bool opEquals(in OdooSerie other) const
+    pure nothrow bool opEquals(in OdooSerie other) const
     in
     {
         assert(this.isValid);
@@ -105,11 +105,11 @@ struct OdooSerie {
         return this.major == other.major && this.minor == other.minor;
     }
 
-    @safe pure int opEquals(in string other) const {
+    pure int opEquals(in string other) const {
         return this.opEquals(OdooSerie(other));
     }
 
-    @safe pure int opEquals(in ubyte other) const {
+    pure int opEquals(in ubyte other) const {
         return this.opEquals(OdooSerie(other));
     }
 
