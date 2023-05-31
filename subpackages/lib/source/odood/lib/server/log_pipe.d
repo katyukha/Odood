@@ -27,25 +27,31 @@ package struct OdooLogPipe {
             _log_processor = OdooLogProcessor(_pipes.stderr);
         }
     public:
-        @property bool empty() {
-            return _log_processor.empty;
-        }
+        /** Check if log pipe is empty
+          **/
+        bool empty() { return _log_processor.empty; }
 
-        @property OdooLogRecord front() {
-            return _log_processor.front;
-        }
+        /** Get current log record.
+          **/
+        OdooLogRecord front() { return _log_processor.front; }
 
+        /** Pop current log record.
+          **/
         void popFront() {
             _log_processor.popFront();
             if (_pipes.stderr.eof)
                 wait();
         }
 
+        /** Kill process this log is bound to
+          **/
         auto kill(in bool wait=true) {
             _pipes.pid.kill();
             return this.wait();
         }
 
+        /** Wail process to complete.
+          **/
         auto wait() {
             return std.process.wait(_pipes.pid);
         }

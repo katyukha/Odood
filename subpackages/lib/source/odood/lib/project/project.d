@@ -179,16 +179,16 @@ class Project {
     }
 
     /// Path to project config
-    @property const (Path) config_path() const { return _config_path.get; }
+    const (Path) config_path() const { return _config_path.get; }
 
     /// Project root directory
-    @property const (Path) project_root() const { return _project_root; }
+    const (Path) project_root() const { return _project_root; }
 
     /// Project directories
-    @property auto directories() const { return _directories; }
+    auto directories() const { return _directories; }
 
     /// Project odoo info
-    @property auto odoo() const { return _odoo; }
+    auto odoo() const { return _odoo; }
 
     /// LOdoo instance for this project
     const(LOdoo) lodoo(in bool test_mode=false) const {
@@ -199,9 +199,7 @@ class Project {
       * Allows to run commands in convext of virtual environment,
       * install packages, etc
       **/
-    auto venv() const {
-        return _venv;
-    }
+    auto venv() const { return _venv; }
 
     /** OdooServer wrapper to manage server of this Odood project
       * Provides basic methods to start/stop/etc odoo server.
@@ -213,7 +211,7 @@ class Project {
     /** AddonManager related to this project
       * Allows to manage addons of this project
       **/
-    @property auto addons(in bool test_mode=false) const {
+    auto addons(in bool test_mode=false) const {
         return AddonManager(this, test_mode);
     }
 
@@ -226,9 +224,7 @@ class Project {
 
     /** Create new test-runner instance.
       **/
-    @property auto testRunner() const {
-        return OdooTestRunner(this);
-    }
+    auto testRunner() const { return OdooTestRunner(this); }
 
     /** Return database wrapper, that allows to interact with database
       * via plain SQL and contains some utility methods.
@@ -236,9 +232,7 @@ class Project {
       * Params:
       *     dbname = name of database to interact with
       **/
-    auto dbSQL(in string dbname) const {
-        return databases.get(dbname);
-    }
+    auto dbSQL(in string dbname) const { return databases.get(dbname); }
 
     /** Save project configuration to specified config file.
 

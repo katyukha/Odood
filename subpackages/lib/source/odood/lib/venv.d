@@ -57,13 +57,13 @@ const struct VirtualEnv {
     }
 
     /// Path where virtualenv isntalled
-    @property @safe pure nothrow const(Path) path() const {return _path;}
+    @safe pure nothrow const(Path) path() const {return _path;}
 
     /// Serie of python used for this virtualenv (py2 or py3)
-    @property const(PySerie) py_serie() const {return _py_serie;}
+    @safe const(PySerie) py_serie() const {return _py_serie;}
 
     /// Name of python interpreter
-    @property const(string) py_interpreter_name() const {
+    @safe const(string) py_interpreter_name() const {
         final switch(_py_serie) {
             case PySerie.py2:
                 return "python2";

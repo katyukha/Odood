@@ -93,17 +93,13 @@ final class OdooAddon {
     }
 
     /// name of the addon
-    @property auto name() const {
-        return _name;
-    }
+    auto name() const => _name;
 
     /// path to the addon on filesystem
-    @property auto path() const {
-        return _path;
-    }
+    auto path() const => _path;
 
     /// module manifest
-    @property auto manifest() {
+    auto manifest() {
         if (_manifest.isNull)
             _manifest = OdooAddonManifest(_manifest_path).nullable;
 
@@ -111,9 +107,7 @@ final class OdooAddon {
     }
 
     /// Get module manifest
-    auto getManifest() const {
-        return OdooAddonManifest(_manifest_path);
-    }
+    auto getManifest() const => OdooAddonManifest(_manifest_path);
 }
 
 

@@ -26,9 +26,8 @@ class AddonRepository {
         _path = path;
     }
 
-    @property path() const {
-        return _path;
-    }
+    /// Return path for this repo
+    auto path() const => _path;
 
     /// Check if repository has pre-commit configuration.
     bool hasPreCommitConfig() const {

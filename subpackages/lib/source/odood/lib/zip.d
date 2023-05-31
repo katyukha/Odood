@@ -54,7 +54,7 @@ struct ZipEntry {
 
     /** Get stat-info about this entry
       **/
-    @property zip_stat_t stat() {
+    zip_stat_t stat() {
         if (!zip_stat_init) {
             auto stat_result = zip_stat_index(_archive, index, ZIP_FL_ENC_GUESS, &_stat);
             enforce!OdoodException(
@@ -67,7 +67,7 @@ struct ZipEntry {
 
     /** Get name of this zip entry
       **/
-    @property string name() {
+    string name() {
         if (_name.isNull) {
 
             // Save name and strip leading "/" if entry name accidentally starts with "/"
@@ -79,7 +79,7 @@ struct ZipEntry {
 
     /** Get external attributes of this entry
       **/
-    @property uint attributes() {
+    uint attributes() {
         if (_attributes.isNull) {
             ubyte entry_opsys;
             uint entry_attributes;

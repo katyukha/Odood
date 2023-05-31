@@ -57,7 +57,7 @@ struct OdooServer {
     }
 
     /// Get name of odoo server script, depending on odoo serie
-    @property @safe pure string scriptName() const {
+    @safe pure string scriptName() const {
         if (_project.odoo.serie >= OdooSerie(11)) {
             return "odoo";
         } else if (_project.odoo.serie == OdooSerie(10)) {
@@ -71,7 +71,7 @@ struct OdooServer {
     }
 
     /// Get path to the odoo server script to run
-    @property @safe pure Path scriptPath() const {
+    @safe pure Path scriptPath() const {
         return _project.venv.path.join("bin", scriptName());
     }
 

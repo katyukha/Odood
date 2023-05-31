@@ -29,10 +29,10 @@ const struct LOdoo {
         const bool _test_mode;
 
         /// Is test mode enabled?
-        @property const(bool) test_mode() const => _test_mode;
+        const(bool) test_mode() const => _test_mode;
 
         /// Compute config path for lodoo, depending on _test_mode flag
-        @property Path odoo_conf_path() const {
+        Path odoo_conf_path() const {
             return _test_mode ?
                 _project.odoo.testconfigfile : _project.odoo.configfile;
         }

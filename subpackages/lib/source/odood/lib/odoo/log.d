@@ -140,18 +140,18 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
     }
 
     /// Allows to check if processor is closed for new input or not.
-    @property bool isClosed() const {
+    bool isClosed() const {
         return _source.eof;
     }
 
     /// Check if there is no more input to handle
-    @property bool empty() {
+    bool empty() {
         tryReadLogRecordIfNeeded();
         return _log_record.isNull;
     }
 
     /// Get front record
-    @property OdooLogRecord front() {
+    OdooLogRecord front() {
         tryReadLogRecordIfNeeded();
         return _log_record.get;
     }

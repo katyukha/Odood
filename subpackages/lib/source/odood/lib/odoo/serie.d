@@ -39,9 +39,9 @@ struct OdooSerie {
         return "<invalid odoo serie>";
     }
 
-    @property @safe pure nothrow bool isValid() const { return this._isValid; }
-    @property @safe pure nothrow ubyte major() const { return this._major; }
-    @property @safe pure nothrow ubyte minor() const { return this._minor; }
+    @safe pure nothrow bool isValid() const { return this._isValid; }
+    @safe pure nothrow ubyte major() const { return this._major; }
+    @safe pure nothrow ubyte minor() const { return this._minor; }
 
     unittest {
         auto s = OdooSerie("12.0");

@@ -51,7 +51,7 @@ package(odood.lib) struct OdooDatabase {
 
     /** Return dpq connection to database
       **/
-    @property auto connection() {
+    auto connection() {
         return _connection;
     }
 

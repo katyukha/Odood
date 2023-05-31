@@ -24,7 +24,7 @@ class OdoodCLIExitException : Exception
         _exit_code = exit_code;
     }
 
-    @property pure int exit_code() const {
+    pure int exit_code() const {
         return _exit_code;
     }
 }

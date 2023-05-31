@@ -44,7 +44,7 @@ struct AddonManager {
     }
 
     /// Get list of paths to search for addons
-    @property const(Path[]) addons_paths() {
+    const(Path[]) addons_paths() {
         if (_addons_paths.isNull) {
             auto odoo_conf = _project.readOdooConfig;
             auto search_paths = odoo_conf["options"].getKey("addons_path");
