@@ -6,6 +6,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.algorithm: sort, filter;
 private import std.conv: to;
+private import std.string: capitalize;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -57,6 +58,10 @@ class CommandAddonsList: OdoodCommand {
             "Filter only addons that does not have price defined."));
         this.add(new Flag(
             "t", "table", "Display list of addons as table"));
+        this.add(new Option(
+            "f", "field",
+            "Display provided field in table. " ~
+            "This have to be valid field from manifest.").repeating);
         this.add(new Option(
             "c", "color",
             "Color output by selected scheme: " ~
@@ -161,20 +166,75 @@ class CommandAddonsList: OdoodCommand {
                 getColoredAddonLine(args, project, addon, display_type));
     }
 
+    private string[] prepareAddonsTableHeader(
+            ProgramArgs args,
+            in string[] fields) {
+        string[] header = ["Name".bold.to!string];
+        foreach(field; fields)
+            switch(field) {
+                case "version":
+                    header ~= ["Version".bold.to!string];
+                    break;
+                case "price":
+                    header ~= [
+                        "Price".bold.to!string,
+                        "Currency".bold.to!string,
+                    ];
+                    break;
+                default:
+                    header ~= [field.capitalize.bold.to!string];
+                    break;
+            }
+        return header;
+    }
+
+    private string[] prepareAddonsTableRow(
+            ProgramArgs args,
+            in string[] fields,
+            in Project project,
+            OdooAddon addon,
+            in AddonDisplayType display_type) {
+        string[] row = [
+            getColoredAddonLine(
+                args, project, addon, display_type).to!string,
+        ];
+        foreach(field; fields) {
+            switch(field) {
+                case "version":
+                    row ~= [addon.manifest.module_version];
+                    break;
+                case "price":
+                    if (addon.manifest.price.is_set)
+                        row ~= [
+                            addon.manifest.price.price.to!string,
+                            addon.manifest.price.currency,
+                        ];
+                    else
+                        row ~= ["", ""];
+                    break;
+                default:
+                    row ~= [addon.manifest[field]];
+                    break;
+            }
+        }
+        return row;
+    }
+
     /** Display addons as table
       **/
     private void displayAddonsTable(ProgramArgs args, in Project project) {
         import tabletool;
         string[][] table_data;
         auto display_type = parseDisplayType(args);
-        foreach(addon; findAddons(args, project)) {
-            table_data ~= [
-                getColoredAddonLine(
-                    args, project, addon, display_type).to!string,
-                addon.manifest.module_version,
-                addon.manifest.price.price.to!string,
-                addon.manifest.price.currency];
-        }
+
+        string[] fields = args.options("field").length > 0 ?
+            args.options("field") : ["version", "price", "installable"];
+
+        table_data ~= prepareAddonsTableHeader(args, fields);
+
+        foreach(addon; findAddons(args, project))
+            table_data ~= prepareAddonsTableRow(
+                    args, fields, project, addon, display_type);
         writeln(
             tabulate(
                 table_data,

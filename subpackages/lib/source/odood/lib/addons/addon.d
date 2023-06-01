@@ -62,6 +62,12 @@ private struct OdooAddonManifest {
     string module_version() {
         return _manifest.get("version", "").to_d!string;
     }
+
+    /// Access manifest item as string:
+    string opIndex(in string index) {
+        return _manifest.get(index, "").to_d!string;
+    }
+
 }
 
 
