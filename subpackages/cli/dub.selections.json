@@ -16,7 +16,7 @@
 		"pyd": "0.14.4",
 		"requests": "2.0.9",
 		"semver": "0.5.0",
-		"tabletool": "0.4.0",
+		"tabletool": "0.5.0",
 		"thepath": "0.1.5",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.6"

@@ -8,7 +8,7 @@ dependency "thepath" version=">=0.1.4"
 dependency "dlibzip" version="~>1.9.2"
 dependency "dini" version="~>2.0.0"
 dependency "semver" version=">=0.4.0"
-dependency "dyaml" version="~>0.9"
+dependency "dyaml" version=">=0.9.2"
 dependency "pyd" version=">=0.14.4"
 dependency "dpq" version=">=0.11.6"
 
