@@ -1,6 +1,6 @@
 # Odood
 
-The easy way to install odoo for local development.
+The easy way to install and manage odoo for local development.
 This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/) and is compatible with
 odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
 
@@ -10,6 +10,16 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 The project is still *under development*.
 
 Currently, this project could be used in parallel with [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
+
+Following features currently implemented:
+- [x] Server management
+- [x] Database management
+- [x] Basic addons management (fetch/install/update/uninstall)
+- [x] Running tests
+- [ ] CI utils (versions, forwardports, etc)
+- [ ] Postgres utils
+- [ ] Doc utils
+- [ ] Linters
 
 
 ## Installation
