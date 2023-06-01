@@ -65,6 +65,19 @@ class CommandDatabaseCreate: OdoodCommand {
 
         auto project = Project.loadProject;
         string dbname = args.arg("name");
+
+        OdooAddon[] to_install;
+        foreach(addon_name; args.options("install")) {
+            auto addon = project.addons.getByName(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "Cannot find addon %s".format(addon_name));
+            to_install ~= addon.get;
+        }
+        foreach(install_dir; args.options("install-dir")) {
+            to_install ~= project.addons.scan(Path(install_dir));
+        }
+
         if (project.databases.exists(dbname)) {
             if (args.flag("recreate")) {
                 warningf(
@@ -76,24 +89,13 @@ class CommandDatabaseCreate: OdoodCommand {
                     "Database %s already exists!".format(dbname));
             }
         }
+
         project.databases.create(
             dbname,
             args.flag("demo"),
             args.option("lang"),
             args.option("password"),
             args.option("country"));
-
-        OdooAddon[] to_install;
-        foreach(addon_name; args.options("install")) {
-            auto addon = project.addons.getByName(addon_name);
-            enforce!OdoodException(
-                !addon.isNull,
-                "Cannot find addon %s".format(addon));
-            to_install ~= addon.get;
-        }
-        foreach(install_dir; args.options("install-dir")) {
-            to_install ~= project.addons.scan(Path(install_dir));
-        }
 
         if (!to_install.empty) {
             project.addons.install(dbname, to_install);
