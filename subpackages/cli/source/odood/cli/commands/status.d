@@ -4,6 +4,7 @@ private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
 
+private import colored;
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
@@ -35,8 +36,6 @@ class CommandStatus: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        auto is_running = project.server.isRunning();
-
         auto odoo_config = project.getOdooConfig();
 
         string http_host = "localhost";
@@ -53,12 +52,12 @@ class CommandStatus: OdoodCommand {
 
         writeln(
             TMPL_CURRENT_PROJECT_STATUS.format(
-                project.project_root,
-                project.config_path,
-                project.odoo.serie,
-                project.odoo.branch,
-                project.server.isRunning ? "Running" : "Stopped",
-                "http://%s:%s".format(http_host, http_port),
+                project.project_root.toString.blue,
+                project.config_path.toString.blue,
+                project.odoo.serie.toString.green,
+                project.odoo.branch.green,
+                project.server.isRunning ? "Running".green : "Stopped".red,
+                "http://%s:%s".format(http_host, http_port).lightBlue,
             )
         );
     }
