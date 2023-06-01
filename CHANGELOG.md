@@ -1,6 +1,6 @@
 # Changelog
 
-## Release 0.0.9 (unreleased)
+## Release 0.0.9 (2023-06-01)
 
 ### Added
 
