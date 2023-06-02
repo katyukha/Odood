@@ -1,5 +1,20 @@
 # Changelog
 
+## Release 0.0.10 (Unreleased)
+
+### Added
+
+- New option `--all` to `odood db backup` command, that allows to backup
+  all databases within single command.
+
+### Changed
+
+- Command `odood db backup`: when `--dest` option supplied and
+  it is existing directory, then database will be backed up in this directory
+  with automatically generated name of backup.
+
+---
+
 ## Release 0.0.9 (2023-06-01)
 
 ### Added

@@ -4,6 +4,7 @@ private import std.logger;
 private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.typecons;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -180,35 +181,42 @@ class CommandDatabaseCopy: OdoodCommand {
 class CommandDatabaseBackup: OdoodCommand {
     this() {
         super("backup", "Backup database.");
-        this.add(new Argument(
-            "name", "Name of database to backup.").required());
-        this.add(new Option(
-            "d", "dest",
-            "Destination path for backup. " ~
-            "By default will store at project's backup directory."));
         this.add(new Flag(
             null, "zip", "Make ZIP backup with filestore."));
         this.add(new Flag(
             null, "sql", "Make SQL-only backup without filestore"));
+        this.add(new Flag(
+            "a", "all", "Backup all databases"));
+        this.add(new Option(
+            "d", "dest",
+            "Destination path for backup. " ~
+            "By default will store at project's backup directory."));
+        this.add(new Argument(
+            "name", "Name of database to backup.").optional.repeating);
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+
+        enforce!OdoodException(
+            args.flag("all") || args.args("db").length > 0,
+            "It is required to specify name of database to backup or option -a or --all!");
+
         auto b_format = BackupFormat.zip;
         if (args.flag("zip"))
             b_format = BackupFormat.zip;
         if (args.flag("sql"))
             b_format = BackupFormat.sql;
 
-        //db_dump_file="$BACKUP_DIR/db-backup-$db_name-$(date -I).$(random_string 4)";
-        immutable string tmpl_dest_name="db-backup-%s-%s.%s.%s";
-        Path dest;
-        if (args.option("dest")) {
-            dest = Path(args.option("dest"));
-            project.databases.backup(args.arg("name"), dest, b_format);
-        } else {
-            dest = project.databases.backup(args.arg("name"), b_format);
-        }
+        string[] dbnames = args.flag("all") ?
+            project.databases.list : args.args("db");
+
+        foreach(db; dbnames)
+            if (args.option("dest"))
+                project.databases.backup(
+                    db, Path(args.option("dest")), b_format);
+            else
+                project.databases.backup(db, b_format);
     }
 }
 
