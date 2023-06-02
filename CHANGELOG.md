@@ -6,6 +6,8 @@
 
 - New option `--all` to `odood db backup` command, that allows to backup
   all databases within single command.
+- New command `info` that will display info about project,
+  optionally in JSON fromat.
 
 ### Changed
 

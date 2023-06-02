@@ -8,10 +8,38 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
+private import std.regex;
 
 private import thepath: Path;
+private import semver;
 
 private import odood.lib.exception: OdoodException;
+private import odood.lib.theprocess;
+
+
+/** Parse python version
+  *
+  * Params:
+  *     project = instance of Odood project to get version of system python for.
+  * Returns: SemVer version of system python interpreter
+  **/
+package(odood.lib) @safe SemVer parsePythonVersion(in Path interpreter_path) {
+    auto python_version_raw = Process(interpreter_path)
+        .withArgs("--version")
+        .execute()
+        .ensureStatus(
+            "Cannot get version of python interpreter '%s'".format(
+                interpreter_path))
+        .output;
+
+    immutable auto re_py_version = ctRegex!(`Python (\d+.\d+.\d+)`);
+    auto re_match = python_version_raw.matchFirst(re_py_version);
+    enforce!OdoodException(
+        !re_match.empty,
+        "Cannot parse python interpreter (%s) version '%s'".format(
+            interpreter_path, python_version_raw));
+    return SemVer(re_match[1]);
+}
 
 
 /// Check if process is alive

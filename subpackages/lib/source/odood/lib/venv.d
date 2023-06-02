@@ -12,6 +12,7 @@ private static import dyaml;
 
 private import odood.lib.exception: OdoodException;
 private import odood.lib.theprocess;
+private import odood.lib.utils;
 
 
 // Define template for simple script that allows to run any command in
@@ -57,10 +58,10 @@ const struct VirtualEnv {
     }
 
     /// Path where virtualenv isntalled
-    @safe pure nothrow const(Path) path() const {return _path;}
+    @safe pure nothrow const(Path) path() const { return _path; }
 
     /// Serie of python used for this virtualenv (py2 or py3)
-    @safe const(PySerie) py_serie() const {return _py_serie;}
+    @safe const(PySerie) py_serie() const { return _py_serie; }
 
     /// Name of python interpreter
     @safe const(string) py_interpreter_name() const {
@@ -70,6 +71,11 @@ const struct VirtualEnv {
             case PySerie.py3:
                 return "python3";
         }
+    }
+
+    /// Python version for this venv
+    @safe auto py_version() const {
+        return parsePythonVersion(_path.join("bin", py_interpreter_name));
     }
 
     package dyaml.Node toYAML() const {

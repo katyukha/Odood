@@ -25,7 +25,7 @@ private import thepath;
   * Params:
   *     name = name of program to find
   * Returns:
-  *     Nullable path to program.
+  *     Nullable!Path to program.
   **/
 Nullable!Path resolveProgram(in string program) {
     import std.path: pathSeparator;

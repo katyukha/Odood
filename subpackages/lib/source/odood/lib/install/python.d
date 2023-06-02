@@ -14,7 +14,7 @@ private import std.logger;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: download;
+private import odood.lib.utils: download, parsePythonVersion;
 private import odood.lib.venv: PySerie;
 private import odood.lib.theprocess;
 
@@ -27,31 +27,15 @@ private import odood.lib.theprocess;
   * Returns: SemVer version of system python interpreter
   **/
 SemVer getSystemPythonVersion(in Project project) {
-    import std.process: environment;
-    import std.path: pathSplitter;
-
     /* If system python is not available, then return version 0.0.0.
      * In this case, system python will not be suitable, and thus
      * Odood will try to build python from sources.
      */
-    if (resolveProgram(project.venv.py_interpreter_name).isNull)
+    auto python_interpreter = resolveProgram(project.venv.py_interpreter_name);
+    if (python_interpreter.isNull)
         return SemVer(0, 0, 0);
 
-    auto python_interpreter = project.venv.py_interpreter_name;
-    auto python_version_raw = Process(python_interpreter)
-        .withArgs("--version")
-        .execute()
-        .ensureStatus(
-            "Cannot get version of python interpreter '%s'".format(
-                python_interpreter))
-        .output;
-
-    immutable auto re_py_version = ctRegex!(`Python (\d+.\d+.\d+)`);
-    auto re_match = python_version_raw.matchFirst(re_py_version);
-    enforce!OdoodException(
-        !re_match.empty,
-        "Cannot parse system python's version '%s'".format(python_version_raw));
-    return SemVer(re_match[1]);
+    return parsePythonVersion(python_interpreter.get);
 }
 
 
