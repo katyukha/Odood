@@ -309,6 +309,7 @@ class Project {
         //       Could be useful in case if there were some customizations
         // TODO: Add support for cases when odoo installed via git
         //       In this case it is better to just run git pull
+        // TODO: Add support for updating to other version of Odoo
         enforce!OdoodException(
             !this.odoo.path.join(".git").exists,
             "Cannot update odoo that is git repo yet!");

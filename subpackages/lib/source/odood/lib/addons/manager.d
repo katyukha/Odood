@@ -3,11 +3,11 @@ module odood.lib.addons.manager;
 private import std.logger;
 private import std.typecons: Nullable, nullable;
 private import std.array: split, empty, array;
-private import std.string: join;
+private import std.string: join, strip, startsWith;
 private import std.format: format;
 private import std.file: SpanMode;
 private import std.exception: enforce;
-private import std.algorithm: map;
+private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
 
@@ -98,6 +98,41 @@ struct AddonManager {
         if (!addon.isNull)
             return addon;
         return getByName(addon_name);
+    }
+
+    /** Parse file that contains list of addons
+      *
+      * Format of addons list file is following:
+      * ----------------------------------------
+      * addon1
+      * # comment
+      * addon2
+      * ----------------------------------------
+      * 
+      * Params:
+      *     path = path to addons list file
+      * Return:
+      *     Array of addon instances
+      **/
+    OdooAddon[] parseAddonsList(in Path path) {
+        auto file = path.openFile;
+        scope(exit) file.close();
+
+        OdooAddon[] result;
+        foreach(string addon_name; file.byLineCopy) {
+            if (!addon_name.strip)
+                continue;
+            if (addon_name.strip.startsWith("#"))
+                continue;
+            auto addon = getByString(addon_name.strip);
+            enforce!OdoodException(
+                !addon.isNull,
+                "%s does not look like addon name or path to addon".format(
+                    addon_name));
+            if (!result.canFind(addon.get))
+                result ~= addon.get;
+        }
+        return result;
     }
 
     /// Scan for all addons available in Odoo

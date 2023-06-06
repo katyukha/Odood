@@ -4,6 +4,7 @@ import std.file;
 import std.process;
 import std.array;
 import std.format;
+import std.algorithm;
 
 import thepath;
 import unit_threaded.assertions;
@@ -119,12 +120,21 @@ void testAddonsManagementBasic(in Project project) {
     project.directories.addons.join("bureaucrat_helpdesk_lite").readLink.shouldEqual(
         project.directories.downloads.join("bureaucrat_helpdesk_lite"));
 
+    // Test parsing addons-list.txt file
+    auto parsed_addons = project.addons.parseAddonsList(
+        Path("test-data", "addons-list.txt"));
+    parsed_addons.length.should == 4;
+    parsed_addons.canFind(project.addons.getByString("crm")).shouldBeTrue;
+    parsed_addons.canFind(project.addons.getByString("sale")).shouldBeTrue;
+    parsed_addons.canFind(project.addons.getByString("account")).shouldBeTrue;
+    parsed_addons.canFind(project.addons.getByString("website")).shouldBeTrue;
+
     // Drop database
     project.databases.drop(project.genDbName("test-1"));
 }
 
 
-/// Test addons manager
+/// Test running scripts
 void testRunningScripts(in Project project) {
     auto dbname = project.genDbName("test-1");
     project.databases.create(dbname, true);

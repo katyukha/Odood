@@ -4,9 +4,9 @@ private import std.stdio;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.algorithm: sort, filter;
+private import std.algorithm: sort, filter, startsWith;
 private import std.conv: to;
-private import std.string: capitalize;
+private import std.string: capitalize, strip;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -340,6 +340,11 @@ class CommandAddonsUpdate: OdoodCommand {
                 null, "dir-r", "Directory to recursively search for addons to be installed"
             ).repeating());
         this.add(
+            new Option(
+                "f", "file",
+                "Install addons from file (addon names must be separated by new lines)"
+            ).optional().repeating());
+        this.add(
             new Flag(
                 "a", "all", "Update all modules"));
         this.add(
@@ -371,6 +376,10 @@ class CommandAddonsUpdate: OdoodCommand {
             foreach(dir; args.options("dir-r"))
                 foreach(addon; project.addons.scan(Path(dir), true))
                     addons ~= addon;
+
+            foreach(path; args.options("file")) {
+                addons ~= project.addons.parseAddonsList(Path(path));
+            }
         }
 
         auto start_again=false;
@@ -414,6 +423,10 @@ class CommandAddonsInstall: OdoodCommand {
                 null, "dir-r", "Directory to recursively search for addons to be installed"
             ).optional().repeating());
         this.add(
+            new Option(
+                "f", "file", "Install addons from file (addon names must be separated by new lines)"
+            ).optional().repeating());
+        this.add(
             new Argument(
                 "addon", "Name of addon to install").optional().repeating());
     }
@@ -441,6 +454,10 @@ class CommandAddonsInstall: OdoodCommand {
         foreach(dir; args.options("dir-r"))
             foreach(addon; project.addons.scan(Path(dir), true))
                 addons ~= addon;
+
+        foreach(path; args.options("file")) {
+            addons ~= project.addons.parseAddonsList(Path(path));
+        }
 
         auto start_again=false;
         if (project.server.isRunning) {

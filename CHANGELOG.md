@@ -8,6 +8,10 @@
   all databases within single command.
 - New command `info` that will display info about project,
   optionally in JSON fromat.
+- New option `--file` to `odood addons install` and `odood addons update`
+  commands. This option allows to get list of addons to install / update
+  from provided file. This way, it is possible to avoid specifying list of
+  addons manually.
 
 ### Changed
 
