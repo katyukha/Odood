@@ -1,13 +1,12 @@
 module odood.lib.zip;
 
 private import std.logger;
-private import std.stdio;
 private import std.string: toStringz, fromStringz, strip;
 private import std.format: format;
 private import std.algorithm.searching: endsWith, startsWith;
 private import std.path;
-private import std.exception: enforce;
-private import std.typecons: Nullable, nullable;
+private import std.exception: enforce, basicExceptionCtors;
+private import std.typecons;
 private import std.json;
 
 private import deimos.zip;
@@ -17,6 +16,12 @@ private import thepath: Path;
 private import odood.lib.exception: OdoodException;
 
 immutable BUF_SIZE = 1024;
+
+
+class ZipException : Exception
+{
+    mixin basicExceptionCtors;
+}
 
 
 /** Convert ZIP error specified by error_code to string
@@ -34,99 +39,274 @@ string format_zip_error(int error_code) {
 }
 
 
-/** Simple struct to handle zip entries
-  **/
-struct ZipEntry {
-    private const ulong index;
-    private zip_t* _archive;
+struct Zipper {
 
-    private zip_stat_t _stat;
-    private bool zip_stat_init = false;
-    private Nullable!string _name;
-    private Nullable!uint _attributes;
+    private:
+        struct ZipPtr {
+            private zip_t* zip_ptr;
 
-    @disable this();
-
-    this(zip_t* archive, in ulong index) {
-        this._archive = archive;
-        this.index = index;
-    }
-
-    /** Get stat-info about this entry
-      **/
-    zip_stat_t stat() {
-        if (!zip_stat_init) {
-            auto stat_result = zip_stat_index(_archive, index, ZIP_FL_ENC_GUESS, &_stat);
-            enforce!OdoodException(
-                stat_result == 0,
-                "Cannot get stat for entry %s in zip archive: %s".format(
-                    index, zip_error_strerror(zip_get_error(_archive)).fromStringz));
-        }
-        return _stat;
-    }
-
-    /** Get name of this zip entry
-      **/
-    string name() {
-        if (_name.isNull) {
-
-            // Save name and strip leading "/" if entry name accidentally starts with "/"
-            // TODO: do we need cast here?
-            _name = (cast(string)fromStringz(stat.name)).strip("/", "").nullable;
-        }
-        return _name.get;
-    }
-
-    /** Get external attributes of this entry
-      **/
-    uint attributes() {
-        if (_attributes.isNull) {
-            ubyte entry_opsys;
-            uint entry_attributes;
-
-            auto attr_result = zip_file_get_external_attributes(
-                    _archive, index, ZIP_FL_UNCHANGED, &entry_opsys, &entry_attributes);
-            enforce!OdoodException(
-                attr_result == 0,
-                "Cannot get external file attrubutes for entry %s [%s] in zip archive: %s".format(
-                    name, index, zip_error_strerror(zip_get_error(_archive)).fromStringz));
-
-            if (entry_opsys == ZIP_OPSYS_UNIX) {
-                entry_attributes = entry_attributes >> 16;
-            } else {
-                entry_attributes = 0;
+            this(zip_t* zip_ptr) {
+                this.zip_ptr = zip_ptr;
             }
-            _attributes = entry_attributes.nullable;
+
+            ~this() {
+                if (zip_ptr !is null) {
+                    zip_close(zip_ptr);
+                    zip_ptr = null;
+                }
+            }
+
+            // Must not be copiable
+            @disable this(this);
+
+            // Must not be assignable
+            @disable void opAssign(typeof(this));
         }
-        return _attributes.get;
-    }
 
-    /** Compute string representation of this entry
-      **/
-    string toString() {
-        return "ZipEntry: " ~ name;
-    }
+        alias RefCounted!(ZipPtr, RefCountedAutoInitialize.no) ZipFile;
 
-    /** Check if this entry is symlink
-      **/
-    bool is_symlink() {
-        if (attributes) {
-            import core.sys.posix.sys.stat;
-            return (attributes & S_IFMT) == S_IFLNK;
+        ZipFile _zipfile;
+    public:
+
+        enum ZipMode {
+            CREATE = ZIP_CREATE,
+            EXCLUSIVE = ZIP_EXCL,
+            TRUNCATE = ZIP_TRUNCATE,
+            READONLY = ZIP_RDONLY,
+            CHECK_CONSISTENCY = ZIP_CHECKCONS,
+        };
+
+        /** Struct to represent stat info about zip entry
+          **/
+        struct ZipEntryStat {
+            private:
+                string _name;
+                ulong _index;
+                ulong _size;
+                ulong _compressed_size;
+                time_t _mtime;
+
+                @disable this();
+
+                this(scope const ref zip_stat_t stat) {
+                    _name = (cast(string)fromStringz(stat.name)).strip("/", "");
+                    _index = stat.index;
+                    _size = stat.size;
+                    _compressed_size = stat.comp_size;
+                    _mtime = mtime;
+                }
+
+            public:
+                auto name() const { return _name; }
+                auto index() const { return _index; }
+                auto size() const { return _size; }
+                auto compressed_size() const { return _compressed_size; }
+                auto mtime() const { return _mtime; }
         }
-        return false;
-    }
 
-    /** Check if this entry is directory
-      **/
-    bool is_directory() {
-        if (attributes) {
-            import core.sys.posix.sys.stat;
-            return (attributes & S_IFMT) == S_IFDIR;
+        /** Simple struct to handle zip entries
+          **/
+        struct ZipEntry {
+            private ZipFile _zip_file;
+            private ulong _index;
+            private string _name;
+            private Nullable!ZipEntryStat _stat;
+            private Nullable!uint _attributes;
+
+            @disable this();
+
+            this(ZipFile zip_file, in ulong index) {
+                _zip_file = zip_file;
+                _index = index;
+                // Save name and strip leading "/" if entry name accidentally starts with "/"
+                // TODO: do we need cast here?
+                _name = zip_get_name(
+                    _zip_file.zip_ptr, index, ZIP_FL_ENC_GUESS
+                ).fromStringz.idup.strip("/", "");
+            }
+
+            /// Name of the entry
+            auto name() const { return _name; }
+
+            /// Compute string representation of this entry
+            string toString() { return "ZipEntry: " ~ _name; }
+
+            /** Get stat-info about this entry
+              **/
+            auto stat() {
+                if (_stat.isNull) {
+                    zip_stat_t e_stat;
+                    auto stat_result = zip_stat_index(
+                        _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS, &e_stat);
+                    enforce!ZipException(
+                        stat_result == 0,
+                        "Cannot get stat for entry %s [%s] in zip archive: %s".format(
+                            _name,
+                            _index,
+                            zip_error_strerror(
+                                zip_get_error(_zip_file.zip_ptr)).fromStringz));
+                    _stat = ZipEntryStat(e_stat).nullable;
+                }
+                return _stat.get;
+            }
+
+            /** Get external attributes of this entry
+              **/
+            uint attributes() {
+                if (_attributes.isNull) {
+                    ubyte entry_opsys;
+                    uint entry_attributes;
+
+                    auto attr_result = zip_file_get_external_attributes(
+                        _zip_file.zip_ptr, _index, ZIP_FL_UNCHANGED,
+                        &entry_opsys, &entry_attributes);
+                    enforce!ZipException(
+                        attr_result == 0,
+                        "Cannot get external file attrubutes for entry %s [%s] in zip archive: %s".format(
+                            _name, _index,
+                            zip_error_strerror(zip_get_error(_zip_file.zip_ptr)).fromStringz));
+
+                    if (entry_opsys == ZIP_OPSYS_UNIX) {
+                        entry_attributes = entry_attributes >> 16;
+                    } else {
+                        entry_attributes = 0;
+                    }
+                    _attributes = entry_attributes.nullable;
+                }
+                return _attributes.get;
+            }
+
+            /** Check if this entry is symlink
+              **/
+            bool is_symlink() {
+                if (attributes) {
+                    import core.sys.posix.sys.stat;
+                    return (attributes & S_IFMT) == S_IFLNK;
+                }
+                return false;
+            }
+
+            /** Check if this entry is directory
+              **/
+            bool is_directory() {
+                if (attributes) {
+                    import core.sys.posix.sys.stat;
+                    return (attributes & S_IFMT) == S_IFDIR;
+                }
+                return name.endsWith("/");
+            }
+
+            void unzipTo(in Path entry_dst) {
+                // TODO: May be it have sense to move part of this processing to ZipEntry struct
+                if (is_symlink) {
+                    auto afile = zip_fopen_index(
+                        _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
+                    scope(exit) zip_fclose(afile);
+
+                    byte[] link_data;
+                    ulong size_written = 0;
+                    while (size_written != stat.size) {
+                        byte[BUF_SIZE] chunk;
+                        auto size_read = zip_fread(afile, &chunk, BUF_SIZE);
+                        enforce!ZipException(
+                            size_read > 0,
+                            "Cannot read file %s. Read: %s/%s".format(
+                                name, size_written, stat.size));
+                        link_data ~= chunk[0 .. size_read];
+                        size_written += size_read;
+                    }
+                    auto link_target = Path(cast(string) link_data);
+                    enforce!ZipException(
+                        link_target.isValid(),
+                        "Cannot handle zip entry %s: the data '%s'(%s) is not valid path".format(
+                            name, link_target, link_data));
+
+                    // We have to ensure that parent directory created
+                    entry_dst.parent.mkdir(true);
+
+                    link_target.symlink(entry_dst);
+                } else if (is_directory) {
+                    // It it is directory, then we have to create one in destination.
+                    entry_dst.mkdir(true);
+                } else {
+                    // If it is file, then we have to extract file.
+
+                    // ensure the directory for this file created.
+                    entry_dst.parent.mkdir(true);
+
+                    auto out_file = entry_dst.openFile("wb");
+                    scope(exit) out_file.close();
+
+                    auto afile = zip_fopen_index(
+                        _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
+                    scope(exit) zip_fclose(afile);
+
+                    ulong size_written = 0;
+                    while (size_written != stat.size) {
+                        byte[BUF_SIZE] buf;
+                        auto size_read = zip_fread(afile, &buf, BUF_SIZE);
+                        enforce!ZipException(
+                            size_read > 0,
+                            "Cannot read file %s. Read: %s/%s".format(
+                                name, size_written, stat.size));
+                        out_file.rawWrite(buf[0 .. size_read]);
+                        size_written += size_read;
+                    }
+                }
+            }
         }
-        return name.endsWith("/");
-    }
 
+        /// Initialize zip archive
+        this(in Path path, in ZipMode mode = ZipMode.READONLY) {
+            int error_code;
+            auto zip_obj = zip_open(
+                path.toStringz, mode, &error_code);
+            scope(failure) zip_close(zip_obj);
+            enforce!ZipException(
+                !error_code,
+                "Cannot open zip archive %s in mode %s: %s".format(
+                    path, mode, format_zip_error(error_code)));
+            _zipfile = ZipFile(zip_obj);
+        }
+
+        /// Get num entried
+        auto num_entries() {
+            return zip_get_num_entries(_zipfile.zip_ptr, ZIP_FL_ENC_GUESS);
+        }
+
+        /// Iterate over entries
+        auto entries () {
+
+            // Range iterator that allows to iterate over entries of zip archive
+            struct ZipEntryIterator {
+                private ZipFile _zip_file;
+                private ulong _index;
+                private ulong _max_entries;
+                private Nullable!ZipEntry _entry;
+
+                this(ZipFile zip_file, in ulong index=0) {
+                    _zip_file = zip_file;
+                    _index = index;
+                    _max_entries = zip_get_num_entries(
+                        _zip_file.zip_ptr, ZIP_FL_ENC_GUESS);
+                }
+
+                bool empty() { return _index >= _max_entries; }
+
+                auto front() {
+                    if (_entry.isNull && _index < _max_entries)
+                        _entry = ZipEntry(_zip_file, _index).nullable;
+                    return _entry.get;
+                }
+
+                void popFront() {
+                    _entry.nullify;
+                    _index++;
+                }
+            }
+
+            return ZipEntryIterator(_zipfile);
+        }
 }
 
 
@@ -156,43 +336,26 @@ void extract_zip_archive(
     auto source = archive.toAbsolute;
     auto dest = destination.toAbsolute;
 
-    int error_code;
-    auto zip_obj = zip_open(
-        source.toStringz, ZIP_RDONLY, &error_code);
-    scope(exit) zip_close(zip_obj);
-    enforce!OdoodException(
-        !error_code,
-        "Cannot open zip archive %s for reading: %s".format(
-            source, format_zip_error(error_code)));
-
-    auto num_entries = zip_get_num_entries(zip_obj, ZIP_FL_ENC_GUESS);
+    auto zip = Zipper(source);
 
     // Check if we can unfold path
     if (unfold_path) {
         enforce!OdoodException(
             unfold_path.endsWith("/"),
             "Unfold path must be ended with '/'");
-        for(ulong i=0; i < num_entries; ++i) {
-            auto entry_name = zip_get_name(
-                    zip_obj, i, ZIP_FL_ENC_GUESS).fromStringz;
+        foreach(entry; zip.entries) {
             enforce!OdoodException(
-                entry_name,
-                "Cannot get name for zip entry %s: %s".format(
-                    i, zip_error_strerror(zip_get_error(zip_obj)).fromStringz));
-            enforce!OdoodException(
-                entry_name.startsWith(unfold_path),
+                entry.name.startsWith(unfold_path),
                 "Cannot unfold path %s, because there is entry %s that is not under this path".format(
-                    unfold_path, entry_name));
+                    unfold_path, entry.name));
         }
     }
 
     // Create destination directory
     dest.mkdir(true);
 
-    for(ulong i=0; i < num_entries; ++i) {
-        auto entry = ZipEntry(zip_obj, i);
-
-        auto entry_name = entry.name;
+    foreach(entry; zip.entries) {
+        string entry_name = entry.name.dup;
 
         if (unfold_path) {
             if (entry_name == unfold_path) {
@@ -208,60 +371,8 @@ void extract_zip_archive(
         // Path to unzip entry to
         auto entry_dst = dest.join(entry_name);
 
-        // TODO: May be it have sense to move part of this processing to ZipEntry struct
-        if (entry.is_symlink) {
-            auto afile = zip_fopen_index(zip_obj, i, ZIP_FL_ENC_GUESS);
-            scope(exit) zip_fclose(afile);
-
-            byte[] link_data;
-            ulong size_written = 0;
-            while (size_written != entry.stat.size) {
-                byte[BUF_SIZE] chunk;
-                auto size_read = zip_fread(afile, &chunk, BUF_SIZE);
-                enforce!OdoodException(
-                    size_read > 0,
-                    "Cannot read file %s. Read: %s/%s".format(
-                        entry_name, size_written, entry.stat.size));
-                link_data ~= chunk[0 .. size_read];
-                size_written += size_read;
-            }
-            auto link_target = Path(cast(string) link_data);
-            enforce!OdoodException(
-                link_target.isValid(),
-                "Cannot handle zip entry %s: the data '%s'(%s) is not valid path".format(
-                    entry.name, link_target, link_data));
-
-            // We have to ensure that parent directory created
-            entry_dst.parent.mkdir(true);
-
-            link_target.symlink(entry_dst);
-        } else if (entry.is_directory) {
-            // It it is directory, then we have to create one in destination.
-            entry_dst.mkdir(true);
-        } else {
-            // If it is file, then we have to extract file.
-
-            // ensure the directory for this file created.
-            entry_dst.parent.mkdir(true);
-
-            auto out_file = std.stdio.File(entry_dst.toString, "wb");
-            scope(exit) out_file.close();
-
-            auto afile = zip_fopen_index(zip_obj, i, ZIP_FL_ENC_GUESS);
-            scope(exit) zip_fclose(afile);
-
-            ulong size_written = 0;
-            while (size_written != entry.stat.size) {
-                byte[BUF_SIZE] buf;
-                auto size_read = zip_fread(afile, &buf, BUF_SIZE);
-                enforce!OdoodException(
-                    size_read > 0,
-                    "Cannot read file %s. Read: %s/%s".format(
-                        entry_name, size_written, entry.stat.size));
-                out_file.rawWrite(buf[0 .. size_read]);
-                size_written += size_read;
-            }
-        }
+        // Unzip entry
+        entry.unzipTo(entry_dst);
     }
 
 }
