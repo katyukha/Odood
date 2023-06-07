@@ -114,6 +114,17 @@ final class OdooAddon {
 
     /// Get module manifest
     auto getManifest() const => OdooAddonManifest(_manifest_path);
+
+    /// Addons are comparable by name
+    pure nothrow int opCmp(in OdooAddon other) const {
+        import std.algorithm;
+        return cmp(_name, other._name);
+    }
+
+    ///
+    pure nothrow bool opEquals(in OdooAddon other) const {
+        return opCmp(other) == 0;
+    }
 }
 
 
