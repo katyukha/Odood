@@ -31,9 +31,8 @@ class CommandDatabaseList: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        foreach(db; project.databases.list()) {
+        foreach(db; project.databases.list())
             writeln(db);
-        }
     }
 
 }
@@ -58,6 +57,9 @@ class CommandDatabaseCreate: OdoodCommand {
         this.add(new Option(
             null, "install-dir", "Install all modules from directory.")
                 .repeating);
+        this.add(new Option(
+            null, "install-file",
+            "Install all modules listed in specified file.").repeating);
         this.add(new Argument("name", "Name of database").required());
     }
 
@@ -75,9 +77,11 @@ class CommandDatabaseCreate: OdoodCommand {
                 "Cannot find addon %s".format(addon_name));
             to_install ~= addon.get;
         }
-        foreach(install_dir; args.options("install-dir")) {
+        foreach(install_dir; args.options("install-dir"))
             to_install ~= project.addons.scan(Path(install_dir));
-        }
+
+        foreach(install_file; args.options("install-file"))
+            to_install ~= project.addons.parseAddonsList(Path(install_file));
 
         if (project.databases.exists(dbname)) {
             if (args.flag("recreate")) {
@@ -98,10 +102,8 @@ class CommandDatabaseCreate: OdoodCommand {
             args.option("password"),
             args.option("country"));
 
-        if (!to_install.empty) {
+        if (!to_install.empty)
             project.addons.install(dbname, to_install);
-        }
-
     }
 }
 

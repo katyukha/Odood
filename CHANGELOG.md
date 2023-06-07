@@ -12,6 +12,8 @@
   commands. This option allows to get list of addons to install / update
   from provided file. This way, it is possible to avoid specifying list of
   addons manually.
+- New option `--install-file` to `odood db create` command, that
+  will automatically install modules from specified files.
 
 ### Changed
 
