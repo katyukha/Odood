@@ -8,6 +8,7 @@ private import std.path;
 private import std.exception: enforce, basicExceptionCtors;
 private import std.typecons;
 private import std.json;
+private import std.datetime.systime;
 
 private import deimos.zip;
 
@@ -84,7 +85,7 @@ struct Zipper {
                 ulong _index;
                 ulong _size;
                 ulong _compressed_size;
-                time_t _mtime;
+                SysTime _mtime;
 
                 @disable this();
 
@@ -93,13 +94,20 @@ struct Zipper {
                     _index = stat.index;
                     _size = stat.size;
                     _compressed_size = stat.comp_size;
-                    _mtime = mtime;
+                    _mtime = SysTime(stat.mtime.unixTimeToStdTime);
                 }
 
             public:
+                /// Name of zip entry
                 auto name() const { return _name; }
+
+                /// Index of zip entry
                 auto index() const { return _index; }
+
+                /// size of zip entry
                 auto size() const { return _size; }
+
+                /// compressed size of zip entry
                 auto compressed_size() const { return _compressed_size; }
                 auto mtime() const { return _mtime; }
         }
@@ -196,8 +204,12 @@ struct Zipper {
                 return name.endsWith("/");
             }
 
-            void unzipTo(in Path entry_dst) {
-                // TODO: May be it have sense to move part of this processing to ZipEntry struct
+            /** Unzip entry to specified path
+              *
+              * Params:
+              *     dest = destination path to unzip entry
+              **/
+            void unzipTo(in Path dest) {
                 if (is_symlink) {
                     auto afile = zip_fopen_index(
                         _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
@@ -222,19 +234,19 @@ struct Zipper {
                             name, link_target, link_data));
 
                     // We have to ensure that parent directory created
-                    entry_dst.parent.mkdir(true);
+                    dest.parent.mkdir(true);
 
-                    link_target.symlink(entry_dst);
+                    link_target.symlink(dest);
                 } else if (is_directory) {
                     // It it is directory, then we have to create one in destination.
-                    entry_dst.mkdir(true);
+                    dest.mkdir(true);
                 } else {
                     // If it is file, then we have to extract file.
 
                     // ensure the directory for this file created.
-                    entry_dst.parent.mkdir(true);
+                    dest.parent.mkdir(true);
 
-                    auto out_file = entry_dst.openFile("wb");
+                    auto out_file = dest.openFile("wb");
                     scope(exit) out_file.close();
 
                     auto afile = zip_fopen_index(
@@ -291,14 +303,20 @@ struct Zipper {
                         _zip_file.zip_ptr, ZIP_FL_ENC_GUESS);
                 }
 
+                /** Check if iterator is consumed
+                  **/
                 bool empty() { return _index >= _max_entries; }
 
+                /** Return front entry (if evalable)
+                  **/
                 auto front() {
                     if (_entry.isNull && _index < _max_entries)
                         _entry = ZipEntry(_zip_file, _index).nullable;
                     return _entry.get;
                 }
 
+                /** Pop front entry from iterator
+                  **/
                 void popFront() {
                     _entry.nullify;
                     _index++;
