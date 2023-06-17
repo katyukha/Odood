@@ -201,7 +201,7 @@ class CommandDatabaseBackup: OdoodCommand {
         auto project = Project.loadProject;
 
         enforce!OdoodException(
-            args.flag("all") || args.args("db").length > 0,
+            args.flag("all") || args.args("name").length > 0,
             "It is required to specify name of database to backup or option -a or --all!");
 
         auto b_format = BackupFormat.zip;
@@ -211,7 +211,7 @@ class CommandDatabaseBackup: OdoodCommand {
             b_format = BackupFormat.sql;
 
         string[] dbnames = args.flag("all") ?
-            project.databases.list : args.args("db");
+            project.databases.list : args.args("name");
 
         foreach(db; dbnames)
             if (args.option("dest"))
