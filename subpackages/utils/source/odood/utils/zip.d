@@ -67,6 +67,14 @@ struct Zipper {
         alias RefCounted!(ZipPtr, RefCountedAutoInitialize.no) ZipFile;
 
         ZipFile _zipfile;
+
+        /// locate entry index by name
+        auto locateByName(in string name) {
+            // TODO: Handle errors (ZIP_ER_INVAL, ZIP_ER_MEMORY, ZIP_ER_NOENT)
+            // See: https://libzip.org/documentation/zip_name_locate.html#ERRORS
+            return zip_name_locate(
+                _zipfile.zip_ptr, name.toStringz, ZIP_FL_ENC_GUESS);
+        }
     public:
 
         enum ZipMode {
@@ -204,6 +212,36 @@ struct Zipper {
                 return name.endsWith("/");
             }
 
+            // TODO: implement read by chunk
+
+            /** Read complete file from zip archive.
+              **/
+            T[] readFull(T=byte)() {
+                enforce!ZipException(
+                    !is_symlink && !is_directory,
+                    "readAll could be applied only to files, not directories and not symlinks!");
+                auto afile = zip_fopen_index(
+                    _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
+                scope(exit) zip_fclose(afile);
+
+                // Create buffer to read whole file
+                // TODO: Do we need to add some guard to protect
+                //       over too big files, incorrect archives?
+                T[] result;
+                ulong total_size_read = 0;
+                while (total_size_read != stat.size) {
+                    T[BUF_SIZE] buf;
+                    auto size_read = zip_fread(afile, &buf, BUF_SIZE);
+                    enforce!ZipException(
+                        size_read > 0,
+                        "Cannot read file %s. Read: %s/%s".format(
+                            name, total_size_read, stat.size));
+                    result ~= buf[0 .. size_read];
+                    total_size_read += size_read;
+                }
+                return result;
+            }
+
             /** Unzip entry to specified path
               *
               * Params:
@@ -211,6 +249,8 @@ struct Zipper {
               **/
             void unzipTo(in Path dest) {
                 if (is_symlink) {
+                    // TODO: Create separate method readLink,
+                    //       to read content of symlink
                     auto afile = zip_fopen_index(
                         _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
                     scope(exit) zip_fclose(afile);
@@ -324,6 +364,37 @@ struct Zipper {
             }
 
             return ZipEntryIterator(_zipfile);
+        }
+
+        /// Get entry by index or name
+        auto entry(in ulong index) {
+            return ZipEntry(_zipfile, index);
+        }
+
+        /// ditto
+        auto entry(in string name) {
+            auto index = locateByName(name);
+            enforce!ZipException(
+                index != -1,
+                "Cannot locate %s in zip archive!".format(name));
+            return entry(index);
+        }
+
+        /// Check if zip archive contains entry
+        bool hasEntry(in string name) {
+            auto index = locateByName(name);
+            // if index is equal to -1, then such entry was not found
+            return index >= 0;
+        }
+
+        /// Operator overload to easier access entries
+        auto opIndex(in ulong index) {
+            return entry(index);
+        }
+
+        /// ditto
+        auto opIndex(in string name) {
+            return entry(name);
         }
 }
 
