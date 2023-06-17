@@ -1,0 +1,21 @@
+name "exception"
+description "Odood exceptions package"
+authors "Dmytro Katyukha"
+copyright "Copyright © 2022-2023, Dmytro Katyukha"
+license "MPL-2.0"
+
+targetPath "build"
+targetType "library"
+
+configuration "library" {
+}
+
+configuration "sourceLibrary" {
+    targetType "sourceLibrary"
+}
+
+configuration "unittest" {
+    dependency "unit-threaded:assertions" version=">=2.0.0"
+}
+
+

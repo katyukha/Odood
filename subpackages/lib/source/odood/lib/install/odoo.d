@@ -10,12 +10,12 @@ private import std.regex;
 
 private import dini: Ini;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
+private import odood.utils.odoo.serie: OdooSerie;
 
-private import odood.lib.zip;
-private import odood.lib.utils;
+private import odood.utils.zip;
+private import odood.utils;
 
 
 /** Download Odoo to odoo.path specified by project

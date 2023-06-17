@@ -10,20 +10,21 @@ private import thepath: Path;
 private import dini: Ini;
 private import dyaml;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
+
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.odoo.lodoo: LOdoo;
-private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.server: OdooServer;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
-private import odood.lib.git: isGitRepo;
-
 public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
+
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.git: isGitRepo;
 
 
 /** The Odood project.

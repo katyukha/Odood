@@ -6,7 +6,7 @@ private import std.logger;
 private import std.exception;
 private import core.atomic : atomicOp, atomicLoad, atomicStore;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 private:
     shared bool _interrupted = false;

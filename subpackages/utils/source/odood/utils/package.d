@@ -1,4 +1,8 @@
-module odood.lib.utils;
+module odood.utils;
+
+/** This package contains various utilities that do not depend on Odoo project.
+  * Thus, they could be used in other projects that do not use Odood projects.
+  **/
 
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
@@ -13,8 +17,8 @@ private import std.regex;
 private import thepath: Path;
 private import semver;
 
-private import odood.lib.exception: OdoodException;
-private import odood.lib.theprocess;
+private import odood.exception: OdoodException;
+private import odood.utils.theprocess;
 
 
 /** Parse python version
@@ -23,7 +27,7 @@ private import odood.lib.theprocess;
   *     project = instance of Odood project to get version of system python for.
   * Returns: SemVer version of system python interpreter
   **/
-package(odood.lib) @safe SemVer parsePythonVersion(in Path interpreter_path) {
+package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
     auto python_version_raw = Process(interpreter_path)
         .withArgs("--version")
         .execute()
@@ -126,3 +130,4 @@ string generateRandomString(in uint length) {
     for(uint i; i<length; i++) result ~= symbol_pool[uniform(0, $)];
     return result;
 }
+

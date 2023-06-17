@@ -8,15 +8,15 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
-private import odood.lib.utils: generateRandomString;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.odoo.db: OdooDatabase;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: generateRandomString;
+private import odood.exception: OdoodException;
 
 immutable string DEFAULT_BACKUP_PREFIX = "db-backup";
 
@@ -167,7 +167,7 @@ struct OdooDatabaseManager {
         import std.json;
         import std.string: join;
         import std.algorithm: canFind;
-        import odood.lib.odoo.utils: parseDatabaseBackupManifest;
+        import odood.utils.odoo.db: parseDatabaseBackupManifest;
 
         enforce!OdoodException(
             [".sql", ".zip"].canFind(backup_path.extension),

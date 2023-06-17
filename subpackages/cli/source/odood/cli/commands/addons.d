@@ -14,9 +14,9 @@ private import colored;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.addons.addon: OdooAddon;
-private import odood.lib.exception: OdoodException;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.addons.addon: OdooAddon;
+private import odood.exception: OdoodException;
 
 
 enum AddonDisplayType {

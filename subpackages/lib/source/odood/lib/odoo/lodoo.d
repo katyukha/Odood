@@ -9,7 +9,8 @@ private static import std.process;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.lib.exception: OdoodException;
+private import odood.utils: generateRandomString;
+private import odood.exception: OdoodException;
 
 
 /** Supported backup formats
@@ -193,7 +194,6 @@ const struct LOdoo {
                 in BackupFormat backup_format = BackupFormat.zip) {
             // TODO: Add ability to specify backup path
             import std.datetime.systime: Clock;
-            import odood.lib.utils: generateRandomString;
 
             string dest_name="db-backup-%s-%s.%s.%s".format(
                 dbname,

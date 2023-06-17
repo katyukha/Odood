@@ -1,7 +1,7 @@
 module odood.lib.odoo.python;
 
 private import odood.lib.venv;
-private import odood.lib.odoo.serie;
+private import odood.utils.odoo.serie;
 
 
 /// Guess major python version for specified odoo serie

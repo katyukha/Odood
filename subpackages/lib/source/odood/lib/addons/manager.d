@@ -13,14 +13,15 @@ private import thepath: Path, createTempPath;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.addons.addon;
-private import odood.lib.addons.odoo_requirements:
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.addons.addon;
+private import odood.utils.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;
-private import odood.lib.utils: download;
-private import odood.lib.zip: extract_zip_archive;
-private import odood.lib.exception: OdoodException;
+private import odood.utils: download;
+private import odood.utils.zip: extract_zip_archive;
+private import odood.utils.git: parseGitURL, gitClone;
+private import odood.exception: OdoodException;
 
 
 /// Struct that provide API to manage odoo addons for the project
@@ -554,7 +555,6 @@ struct AddonManager {
         import std.algorithm;
         import std.string: toLower;
         import std.array: array;
-        import odood.lib.git: parseGitURL, gitClone;
 
         auto git_url = parseGitURL(url);
         auto dest = _project.directories.repositories.join(

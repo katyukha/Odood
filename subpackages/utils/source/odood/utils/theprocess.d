@@ -1,7 +1,7 @@
 /** Module to easily run and interact with other processes
   **/
 // TODO: Move to separate package (out of Odood)
-module odood.lib.theprocess;
+module odood.utils.theprocess;
 
 private import std.format;
 private import std.process;

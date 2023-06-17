@@ -4,7 +4,7 @@ private import thepath: Path;
 private import dini;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
+private import odood.utils.odoo.serie: OdooSerie;
 
 
 /** Initialize default odoo config

@@ -1,4 +1,4 @@
-module odood.lib.zip;
+module odood.utils.zip;
 
 private import std.logger;
 private import std.string: toStringz, fromStringz, strip;
@@ -14,7 +14,7 @@ private import deimos.zip;
 
 private import thepath: Path;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 immutable BUF_SIZE = 1024;
 

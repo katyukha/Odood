@@ -10,10 +10,11 @@ private static import std.process;
 private import thepath: Path;
 private static import dyaml;
 
-private import odood.lib.exception: OdoodException;
-private import odood.lib.theprocess;
-private import odood.lib.utils;
+private import odood.exception: OdoodException;
+private import odood.utils.theprocess;
+private import odood.utils;
 
+// TOOD: May be it have sense to move this to utils subpackage.
 
 // Define template for simple script that allows to run any command in
 // python's virtualenv
@@ -233,7 +234,6 @@ const struct VirtualEnv {
                      in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
         import std.parallelism: totalCPUs;
-        import odood.lib.utils: download;
 
         infof("Building python version %s...", build_version);
 

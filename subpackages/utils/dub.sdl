@@ -1,19 +1,18 @@
-name "lib"
-description "Odood core as a library"
+name "utils"
+description "Odood utils that do not require Odood project to use them."
 authors "Dmytro Katyukha"
 copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
+
+dependency "requests" version="~>2"
 dependency "thepath" version=">=0.1.6"
-dependency "dini" version="~>2.0.0"
+dependency "dlibzip" version="~>1.9.2"
 dependency "semver" version=">=0.4.0"
-dependency "dyaml" version=">=0.9.2"
 dependency "pyd" version=">=0.14.4"
-dependency "dpq" version=">=0.11.6"
 
 targetPath "build"
 targetType "library"
 
-dependency "odood:utils" path="../../"
 dependency "odood:exception" path="../../"
 
 configuration "library" {
@@ -26,4 +25,5 @@ configuration "sourceLibrary" {
 configuration "unittest" {
     dependency "unit-threaded:assertions" version=">=2.0.0"
 }
+
 

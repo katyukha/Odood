@@ -11,13 +11,13 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
-private import odood.lib.utils: generateRandomString;
-private import odood.lib.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: generateRandomString;
+private import odood.utils.addons.addon: OdooAddon;
 
 // TODO: Use specific exception tree for CLI part
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 class CommandDatabaseList: OdoodCommand {

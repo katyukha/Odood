@@ -2,18 +2,14 @@
 	"fileVersion": 1,
 	"versions": {
 		"cachetools": "0.3.1",
-		"dini": "2.0.0",
 		"dlibzip": "1.9.2",
-		"dpq": "0.11.6",
 		"dshould": "1.7.1",
-		"dyaml": "0.9.2",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
 		"pyd": "0.14.4",
 		"requests": "2.1.0",
 		"semver": "0.5.0",
 		"thepath": "0.1.6",
-		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.6"
 	}
 }

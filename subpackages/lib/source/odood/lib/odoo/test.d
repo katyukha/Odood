@@ -15,16 +15,16 @@ private import std.exception: enforce;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
-private import odood.lib.addons.addon: OdooAddon;
+private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
-private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: generateRandomString;
+private import odood.exception: OdoodException;
+private import odood.utils: generateRandomString;
 private static import signal = odood.lib.signal;
 
 // TODO: Make randomized ports

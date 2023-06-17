@@ -15,12 +15,12 @@ private import std.algorithm: map;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: isProcessRunning;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.exception: OdoodException;
+private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
-private import odood.lib.theprocess;
+private import odood.utils.theprocess;
 
 
 package(odood) struct CoverageOptions {

@@ -10,9 +10,9 @@ private static import std.process;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.lib.exception: OdoodException;
-private import odood.lib.git: parseGitURL, gitClone;
-private import odood.lib.theprocess;
+private import odood.exception: OdoodException;
+private import odood.utils.git: parseGitURL, gitClone;
+private import odood.utils.theprocess;
 
 
 class AddonRepository {

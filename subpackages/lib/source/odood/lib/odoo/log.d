@@ -10,7 +10,7 @@ private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.stdio: File;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 /** Used to check if it is start of the log record

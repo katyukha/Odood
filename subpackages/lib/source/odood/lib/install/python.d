@@ -12,11 +12,11 @@ private import std.conv: to;
 private import std.logger;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException;
-private import odood.lib.utils: download, parsePythonVersion;
 private import odood.lib.venv: PySerie;
-private import odood.lib.theprocess;
+private import odood.utils.theprocess;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: download, parsePythonVersion;
+private import odood.exception: OdoodException;
 
 
 /** Find version of system python for specified project.

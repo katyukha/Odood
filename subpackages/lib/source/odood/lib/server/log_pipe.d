@@ -9,7 +9,7 @@ private import std.format: format;
 private import core.time;
 
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 /** Struct to implement iterator (range) over log records captured

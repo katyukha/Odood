@@ -1,4 +1,4 @@
-module odood.lib.addons.addon;
+module odood.utils.addons.addon;
 
 private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;

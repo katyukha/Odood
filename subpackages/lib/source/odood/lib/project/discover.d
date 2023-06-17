@@ -12,10 +12,10 @@ private import thepath: Path;
 
 private import odood.lib.project:
     ProjectConfigOdoo, ProjectConfigDirectories, Project;
-private import odood.lib.odoo.serie: OdooSerie;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.odoo.python: guessPySerie;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 private auto RE_CONF_LINE=ctRegex!(
