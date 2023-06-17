@@ -212,34 +212,116 @@ struct Zipper {
                 return name.endsWith("/");
             }
 
-            // TODO: implement read by chunk
-
-            /** Read complete file from zip archive.
+            /** Read zip entry by char (raw), do not resolve symlinks
               **/
-            T[] readFull(T=byte)() {
+            private void readRawByChunk(T=byte)(
+                    void delegate(scope const T[] chunk,
+                                  in ulong chunk_size) dg) {
                 enforce!ZipException(
-                    !is_symlink && !is_directory,
-                    "readAll could be applied only to files, not directories and not symlinks!");
+                    !is_directory,
+                    "readRawByChunk could be applied only to files " ~
+                    "and symlinks, and not directories!");
                 auto afile = zip_fopen_index(
                     _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
                 scope(exit) zip_fclose(afile);
 
-                // Create buffer to read whole file
-                // TODO: Do we need to add some guard to protect
-                //       over too big files, incorrect archives?
-                T[] result;
                 ulong total_size_read = 0;
-                while (total_size_read != stat.size) {
+                while (total_size_read < stat.size) {
                     T[BUF_SIZE] buf;
                     auto size_read = zip_fread(afile, &buf, BUF_SIZE);
                     enforce!ZipException(
                         size_read > 0,
                         "Cannot read file %s. Read: %s/%s".format(
                             name, total_size_read, stat.size));
-                    result ~= buf[0 .. size_read];
+                    // Pass data read to delegate
+                    dg(buf[], size_read);
                     total_size_read += size_read;
                 }
+                enforce!ZipException(
+                    total_size_read == stat.size,
+                    "Cannot read file %s. Read: %s instead of %s bytes".format(
+                        name, total_size_read, stat.size));
+            }
+            /** Read raw entry data (as is).
+              *
+              * Note, in case of symlinks, this method will return
+              * the target of the symlink, not the content.
+              **/
+            private T[] readRawFull(T=byte)() {
+                T[] result;
+                readRawByChunk!T(
+                    (scope const T[] chunk, in ulong chunk_size) {
+                        result ~= chunk[0 .. chunk_size];
+                    });
                 return result;
+            }
+
+            /** Read the target of the link
+              **/
+            Path readLink() {
+                enforce!ZipException(
+                    is_symlink,
+                    "readLink could be applied only on symlinks!");
+                char[] link_data = readRawFull!char;
+                return Path(cast(string) link_data);
+            }
+
+            /** Resolve symlink.
+              *
+              * Returns: ZipEntry that is target of symlink.
+              **/
+            ZipEntry resolveLink() {
+                // TODO: Handle relative links
+                auto target = readLink();
+                auto target_index = zip_name_locate(
+                    _zip_file.zip_ptr, target.toStringz, ZIP_FL_ENC_GUESS);
+                enforce!ZipException(
+                    target_index >= 0,
+                    "Cannot locate symlink (%s) target (%s) in archive!".format(
+                        name, target));
+                return ZipEntry(_zip_file, target_index);
+            }
+
+            /** Read complete file from zip archive.
+              *
+              * In case when applied to symlink, it will be automatically
+              * resolved.
+              **/
+            T[] readFull(T=byte)() {
+                if (is_symlink)
+                    return resolveLink.readFull!T;
+
+                enforce!ZipException(
+                    !is_directory,
+                    "readRaw could be applied only to files and symlinks, " ~
+                    "not directories and not symlinks!");
+                return readRawFull!T;
+            }
+
+            /** Read file by chunks
+              *
+              * Applicable only to files. On attempt to read directory
+              * will throw ZipException.
+              *
+              * On attempt to read symlink, content of link target entry
+              * will be read.
+              *
+              * Throws: ZipException when cannot read enough data,
+              *    or if read too much data.
+              *
+              **/
+            void readByChunk(T=byte)(
+                    void delegate(scope const T[] chunk,
+                                  in ulong chunk_size) dg) {
+                if (is_symlink)
+                    return resolveLink.readByChunk!T(dg);
+
+                enforce!ZipException(
+                    !is_directory && !is_symlink,
+                    "readByChunk could be applied only to files, " ~
+                    "not symlinks and not directories!");
+
+                readRawByChunk!T(dg);
             }
 
             /** Unzip entry to specified path
@@ -249,29 +331,11 @@ struct Zipper {
               **/
             void unzipTo(in Path dest) {
                 if (is_symlink) {
-                    // TODO: Create separate method readLink,
-                    //       to read content of symlink
-                    auto afile = zip_fopen_index(
-                        _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
-                    scope(exit) zip_fclose(afile);
-
-                    byte[] link_data;
-                    ulong size_written = 0;
-                    while (size_written != stat.size) {
-                        byte[BUF_SIZE] chunk;
-                        auto size_read = zip_fread(afile, &chunk, BUF_SIZE);
-                        enforce!ZipException(
-                            size_read > 0,
-                            "Cannot read file %s. Read: %s/%s".format(
-                                name, size_written, stat.size));
-                        link_data ~= chunk[0 .. size_read];
-                        size_written += size_read;
-                    }
-                    auto link_target = Path(cast(string) link_data);
+                    auto link_target = readLink;
                     enforce!ZipException(
                         link_target.isValid(),
-                        "Cannot handle zip entry %s: the data '%s'(%s) is not valid path".format(
-                            name, link_target, link_data));
+                        "Cannot handle zip entry %s: the link target '%s' " ~
+                        " is not valid path".format(name, link_target));
 
                     // We have to ensure that parent directory created
                     dest.parent.mkdir(true);
@@ -279,6 +343,8 @@ struct Zipper {
                     link_target.symlink(dest);
                 } else if (is_directory) {
                     // It it is directory, then we have to create one in destination.
+                    // TODO: Do we need to unzip content of the directory?
+                    // TODO: Do we need to create dest dir here?
                     dest.mkdir(true);
                 } else {
                     // If it is file, then we have to extract file.
@@ -289,21 +355,10 @@ struct Zipper {
                     auto out_file = dest.openFile("wb");
                     scope(exit) out_file.close();
 
-                    auto afile = zip_fopen_index(
-                        _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
-                    scope(exit) zip_fclose(afile);
-
-                    ulong size_written = 0;
-                    while (size_written != stat.size) {
-                        byte[BUF_SIZE] buf;
-                        auto size_read = zip_fread(afile, &buf, BUF_SIZE);
-                        enforce!ZipException(
-                            size_read > 0,
-                            "Cannot read file %s. Read: %s/%s".format(
-                                name, size_written, stat.size));
-                        out_file.rawWrite(buf[0 .. size_read]);
-                        size_written += size_read;
-                    }
+                    readByChunk(
+                        (scope const byte[] chunk, in ulong chunk_size) {
+                            out_file.rawWrite(chunk[0 .. chunk_size]);
+                        });
                 }
             }
         }
@@ -371,6 +426,7 @@ struct Zipper {
             return ZipEntry(_zipfile, index);
         }
 
+        // TODO: Handle Path as a key for entry
         /// ditto
         auto entry(in string name) {
             auto index = locateByName(name);
@@ -398,6 +454,41 @@ struct Zipper {
         }
 }
 
+/// Example of unarchiving archive
+unittest {
+    import unit_threaded.assertions;
+
+    // Zipfile will be closed automatically when zip is out of scope.
+    auto zip = Zipper(Path("test-data", "test-zip.zip"));
+
+    zip.num_entries.shouldEqual(7);
+
+    zip.hasEntry("test-zip/").shouldBeTrue();
+    zip["test-zip/"].is_directory.shouldBeTrue();
+
+    zip.hasEntry("test-zip/test.txt").shouldBeTrue();
+    zip["test-zip/test.txt"].is_symlink.shouldBeFalse();
+    zip["test-zip/test.txt"].readFull!char.shouldEqual("Test Root\n");
+
+    zip.hasEntry("test-zip/test-dir/test.txt").shouldBeTrue();
+    zip["test-zip/test-dir/test.txt"].is_symlink.shouldBeFalse();
+    zip["test-zip/test-dir/test.txt"].readFull!char.shouldEqual("Hello World!\n");
+
+    //zip.hasEntry("test-zip/test-link-1.txt").shouldBeTrue();
+    //zip["test-zip/test-link-1.txt"].is_symlink.shouldBeTrue();
+    //zip["test-zip/test-link-1.txt"].readLink.shouldEqual(Path("test-dir", "test.txt"));
+    //zip["test-zip/test-link-1.txt"].readFull!char.shouldEqual("Hello World!\n");
+
+    //zip.hasEntry("test-zip/test-dir/test-link.txt").shouldBeTrue();
+    //zip["test-zip/test-dir/test-link.txt"].is_symlink.shouldBeTrue();
+    //zip["test-zip/test-dir/test-link.txt"].readLink.shouldEqual(Path("test.txt"));
+    //zip["test-zip/test-dir/test-link.txt"].readFull!char.shouldEqual("Hello World!\n");
+
+    //zip.hasEntry("test-zip/test-dir/test-parent.txt").shouldBeTrue();
+    //zip["test-zip/test-dir/test-parent.txt"].is_symlink.shouldBeTrue();
+    //zip["test-zip/test-dir/test-parent.txt"].readLink.shouldEqual(Path("..", "test.txt"));
+    //zip["test-zip/test-dir/test-parent.txt"].readFull!char.shouldEqual("Test Root\n");
+}
 
 /** Extract zip archive to destination directory
 
@@ -420,6 +511,8 @@ void extract_zip_archive(
     enforce!OdoodException(
         !destination.exists,
         "Destination %s already exists!".format(destination));
+
+    // TODO: Add protection for unzipping out of destinantion
 
     // TODO: Do we need this?
     auto source = archive.toAbsolute;
@@ -459,6 +552,10 @@ void extract_zip_archive(
 
         // Path to unzip entry to
         auto entry_dst = dest.join(entry_name);
+        enforce!ZipException(
+            entry_dst.isInside(dest),
+            "Attempt to unzip entry %s out of scope of destination (%s)".format(
+                entry.name, dest));
 
         // Unzip entry
         entry.unzipTo(entry_dst);
