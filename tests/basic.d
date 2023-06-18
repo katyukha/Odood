@@ -10,7 +10,7 @@ import thepath;
 import unit_threaded.assertions;
 
 import odood.lib.project;
-import odood.lib.odoo.serie;
+import odood.utils.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
 
 import odood.cli.commands.test: printLogRecord;
