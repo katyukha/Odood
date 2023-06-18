@@ -29,59 +29,9 @@ void extract_zip_archive(
     enforce!OdoodException(
         archive.exists,
         "ZipArchive %s does not exists!".format(archive));
-    enforce!OdoodException(
-        !destination.exists,
-        "Destination %s already exists!".format(destination));
 
-    // TODO: Add protection for unzipping out of destinantion
-
-    // TODO: Do we need this?
-    auto source = archive.toAbsolute;
-    auto dest = destination.toAbsolute;
-
-    auto zip = Zipper(source);
-
-    // Check if we can unfold path
-    if (unfold_path) {
-        enforce!OdoodException(
-            unfold_path.endsWith("/"),
-            "Unfold path must be ended with '/'");
-        foreach(entry; zip.entries) {
-            enforce!OdoodException(
-                entry.name.startsWith(unfold_path),
-                "Cannot unfold path %s, because there is entry %s that is not under this path".format(
-                    unfold_path, entry.name));
-        }
-    }
-
-    // Create destination directory
-    dest.mkdir(true);
-
-    foreach(entry; zip.entries) {
-        string entry_name = entry.name.dup;
-
-        if (unfold_path) {
-            if (entry_name == unfold_path) {
-                // Skip unfolded directory
-                continue;
-            }
-            entry_name = entry_name[unfold_path.length .. $];
-            enforce!OdoodException(
-                entry_name,
-                "Entry name is empty after unfolding!");
-        }
-
-        // Path to unzip entry to
-        auto entry_dst = dest.join(entry_name);
-        enforce!ZipException(
-            entry_dst.isInside(dest),
-            "Attempt to unzip entry %s out of scope of destination (%s)".format(
-                entry.name, dest));
-
-        // Unzip entry
-        entry.unzipTo(entry_dst);
-    }
-
+    auto zip = Zipper(archive.toAbsolute);
+    zip.extractTo(destination, unfold_path);
 }
 
 /// Example of unarchiving archive

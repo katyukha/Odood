@@ -4,6 +4,7 @@ private import std.typecons;
 private import std.exception: enforce;
 private import std.string: toStringz;
 private import std.format: format;
+private import std.algorithm.searching: endsWith, startsWith;
 
 private import deimos.zip;
 
@@ -117,9 +118,76 @@ struct Zipper {
         auto opIndex(in string name) {
             return entry(name);
         }
+
+        /** Extract zip archive to destination directory
+
+            Also, if zip folder contains single directory, Zipper can
+            unpack its content directly to destination directory.
+            To enable this feature, set **unfold_path** param to True.
+
+            Params:
+                destination = path to destination where to extract archive.
+                unfold_path = if set, then unfold this path when unpacking.
+        **/
+        void extractTo(
+                in Path destination,
+                in string unfold_path=null) {
+            enforce!ZipException(
+                destination.isValid,
+                "Destination path %s is not valid!".format(destination));
+            enforce!ZipException(
+                !destination.exists,
+                "Destination %s already exists!".format(destination));
+
+            // TODO: Add protection for unzipping out of destinantion
+
+            // TODO: Do we need this?
+            auto dest = destination.toAbsolute;
+
+            // Check if we can unfold path
+            if (unfold_path) {
+                enforce!ZipException(
+                    unfold_path.endsWith("/"),
+                    "Unfold path must be ended with '/'");
+                foreach(entry; this.entries) {
+                    enforce!ZipException(
+                        entry.name.startsWith(unfold_path),
+                        "Cannot unfold path %s, because there is entry %s that is not under this path".format(
+                            unfold_path, entry.name));
+                }
+            }
+
+            // Create destination directory
+            dest.mkdir(true);
+
+            foreach(entry; this.entries) {
+                string entry_name = entry.name.dup;
+
+                if (unfold_path) {
+                    if (entry_name == unfold_path) {
+                        // Skip unfolded directory
+                        continue;
+                    }
+                    entry_name = entry_name[unfold_path.length .. $];
+                    enforce!ZipException(
+                        entry_name,
+                        "Entry name is empty after unfolding!");
+                }
+
+                // Path to unzip entry to
+                auto entry_dst = dest.join(entry_name);
+                enforce!ZipException(
+                    entry_dst.isInside(dest),
+                    "Attempt to unzip entry %s out of scope of destination (%s)".format(
+                        entry.name, dest));
+
+                // Unzip entry
+                entry.unzipTo(entry_dst);
+            }
+        }
 }
 
-/// Example of unarchiving archive
+/// Example of analyzing archive
 unittest {
     import unit_threaded.assertions;
 
@@ -155,3 +223,42 @@ unittest {
     zip["test-zip/test-dir/test-parent.txt"].readFull!char.shouldEqual("Test Root\n");
 }
 
+/// Example of unarchiving archive
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    Path temp_root = createTempPath("test-zip");
+    scope(exit) temp_root.remove();
+
+    Zipper(Path("test-data", "test-zip.zip")).extractTo(temp_root.join("res"));
+
+    temp_root.join("res", "test-zip").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip").isDir().shouldBeTrue();
+
+    temp_root.join("res", "test-zip", "test.txt").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test.txt").isFile().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test.txt").readFileText().shouldEqual("Test Root\n");
+
+    temp_root.join("res", "test-zip", "test-dir", "test.txt").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test.txt").isFile().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test.txt").readFileText().shouldEqual("Hello World!\n");
+
+    temp_root.join("res", "test-zip", "test-link-1.txt").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-link-1.txt").isSymlink().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-link-1.txt").readLink().shouldEqual(
+        Path("test-dir", "test.txt"));
+    temp_root.join("res", "test-zip", "test-link-1.txt").readFileText().shouldEqual("Hello World!\n");
+
+    temp_root.join("res", "test-zip", "test-dir", "test-link.txt").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test-link.txt").isSymlink().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test-link.txt").readLink().shouldEqual(
+        Path("test.txt"));
+    temp_root.join("res", "test-zip", "test-dir", "test-link.txt").readFileText().shouldEqual("Hello World!\n");
+
+    temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").exists().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").isSymlink().shouldBeTrue();
+    temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").readLink().shouldEqual(
+        Path("..", "test.txt"));
+    temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").readFileText().shouldEqual("Test Root\n");
+}
