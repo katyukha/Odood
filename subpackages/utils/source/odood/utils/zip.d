@@ -271,14 +271,15 @@ struct Zipper {
               * Returns: ZipEntry that is target of symlink.
               **/
             ZipEntry resolveLink() {
-                // TODO: Handle relative links
-                auto target = readLink();
+                auto target = readLink;
+                auto target_resolved = Path(_name).parent(false).join(target).normalize;
                 auto target_index = zip_name_locate(
-                    _zip_file.zip_ptr, target.toStringz, ZIP_FL_ENC_GUESS);
+                    _zip_file.zip_ptr, target_resolved.toStringz, ZIP_FL_ENC_GUESS);
                 enforce!ZipException(
                     target_index >= 0,
-                    "Cannot locate symlink (%s) target (%s) in archive!".format(
-                        name, target));
+                    "Cannot locate symlink (%s) target (%s resolved to %s) " ~
+                    "in archive!".format(
+                        name, target, target_resolved));
                 return ZipEntry(_zip_file, target_index);
             }
 
@@ -474,20 +475,20 @@ unittest {
     zip["test-zip/test-dir/test.txt"].is_symlink.shouldBeFalse();
     zip["test-zip/test-dir/test.txt"].readFull!char.shouldEqual("Hello World!\n");
 
-    //zip.hasEntry("test-zip/test-link-1.txt").shouldBeTrue();
-    //zip["test-zip/test-link-1.txt"].is_symlink.shouldBeTrue();
-    //zip["test-zip/test-link-1.txt"].readLink.shouldEqual(Path("test-dir", "test.txt"));
-    //zip["test-zip/test-link-1.txt"].readFull!char.shouldEqual("Hello World!\n");
+    zip.hasEntry("test-zip/test-link-1.txt").shouldBeTrue();
+    zip["test-zip/test-link-1.txt"].is_symlink.shouldBeTrue();
+    zip["test-zip/test-link-1.txt"].readLink.shouldEqual(Path("test-dir", "test.txt"));
+    zip["test-zip/test-link-1.txt"].readFull!char.shouldEqual("Hello World!\n");
 
-    //zip.hasEntry("test-zip/test-dir/test-link.txt").shouldBeTrue();
-    //zip["test-zip/test-dir/test-link.txt"].is_symlink.shouldBeTrue();
-    //zip["test-zip/test-dir/test-link.txt"].readLink.shouldEqual(Path("test.txt"));
-    //zip["test-zip/test-dir/test-link.txt"].readFull!char.shouldEqual("Hello World!\n");
+    zip.hasEntry("test-zip/test-dir/test-link.txt").shouldBeTrue();
+    zip["test-zip/test-dir/test-link.txt"].is_symlink.shouldBeTrue();
+    zip["test-zip/test-dir/test-link.txt"].readLink.shouldEqual(Path("test.txt"));
+    zip["test-zip/test-dir/test-link.txt"].readFull!char.shouldEqual("Hello World!\n");
 
-    //zip.hasEntry("test-zip/test-dir/test-parent.txt").shouldBeTrue();
-    //zip["test-zip/test-dir/test-parent.txt"].is_symlink.shouldBeTrue();
-    //zip["test-zip/test-dir/test-parent.txt"].readLink.shouldEqual(Path("..", "test.txt"));
-    //zip["test-zip/test-dir/test-parent.txt"].readFull!char.shouldEqual("Test Root\n");
+    zip.hasEntry("test-zip/test-dir/test-parent.txt").shouldBeTrue();
+    zip["test-zip/test-dir/test-parent.txt"].is_symlink.shouldBeTrue();
+    zip["test-zip/test-dir/test-parent.txt"].readLink.shouldEqual(Path("..", "test.txt"));
+    zip["test-zip/test-dir/test-parent.txt"].readFull!char.shouldEqual("Test Root\n");
 }
 
 /** Extract zip archive to destination directory

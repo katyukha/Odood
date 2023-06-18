@@ -5,7 +5,7 @@ copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 
 dependency "requests" version="~>2"
-dependency "thepath" version=">=0.1.6"
+dependency "thepath" version=">=0.1.7"
 dependency "dlibzip" version="~>1.9.2"
 dependency "semver" version=">=0.4.0"
 dependency "pyd" version=">=0.14.4"
