@@ -54,7 +54,7 @@ struct ZipEntryStat {
 /** Simple struct to handle zip entries
   **/
 struct ZipEntry {
-    private ZipPtr _zip_file;
+    private ZipPtr _zip_ptr;
     private ulong _index;
     private string _name;
     private Nullable!ZipEntryStat _stat;
@@ -62,13 +62,12 @@ struct ZipEntry {
 
     @disable this();
 
-    this(ZipPtr zip_file, in ulong index) {
-        _zip_file = zip_file;
+    this(ZipPtr zip_ptr, in ulong index) {
+        _zip_ptr = zip_ptr;
         _index = index;
         // Save name and strip leading "/" if entry name accidentally starts with "/"
-        // TODO: do we need cast here?
         _name = zip_get_name(
-            _zip_file.zip_ptr, index, ZIP_FL_ENC_GUESS
+            _zip_ptr.zip_ptr, index, ZIP_FL_ENC_GUESS
         ).fromStringz.idup.strip("/", "");
     }
 
@@ -84,14 +83,14 @@ struct ZipEntry {
         if (_stat.isNull) {
             zip_stat_t e_stat;
             auto stat_result = zip_stat_index(
-                _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS, &e_stat);
+                _zip_ptr.zip_ptr, _index, ZIP_FL_ENC_GUESS, &e_stat);
             enforce!ZipException(
                 stat_result == 0,
                 "Cannot get stat for entry %s [%s] in zip archive: %s".format(
                     _name,
                     _index,
                     zip_error_strerror(
-                        zip_get_error(_zip_file.zip_ptr)).fromStringz));
+                        zip_get_error(_zip_ptr.zip_ptr)).fromStringz));
             _stat = ZipEntryStat(e_stat).nullable;
         }
         return _stat.get;
@@ -105,13 +104,13 @@ struct ZipEntry {
             uint entry_attributes;
 
             auto attr_result = zip_file_get_external_attributes(
-                _zip_file.zip_ptr, _index, ZIP_FL_UNCHANGED,
+                _zip_ptr.zip_ptr, _index, ZIP_FL_UNCHANGED,
                 &entry_opsys, &entry_attributes);
             enforce!ZipException(
                 attr_result == 0,
                 "Cannot get external file attrubutes for entry %s [%s] in zip archive: %s".format(
                     _name, _index,
-                    zip_error_strerror(zip_get_error(_zip_file.zip_ptr)).fromStringz));
+                    zip_error_strerror(zip_get_error(_zip_ptr.zip_ptr)).fromStringz));
 
             if (entry_opsys == ZIP_OPSYS_UNIX) {
                 entry_attributes = entry_attributes >> 16;
@@ -153,7 +152,7 @@ struct ZipEntry {
             "readRawByChunk could be applied only to files " ~
             "and symlinks, and not directories!");
         auto afile = zip_fopen_index(
-            _zip_file.zip_ptr, _index, ZIP_FL_ENC_GUESS);
+            _zip_ptr.zip_ptr, _index, ZIP_FL_ENC_GUESS);
         scope(exit) zip_fclose(afile);
 
         ulong total_size_read = 0;
@@ -205,13 +204,13 @@ struct ZipEntry {
         auto target = readLink;
         auto target_resolved = Path(_name).parent(false).join(target).normalize;
         auto target_index = zip_name_locate(
-            _zip_file.zip_ptr, target_resolved.toStringz, ZIP_FL_ENC_GUESS);
+            _zip_ptr.zip_ptr, target_resolved.toStringz, ZIP_FL_ENC_GUESS);
         enforce!ZipException(
             target_index >= 0,
             "Cannot locate symlink (%s) target (%s resolved to %s) " ~
             "in archive!".format(
                 name, target, target_resolved));
-        return ZipEntry(_zip_file, target_index);
+        return ZipEntry(_zip_ptr, target_index);
     }
 
     /** Read complete file from zip archive.

@@ -18,14 +18,14 @@ private import odood.utils.zipper.exception;
 struct Zipper {
 
     private:
-        ZipPtr _zipfile;
+        ZipPtr _zip_ptr;
 
         /// locate entry index by name
         auto locateByName(in string name) {
             // TODO: Handle errors (ZIP_ER_INVAL, ZIP_ER_MEMORY, ZIP_ER_NOENT)
             // See: https://libzip.org/documentation/zip_name_locate.html#ERRORS
             return zip_name_locate(
-                _zipfile.zip_ptr, name.toStringz, ZIP_FL_ENC_GUESS);
+                _zip_ptr.zip_ptr, name.toStringz, ZIP_FL_ENC_GUESS);
         }
     public:
         /// Initialize zip archive
@@ -38,12 +38,12 @@ struct Zipper {
                 !error_code,
                 "Cannot open zip archive %s in mode %s: %s".format(
                     path, mode, format_zip_error(error_code)));
-            _zipfile = ZipPtr(zip_obj);
+            _zip_ptr = ZipPtr(zip_obj);
         }
 
         /// Get num entried
         auto num_entries() {
-            return zip_get_num_entries(_zipfile.zip_ptr, ZIP_FL_ENC_GUESS);
+            return zip_get_num_entries(_zip_ptr.zip_ptr, ZIP_FL_ENC_GUESS);
         }
 
         /// Iterate over entries
@@ -51,16 +51,16 @@ struct Zipper {
 
             // Range iterator that allows to iterate over entries of zip archive
             struct ZipEntryIterator {
-                private ZipPtr _zip_file;
+                private ZipPtr _zip_ptr;
                 private ulong _index;
                 private ulong _max_entries;
                 private Nullable!ZipEntry _entry;
 
                 this(ZipPtr zip_file, in ulong index=0) {
-                    _zip_file = zip_file;
+                    _zip_ptr = zip_file;
                     _index = index;
                     _max_entries = zip_get_num_entries(
-                        _zip_file.zip_ptr, ZIP_FL_ENC_GUESS);
+                        _zip_ptr.zip_ptr, ZIP_FL_ENC_GUESS);
                 }
 
                 /** Check if iterator is consumed
@@ -71,7 +71,7 @@ struct Zipper {
                   **/
                 auto front() {
                     if (_entry.isNull && _index < _max_entries)
-                        _entry = ZipEntry(_zip_file, _index).nullable;
+                        _entry = ZipEntry(_zip_ptr, _index).nullable;
                     return _entry.get;
                 }
 
@@ -83,12 +83,12 @@ struct Zipper {
                 }
             }
 
-            return ZipEntryIterator(_zipfile);
+            return ZipEntryIterator(_zip_ptr);
         }
 
         /// Get entry by index or name
         auto entry(in ulong index) {
-            return ZipEntry(_zipfile, index);
+            return ZipEntry(_zip_ptr, index);
         }
 
         // TODO: Handle Path as a key for entry
