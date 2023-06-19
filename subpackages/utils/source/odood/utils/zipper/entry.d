@@ -202,6 +202,9 @@ struct ZipEntry {
       **/
     ZipEntry resolveLink() {
         auto target = readLink;
+        // Do not reply on Path's parent method,
+        // because on windows it will not work,
+        // because in zip-archive directory separator is '/' on all systems.
         auto target_resolved = Path(_name).parent(false).join(target).normalize;
         auto target_index = zip_name_locate(
             _zip_ptr.zip_ptr, target_resolved.toStringz, ZIP_FL_ENC_GUESS);

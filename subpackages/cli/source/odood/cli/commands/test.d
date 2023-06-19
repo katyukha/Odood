@@ -104,6 +104,8 @@ class CommandTest: OdoodCommand {
             null, "coverage-html", "Prepare HTML report for coverage."));
         this.add(new Flag(
             null, "coverage-skip-covered", "Skip covered files in coverage report."));
+        this.add(new Flag(
+            null, "coverage-ignore-errors", "Ignore coverage errors."));
         this.add(new Option(
             null, "coverage-fail-under", "Fail if coverage is less then specified value."));
         this.add(new Flag(
@@ -232,6 +234,8 @@ class CommandTest: OdoodCommand {
             ];
             if (args.flag("coverage-skip-covered"))
                 coverage_html_options ~= "--skip-covered";
+            if (args.flag("coverage-ignore-errors"))
+                coverage_html_options ~= ["--ignore-errors"];
 
             project.venv.runE([
                 "coverage", "html",

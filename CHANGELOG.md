@@ -14,6 +14,9 @@
   addons manually.
 - New option `--install-file` to `odood db create` command, that
   will automatically install modules from specified files.
+- New option `--coverage-ignore-errors` to `odood test` command, that allows
+  to ignore coverage errors, that a frequent case during migration tests
+  (because files available on start may disapear during migration).
 
 ### Changed
 
