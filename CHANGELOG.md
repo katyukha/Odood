@@ -23,6 +23,8 @@
 - Command `odood db backup`: when `--dest` option supplied and
   it is existing directory, then database will be backed up in this directory
   with automatically generated name of backup.
+- Automatically supply `--ignore-errors` to `coverage` when running migration
+  tests
 
 ---
 

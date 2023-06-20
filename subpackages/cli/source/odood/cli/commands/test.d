@@ -232,7 +232,7 @@ class CommandTest: OdoodCommand {
             auto coverage_html_options = [
                 "--directory=%s".format(Path.current.join("htmlcov")),
             ];
-            if (args.flag("coverage-skip-covered"))
+            if (args.flag("coverage-skip-covered") || testRunner.test_migration)
                 coverage_html_options ~= "--skip-covered";
             if (args.flag("coverage-ignore-errors"))
                 coverage_html_options ~= ["--ignore-errors"];
