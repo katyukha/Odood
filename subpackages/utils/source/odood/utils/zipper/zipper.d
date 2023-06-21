@@ -185,6 +185,52 @@ struct Zipper {
                 entry.unzipTo(entry_dst);
             }
         }
+
+        /** Add empty directory to zip archive
+          *
+          * Notes:
+          *     Use '/' as directory separator for name.
+          *
+          * Params:
+          *     name = name of directory inside archive.
+          *
+          * Returns:
+          *     ZipEntry that represents created directory
+          **/
+        ZipEntry addEntryDirectory(in string name) {
+            auto entry_index = zip_dir_add(
+                _zip_ptr.zip_ptr, name.toStringz, ZIP_FL_ENC_GUESS);
+            enforce!ZipException(
+                entry_index >=0,
+                "Cannot add directory %s to zip archive: %s".format(
+                    name, _zip_ptr.getErrorMsg));
+            return entry(entry_index);
+        }
+
+        /** Add new file to zip archive
+          *
+          * Params:
+          *     entry_path = path to original file to add to archive
+          *     name = name of file inside archive
+          *
+          * Returns:
+          *     ZipEntry that represents created file
+          **/
+        ZipEntry addEntryFile(in Path entry_path, in string name) {
+            enforce!ZipException(
+                entry_path.exists(),
+                "Cannot add file %s: does not exists!".format(entry_path));
+            auto source = zip_source_file(
+                _zip_ptr.zip_ptr, entry_path.toStringz, 0, 0);
+            auto entry_index = zip_file_add(
+                _zip_ptr.zip_ptr, name.toStringz, source,
+                ZIP_FL_OVERWRITE | ZIP_FL_ENC_GUESS);
+            enforce!ZipException(
+                entry_index >=0,
+                "Cannot add directory %s to zip archive: %s".format(
+                    name, _zip_ptr.getErrorMsg));
+            return entry(entry_index);
+        }
 }
 
 /// Example of analyzing archive
@@ -261,4 +307,40 @@ unittest {
     temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").readLink().shouldEqual(
         Path("..", "test.txt"));
     temp_root.join("res", "test-zip", "test-dir", "test-parent.txt").readFileText().shouldEqual("Test Root\n");
+}
+
+/// Example of creation of archive
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    Path temp_root = createTempPath("test-zip");
+    scope(exit) temp_root.remove();
+
+    {
+        // Do it in subscope to ensure that zip file closed when out of scope
+        auto zip = Zipper(temp_root.join("my.zip"), ZipMode.CREATE);
+        zip.addEntryDirectory("test-data");
+        zip.addEntryFile(
+            Path("test-data", "addons-list.txt"),
+            "test-data/addons-list.txt");
+
+        zip.addEntryFile(
+            Path("test-data", "odoo.test.2.log"),
+            "test-data/odoo.test.2.log");
+    }
+
+    auto zip = Zipper(temp_root.join("my.zip"));
+    zip.num_entries.shouldEqual(3);
+
+    zip.hasEntry("test-data/").shouldBeTrue();
+    zip["test-data/"].is_directory.shouldBeTrue();
+
+    zip.hasEntry("test-data/addons-list.txt").shouldBeTrue();
+    zip["test-data/addons-list.txt"].readFull!char.shouldEqual(
+        Path("test-data", "addons-list.txt").readFileText());
+
+    zip.hasEntry("test-data/odoo.test.2.log").shouldBeTrue();
+    zip["test-data/odoo.test.2.log"].readFull!char.shouldEqual(
+        Path("test-data", "odoo.test.2.log").readFileText());
 }

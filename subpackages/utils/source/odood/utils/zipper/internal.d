@@ -1,6 +1,7 @@
 module odood.utils.zipper.internal;
 
 private import std.typecons;
+private import std.string: fromStringz;
 
 private import deimos.zip;
 
@@ -39,6 +40,14 @@ package:
         @disable void opAssign(typeof(this));
 
         zip_t* zip_ptr() { return _zip_ptr; }
+
+        // getErrorMsg
+        auto getErrorMsg() {
+            auto error_msg = zip_error_strerror(
+                zip_get_error(_zip_ptr)
+            ).fromStringz;
+            return error_msg;
+        }
     }
 
     /// Ref-counted pointer to zip archive
