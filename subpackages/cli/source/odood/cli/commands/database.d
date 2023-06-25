@@ -243,7 +243,7 @@ class CommandDatabaseRestore: OdoodCommand {
         auto backup_path = Path(args.arg("backup")).toAbsolute;
         enforce!OdoodException(
             backup_path.exists && backup_path.isFile,
-            "Wrong backup path specified!");
+            "Wrong backup path (%s) specified!".format(backup_path));
 
         bool start_server = false;
         if (project.server.isRunning) {
