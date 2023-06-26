@@ -9,6 +9,7 @@ private import std.logger;
 private import thepath: Path;
 private import dini: Ini;
 private import dyaml;
+private import zipper;
 
 private import odood.exception: OdoodException;
 
@@ -25,6 +26,7 @@ public import odood.lib.project.config:
 
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.git: isGitRepo;
+private import odood.utils: generateRandomString;
 
 
 /** The Odood project.
@@ -303,7 +305,8 @@ class Project {
     /** Update odoo to newer version
       *
       **/
-    void updateOdoo() {
+    void updateOdoo(in bool backup=false) {
+        import std.datetime.systime: Clock;
         import odood.lib.install;
 
         // TODO: Add support for backup old odoo sources before updating
@@ -316,6 +319,18 @@ class Project {
             "Cannot update odoo that is git repo yet!");
 
         if (this.odoo.path.exists()) {
+            if (backup)
+                // Archive current odoo source code
+                Zipper(
+                    this.directories.backups.join("odoo-%s-%s-%s.zip".format(
+                        this.odoo.serie,
+                        "%s-%s-%s".format(
+                            Clock.currTime.year,
+                            Clock.currTime.month,
+                            Clock.currTime.day),
+                        generateRandomString(4))),
+                    ZipMode.CREATE,
+                ).add(this.odoo.path);
             infof("Removing odoo installation at %s", this.odoo.path);
             this.odoo.path.remove();
         }

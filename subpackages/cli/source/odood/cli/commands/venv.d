@@ -93,6 +93,8 @@ class CommandVenvUpdateOdoo: OdoodCommand {
 
     this() {
         super("update-odoo", "Update Odoo itself.");
+        this.add(new Flag(
+            "b", "backup", "Backup Odoo before update."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -104,7 +106,7 @@ class CommandVenvUpdateOdoo: OdoodCommand {
             project.server.stop();
         }
 
-        project.updateOdoo();
+        project.updateOdoo(args.flag("backup"));
 
         if (start_server)
             project.server.spawn(true);

@@ -43,7 +43,7 @@ class CommandDatabaseCreate: OdoodCommand {
         super("create", "Create new odoo database.");
         this.add(new Flag("d", "demo", "Load demo data for this db"));
         this.add(new Flag(
-            null, "recreate", "Recreate database if it already exists."));
+            "r", "recreate", "Recreate database if it already exists."));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -232,6 +232,8 @@ class CommandDatabaseRestore: OdoodCommand {
             null, "selfish", "Stop the server while database being restored."));
         this.add(new Flag(
             "f", "force", "Enforce restore, even if backup is not valid."));
+        this.add(new Flag(
+            "r", "recreate", "Recreate database if it already exists."));
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
@@ -240,7 +242,8 @@ class CommandDatabaseRestore: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        auto backup_path = Path(args.arg("backup")).toAbsolute;
+        const auto backup_path = Path(args.arg("backup")).toAbsolute;
+        const string dbname = args.arg("name");
         enforce!OdoodException(
             backup_path.exists && backup_path.isFile,
             "Wrong backup path (%s) specified!".format(backup_path));
@@ -251,8 +254,20 @@ class CommandDatabaseRestore: OdoodCommand {
             start_server = true;
         }
 
+        if (project.databases.exists(dbname)) {
+            if (args.flag("recreate")) {
+                warningf(
+                    "Dropting database %s before recreating it " ~
+                    "(because --recreate option specified).", dbname);
+                project.databases.drop(dbname);
+            } else {
+                throw new OdoodException(
+                    "Database %s already exists!".format(dbname));
+            }
+        }
+
         project.databases.restore(
-            args.arg("name"),
+            dbname,
             backup_path,
             args.flag("force") ? false : true,  // validate strict
         );

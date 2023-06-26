@@ -17,6 +17,9 @@
 - New option `--coverage-ignore-errors` to `odood test` command, that allows
   to ignore coverage errors, that a frequent case during migration tests
   (because files available on start may disapear during migration).
+- New option `--recreate` to `db restore` command, thus it is possible
+  to automatically drop database before restoration if needed.
+- Added flag `--backup` to `venv update-odoo` command.
 
 ### Changed
 
