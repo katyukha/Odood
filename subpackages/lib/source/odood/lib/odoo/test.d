@@ -122,7 +122,7 @@ private struct OdooTestResult {
     /** Add log record to test result
       *
       **/
-    package pure void addLogRecord(in ref OdooLogRecord record) {
+    package pure void addLogRecord(in OdooLogRecord record) {
         _log_records ~= record;
     }
 
@@ -196,7 +196,7 @@ struct OdooTestRunner {
 
     // Logging config
     private Path _log_file;
-    private void delegate(in ref OdooLogRecord rec) _log_handler;
+    private void delegate(in OdooLogRecord rec) _log_handler;
 
     // Coverage configuration
     private bool _coverage;
@@ -245,7 +245,7 @@ struct OdooTestRunner {
     /** Write specified log record to log file linked with this
       * test runner.
       **/
-    private void logToFile(in ref OdooLogRecord log_record) {
+    private void logToFile(in OdooLogRecord log_record) {
         _log_file.appendFile(log_record.full_str);
     }
 
@@ -327,7 +327,7 @@ struct OdooTestRunner {
     }
 
     /// Add new module to test run
-    auto ref addModule(in ref OdooAddon addon) {
+    auto ref addModule(in OdooAddon addon) {
         if (!addon.getManifest.installable) {
             warningf("Addon %s is not installable. Skipping", addon.name);
             return this;
@@ -348,7 +348,7 @@ struct OdooTestRunner {
     }
 
     /// Add new additional module to install before test
-    auto ref addAdditionalModule(in ref OdooAddon addon) {
+    auto ref addAdditionalModule(in OdooAddon addon) {
         if (!addon.getManifest.installable) {
             warningf("Additional addon %s is not installable. Skipping", addon.name);
             return this;
@@ -372,7 +372,7 @@ struct OdooTestRunner {
       * captured by this test runner.
       **/
     auto ref registerLogHandler(
-            scope void delegate(in ref OdooLogRecord) handler) {
+            scope void delegate(in OdooLogRecord) handler) {
         _log_handler = handler;
         return this;
     }
@@ -415,7 +415,7 @@ struct OdooTestRunner {
       * Returns: true if record have to be processed and
       *          false if record have to be ignored.
       **/
-    private bool filterLogRecord(in ref OdooLogRecord record) {
+    private bool filterLogRecord(in OdooLogRecord record) {
         if (this._ignore_safe_warnings && record.log_level == "WARNING") {
             foreach(check; RE_SAFE_WARNINGS)
                 if (record.msg.matchFirst(check))

@@ -29,7 +29,7 @@ private import odood.exception: OdoodException;
   * Returns:
   *     string that contains colored log level
   **/
-auto colorLogLevel(in ref OdooLogRecord rec) {
+auto colorLogLevel(in OdooLogRecord rec) {
     switch (rec.log_level) {
         case "DEBUG":
             return rec.log_level.bold.lightGray;
@@ -49,7 +49,7 @@ auto colorLogLevel(in ref OdooLogRecord rec) {
 
 /** Print single log record to stdout, applying colors
   **/
-void printLogRecord(in ref OdooLogRecord rec) {
+void printLogRecord(in OdooLogRecord rec) {
     writefln(
         "%s %s %s %s %s: %s",
         rec.date.lightBlue,
@@ -63,7 +63,7 @@ void printLogRecord(in ref OdooLogRecord rec) {
 
 /** Print single log record to stdout in simplified form, applying colors
   **/
-void printLogRecordSimplified(in ref OdooLogRecord rec) {
+void printLogRecordSimplified(in OdooLogRecord rec) {
     import std.regex;
 
     immutable auto RE_LOG_RECORD_START = ctRegex!(
@@ -141,7 +141,7 @@ class CommandTest: OdoodCommand {
 
         auto testRunner = project.testRunner();
 
-        testRunner.registerLogHandler((in ref rec) {
+        testRunner.registerLogHandler((in rec) {
             printLogRecord(rec);
         });
 

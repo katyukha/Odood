@@ -244,7 +244,7 @@ struct AddonManager {
     }
 
     /// Check if addon is linked or not
-    bool isLinked(in ref OdooAddon addon) const {
+    bool isLinked(in OdooAddon addon) const {
         import std.exception: ErrnoException;
         auto check_path = _project.directories.addons.join(addon.name);
         if (!check_path.exists)

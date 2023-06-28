@@ -53,7 +53,7 @@ const struct VirtualEnv {
 
     /** Constrcut virtualenv from yaml node
       **/
-    this(in ref dyaml.Node config) {
+    this(in dyaml.Node config) {
         _path = Path(config["path"].as!string);
         _py_serie = config["python_serie"].as!PySerie;
     }

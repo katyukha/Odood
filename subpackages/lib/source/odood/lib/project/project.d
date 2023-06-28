@@ -309,8 +309,6 @@ class Project {
         import std.datetime.systime: Clock;
         import odood.lib.install;
 
-        // TODO: Add support for backup old odoo sources before updating
-        //       Could be useful in case if there were some customizations
         // TODO: Add support for cases when odoo installed via git
         //       In this case it is better to just run git pull
         // TODO: Add support for updating to other version of Odoo
@@ -343,12 +341,6 @@ class Project {
     /// Get configuration for Odoo
     auto getOdooConfig() const {
         return this.readOdooConfig;
-    }
-
-    /** Run python script for specific database
-      **/
-    deprecated auto runPyScript(in string dbname, in Path script_path) const {
-        return lodoo.runPyScript(dbname, script_path);
     }
 
     /** Check if database contains demo data.
