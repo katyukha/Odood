@@ -109,7 +109,7 @@ void testAddonsManagementBasic(in Project project) {
     auto test_result = project.testRunner()
         .addModule("generic_location")
         .useTemporaryDatabase()
-        .registerLogHandler((in ref rec) { printLogRecord(rec); })
+        .registerLogHandler((in rec) { printLogRecord(rec); })
         .run();
     test_result.success.shouldBeTrue();
 
