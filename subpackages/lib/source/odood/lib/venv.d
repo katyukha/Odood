@@ -9,6 +9,7 @@ private static import std.process;
 
 private import thepath: Path;
 private static import dyaml;
+private import semver: SemVer, VersionPart;
 
 private import odood.exception: OdoodException;
 private import odood.utils.theprocess;
@@ -232,18 +233,22 @@ const struct VirtualEnv {
       **/
     void buildPython(in string build_version,
                      in bool enable_sqlite=false) {
+        // Convert string representation of version into SemVer instance
+        // for further processing
+        buildPython(SemVer(build_version), enable_sqlite);
+    }
+
+    /// ditto
+    void buildPython(in SemVer build_version,
+                     in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
         import std.parallelism: totalCPUs;
 
         infof("Building python version %s...", build_version);
 
-        // Compute short python version
-        immutable auto re_py_version = ctRegex!(`(\d+).(\d+).(\d+)`);
-        auto re_match = build_version.matchFirst(re_py_version);
         enforce!OdoodException(
-            !re_match.empty,
-            "Cannot parse provided python version '%s'".format(build_version));
-        string python_version_major = re_match[1];
+            build_version.isValid && build_version.isStable,
+            "Cannot parse provided python version '%s'.".format(build_version));
 
         // Create temporary directory to build python
         Path tmp_dir = _path.join("build-python");
@@ -322,24 +327,44 @@ const struct VirtualEnv {
             .ensureStatus();
 
         // Create symlink to 'python' if needed
-        if (!python_path.join("bin", "python").exists) {
+        if (!python_path.join("bin", "python").exists && python_path.join("bin", "python%s".format(build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "python%s".format(python_version_major)),
+                    "bin", "python%s".format(build_version.query(VersionPart.MAJOR))),
                     python_path.join("bin", "python"));
             python_path.join(
-                "bin", "python%s".format(python_version_major)
+                "bin", "python%s".format(build_version.query(VersionPart.MAJOR))
             ).symlink(python_path.join("bin", "python"));
         }
-        if (!python_path.join("bin", "pip").exists) {
+
+        // Install pip if needed
+        if (!python_path.join("bin", "pip").exists && !python_path.join("bin", "pip%s".format(build_version.query(VersionPart.MAJOR))).exists) {
+            infof("Installing pip for just installed python...");
+
+            immutable auto url_get_pip_py = build_version < SemVer(3, 7) ?
+                "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(build_version.query(VersionPart.MAJOR), build_version.query(VersionPart.MINOR)) :
+                "https://bootstrap.pypa.io/pip/get-pip.py";
+            tracef("Downloading get-pip.py from %s", url_get_pip_py);
+            download(
+                url_get_pip_py,
+                tmp_dir.join("get-pip.py"));
+            Process(python_path.join("bin", "python"))
+                .withArgs(tmp_dir.join("get-pip.py").toString)
+                .inWorkDir(python_path)
+                .execute()
+                .ensureStatus();
+        }
+
+        // Create symlink for 'pip' if needed
+        if (!python_path.join("bin", "pip").exists && python_path.join("bin", "pip%s".format(build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "pip%s".format(python_version_major)),
+                    "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))),
                     python_path.join("bin", "pip"));
             python_path.join(
-                "bin", "pip%s".format(python_version_major)
+                "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))
             ).symlink(python_path.join("bin", "pip"));
         }
     }
