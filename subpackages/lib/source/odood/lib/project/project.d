@@ -302,11 +302,30 @@ class Project {
         initialize(odoo_config);
     }
 
+    /** Backup odoo sources located at this.odoo.path.
+      **/
+    private void backupOdooSource() {
+        import std.datetime.systime: Clock;
+        // Archive current odoo source code
+        Zipper(
+            this.directories.backups.join("odoo-%s-%s-%s.zip".format(
+                this.odoo.serie,
+                "%s-%s-%s".format(
+                    Clock.currTime.year,
+                    Clock.currTime.month,
+                    Clock.currTime.day),
+                generateRandomString(4))),
+            ZipMode.CREATE,
+        ).add(this.odoo.path);
+    }
+
     /** Update odoo to newer version
       *
+      * Params:
+      *     backup = if set to true, then system will take backup of Odoo,
+      *         before update.
       **/
     void updateOdoo(in bool backup=false) {
-        import std.datetime.systime: Clock;
         import odood.lib.install;
 
         // TODO: Add support for cases when odoo installed via git
@@ -318,24 +337,56 @@ class Project {
 
         if (this.odoo.path.exists()) {
             if (backup)
-                // Archive current odoo source code
-                Zipper(
-                    this.directories.backups.join("odoo-%s-%s-%s.zip".format(
-                        this.odoo.serie,
-                        "%s-%s-%s".format(
-                            Clock.currTime.year,
-                            Clock.currTime.month,
-                            Clock.currTime.day),
-                        generateRandomString(4))),
-                    ZipMode.CREATE,
-                ).add(this.odoo.path);
+                backupOdooSource();
             infof("Removing odoo installation at %s", this.odoo.path);
             this.odoo.path.remove();
         }
 
         this.installDownloadOdoo();
         this.installOdoo();
-        infof("Odoo update completed.", this.odoo.path);
+        infof("Odoo update completed.");
+    }
+
+    /** Reinstall odoo to different Odoo version
+      *
+      * Note, that this operation is dangerous, do it on your own risk.
+      *
+      * Params:
+      *     serie = Odoo version to install
+      *     backup = if set to true, then system will take backup of Odoo,
+      *         before update. Default is true.
+      **/
+    void reinstallOdoo(in OdooSerie serie, in bool backup=true)
+    in(serie.isValid)
+    do {
+        import odood.lib.install;
+
+        enforce!OdoodException(
+            !this.odoo.path.join(".git").exists,
+            "Cannot reinstall odoo that is git repo yet!");
+
+        auto origin_serie = this.odoo.serie;
+
+        if (this.odoo.path.exists()) {
+            if (backup)
+                backupOdooSource();
+            infof("Removing odoo installation at %s", this.odoo.path);
+            this.odoo.path.remove();
+        }
+
+        this._odoo.serie = serie;
+        this._odoo.branch = serie.toString;
+
+        this.installDownloadOdoo();
+        this.installOdoo();
+
+        // TODO: Take care on repostitories and custom addons.
+        // TODO: Revert changes on failure when possible
+
+        this.save();
+        infof(
+            "Odoo successfully reinstalled from %s to %s version.",
+            origin_serie, this.odoo.serie);
     }
 
     /// Get configuration for Odoo

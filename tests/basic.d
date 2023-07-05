@@ -38,6 +38,27 @@ string genDbName(in Project project, in string name) {
 }
 
 
+/// Test server management functions
+void testServerManagement(in Project project) {
+    import core.thread.osthread;
+    import core.time;
+
+    project.server.isRunning.should == false;
+
+    auto server_pid = project.server.spawn(true);
+
+    // We have to wait while odoo starts
+    Thread.sleep(3.seconds);
+
+    project.server.isRunning.should == true;
+    project.server.getPid.should == server_pid;
+
+    project.server.stop();
+
+    project.server.isRunning.should == false;
+}
+
+
 /// Test database management functions
 void testDatabaseManagement(in Project project) {
     project.databases.list.empty.shouldBeTrue();
@@ -204,6 +225,9 @@ unittest {
      * - test addons testing
      */
 
+    // Test server management
+    testServerManagement(project);
+
     // Test LOdoo Database operations
     testDatabaseManagement(project);
 
@@ -250,6 +274,9 @@ unittest {
      * - test repo downloading
      * - test addons testing
      */
+
+    // Test server management
+    testServerManagement(project);
 
     // Test LOdoo Database operations
     testDatabaseManagement(project);
@@ -298,6 +325,9 @@ unittest {
      * - test addons testing
      */
 
+    // Test server management
+    testServerManagement(project);
+
     // Test LOdoo Database operations
     testDatabaseManagement(project);
 
@@ -345,11 +375,83 @@ unittest {
      * - test addons testing
      */
 
+    // Test server management
+    testServerManagement(project);
+
     // Test LOdoo Database operations
     testDatabaseManagement(project);
 
     // Test basic addons management
     testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
+
+    // TODO: Complete the test
+}
+
+
+@("Test resintall Odoo 14 to 15")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 14 instance
+    createDbUser("odood14to15test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(14));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood14to15test",
+            "odoo")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(14));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+
+    // Test server management
+    testServerManagement(project);
+
+    // Test that server initialization works fine
+    project.server.run("--stop-after-init", "--no-http");
+
+    // Reinstall Odoo to version 15
+    project.reinstallOdoo(OdooSerie(15), true);
+
+    // Test project after Odoo reinstalled to version 15
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(15));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Test that server initialization works fine
+    project.server.run("--stop-after-init", "--no-http");
+
+
+    /* Plan:
+     * - test server management
+     * - test database management
+     * - test repo downloading
+     * - test addons testing
+     */
+
+    // Test server management
+    testServerManagement(project);
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    ///testAddonsManagementBasic(project);
 
     // Test running scripts
     testRunningScripts(project);
