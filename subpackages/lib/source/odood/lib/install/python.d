@@ -63,23 +63,21 @@ bool isSystemPythonSuitable(in Project project) {
   * Returns: the suggested python version for specified project.
   **/
 string suggestPythonVersion(in Project project) {
-    if (project.odoo.serie <= OdooSerie(10)) {
+    if (project.odoo.serie <= OdooSerie(10))
         return "2.7.18";
-    } else if (project.odoo.serie == OdooSerie(11)) {
+    if (project.odoo.serie == OdooSerie(11))
         return "3.7.13";
-    } else if (project.odoo.serie == OdooSerie(12)) {
+    if (project.odoo.serie == OdooSerie(12))
         return "3.7.13";
-    } else if (project.odoo.serie == OdooSerie(13)) {
+    if (project.odoo.serie == OdooSerie(13))
         return "3.8.13";
-    } else if (project.odoo.serie == OdooSerie(14)) {
+    if (project.odoo.serie == OdooSerie(14))
         return "3.8.13";
-    } else if (project.odoo.serie == OdooSerie(15)) {
+    if (project.odoo.serie == OdooSerie(15))
         return "3.8.13";
-    } else if (project.odoo.serie == OdooSerie(16)) {
+    if (project.odoo.serie == OdooSerie(16))
         return "3.8.13";
-    } else {
-        return "3.8.13";
-    }
+    return "3.8.13";
 }
 
 

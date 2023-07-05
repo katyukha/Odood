@@ -120,7 +120,6 @@ package(odood.lib) struct OdooDatabase {
         import dpq.exception;
 
         _connection.begin();  // Start new transaction
-        Result res;
         try {
             _connection.exec(query);
         } catch (DPQException e) {

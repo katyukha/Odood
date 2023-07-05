@@ -32,17 +32,29 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
 /** This struct represents single log record
   **/
 @safe struct OdooLogRecord {
+
+    /// date when message sent
     string date;
+
+    /// PID of process that generated this message
     ulong process_id;
+
+    /// Loglevel of this log message
     string log_level;
+
+    /// Database that produced this message
     string db;
+
+    /// Logger that produced this message
     string logger;
+
+    /// Message
     string msg;
 
+    /// Unparsed line of this message
     string full_str;
 
-    ulong consumed_length;
-
+    /// String representation of this message
     const(string) toString() const {
         import std.format: format;
         auto msg_truncated = msg.length > 200 ?

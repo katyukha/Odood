@@ -327,7 +327,9 @@ const struct VirtualEnv {
             .ensureStatus();
 
         // Create symlink to 'python' if needed
-        if (!python_path.join("bin", "python").exists && python_path.join("bin", "python%s".format(build_version.query(VersionPart.MAJOR))).exists) {
+        if (!python_path.join("bin", "python").exists &&
+                python_path.join("bin", "python%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
@@ -339,11 +341,15 @@ const struct VirtualEnv {
         }
 
         // Install pip if needed
-        if (!python_path.join("bin", "pip").exists && !python_path.join("bin", "pip%s".format(build_version.query(VersionPart.MAJOR))).exists) {
+        if (!python_path.join("bin", "pip").exists &&
+                !python_path.join("bin", "pip%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
             infof("Installing pip for just installed python...");
 
             immutable auto url_get_pip_py = build_version < SemVer(3, 7) ?
-                "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(build_version.query(VersionPart.MAJOR), build_version.query(VersionPart.MINOR)) :
+                "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(
+                        build_version.query(VersionPart.MAJOR),
+                        build_version.query(VersionPart.MINOR)) :
                 "https://bootstrap.pypa.io/pip/get-pip.py";
             tracef("Downloading get-pip.py from %s", url_get_pip_py);
             download(
@@ -357,7 +363,9 @@ const struct VirtualEnv {
         }
 
         // Create symlink for 'pip' if needed
-        if (!python_path.join("bin", "pip").exists && python_path.join("bin", "pip%s".format(build_version.query(VersionPart.MAJOR))).exists) {
+        if (!python_path.join("bin", "pip").exists &&
+                python_path.join("bin", "pip%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
@@ -377,7 +385,9 @@ const struct VirtualEnv {
       *         specific python version to build.
       *     node_version = NodeJS version to install.
       **/
-    void initializeVirtualEnv(in string python_version, in string node_version) {
+    void initializeVirtualEnv(
+            in string python_version,
+            in string node_version) {
         import std.parallelism: totalCPUs;
 
         info("Installing virtualenv...");

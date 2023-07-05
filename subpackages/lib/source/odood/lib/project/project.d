@@ -37,13 +37,13 @@ class Project {
     private Nullable!Path _config_path;
 
     /// Root project directory
-    Path _project_root;
+    private Path _project_root;
 
-    ProjectConfigDirectories _directories;
+    private ProjectConfigDirectories _directories;
 
-    ProjectConfigOdoo _odoo;
+    private ProjectConfigOdoo _odoo;
 
-    VirtualEnv _venv;
+    private VirtualEnv _venv;
 
     /** Initialize with automatic config discovery
       *

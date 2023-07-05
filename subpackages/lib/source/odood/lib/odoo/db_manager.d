@@ -201,7 +201,7 @@ struct OdooDatabaseManager {
 
         string[] missing_addons;
         foreach(string name, ver; manifest["modules"]) {
-            auto addon = _project.addons(_test_mode).getByName(name);
+            const auto addon = _project.addons(_test_mode).getByName(name);
             if (addon.isNull) {
                 missing_addons ~= name;
                 warningf(

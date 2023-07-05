@@ -26,16 +26,16 @@ string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
 
     // function that is responsible for replace
     string fn_replace(Captures!(string) captures) {
-        OdooSerie head_serie = captures["headserie"];
-        SemVer head_version = captures["headver"];
+        immutable OdooSerie head_serie = captures["headserie"];
+        const SemVer head_version = captures["headver"];
 
-        OdooSerie change_serie = captures["changeserie"];
-        SemVer change_version = captures["changever"];
+        immutable OdooSerie change_serie = captures["changeserie"];
+        const SemVer change_version = captures["changever"];
 
         auto new_ver = change_version > head_version ? change_version : head_version;
 
-        // TODO: find better workaround
-        assert(new_ver.isValid, "New version is not valid");
+        // TODO: find better way. Check if head nad change versions are valid
+        assert(new_ver.isValid, "New version is not valid!");
 
         return "%s%s%s.%s%s,\n".format(
             captures["changekey"],
