@@ -180,7 +180,7 @@ class ProcessException : Exception
 
     /** Return string representation of process to be started
       **/
-    string toString() {
+    string toString() const {
         return "Program: %s, args: %s, env: %s, workdir: %s".format(
             _program, _args.join(" "), _env, _workdir);
     }

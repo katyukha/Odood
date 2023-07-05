@@ -51,7 +51,7 @@ bool isProcessRunning(in pid_t pid) {
     import core.sys.posix.signal: kill;
     import core.stdc.errno;
 
-    int res = kill(pid, 0);
+    const int res = kill(pid, 0);
     if (res == -1 && errno == ESRCH)
         return false;
     return true;

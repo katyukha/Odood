@@ -295,7 +295,7 @@ bool isGitRepo(in Path path) {
     if (path.join(".git").exists)
         return true;
 
-    auto result = Process("git")
+    const auto result = Process("git")
         .setArgs("rev-parse", "--git-dir")
         .setWorkDir(path)
         .execute();

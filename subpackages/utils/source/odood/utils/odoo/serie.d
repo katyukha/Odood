@@ -14,6 +14,11 @@ private import std.string : format;
     private ubyte _minor;
     private bool _isValid = false;
 
+    /** Construct new Odoo serie instance
+      *
+      * Params:
+      *     ver = string representation of version
+      **/
     pure this(in string ver) {
         auto parts = ver.split(".");
         if (parts.length == 2) {
@@ -24,6 +29,13 @@ private import std.string : format;
             this(0, 0);
         }
     }
+
+    /** Construct new Odoo serie instance
+      *
+      * Params:
+      *     major = "major" parto of odoo serie
+      *     minor = "minor" part of odoo serie
+      **/
     pure this(in ubyte major, in ubyte minor=0) {
         this._major = major;
         this._minor = minor;
@@ -31,18 +43,24 @@ private import std.string : format;
         else _isValid = false;
     }
 
-    pure string toString() const
-    {
-        if (this._isValid) {
+    /** Return string representation of Odoo Serie
+      **/
+    pure string toString() const {
+        if (this._isValid)
             return "%s.%s".format(this._major, this._minor);
-        }
         return "<invalid odoo serie>";
     }
 
+    /// Check if odoo serie is valid
     pure nothrow bool isValid() const { return this._isValid; }
+
+    /// Return "major" part of Odoo serie
     pure nothrow ubyte major() const { return this._major; }
+
+    /// Return "minor" part of Odoo serie
     pure nothrow ubyte minor() const { return this._minor; }
 
+    ///
     unittest {
         auto s = OdooSerie("12.0");
         assert(s.major == 12);
@@ -70,11 +88,7 @@ private import std.string : format;
     }
 
     pure nothrow int opCmp(in OdooSerie other) const
-    in
-    {
-        assert(this.isValid);
-        assert(other.isValid);
-    }
+    in (this.isValid && other.isValid)
     do
     {
         if (this.major == other.major) {
@@ -95,11 +109,7 @@ private import std.string : format;
     }
 
     pure nothrow bool opEquals(in OdooSerie other) const
-    in
-    {
-        assert(this.isValid);
-        assert(other.isValid);
-    }
+    in (this.isValid && other.isValid)
     do
     {
         return this.major == other.major && this.minor == other.minor;
@@ -113,6 +123,7 @@ private import std.string : format;
         return this.opEquals(OdooSerie(other));
     }
 
+    ///
     unittest {
         assert(OdooSerie("12.0") < OdooSerie("13.0"));
         assert(OdooSerie("12.0") == OdooSerie("12.0"));
@@ -146,6 +157,43 @@ private import std.string : format;
         assert(12 < OdooSerie("12.1"));
         assert(12 != OdooSerie("12.1"));
         assert(13 != OdooSerie("12.0"));
+    }
+
+    /** Compute hash of the OdooSerie to be able to use it as key
+      * in asociative arrays.
+      **/
+    nothrow size_t toHash() const {
+        /* Compute hash in similar way as it is done for tuples.
+         *
+         * See:
+         * - https://www.boost.org/doc/libs/1_55_0/doc/html/hash/reference.html#boost.hash_combine
+         * - https://github.com/dlang/phobos/blob/10601cc04641b4764ba8ef8b47c3819f7b2e3f1c/std/typecons.d#L1256
+         */
+        immutable size_t hash_maj = .hashOf(_major);
+        immutable size_t hash_min = .hashOf(_minor);
+
+        size_t result = 0;
+        result ^= hash_maj + 0x9e3779b9 + (result << 6) + (result >>> 2);
+        result ^= hash_min + 0x9e3779b9 + (result << 6) + (result >>> 2);
+        return result;
+    }
+
+    unittest {
+        string[OdooSerie] aa = [
+            OdooSerie(12): "1",
+            OdooSerie(13): "2",
+            OdooSerie(12, 1): "3",
+        ];
+        assert(aa[OdooSerie("12")] == "1");
+        assert(aa[OdooSerie("13")] == "2");
+        assert(aa[OdooSerie("12.1")] == "3");
+        assert(aa[OdooSerie("12.0")] == "1");
+        assert(aa[OdooSerie("13.0")] == "2");
+
+        assert(OdooSerie("12.0").toHash == OdooSerie(12).toHash);
+        assert(OdooSerie("12.1").toHash != OdooSerie(12).toHash);
+        assert(OdooSerie("12.0").toHash != OdooSerie(13).toHash);
+        assert(OdooSerie("12.0").toHash != OdooSerie(12, 1).toHash);
     }
 }
 
