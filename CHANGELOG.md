@@ -20,6 +20,10 @@
 - New option `--recreate` to `db restore` command, thus it is possible
   to automatically drop database before restoration if needed.
 - Added flag `--backup` to `venv update-odoo` command.
+- Added new command `odood venv reinstall-odoo`, that could be used to
+  reinstall odoo to different version in same venv.
+  This could be used for migrations to avoid the need to setup new machine
+  for migrated instance.
 
 ### Changed
 

@@ -304,20 +304,49 @@ class Project {
 
     /** Backup odoo sources located at this.odoo.path.
       **/
-    private void backupOdooSource() {
+    private Path backupOdooSource() {
         import std.datetime.systime: Clock;
         // Archive current odoo source code
-        Zipper(
-            this.directories.backups.join("odoo-%s-%s-%s.zip".format(
+        auto backup_path = this.directories.backups.join(
+            "odoo-%s-%s-%s.zip".format(
                 this.odoo.serie,
                 "%s-%s-%s".format(
                     Clock.currTime.year,
                     Clock.currTime.month,
                     Clock.currTime.day),
-                generateRandomString(4))),
+                generateRandomString(4)
+            )
+        );
+        infof("Saving backup of Odoo sources to %s...", backup_path);
+        Zipper(
+            backup_path,
             ZipMode.CREATE,
         ).add(this.odoo.path);
+        return backup_path;
     }
+
+    /** Backup virtualenv
+      **/
+    //private Path backupVenv() {
+        // TODO: Make it working
+        //import std.datetime.systime: Clock;
+        //// Archive current odoo source code
+        //auto backup_path = project.directories.backups.join(
+            //"venv-%s-%s-%s.zip".format(
+                //project.odoo.serie,
+                //"%s-%s-%s".format(
+                    //Clock.currTime.year,
+                    //Clock.currTime.month,
+                    //Clock.currTime.day),
+                //generateRandomString(4)
+            //)
+        //);
+        //infof("Saving backup of Odoo sources to %s...", backup_path);
+        //Zipper(
+            //backup_path,
+            //ZipMode.CREATE,
+        //).add(project.venv.path);
+    //}
 
     /** Update odoo to newer version
       *
@@ -356,7 +385,12 @@ class Project {
       *     backup = if set to true, then system will take backup of Odoo,
       *         before update. Default is true.
       **/
-    void reinstallOdoo(in OdooSerie serie, in bool backup=true)
+    void reinstallOdoo(
+            in OdooSerie serie,
+            in bool backup=true,
+            in bool reinstall_venv=false,
+            in string venv_py_version="auto",
+            in string venv_node_version="lts")
     in(serie.isValid)
     do {
         import odood.lib.install;
@@ -374,8 +408,19 @@ class Project {
             this.odoo.path.remove();
         }
 
+        if (reinstall_venv && this.venv.path.exists()) {
+            // TODO: Take backup of venv
+            this.venv.path.remove();
+        }
+
         this._odoo.serie = serie;
         this._odoo.branch = serie.toString;
+
+        if (reinstall_venv) {
+            this.installVirtualenv(
+                venv_py_version,
+                venv_node_version);
+        }
 
         this.installDownloadOdoo();
         this.installOdoo();
