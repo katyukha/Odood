@@ -1,5 +1,40 @@
 # Changelog
 
+## Release 0.0.10 (2023-07-08)
+
+### Added
+
+- New option `--all` to `odood db backup` command, that allows to backup
+  all databases within single command.
+- New command `info` that will display info about project,
+  optionally in JSON fromat.
+- New option `--file` to `odood addons install` and `odood addons update`
+  commands. This option allows to get list of addons to install / update
+  from provided file. This way, it is possible to avoid specifying list of
+  addons manually.
+- New option `--install-file` to `odood db create` command, that
+  will automatically install modules from specified files.
+- New option `--coverage-ignore-errors` to `odood test` command, that allows
+  to ignore coverage errors, that a frequent case during migration tests
+  (because files available on start may disapear during migration).
+- New option `--recreate` to `db restore` command, thus it is possible
+  to automatically drop database before restoration if needed.
+- Added flag `--backup` to `venv update-odoo` command.
+- Added new command `odood venv reinstall-odoo`, that could be used to
+  reinstall odoo to different version in same venv.
+  This could be used for migrations to avoid the need to setup new machine
+  for migrated instance.
+
+### Changed
+
+- Command `odood db backup`: when `--dest` option supplied and
+  it is existing directory, then database will be backed up in this directory
+  with automatically generated name of backup.
+- Automatically supply `--ignore-errors` to `coverage` when running migration
+  tests
+
+---
+
 ## Release 0.0.9 (2023-06-01)
 
 ### Added

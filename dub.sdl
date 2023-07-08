@@ -5,9 +5,12 @@ copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "pyd" version=">=0.14.4"
 
-
+dependency ":exception" version="*"
+dependency ":utils" version="*"
 dependency ":lib" version="*"
 dependency ":cli" version="*"
+subPackage "./subpackages/exception"
+subPackage "./subpackages/utils"
 subPackage "./subpackages/lib"
 subPackage "./subpackages/cli"
 
@@ -37,6 +40,8 @@ configuration "bash-autocomplete" {
 configuration "unittest" {
     /* Build subpackages as sourceLibrary to run tests of subpackages */
     subConfiguration ":lib" "sourceLibrary"
+    subConfiguration ":utils" "sourceLibrary"
+    subConfiguration ":exception" "sourceLibrary"
     subConfiguration ":cli" "sourceLibrary"
 
     targetType "executable"

@@ -9,7 +9,7 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 private import odood.lib.odoo.utils: fixVersionConflict;
 
 

@@ -6,14 +6,19 @@ module odood.lib.odoo.db_manager;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.typecons;
+private import std.datetime.systime: Clock;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.odoo.db: OdooDatabase;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.exception: OdoodException;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: generateRandomString;
+private import odood.exception: OdoodException;
+
+immutable string DEFAULT_BACKUP_PREFIX = "db-backup";
 
 
 /** Struct designed to manage databases
@@ -72,20 +77,54 @@ struct OdooDatabaseManager {
         return _project.lodoo(_test_mode).databaseCopy(old_name, new_name);
     }
 
+    /** Generate name of backup
+      **/
+    private string generateBackupName(
+            in string dbname,
+            in string prefix,
+            in BackupFormat backup_format) const {
+        return "%s-%s-%s.%s.%s".format(
+            prefix,
+            dbname,
+            "%s-%s-%s".format(
+                Clock.currTime.year,
+                Clock.currTime.month,
+                Clock.currTime.day),
+            generateRandomString(4),
+            (() {
+                final switch (backup_format) {
+                    case BackupFormat.zip:
+                        return "zip";
+                    case BackupFormat.sql:
+                        return "sql";
+                }
+            })(),
+        );
+    }
+
     /** Backup database
       *
       * Params:
       *     dbname = name of database to backup
       *     backup_path = path to store backup
       *     format = Backup format: zip or SQL
+      *     prefix = prefix to be used to generate name of backup, when
+      *         backup_path is directory
       *
       * Returns:
       *     Path where backup was stored.
       **/
     Path backup(
             in string dbname, in Path backup_path,
-            in BackupFormat backup_format = BackupFormat.zip) const {
-        return _project.lodoo(_test_mode).databaseBackup(dbname, backup_path, backup_format);
+            in BackupFormat backup_format = BackupFormat.zip,
+            in string prefix = DEFAULT_BACKUP_PREFIX) const {
+        Path dest = backup_path.exists && backup_path.isDir ?
+            backup_path.join(
+                generateBackupName(dbname, prefix, backup_format)) :
+            backup_path;
+
+        return _project.lodoo(_test_mode).databaseBackup(
+            dbname, dest, backup_format);
     }
 
     /** Backup database.
@@ -106,38 +145,15 @@ struct OdooDatabaseManager {
             in string dbname,
             in string prefix,
             in BackupFormat backup_format = BackupFormat.zip) const {
-        // TODO: Add ability to specify backup path
-        import std.datetime.systime: Clock;
-        import odood.lib.utils: generateRandomString;
-
-        string dest_name="%s-%s-%s.%s.%s".format(
-            prefix,
-            dbname,
-            "%s-%s-%s".format(
-                Clock.currTime.year,
-                Clock.currTime.month,
-                Clock.currTime.day),
-            generateRandomString(4),
-            (() {
-                final switch (backup_format) {
-                    case BackupFormat.zip:
-                        return "zip";
-                    case BackupFormat.sql:
-                        return "sql";
-                }
-            })(),
-        );
         return backup(
-            dbname,
-            _project.directories.backups.join(dest_name),
-            backup_format);
+            dbname, _project.directories.backups, backup_format, prefix);
     }
 
     /// ditto
     Path backup(
             in string dbname,
             in BackupFormat backup_format = BackupFormat.zip) const {
-        return backup(dbname, "db-backup", backup_format);
+        return backup(dbname, _project.directories.backups, backup_format);
     }
 
     /** Validate backup provided for restore method.
@@ -151,7 +167,7 @@ struct OdooDatabaseManager {
         import std.json;
         import std.string: join;
         import std.algorithm: canFind;
-        import odood.lib.odoo.utils: parseDatabaseBackupManifest;
+        import odood.utils.odoo.db: parseDatabaseBackupManifest;
 
         enforce!OdoodException(
             [".sql", ".zip"].canFind(backup_path.extension),
@@ -185,7 +201,7 @@ struct OdooDatabaseManager {
 
         string[] missing_addons;
         foreach(string name, ver; manifest["modules"]) {
-            auto addon = _project.addons(_test_mode).getByName(name);
+            const auto addon = _project.addons(_test_mode).getByName(name);
             if (addon.isNull) {
                 missing_addons ~= name;
                 warningf(

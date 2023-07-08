@@ -9,21 +9,24 @@ private import std.logger;
 private import thepath: Path;
 private import dini: Ini;
 private import dyaml;
+private import zipper;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
+
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
 private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.odoo.lodoo: LOdoo;
-private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.server: OdooServer;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
-private import odood.lib.git: isGitRepo;
-
 public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
+
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.git: isGitRepo;
+private import odood.utils: generateRandomString;
 
 
 /** The Odood project.
@@ -34,13 +37,13 @@ class Project {
     private Nullable!Path _config_path;
 
     /// Root project directory
-    Path _project_root;
+    private Path _project_root;
 
-    ProjectConfigDirectories _directories;
+    private ProjectConfigDirectories _directories;
 
-    ProjectConfigOdoo _odoo;
+    private ProjectConfigOdoo _odoo;
 
-    VirtualEnv _venv;
+    private VirtualEnv _venv;
 
     /** Initialize with automatic config discovery
       *
@@ -299,39 +302,141 @@ class Project {
         initialize(odoo_config);
     }
 
+    /** Backup odoo sources located at this.odoo.path.
+      **/
+    private Path backupOdooSource() {
+        import std.datetime.systime: Clock;
+        // Archive current odoo source code
+        auto backup_path = this.directories.backups.join(
+            "odoo-%s-%s-%s.zip".format(
+                this.odoo.serie,
+                "%s-%s-%s".format(
+                    Clock.currTime.year,
+                    Clock.currTime.month,
+                    Clock.currTime.day),
+                generateRandomString(4)
+            )
+        );
+        infof("Saving backup of Odoo sources to %s...", backup_path);
+        Zipper(
+            backup_path,
+            ZipMode.CREATE,
+        ).add(this.odoo.path);
+        return backup_path;
+    }
+
+    /** Backup virtualenv
+      **/
+    //private Path backupVenv() {
+        // TODO: Make it working
+        //import std.datetime.systime: Clock;
+        //// Archive current odoo source code
+        //auto backup_path = project.directories.backups.join(
+            //"venv-%s-%s-%s.zip".format(
+                //project.odoo.serie,
+                //"%s-%s-%s".format(
+                    //Clock.currTime.year,
+                    //Clock.currTime.month,
+                    //Clock.currTime.day),
+                //generateRandomString(4)
+            //)
+        //);
+        //infof("Saving backup of Odoo sources to %s...", backup_path);
+        //Zipper(
+            //backup_path,
+            //ZipMode.CREATE,
+        //).add(project.venv.path);
+    //}
+
     /** Update odoo to newer version
       *
+      * Params:
+      *     backup = if set to true, then system will take backup of Odoo,
+      *         before update.
       **/
-    void updateOdoo() {
+    void updateOdoo(in bool backup=false) {
         import odood.lib.install;
 
-        // TODO: Add support for backup old odoo sources before updating
-        //       Could be useful in case if there were some customizations
         // TODO: Add support for cases when odoo installed via git
         //       In this case it is better to just run git pull
+        // TODO: Add support for updating to other version of Odoo
         enforce!OdoodException(
             !this.odoo.path.join(".git").exists,
             "Cannot update odoo that is git repo yet!");
 
         if (this.odoo.path.exists()) {
+            if (backup)
+                backupOdooSource();
             infof("Removing odoo installation at %s", this.odoo.path);
             this.odoo.path.remove();
         }
 
         this.installDownloadOdoo();
         this.installOdoo();
-        infof("Odoo update completed.", this.odoo.path);
+        infof("Odoo update completed.");
+    }
+
+    /** Reinstall odoo to different Odoo version
+      *
+      * Note, that this operation is dangerous, do it on your own risk.
+      *
+      * Params:
+      *     serie = Odoo version to install
+      *     backup = if set to true, then system will take backup of Odoo,
+      *         before update. Default is true.
+      **/
+    void reinstallOdoo(
+            in OdooSerie serie,
+            in bool backup=true,
+            in bool reinstall_venv=false,
+            in string venv_py_version="auto",
+            in string venv_node_version="lts")
+    in(serie.isValid)
+    do {
+        import odood.lib.install;
+
+        enforce!OdoodException(
+            !this.odoo.path.join(".git").exists,
+            "Cannot reinstall odoo that is git repo yet!");
+
+        auto origin_serie = this.odoo.serie;
+
+        if (this.odoo.path.exists()) {
+            if (backup)
+                backupOdooSource();
+            infof("Removing odoo installation at %s", this.odoo.path);
+            this.odoo.path.remove();
+        }
+
+        if (reinstall_venv && this.venv.path.exists()) {
+            // TODO: Take backup of venv
+            this.venv.path.remove();
+        }
+
+        this._odoo.serie = serie;
+        this._odoo.branch = serie.toString;
+
+        if (reinstall_venv) {
+            this.installVirtualenv(
+                venv_py_version,
+                venv_node_version);
+        }
+
+        this.installDownloadOdoo();
+        this.installOdoo();
+
+        // TODO: Take care on repostitories and custom addons.
+        // TODO: Revert changes on failure when possible
+
+        this.save();
+        infof(
+            "Odoo successfully reinstalled from %s to %s version.",
+            origin_serie, this.odoo.serie);
     }
 
     /// Get configuration for Odoo
     auto getOdooConfig() const {
         return this.readOdooConfig;
-    }
-
-    /** Run python script for specific database
-      **/
-    deprecated auto runPyScript(in string dbname, in Path script_path) const {
-        return lodoo.runPyScript(dbname, script_path);
     }
 
     /** Check if database contains demo data.

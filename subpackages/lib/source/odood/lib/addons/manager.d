@@ -3,24 +3,25 @@ module odood.lib.addons.manager;
 private import std.logger;
 private import std.typecons: Nullable, nullable;
 private import std.array: split, empty, array;
-private import std.string: join;
+private import std.string: join, strip, startsWith;
 private import std.format: format;
 private import std.file: SpanMode;
 private import std.exception: enforce;
-private import std.algorithm: map;
+private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
-private import odood.lib.odoo.serie: OdooSerie;
-private import odood.lib.addons.addon;
-private import odood.lib.addons.odoo_requirements:
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.addons.addon;
+private import odood.utils.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;
-private import odood.lib.utils: download;
-private import odood.lib.zip: extract_zip_archive;
-private import odood.lib.exception: OdoodException;
+private import odood.utils: download;
+private import odood.utils.zip: extract_zip_archive;
+private import odood.utils.git: parseGitURL, gitClone;
+private import odood.exception: OdoodException;
 
 
 /// Struct that provide API to manage odoo addons for the project
@@ -98,6 +99,41 @@ struct AddonManager {
         if (!addon.isNull)
             return addon;
         return getByName(addon_name);
+    }
+
+    /** Parse file that contains list of addons
+      *
+      * Format of addons list file is following:
+      * ----------------------------------------
+      * addon1
+      * # comment
+      * addon2
+      * ----------------------------------------
+      * 
+      * Params:
+      *     path = path to addons list file
+      * Return:
+      *     Array of addon instances
+      **/
+    OdooAddon[] parseAddonsList(in Path path) {
+        auto file = path.openFile;
+        scope(exit) file.close();
+
+        OdooAddon[] result;
+        foreach(string addon_name; file.byLineCopy) {
+            if (!addon_name.strip)
+                continue;
+            if (addon_name.strip.startsWith("#"))
+                continue;
+            auto addon = getByString(addon_name.strip);
+            enforce!OdoodException(
+                !addon.isNull,
+                "%s does not look like addon name or path to addon".format(
+                    addon_name));
+            if (!result.canFind(addon.get))
+                result ~= addon.get;
+        }
+        return result;
     }
 
     /// Scan for all addons available in Odoo
@@ -208,7 +244,7 @@ struct AddonManager {
     }
 
     /// Check if addon is linked or not
-    bool isLinked(in ref OdooAddon addon) const {
+    bool isLinked(in OdooAddon addon) const {
         import std.exception: ErrnoException;
         auto check_path = _project.directories.addons.join(addon.name);
         if (!check_path.exists)
@@ -519,7 +555,6 @@ struct AddonManager {
         import std.algorithm;
         import std.string: toLower;
         import std.array: array;
-        import odood.lib.git: parseGitURL, gitClone;
 
         auto git_url = parseGitURL(url);
         auto dest = _project.directories.repositories.join(

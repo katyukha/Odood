@@ -2,23 +2,14 @@
 	"fileVersion": 1,
 	"versions": {
 		"cachetools": "0.3.1",
-		"color": "0.0.9",
-		"colored": "0.0.31",
-		"commandr": "~master",
-		"dini": "2.0.0",
 		"dlibzip": "1.9.2",
-		"dpq": "0.11.6",
 		"dshould": "1.7.1",
-		"dyaml": "0.9.2",
-		"east_asian_width": "1.1.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
 		"pyd": "0.14.4",
 		"requests": "2.1.1",
 		"semver": "0.5.0",
-		"tabletool": "0.5.0",
 		"thepath": "0.1.7",
-		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.6",
 		"zipper": "0.0.2"
 	}

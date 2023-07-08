@@ -5,6 +5,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
+private import odood.utils.odoo.serie: OdooSerie;
 
 
 
@@ -72,8 +73,6 @@ class CommandVenvReinstall: OdoodCommand {
 
         if (project.venv.path.exists)
             project.venv.path.remove();
-        if (project.project_root.join("python").exists)
-            project.project_root.join("python").remove();
 
         project.installVirtualenv(
             args.option("py-version", "auto"),
@@ -93,6 +92,8 @@ class CommandVenvUpdateOdoo: OdoodCommand {
 
     this() {
         super("update-odoo", "Update Odoo itself.");
+        this.add(new Flag(
+            "b", "backup", "Backup Odoo before update."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -104,7 +105,48 @@ class CommandVenvUpdateOdoo: OdoodCommand {
             project.server.stop();
         }
 
-        project.updateOdoo();
+        project.updateOdoo(args.flag("backup"));
+
+        if (start_server)
+            project.server.spawn(true);
+    }
+
+}
+
+
+class CommandVenvReinstallOdoo: OdoodCommand {
+
+    this() {
+        super("reinstall-odoo", "Reinstall Odoo to different Odoo version.");
+        this.add(new Flag(
+            "b", "backup", "Backup Odoo before update."));
+        this.add(new Flag(
+            null, "reinstall-venv", "Reinstall virtualenv too..."));
+        this.add(new Option(
+            null, "venv-py-version", "Install specific python version.")
+                .defaultValue("auto"));
+        this.add(new Option(
+            null, "venv-node-version", "Install specific node version.")
+                .defaultValue("lts"));
+        this.add(new Option(
+            "v", "version", "Odoo version to install.").required);
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        bool start_server = false;
+        if (project.server.isRunning()) {
+            start_server = true;
+            project.server.stop();
+        }
+
+        project.reinstallOdoo(
+            OdooSerie(args.option("version")),
+            args.flag("backup"),
+            args.flag("reinstall-venv"),
+            args.option("venv-py-version", "auto"),
+            args.option("venv-node-version", "lts"),
+        );
 
         if (start_server)
             project.server.spawn(true);
@@ -120,6 +162,7 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvInstallPyPackages());
         this.add(new CommandVenvReinstall());
         this.add(new CommandVenvUpdateOdoo());
+        this.add(new CommandVenvReinstallOdoo());
     }
 }
 

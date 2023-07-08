@@ -1,5 +1,5 @@
 /// Module for parsing odoo_requirements.txt files used by odoo-helper-scripts
-module odood.lib.addons.odoo_requirements;
+module odood.utils.addons.odoo_requirements;
 
 private import std.algorithm: startsWith, splitter;
 private import std.string: splitLines, strip;

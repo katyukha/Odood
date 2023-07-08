@@ -9,8 +9,8 @@ private import thepath: Path;
 private import dpq.connection;
 
 private import odood.lib.project: Project;
-private import odood.lib.addons.addon: OdooAddon;
-private import odood.lib.exception: OdoodException;
+private import odood.utils.addons.addon: OdooAddon;
+private import odood.exception: OdoodException;
 
 
 /** This struct represents single Odoo database, and allows to run SQL
@@ -120,7 +120,6 @@ package(odood.lib) struct OdooDatabase {
         import dpq.exception;
 
         _connection.begin();  // Start new transaction
-        Result res;
         try {
             _connection.exec(query);
         } catch (DPQException e) {

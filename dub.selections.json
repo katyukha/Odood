@@ -13,12 +13,13 @@
 		"east_asian_width": "1.1.0",
 		"prettyprint": "1.0.9",
 		"pyd": "0.14.4",
-		"requests": "2.0.9",
+		"requests": "2.1.1",
 		"semver": "0.5.0",
 		"silly": "1.1.1",
 		"tabletool": "0.5.0",
-		"thepath": "0.1.5",
+		"thepath": "0.1.7",
 		"tinyendian": "0.2.0",
-		"unit-threaded": "2.1.6"
+		"unit-threaded": "2.1.6",
+		"zipper": "0.0.2"
 	}
 }

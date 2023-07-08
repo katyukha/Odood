@@ -17,9 +17,9 @@ private import colored;
 
 private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
-private import odood.lib.exception: OdoodException;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.exception: OdoodException;
 
 
 /** Color log level, depending on log level itself
@@ -29,7 +29,7 @@ private import odood.lib.exception: OdoodException;
   * Returns:
   *     string that contains colored log level
   **/
-auto colorLogLevel(in ref OdooLogRecord rec) {
+auto colorLogLevel(in OdooLogRecord rec) {
     switch (rec.log_level) {
         case "DEBUG":
             return rec.log_level.bold.lightGray;
@@ -49,7 +49,7 @@ auto colorLogLevel(in ref OdooLogRecord rec) {
 
 /** Print single log record to stdout, applying colors
   **/
-void printLogRecord(in ref OdooLogRecord rec) {
+void printLogRecord(in OdooLogRecord rec) {
     writefln(
         "%s %s %s %s %s: %s",
         rec.date.lightBlue,
@@ -63,7 +63,7 @@ void printLogRecord(in ref OdooLogRecord rec) {
 
 /** Print single log record to stdout in simplified form, applying colors
   **/
-void printLogRecordSimplified(in ref OdooLogRecord rec) {
+void printLogRecordSimplified(in OdooLogRecord rec) {
     import std.regex;
 
     immutable auto RE_LOG_RECORD_START = ctRegex!(
@@ -104,6 +104,8 @@ class CommandTest: OdoodCommand {
             null, "coverage-html", "Prepare HTML report for coverage."));
         this.add(new Flag(
             null, "coverage-skip-covered", "Skip covered files in coverage report."));
+        this.add(new Flag(
+            null, "coverage-ignore-errors", "Ignore coverage errors."));
         this.add(new Option(
             null, "coverage-fail-under", "Fail if coverage is less then specified value."));
         this.add(new Flag(
@@ -139,7 +141,7 @@ class CommandTest: OdoodCommand {
 
         auto testRunner = project.testRunner();
 
-        testRunner.registerLogHandler((in ref rec) {
+        testRunner.registerLogHandler((in rec) {
             printLogRecord(rec);
         });
 
@@ -230,8 +232,10 @@ class CommandTest: OdoodCommand {
             auto coverage_html_options = [
                 "--directory=%s".format(Path.current.join("htmlcov")),
             ];
-            if (args.flag("coverage-skip-covered"))
+            if (args.flag("coverage-skip-covered") || testRunner.test_migration)
                 coverage_html_options ~= "--skip-covered";
+            if (args.flag("coverage-ignore-errors"))
+                coverage_html_options ~= ["--ignore-errors"];
 
             project.venv.runE([
                 "coverage", "html",

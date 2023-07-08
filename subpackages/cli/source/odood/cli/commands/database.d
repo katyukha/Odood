@@ -4,19 +4,20 @@ private import std.logger;
 private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.typecons;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.serie: OdooSerie;
 private import odood.lib.odoo.lodoo: BackupFormat;
-private import odood.lib.utils: generateRandomString;
-private import odood.lib.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: generateRandomString;
+private import odood.utils.addons.addon: OdooAddon;
 
 // TODO: Use specific exception tree for CLI part
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -30,9 +31,8 @@ class CommandDatabaseList: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        foreach(db; project.databases.list()) {
+        foreach(db; project.databases.list())
             writeln(db);
-        }
     }
 
 }
@@ -43,7 +43,7 @@ class CommandDatabaseCreate: OdoodCommand {
         super("create", "Create new odoo database.");
         this.add(new Flag("d", "demo", "Load demo data for this db"));
         this.add(new Flag(
-            null, "recreate", "Recreate database if it already exists."));
+            "r", "recreate", "Recreate database if it already exists."));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -57,6 +57,9 @@ class CommandDatabaseCreate: OdoodCommand {
         this.add(new Option(
             null, "install-dir", "Install all modules from directory.")
                 .repeating);
+        this.add(new Option(
+            null, "install-file",
+            "Install all modules listed in specified file.").repeating);
         this.add(new Argument("name", "Name of database").required());
     }
 
@@ -65,6 +68,21 @@ class CommandDatabaseCreate: OdoodCommand {
 
         auto project = Project.loadProject;
         string dbname = args.arg("name");
+
+        OdooAddon[] to_install;
+        foreach(addon_name; args.options("install")) {
+            auto addon = project.addons.getByName(addon_name);
+            enforce!OdoodException(
+                !addon.isNull,
+                "Cannot find addon %s".format(addon_name));
+            to_install ~= addon.get;
+        }
+        foreach(install_dir; args.options("install-dir"))
+            to_install ~= project.addons.scan(Path(install_dir));
+
+        foreach(install_file; args.options("install-file"))
+            to_install ~= project.addons.parseAddonsList(Path(install_file));
+
         if (project.databases.exists(dbname)) {
             if (args.flag("recreate")) {
                 warningf(
@@ -76,6 +94,7 @@ class CommandDatabaseCreate: OdoodCommand {
                     "Database %s already exists!".format(dbname));
             }
         }
+
         project.databases.create(
             dbname,
             args.flag("demo"),
@@ -83,22 +102,8 @@ class CommandDatabaseCreate: OdoodCommand {
             args.option("password"),
             args.option("country"));
 
-        OdooAddon[] to_install;
-        foreach(addon_name; args.options("install")) {
-            auto addon = project.addons.getByName(addon_name);
-            enforce!OdoodException(
-                !addon.isNull,
-                "Cannot find addon %s".format(addon));
-            to_install ~= addon.get;
-        }
-        foreach(install_dir; args.options("install-dir")) {
-            to_install ~= project.addons.scan(Path(install_dir));
-        }
-
-        if (!to_install.empty) {
+        if (!to_install.empty)
             project.addons.install(dbname, to_install);
-        }
-
     }
 }
 
@@ -178,35 +183,42 @@ class CommandDatabaseCopy: OdoodCommand {
 class CommandDatabaseBackup: OdoodCommand {
     this() {
         super("backup", "Backup database.");
-        this.add(new Argument(
-            "name", "Name of database to backup.").required());
-        this.add(new Option(
-            "d", "dest",
-            "Destination path for backup. " ~
-            "By default will store at project's backup directory."));
         this.add(new Flag(
             null, "zip", "Make ZIP backup with filestore."));
         this.add(new Flag(
             null, "sql", "Make SQL-only backup without filestore"));
+        this.add(new Flag(
+            "a", "all", "Backup all databases"));
+        this.add(new Option(
+            "d", "dest",
+            "Destination path for backup. " ~
+            "By default will store at project's backup directory."));
+        this.add(new Argument(
+            "name", "Name of database to backup.").optional.repeating);
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+
+        enforce!OdoodException(
+            args.flag("all") || args.args("name").length > 0,
+            "It is required to specify name of database to backup or option -a or --all!");
+
         auto b_format = BackupFormat.zip;
         if (args.flag("zip"))
             b_format = BackupFormat.zip;
         if (args.flag("sql"))
             b_format = BackupFormat.sql;
 
-        //db_dump_file="$BACKUP_DIR/db-backup-$db_name-$(date -I).$(random_string 4)";
-        immutable string tmpl_dest_name="db-backup-%s-%s.%s.%s";
-        Path dest;
-        if (args.option("dest")) {
-            dest = Path(args.option("dest"));
-            project.databases.backup(args.arg("name"), dest, b_format);
-        } else {
-            dest = project.databases.backup(args.arg("name"), b_format);
-        }
+        string[] dbnames = args.flag("all") ?
+            project.databases.list : args.args("name");
+
+        foreach(db; dbnames)
+            if (args.option("dest"))
+                project.databases.backup(
+                    db, Path(args.option("dest")), b_format);
+            else
+                project.databases.backup(db, b_format);
     }
 }
 
@@ -220,6 +232,8 @@ class CommandDatabaseRestore: OdoodCommand {
             null, "selfish", "Stop the server while database being restored."));
         this.add(new Flag(
             "f", "force", "Enforce restore, even if backup is not valid."));
+        this.add(new Flag(
+            "r", "recreate", "Recreate database if it already exists."));
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
@@ -228,10 +242,11 @@ class CommandDatabaseRestore: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        auto backup_path = Path(args.arg("backup")).toAbsolute;
+        const auto backup_path = Path(args.arg("backup")).toAbsolute;
+        const string dbname = args.arg("name");
         enforce!OdoodException(
             backup_path.exists && backup_path.isFile,
-            "Wrong backup path specified!");
+            "Wrong backup path (%s) specified!".format(backup_path));
 
         bool start_server = false;
         if (project.server.isRunning) {
@@ -239,8 +254,20 @@ class CommandDatabaseRestore: OdoodCommand {
             start_server = true;
         }
 
+        if (project.databases.exists(dbname)) {
+            if (args.flag("recreate")) {
+                warningf(
+                    "Dropting database %s before recreating it " ~
+                    "(because --recreate option specified).", dbname);
+                project.databases.drop(dbname);
+            } else {
+                throw new OdoodException(
+                    "Database %s already exists!".format(dbname));
+            }
+        }
+
         project.databases.restore(
-            args.arg("name"),
+            dbname,
             backup_path,
             args.flag("force") ? false : true,  // validate strict
         );

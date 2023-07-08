@@ -1,4 +1,4 @@
-module odood.lib.git;
+module odood.utils.git;
 
 private import std.logger;
 private import std.regex: ctRegex, matchFirst;
@@ -7,8 +7,8 @@ private import std.format: format;
 
 private import thepath: Path;
 
-private import odood.lib.exception: OdoodException;
-private import odood.lib.theprocess;
+private import odood.exception: OdoodException;
+private import odood.utils.theprocess;
 
 
 // TODO: Add parsing of branch name from url
@@ -295,7 +295,7 @@ bool isGitRepo(in Path path) {
     if (path.join(".git").exists)
         return true;
 
-    auto result = Process("git")
+    const auto result = Process("git")
         .setArgs("rev-parse", "--git-dir")
         .setWorkDir(path)
         .execute();

@@ -1,0 +1,15 @@
+# Example of addons-list.txt file format
+
+# Every thing started with # is comment.
+# Empty lines ignored
+
+crm
+
+   # Indentation does not matter
+   sale
+
+  account
+
+# Some other comment
+
+website

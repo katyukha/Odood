@@ -1,4 +1,4 @@
-module odood.lib.exception;
+module odood.exception;
 
 private import std.exception;
 
@@ -7,3 +7,4 @@ class OdoodException : Exception
 {
     mixin basicExceptionCtors;
 }
+

@@ -10,7 +10,7 @@ private import thepath;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 class CommandScriptPy: OdoodCommand {

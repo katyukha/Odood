@@ -1,7 +1,7 @@
 /** Module to easily run and interact with other processes
   **/
 // TODO: Move to separate package (out of Odood)
-module odood.lib.theprocess;
+module odood.utils.theprocess;
 
 private import std.format;
 private import std.process;
@@ -16,7 +16,6 @@ version(Posix) {
     private import core.sys.posix.pwd;
 }
 
-
 private import thepath;
 
 
@@ -25,9 +24,9 @@ private import thepath;
   * Params:
   *     name = name of program to find
   * Returns:
-  *     Nullable path to program.
+  *     Nullable!Path to program.
   **/
-Nullable!Path resolveProgram(in string program) {
+@safe Nullable!Path resolveProgram(in string program) {
     import std.path: pathSeparator;
     import std.array: split;
     foreach(sys_path; environment["PATH"].split(pathSeparator)) {
@@ -59,14 +58,19 @@ class ProcessException : Exception
 }
 
 
-// TODO: Make it immutable
+/** Process result, produced by 'execute' method of Process.
+  **/
 @safe const struct ProcessResult {
     private string _program;
     private string[] _args;
 
+    /// exit code of the process
     int status;
+
+    /// text output of the process
     string output;
 
+    // Do not allow to create records without params
     @disable this();
 
     private pure this(
@@ -103,6 +107,45 @@ class ProcessException : Exception
 }
 
 
+/** This struct is used to prepare configuration for process and run it.
+  *
+  * Following ways to run process supported:
+  * - execute: run process and catch its output and exit code
+  * - spawn: spawn the process in background, and optionally pip its output.
+  * - pipe: spawn the process and attach configurable pipes to catch output.
+  *
+  * The configuration of process to run performend in following a way:
+  * 1. Create the Process instance specifying the program to run
+  * 2. Apply desired configuration (args, env, workDir)
+  *    via calls to corresponding methods.
+  * 3. Run one of `execute`, `spawn` or `pipe` method, that will do actual
+  *    start of the process.
+  *
+  * Configuration methods usually prefixed with `set` word, but also,
+  * they have semantic aliases. For example, method `setArgs` also has
+  * alias `withArgs`, and method `setWorkDir` has alias `inWorkDir`.
+  * Additionally, configuration methods always
+  * return the reference to current instance of the Process being configured.
+  *
+  * Examples:
+  * ---
+  * // It is possible to run process in following way:
+  * auto result = Process('my-program')
+  *         .withArgs("--verbose", "--help")
+  *         .withEnv("MY_ENV_VAR", "MY_VALUE")
+  *         .inWorkDir("my/working/directory")
+  *         .execute()
+  *         .ensureStatus!MyException("My error message on failure");
+  * writeln(result.output);
+  * ---
+  * // Also, in Posix system it is possible to run command as different user:
+  * auto result = Process('my-program')
+  *         .withUser("bob")
+  *         .execute()
+  *         .ensureStatus!MyException("My error message on failure");
+  * writeln(result.output);
+  * ---
+  **/
 @safe struct Process {
     private string _program;
     private string[] _args;
@@ -111,28 +154,44 @@ class ProcessException : Exception
     private std.process.Config _config=std.process.Config.none;
 
     version(Posix) {
-        // On posix we have ability to run process with different user
+        /* On posix we have ability to run process with different user,
+         * thus we have to keep desired uid/gid to run process with and
+         * original uid/git to revert uid/gid change after process completed.
+         */
         private Nullable!uid_t _uid;
         private Nullable!gid_t _gid;
-
         private Nullable!uid_t _original_uid;
         private Nullable!gid_t _original_gid;
     }
 
+    /** Create new Process instance to run specified program.
+      *
+      * Params:
+      *     program = name of program to run or path of program to run
+      **/
     this(in string program) {
         _program = program;
     }
 
+    /// ditto
     this(in Path program) {
         _program = program.toAbsolute.toString;
     }
 
-    string toString() {
+    /** Return string representation of process to be started
+      **/
+    string toString() const {
         return "Program: %s, args: %s, env: %s, workdir: %s".format(
             _program, _args.join(" "), _env, _workdir);
     }
 
     /** Set arguments for the process
+      *
+      * Params:
+      *     args = array of arguments to run program with
+      *
+      * Returns:
+      *     reference to this (process instance)
       **/
     auto ref setArgs(in string[] args...) {
         _args = args.dup;
@@ -142,7 +201,30 @@ class ProcessException : Exception
     /// ditto
     alias withArgs = setArgs;
 
-    /** Add arguments to the process
+    /** Add arguments to the process.
+      *
+      * This could be used if you do not know all the arguments for program
+      * to run at single point, and you need to add it conditionally.
+      *
+      * Params:
+      *     args = array of arguments to run program with
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
+      * Examples:
+      * ---
+      * auto program = Process('my-program')
+      *     .withArgs("--some-option");
+      *
+      * if (some condition)
+      *     program.addArgs("--some-other-opt", "--verbose");
+      *
+      * auto result = program
+      *     .execute()
+      *     .ensureStatus!MyException("My error message on failure");
+      * writeln(result.output);
+      * ---
       **/
     auto ref addArgs(in string[] args...) {
         _args ~= args;
@@ -150,6 +232,13 @@ class ProcessException : Exception
     }
 
     /** Set work directory for the process to be started
+      *
+      * Params:
+      *     workdir = working directory path to run process in
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
       **/
     auto ref setWorkDir(in string workdir) {
         _workdir = workdir;
@@ -166,6 +255,13 @@ class ProcessException : Exception
     alias inWorkDir = setWorkDir;
 
     /** Set environemnt for the process to be started
+      *
+      * Params:
+      *     env = associative array to update environment to run process with.
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
       **/
     auto ref setEnv(in string[string] env) {
         foreach(i; env.byKeyValue)
@@ -173,7 +269,16 @@ class ProcessException : Exception
         return this;
     }
 
-    /// ditto
+    /** Set environment variable (specified by key) to provided value
+      *
+      * Params:
+      *     key = environment variable name
+      *     value = environment variable value
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
+      **/
     auto ref setEnv(in string key, in string value) {
         _env[key] = value;
         return this;
@@ -208,6 +313,15 @@ class ProcessException : Exception
     /// ditto
     alias withFlag = setFlag;
 
+    /** Set UID to run process with
+      *
+      * Params:
+      *     uid = UID (id of system user) to run process with
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
+      **/
     version(Posix) auto ref setUID(in uid_t uid) {
         _uid = uid;
         return this;
@@ -216,6 +330,15 @@ class ProcessException : Exception
     /// ditto
     version(Posix) alias withUID = setUID;
 
+    /** Set GID to run process with
+      *
+      * Params:
+      *     gid = GID (id of system group) to run process with
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
+      **/
     version(Posix) auto ref setGID(in gid_t gid) {
         _gid = gid;
         return this;
@@ -224,7 +347,18 @@ class ProcessException : Exception
     /// ditto
     version(Posix) alias withGID = setGID;
 
-    /// Run process as specified user
+    /** Run process as specified user
+      *
+      * If this method applied, then the UID and GID to run process with
+      * will be taked from record in passwd database
+      *
+      * Params:
+      *     username = login of user to run process as
+      *
+      * Returns:
+      *     reference to this (process instance)
+      *
+      **/
     version(Posix) auto ref setUser(in string username) @trusted {
         import std.string: toStringz;
 
@@ -243,6 +377,8 @@ class ProcessException : Exception
             "Cannot get info about user %s".format(username));
         setUID(pw.pw_uid);
         setGID(pw.pw_gid);
+        // TODO: add ability to automatically set user's home directory
+        //       if needed
         return this;
     }
 
@@ -337,7 +473,16 @@ class ProcessException : Exception
         }
     }
 
-    /// Execute program
+    /** Execute the configured process and capture output.
+      *
+      * Params:
+      *     max_output = max size of output to capture.
+      *
+      * Returns:
+      *     ProcessResult instance that contains output and exit-code
+      *     of program
+      *
+      **/
     auto execute(in size_t max_output=size_t.max) {
         setUpProcess();
         auto res = std.process.execute(
@@ -379,4 +524,23 @@ class ProcessException : Exception
         tearDownProcess();
         return res;
     }
+}
+
+
+// Test simple api
+@safe unittest {
+    import unit_threaded.assertions;
+
+    auto process = Process("my-program")
+        .withArgs("--verbose", "--help")
+        .withEnv("MY_VAR", "42")
+        .inWorkDir("/my/path");
+    process._program.should == "my-program";
+    process._args.should == ["--verbose", "--help"];
+    process._env.should == ["MY_VAR": "42"];
+    process._workdir.should == "/my/path";
+    process.toString.should ==
+        "Program: %s, args: %s, env: %s, workdir: %s".format(
+            process._program, process._args.join(" "),
+            process._env, process._workdir);
 }

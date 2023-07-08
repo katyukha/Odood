@@ -1,4 +1,8 @@
-module odood.lib.utils;
+module odood.utils;
+
+/** This package contains various utilities that do not depend on Odoo project.
+  * Thus, they could be used in other projects that do not use Odood projects.
+  **/
 
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
@@ -8,10 +12,38 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
+private import std.regex;
 
 private import thepath: Path;
+private import semver;
 
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
+private import odood.utils.theprocess;
+
+
+/** Parse python version
+  *
+  * Params:
+  *     project = instance of Odood project to get version of system python for.
+  * Returns: SemVer version of system python interpreter
+  **/
+package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
+    auto python_version_raw = Process(interpreter_path)
+        .withArgs("--version")
+        .execute()
+        .ensureStatus(
+            "Cannot get version of python interpreter '%s'".format(
+                interpreter_path))
+        .output;
+
+    immutable auto re_py_version = ctRegex!(`Python (\d+.\d+.\d+)`);
+    auto re_match = python_version_raw.matchFirst(re_py_version);
+    enforce!OdoodException(
+        !re_match.empty,
+        "Cannot parse python interpreter (%s) version '%s'".format(
+            interpreter_path, python_version_raw));
+    return SemVer(re_match[1]);
+}
 
 
 /// Check if process is alive
@@ -19,7 +51,7 @@ bool isProcessRunning(in pid_t pid) {
     import core.sys.posix.signal: kill;
     import core.stdc.errno;
 
-    int res = kill(pid, 0);
+    const int res = kill(pid, 0);
     if (res == -1 && errno == ESRCH)
         return false;
     return true;
@@ -98,3 +130,4 @@ string generateRandomString(in uint length) {
     for(uint i; i<length; i++) result ~= symbol_pool[uniform(0, $)];
     return result;
 }
+

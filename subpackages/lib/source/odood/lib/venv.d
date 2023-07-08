@@ -9,10 +9,13 @@ private static import std.process;
 
 private import thepath: Path;
 private static import dyaml;
+private import semver: SemVer, VersionPart;
 
-private import odood.lib.exception: OdoodException;
-private import odood.lib.theprocess;
+private import odood.exception: OdoodException;
+private import odood.utils.theprocess;
+private import odood.utils;
 
+// TOOD: May be it have sense to move this to utils subpackage.
 
 // Define template for simple script that allows to run any command in
 // python's virtualenv
@@ -51,16 +54,16 @@ const struct VirtualEnv {
 
     /** Constrcut virtualenv from yaml node
       **/
-    this(in ref dyaml.Node config) {
+    this(in dyaml.Node config) {
         _path = Path(config["path"].as!string);
         _py_serie = config["python_serie"].as!PySerie;
     }
 
     /// Path where virtualenv isntalled
-    @safe pure nothrow const(Path) path() const {return _path;}
+    @safe pure nothrow const(Path) path() const { return _path; }
 
     /// Serie of python used for this virtualenv (py2 or py3)
-    @safe const(PySerie) py_serie() const {return _py_serie;}
+    @safe const(PySerie) py_serie() const { return _py_serie; }
 
     /// Name of python interpreter
     @safe const(string) py_interpreter_name() const {
@@ -70,6 +73,11 @@ const struct VirtualEnv {
             case PySerie.py3:
                 return "python3";
         }
+    }
+
+    /// Python version for this venv
+    @safe auto py_version() const {
+        return parsePythonVersion(_path.join("bin", py_interpreter_name));
     }
 
     package dyaml.Node toYAML() const {
@@ -225,19 +233,22 @@ const struct VirtualEnv {
       **/
     void buildPython(in string build_version,
                      in bool enable_sqlite=false) {
+        // Convert string representation of version into SemVer instance
+        // for further processing
+        buildPython(SemVer(build_version), enable_sqlite);
+    }
+
+    /// ditto
+    void buildPython(in SemVer build_version,
+                     in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
         import std.parallelism: totalCPUs;
-        import odood.lib.utils: download;
 
         infof("Building python version %s...", build_version);
 
-        // Compute short python version
-        immutable auto re_py_version = ctRegex!(`(\d+).(\d+).(\d+)`);
-        auto re_match = build_version.matchFirst(re_py_version);
         enforce!OdoodException(
-            !re_match.empty,
-            "Cannot parse provided python version '%s'".format(build_version));
-        string python_version_major = re_match[1];
+            build_version.isValid && build_version.isStable,
+            "Cannot parse provided python version '%s'.".format(build_version));
 
         // Create temporary directory to build python
         Path tmp_dir = _path.join("build-python");
@@ -316,24 +327,52 @@ const struct VirtualEnv {
             .ensureStatus();
 
         // Create symlink to 'python' if needed
-        if (!python_path.join("bin", "python").exists) {
+        if (!python_path.join("bin", "python").exists &&
+                python_path.join("bin", "python%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "python%s".format(python_version_major)),
+                    "bin", "python%s".format(build_version.query(VersionPart.MAJOR))),
                     python_path.join("bin", "python"));
             python_path.join(
-                "bin", "python%s".format(python_version_major)
+                "bin", "python%s".format(build_version.query(VersionPart.MAJOR))
             ).symlink(python_path.join("bin", "python"));
         }
-        if (!python_path.join("bin", "pip").exists) {
+
+        // Install pip if needed
+        if (!python_path.join("bin", "pip").exists &&
+                !python_path.join("bin", "pip%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
+            infof("Installing pip for just installed python...");
+
+            immutable auto url_get_pip_py = build_version < SemVer(3, 7) ?
+                "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(
+                        build_version.query(VersionPart.MAJOR),
+                        build_version.query(VersionPart.MINOR)) :
+                "https://bootstrap.pypa.io/pip/get-pip.py";
+            tracef("Downloading get-pip.py from %s", url_get_pip_py);
+            download(
+                url_get_pip_py,
+                tmp_dir.join("get-pip.py"));
+            Process(python_path.join("bin", "python"))
+                .withArgs(tmp_dir.join("get-pip.py").toString)
+                .inWorkDir(python_path)
+                .execute()
+                .ensureStatus();
+        }
+
+        // Create symlink for 'pip' if needed
+        if (!python_path.join("bin", "pip").exists &&
+                python_path.join("bin", "pip%s".format(
+                        build_version.query(VersionPart.MAJOR))).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "pip%s".format(python_version_major)),
+                    "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))),
                     python_path.join("bin", "pip"));
             python_path.join(
-                "bin", "pip%s".format(python_version_major)
+                "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))
             ).symlink(python_path.join("bin", "pip"));
         }
     }
@@ -346,7 +385,9 @@ const struct VirtualEnv {
       *         specific python version to build.
       *     node_version = NodeJS version to install.
       **/
-    void initializeVirtualEnv(in string python_version, in string node_version) {
+    void initializeVirtualEnv(
+            in string python_version,
+            in string node_version) {
         import std.parallelism: totalCPUs;
 
         info("Installing virtualenv...");

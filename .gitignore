@@ -14,6 +14,7 @@ odood-test-*
 *.o
 *.obj
 *.lst
+*.a
 
 *.sw[npo]
 /tmp/

@@ -9,7 +9,7 @@ private import std.format: format;
 private import core.time;
 
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 
 
 /** Struct to implement iterator (range) over log records captured
@@ -44,13 +44,23 @@ package struct OdooLogPipe {
         }
 
         /** Kill process this log is bound to
+          *
+          * Note, if you need exit code of the process killed, then
+          * you have to pass false to wait param, and call wait separately.
+          *
+          * Params:
+          *     wait = if set to true, then underlined process will be
+          *         automatically awaited.
           **/
-        auto kill(in bool wait=true) {
+        void kill(in bool wait=true) {
             _pipes.pid.kill();
-            return this.wait();
+            if (wait)
+                this.wait();
         }
 
         /** Wail process to complete.
+          *
+          * Returns: exit code of the process awaited.
           **/
         auto wait() {
             return std.process.wait(_pipes.pid);

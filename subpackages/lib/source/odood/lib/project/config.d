@@ -6,7 +6,7 @@ private static import dyaml;
 private static import dyaml.dumper;
 private static import dyaml.style;
 
-private import odood.lib.odoo.serie: OdooSerie;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.odoo.python: guessPySerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.server: OdooServer;
@@ -51,7 +51,8 @@ struct ProjectConfigOdoo {
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in OdooSerie odoo_serie,
-            in string odoo_branch, in string odoo_repo) {
+            in string odoo_branch,
+            in string odoo_repo) {
 
         import std.string: empty;
 
@@ -65,7 +66,7 @@ struct ProjectConfigOdoo {
         repo = odoo_repo.empty ? DEFAULT_ODOO_REPO : odoo_repo;
     }
 
-    this(in ref dyaml.Node config) {
+    this(in dyaml.Node config) {
         /* TODO: think about following structure of test config in yml:
          * odoo:
          *     configfile: some/path,
@@ -143,7 +144,7 @@ struct ProjectConfigDirectories {
         this.repositories = root.join("repositories");
     }
 
-    this(in ref dyaml.Node config) {
+    this(in dyaml.Node config) {
         this.conf = Path(config["conf"].as!string);
         this.log = Path(config["log"].as!string);
         this.downloads = Path(config["downloads"].as!string);

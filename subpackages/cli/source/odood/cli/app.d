@@ -7,7 +7,7 @@ private import commandr: Program, ProgramArgs, Option, Flag, parse;
 private import colored;
 
 private import odood.lib: _version;
-private import odood.lib.exception: OdoodException;
+private import odood.exception: OdoodException;
 private import odood.cli.core.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
@@ -27,6 +27,7 @@ private import odood.cli.commands.log: CommandLogView;
 private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.ci: CommandCi;
+private import odood.cli.commands.info: CommandInfo;
 
 
 /** Class that represents main OdoodProgram
@@ -52,6 +53,7 @@ class App: OdoodProgram {
         this.add(new CommandScript());
         this.add(new CommandPSQL());
         this.add(new CommandCi());
+        this.add(new CommandInfo());
 
         // shortcuts
         this.add(new CommandServerStart());
