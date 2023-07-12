@@ -12,7 +12,7 @@ private static import dyaml;
 private import semver: SemVer, VersionPart;
 
 private import odood.exception: OdoodException;
-private import odood.utils.theprocess;
+private import theprocess;
 private import odood.utils;
 
 // TOOD: May be it have sense to move this to utils subpackage.

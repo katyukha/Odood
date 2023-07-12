@@ -6,6 +6,7 @@ license "MPL-2.0"
 
 dependency "requests" version="~>2"
 dependency "thepath" version=">=0.1.7"
+dependency "theprocess" version=">=0.0.1"
 dependency "zipper" version=">=0.0.2"
 dependency "semver" version=">=0.4.0"
 dependency "pyd" version=">=0.14.4"

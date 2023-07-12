@@ -12,7 +12,7 @@ private import thepath: Path;
 private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
 private import odood.utils.git: parseGitURL, gitClone;
-private import odood.utils.theprocess;
+private import theprocess;
 
 
 class AddonRepository {

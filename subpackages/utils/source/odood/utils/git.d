@@ -8,7 +8,7 @@ private import std.format: format;
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
-private import odood.utils.theprocess;
+private import theprocess;
 
 
 // TODO: Add parsing of branch name from url

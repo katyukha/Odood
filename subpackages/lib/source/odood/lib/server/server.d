@@ -20,7 +20,7 @@ private import odood.exception: OdoodException;
 private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
-private import odood.utils.theprocess;
+private import theprocess;
 
 
 package(odood) struct CoverageOptions {
