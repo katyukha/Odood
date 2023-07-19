@@ -1,5 +1,19 @@
 # Changelog
 
+## Release 0.0.11 (Unreleased)
+
+### Added
+
+- New option `--simplified-log` added to `odood test` command.
+  Thus it is possible to display meaningful log info (log level, logger, message).
+
+### Fixed
+
+- Correctly handle `--additional-addons` passed for tests
+  in case when migration test enabled: update that addons before running tests.
+
+---
+
 ## Release 0.0.10 (2023-07-08)
 
 ### Added
