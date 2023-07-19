@@ -520,6 +520,8 @@ struct AddonManager {
             in bool single_branch=false,
             in bool recursive=false) {
         foreach(line; parseOdooRequirements(path))
+            // TODO: In case when only single module request,
+            //       add only single module
             final switch (line.type) {
                 case OdooRequirementsLineType.repo:
                     addRepo(
