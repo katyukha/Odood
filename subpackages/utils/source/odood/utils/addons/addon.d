@@ -21,6 +21,11 @@ private struct OdooAddonManifest {
         _manifest = py_eval(path.readFileText);
     }
 
+    /// Allows to access manifest as pyd object
+    auto raw_manifest() {
+        return _manifest;
+    }
+
     /// Is addon installable
     bool installable() {
         return _manifest.get("installable", true).to_d!bool;
@@ -56,6 +61,12 @@ private struct OdooAddonManifest {
         )(currency, price, false);
     }
 
+    /// Return list of dependencies of addon
+    string[] dependencies() {
+        if (_manifest.has_key("depends"))
+            return _manifest["depends"].to_d!(string[]);
+        return [];
+    }
 
     // TODO: Parse the version to some specific struct, that
     //       have to automatically guess module version in same way as odoo do

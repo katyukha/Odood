@@ -9,7 +9,7 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.format: format;
-private import std.string: join;
+private import std.string: join, strip;
 private import std.algorithm: map;
 
 private import thepath: Path;
@@ -83,7 +83,7 @@ struct OdooServer {
       **/
     pid_t getPid() const {
         if (_project.odoo.pidfile.exists) {
-            auto pid = _project.odoo.pidfile.readFileText.to!pid_t;
+            auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
             if (isProcessRunning(pid))
                 return pid;
             return -2;

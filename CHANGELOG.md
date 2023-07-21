@@ -7,6 +7,11 @@
 - New option `--simplified-log` added to `odood test` command.
   Thus it is possible to display meaningful log info (log level, logger, message).
 
+### Changed
+
+- Command `odood venv reinstall-odoo` now backups old odoo by default.
+  But it is possible to disable backup with option `--no-backup`
+
 ### Fixed
 
 - Correctly handle `--additional-addons` passed for tests

@@ -153,6 +153,7 @@ struct AddonManager {
 
         OdooAddon[] res;
 
+        // TODO: move this to utils, thus it will be reusable from other apps.
         auto walk_mode = recursive ? SpanMode.breadth : SpanMode.shallow;
         foreach(addon_path; path.walk(walk_mode)) {
             if (addon_path.isInside(path.join("setup")))

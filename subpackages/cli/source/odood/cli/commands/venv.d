@@ -121,6 +121,8 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         this.add(new Flag(
             "b", "backup", "Backup Odoo before update."));
         this.add(new Flag(
+            null, "no-backup", "Do not take backup of Odoo and venv."));
+        this.add(new Flag(
             null, "reinstall-venv", "Reinstall virtualenv too..."));
         this.add(new Option(
             null, "venv-py-version", "Install specific python version.")
@@ -142,7 +144,7 @@ class CommandVenvReinstallOdoo: OdoodCommand {
 
         project.reinstallOdoo(
             OdooSerie(args.option("version")),
-            args.flag("backup"),
+            !args.flag("no-backup") || args.flag("backup"),
             args.flag("reinstall-venv"),
             args.option("venv-py-version", "auto"),
             args.option("venv-node-version", "lts"),
