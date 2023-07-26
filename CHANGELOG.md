@@ -11,6 +11,9 @@
 
 - Command `odood venv reinstall-odoo` now backups old odoo by default.
   But it is possible to disable backup with option `--no-backup`
+- Now it is allowed to specify only name of backup to restore database from.
+  In this case, Odood will try to find corresponding backup in standard
+  backups directory of project.
 
 ### Fixed
 

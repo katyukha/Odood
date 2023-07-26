@@ -86,6 +86,12 @@ void testDatabaseManagement(in Project project) {
     project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
+    // Drop restored database and try to restore database by backup name
+    project.databases.drop(project.genDbName("test-2"));
+    project.databases.restore(project.genDbName("test-2"), backup_path.baseName);
+    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+
     // Drop databases
     project.databases.drop(project.genDbName("test-1"));
     project.databases.drop(project.genDbName("test-2"));

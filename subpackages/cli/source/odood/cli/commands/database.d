@@ -237,16 +237,13 @@ class CommandDatabaseRestore: OdoodCommand {
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
-            "backup", "Path to backup to restore database from.").required());
+            "backup", "Path to backup (or name of backup) to restore database from.").required());
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        const auto backup_path = Path(args.arg("backup")).toAbsolute;
+        const auto backup_path = args.arg("backup");
         const string dbname = args.arg("name");
-        enforce!OdoodException(
-            backup_path.exists && backup_path.isFile,
-            "Wrong backup path (%s) specified!".format(backup_path));
 
         bool start_server = false;
         if (project.server.isRunning) {
