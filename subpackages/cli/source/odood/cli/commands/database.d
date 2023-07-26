@@ -280,7 +280,7 @@ class CommandDatabaseRestore: OdoodCommand {
         }
 
         if (start_server)
-            project.server.spawn(true);
+            project.server.start;
     }
 }
 

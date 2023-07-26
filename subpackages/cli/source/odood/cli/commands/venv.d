@@ -108,7 +108,7 @@ class CommandVenvUpdateOdoo: OdoodCommand {
         project.updateOdoo(args.flag("backup"));
 
         if (start_server)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }
@@ -151,7 +151,7 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         );
 
         if (start_server)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }

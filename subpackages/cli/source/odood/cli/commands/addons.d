@@ -398,7 +398,7 @@ class CommandAddonsUpdate: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }
@@ -472,7 +472,7 @@ class CommandAddonsInstall: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 }
 
@@ -532,7 +532,7 @@ class CommandAddonsUninstall: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 }
 

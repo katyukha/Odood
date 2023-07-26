@@ -34,7 +34,7 @@ class CommandServerStart: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.server.spawn(true);
+        project.server.start;
     }
 
 }
@@ -80,7 +80,7 @@ class CommandServerRestart: OdoodCommand {
         if (project.server.isRunning)
             project.server.stop();
 
-        project.server.spawn(true);
+        project.server.start;
     }
 
 }
@@ -96,7 +96,7 @@ class CommandServerBrowse: OdoodCommand {
         import std.process;
         auto project = Project.loadProject;
         if (!project.server.isRunning)
-            project.server.spawn(true);
+            project.server.start;
 
         auto odoo_conf = project.getOdooConfig;
 

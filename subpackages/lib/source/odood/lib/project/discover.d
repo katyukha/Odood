@@ -1,7 +1,7 @@
 module odood.lib.project.discover;
 
 private import std.logger;
-private import std.string: splitLines, strip;
+private import std.string: splitLines, strip, empty;
 private import std.algorithm: startsWith;
 private import std.regex;
 private import std.typecons: Nullable, nullable;
@@ -11,7 +11,10 @@ private import std.format: format;
 private import thepath: Path;
 
 private import odood.lib.project:
-    ProjectConfigOdoo, ProjectConfigDirectories, Project;
+    ProjectConfigOdoo,
+    ProjectConfigDirectories,
+    Project,
+    ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.venv: VirtualEnv;
 private import odood.lib.odoo.python: guessPySerie;
@@ -99,6 +102,12 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
                 break;
             case "SERVER_RUN_USER":
                 project_odoo.server_user = c["val"];
+                break;
+            case "INIT_SCRIPT":
+                if (!c["val"].empty) {
+                    project_odoo.server_supervisor = ProjectServerSupervisor.InitScript;
+                    project_odoo.server_init_script_path = Path(c["val"]);
+                }
                 break;
 
             default:

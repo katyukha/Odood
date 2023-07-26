@@ -14,7 +14,7 @@ private import std.algorithm: map;
 
 private import thepath: Path;
 
-private import odood.lib.project: Project;
+private import odood.lib.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.utils: isProcessRunning;
@@ -172,6 +172,10 @@ struct OdooServer {
             !isRunning,
             "Server already running!");
 
+        enforce!OdoodException(
+            !detach || _project.odoo.server_supervisor == ProjectServerSupervisor.Odood,
+            "Cannot run Odoo server in beckground, because it is not managed byt Odood.");
+
         auto runner = getServerRunner(
             "--pidfile=%s".format(_project.odoo.pidfile));
         if (detach) {
@@ -262,10 +266,28 @@ struct OdooServer {
         return isProcessRunning(odoo_pid);
     }
 
-    /** Stop the Odoo server
+    /** Start the Odoo server
       *
       **/
-    void stop() const {
+    void start() const {
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                this.spawn(true);
+                break;
+            case ProjectServerSupervisor.InitScript:
+                Process("/etc/init.d/odoo")
+                    .withArgs("start")
+                    .execute
+                    .ensureOk();
+                break;
+        }
+
+    }
+
+    /** Stop the Odoo server via Odood
+      *
+      **/
+    void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
         import core.stdc.errno;
         import core.thread: Thread;
@@ -290,5 +312,23 @@ struct OdooServer {
             }
         }
         info("Server stopped.");
+    }
+
+
+    /** Stop the Odoo server
+      *
+      **/
+    void stop() const {
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                this.stopOdoodServer();
+                break;
+            case ProjectServerSupervisor.InitScript:
+                Process("/etc/init.d/odoo")
+                    .withArgs("stop")
+                    .execute
+                    .ensureOk();
+                break;
+        }
     }
 }
