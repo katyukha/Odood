@@ -198,7 +198,6 @@ struct OdooServer {
       **/
     auto pipeServerLog(in CoverageOptions coverage, string[] options...) const {
         auto runner = getServerRunner(coverage, options)
-            // TODO: Do we need to run it in current work dir?
             .inWorkDir(Path.current); // Run in current directory to make coverage work.
 
         tracef(

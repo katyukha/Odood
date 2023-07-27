@@ -106,7 +106,7 @@ struct ProjectConfigOdoo {
         else
             this.repo = "https://github.com/odoo/odoo";
 
-        // TODO: Think about moveing server configuration to separate section
+        // TODO: Think about moving server configuration to separate section
         //       in yaml.
         // TODO: introduce config versions and automatic migration of config files.
         if (config.containsKey("server-user"))
