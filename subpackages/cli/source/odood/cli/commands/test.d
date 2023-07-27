@@ -19,7 +19,6 @@ private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.exception: OdoodException;
 
 
 /** Color log level, depending on log level itself

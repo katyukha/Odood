@@ -11,7 +11,6 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 private import odood.lib.project.discover: discoverOdooHelper;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.exception: OdoodException;
 
 
 class CommandDiscoverOdooHelper: OdoodCommand {

@@ -60,8 +60,9 @@ struct OdooDatabaseManager {
       **/
     bool exists(in string name) const {
         // TODO: replace with project's db wrapper to check if database exists
-        //       This could simplify performance by avoiding call to python
-        //       interpreter
+        //       This could improve performance by avoiding call to python
+        //       interpreter. Take into account that database could exist,
+        //       but still could not be visible for Odoo.
         return _project.lodoo(_test_mode).databaseExists(name);
     }
 

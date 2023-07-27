@@ -71,9 +71,6 @@ class Project {
       *         that contains odood.yml config file
       **/
     static auto loadProject(in Path path) {
-
-        // TODO: convert path to absolute
-        //       do we need this? Will be converted in constructor.
         if (path.exists && path.isFile) {
             Node config = dyaml.Loader.fromFile(path.toString()).load();
             return new Project(config, path);
@@ -359,7 +356,6 @@ class Project {
 
         // TODO: Add support for cases when odoo installed via git
         //       In this case it is better to just run git pull
-        // TODO: Add support for updating to other version of Odoo
         enforce!OdoodException(
             !this.odoo.path.join(".git").exists,
             "Cannot update odoo that is git repo yet!");

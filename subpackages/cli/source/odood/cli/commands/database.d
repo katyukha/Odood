@@ -9,15 +9,13 @@ private import std.typecons;
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand, exitWithCode;
+private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 private import odood.utils.addons.addon: OdooAddon;
 
-// TODO: Use specific exception tree for CLI part
-private import odood.exception: OdoodException;
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -72,7 +70,7 @@ class CommandDatabaseCreate: OdoodCommand {
         OdooAddon[] to_install;
         foreach(addon_name; args.options("install")) {
             auto addon = project.addons.getByName(addon_name);
-            enforce!OdoodException(
+            enforce!OdoodCLIException(
                 !addon.isNull,
                 "Cannot find addon %s".format(addon_name));
             to_install ~= addon.get;
@@ -90,7 +88,7 @@ class CommandDatabaseCreate: OdoodCommand {
                     "(because --recreate option specified).", dbname);
                 project.databases.drop(dbname);
             } else {
-                throw new OdoodException(
+                throw new OdoodCLIException(
                     "Database %s already exists!".format(dbname));
             }
         }
@@ -200,7 +198,7 @@ class CommandDatabaseBackup: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        enforce!OdoodException(
+        enforce!OdoodCLIException(
             args.flag("all") || args.args("name").length > 0,
             "It is required to specify name of database to backup or option -a or --all!");
 
@@ -258,7 +256,7 @@ class CommandDatabaseRestore: OdoodCommand {
                     "(because --recreate option specified).", dbname);
                 project.databases.drop(dbname);
             } else {
-                throw new OdoodException(
+                throw new OdoodCLIException(
                     "Database %s already exists!".format(dbname));
             }
         }

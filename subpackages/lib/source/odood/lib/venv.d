@@ -296,10 +296,6 @@ const struct VirtualEnv {
                 .ensureStatus();
         }
 
-        // TODO: Install 'make' and 'libsqlite3-dev' if needed
-        //       Possibly have to be added when installation of system packages
-        //       will be implemented
-
         // Configure python build
         info("Running python's configure script...");
         Process(python_build_dir.join("configure"))
