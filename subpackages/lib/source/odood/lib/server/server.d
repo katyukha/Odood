@@ -9,18 +9,18 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.format: format;
-private import std.string: join;
+private import std.string: join, strip;
 private import std.algorithm: map;
 
 private import thepath: Path;
 
-private import odood.lib.project: Project;
+private import odood.lib.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
-private import odood.utils.theprocess;
+private import theprocess;
 
 
 package(odood) struct CoverageOptions {
@@ -83,7 +83,7 @@ struct OdooServer {
       **/
     pid_t getPid() const {
         if (_project.odoo.pidfile.exists) {
-            auto pid = _project.odoo.pidfile.readFileText.to!pid_t;
+            auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
             if (isProcessRunning(pid))
                 return pid;
             return -2;
@@ -172,6 +172,10 @@ struct OdooServer {
             !isRunning,
             "Server already running!");
 
+        enforce!OdoodException(
+            !detach || _project.odoo.server_supervisor == ProjectServerSupervisor.Odood,
+            "Cannot run Odoo server in beckground, because it is not managed byt Odood.");
+
         auto runner = getServerRunner(
             "--pidfile=%s".format(_project.odoo.pidfile));
         if (detach) {
@@ -194,7 +198,6 @@ struct OdooServer {
       **/
     auto pipeServerLog(in CoverageOptions coverage, string[] options...) const {
         auto runner = getServerRunner(coverage, options)
-            // TODO: Do we need to run it in current work dir?
             .inWorkDir(Path.current); // Run in current directory to make coverage work.
 
         tracef(
@@ -262,10 +265,28 @@ struct OdooServer {
         return isProcessRunning(odoo_pid);
     }
 
-    /** Stop the Odoo server
+    /** Start the Odoo server
       *
       **/
-    void stop() const {
+    void start() const {
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                this.spawn(true);
+                break;
+            case ProjectServerSupervisor.InitScript:
+                Process("/etc/init.d/odoo")
+                    .withArgs("start")
+                    .execute
+                    .ensureOk();
+                break;
+        }
+
+    }
+
+    /** Stop the Odoo server via Odood
+      *
+      **/
+    void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
         import core.stdc.errno;
         import core.thread: Thread;
@@ -290,5 +311,23 @@ struct OdooServer {
             }
         }
         info("Server stopped.");
+    }
+
+
+    /** Stop the Odoo server
+      *
+      **/
+    void stop() const {
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                this.stopOdoodServer();
+                break;
+            case ProjectServerSupervisor.InitScript:
+                Process("/etc/init.d/odoo")
+                    .withArgs("stop")
+                    .execute
+                    .ensureOk();
+                break;
+        }
     }
 }

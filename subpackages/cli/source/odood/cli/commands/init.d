@@ -7,12 +7,11 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.exception: OdoodException;
 
 
 class CommandInit: OdoodCommand {
@@ -79,7 +78,7 @@ class CommandInit: OdoodCommand {
         auto odoo_repo = args.option(
                 "odoo-repo", "https://github.com/odoo/odoo.git");
 
-        enforce!OdoodException(
+        enforce!OdoodCLIException(
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
 

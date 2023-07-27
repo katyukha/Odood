@@ -1,6 +1,8 @@
 /// This module handles config of instance managed by odood
 module odood.lib.project.config;
 
+private import std.format: format;
+
 private import thepath: Path;
 private static import dyaml;
 private static import dyaml.dumper;
@@ -13,6 +15,17 @@ private import odood.lib.server: OdooServer;
 
 package(odood)
     immutable string DEFAULT_ODOO_REPO="https://github.com/odoo/odoo";
+
+/** This enum describes what tool is used to run and manage Odoo in background
+  **/
+enum ProjectServerSupervisor {
+    /// Server is managed by Odood.
+    Odood,
+
+    /// Server is managed by init script in /etc/init.d odoo
+    InitScript,
+}
+
 
 /** Struct that represents odoo-specific configuration
   **/
@@ -48,6 +61,12 @@ struct ProjectConfigOdoo {
     /// Name of the user that have to run Odoo
     string server_user;
 
+    /// Managed by OS.
+    ProjectServerSupervisor server_supervisor = ProjectServerSupervisor.Odood;
+
+    /// Path to init script, of project's server is managed by init script.
+    Path server_init_script_path;
+
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in OdooSerie odoo_serie,
@@ -73,7 +92,7 @@ struct ProjectConfigOdoo {
          *     logfile: some/path,
          *     test:
          *         enable: true
-         *         configfule: some/path
+         *         configfile: some/path
          **/
         this.configfile = config["configfile"].as!string;
         this.testconfigfile = config["testconfigfile"].as!string;
@@ -86,8 +105,28 @@ struct ProjectConfigOdoo {
             this.repo = config["repo"].as!string;
         else
             this.repo = "https://github.com/odoo/odoo";
+
+        // TODO: Think about moving server configuration to separate section
+        //       in yaml.
+        // TODO: introduce config versions and automatic migration of config files.
         if (config.containsKey("server-user"))
             this.server_user = config["server-user"].as!string;
+        if (config.containsKey("server-supervisor"))
+            switch (config["server-supervisor"].as!string) {
+                case "odood":
+                    this.server_supervisor = ProjectServerSupervisor.Odood;
+                    break;
+                case "init-script":
+                    this.server_supervisor = ProjectServerSupervisor.InitScript;
+                    break;
+                default:
+                    assert(
+                        0,
+                        "Server supervisor type %s is not supported!".format(
+                            config["server-supervisor"].as!string));
+            }
+        else
+            this.server_supervisor = ProjectServerSupervisor.Odood;
     }
 
     dyaml.Node toYAML() const {
@@ -103,6 +142,17 @@ struct ProjectConfigOdoo {
         ]);
         if (this.server_user)
             result["server-user"] = this.server_user;
+
+        /// Serialize supervisor used for this project
+        final switch(this.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                result["server-supervisor"] = "odood";
+                break;
+            case ProjectServerSupervisor.InitScript:
+                result["server-supervisor"] = "init-script";
+                break;
+        }
+
         return result;
     }
 }

@@ -24,8 +24,6 @@ private import odood.utils;
   *     project = Project to download Odoo to.
  **/
 void installDownloadOdoo(in Project project) {
-    // TODO: replace with logger calls, or with colored output.
-    import std.stdio;
     auto odoo_archive_path = project.directories.downloads.join(
             "odoo.%s.zip".format(project.odoo.branch));
     scope(exit) {

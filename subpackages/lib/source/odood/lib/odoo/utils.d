@@ -34,7 +34,7 @@ string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
 
         auto new_ver = change_version > head_version ? change_version : head_version;
 
-        // TODO: find better way. Check if head nad change versions are valid
+        // TODO: find better way. Check if head and change versions are valid
         assert(new_ver.isValid, "New version is not valid!");
 
         return "%s%s%s.%s%s,\n".format(

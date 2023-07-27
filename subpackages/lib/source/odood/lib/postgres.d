@@ -3,7 +3,7 @@ module odood.lib.postgres;
 private import std.format: format;
 
 private import odood.exception: OdoodException;
-private import odood.utils.theprocess;
+private import theprocess;
 
 
 void createNewPostgresUser(in string user, in string password) {

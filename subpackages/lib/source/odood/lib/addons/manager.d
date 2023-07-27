@@ -144,24 +144,18 @@ struct AddonManager {
         return res;
     }
 
-    /// Scan specified path for addons
+    /** Scan specified path for addons
+      *
+      * Params:
+      *     path = path to addon or directory that contains addons
+      *     recursive = if set to true, then search for addons in subdirectories
+      *
+      * Returns:
+      *     Array of OdooAddons found in specified path.
+      **/
     OdooAddon[] scan(in Path path, in bool recursive=false) const {
         tracef("Searching for addons in %s", path);
-        if (isOdooAddon(path)) {
-            return [new OdooAddon(path)];
-        }
-
-        OdooAddon[] res;
-
-        auto walk_mode = recursive ? SpanMode.breadth : SpanMode.shallow;
-        foreach(addon_path; path.walk(walk_mode)) {
-            if (addon_path.isInside(path.join("setup")))
-                // Skip modules defined in OCA setup folder to avoid duplication.
-                continue;
-            if (addon_path.isOdooAddon)
-                res ~= new OdooAddon(addon_path);
-        }
-        return res;
+        return findAddons(path, recursive);
     }
 
     /** Link all addons inside specified directories
@@ -520,6 +514,8 @@ struct AddonManager {
             in bool single_branch=false,
             in bool recursive=false) {
         foreach(line; parseOdooRequirements(path))
+            // TODO: In case when only single module request,
+            //       add only single module
             final switch (line.type) {
                 case OdooRequirementsLineType.repo:
                     addRepo(

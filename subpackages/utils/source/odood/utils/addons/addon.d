@@ -2,8 +2,9 @@ module odood.utils.addons.addon;
 
 private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;
-private import std.exception : enforce;
-private import std.conv : to;
+private import std.exception: enforce;
+private import std.conv: to;
+private import std.file: SpanMode;
 
 private import pyd.embedded: py_eval;
 private import pyd.pydobject: PydObject;
@@ -19,6 +20,11 @@ private struct OdooAddonManifest {
 
     this(in Path path) {
         _manifest = py_eval(path.readFileText);
+    }
+
+    /// Allows to access manifest as pyd object
+    auto raw_manifest() {
+        return _manifest;
     }
 
     /// Is addon installable
@@ -56,6 +62,12 @@ private struct OdooAddonManifest {
         )(currency, price, false);
     }
 
+    /// Return list of dependencies of addon
+    string[] dependencies() {
+        if (_manifest.has_key("depends"))
+            return _manifest["depends"].to_d!(string[]);
+        return [];
+    }
 
     // TODO: Parse the version to some specific struct, that
     //       have to automatically guess module version in same way as odoo do
@@ -156,4 +168,31 @@ Nullable!Path getAddonManifestPath(in Path path) {
     if (path.join("__openerp__.py").exists)
         return path.join("__openerp__.py").nullable;
     return Nullable!Path.init;
+}
+
+
+/** Find odoo addons in specified path.
+  *
+  * Params:
+  *     path = path to addon or directory that contains addons
+  *     recursive = if set to true, then search for addons in subdirectories
+  *
+  * Returns:
+  *     Array of OdooAddons found in specified path.
+  **/
+OdooAddon[] findAddons(in Path path, in bool recursive=false) {
+    if (isOdooAddon(path))
+        return [new OdooAddon(path)];
+
+    OdooAddon[] res;
+
+    auto walk_mode = recursive ? SpanMode.breadth : SpanMode.shallow;
+    foreach(addon_path; path.walk(walk_mode)) {
+        if (addon_path.isInside(path.join("setup")))
+            // Skip modules defined in OCA setup folder to avoid duplication.
+            continue;
+        if (addon_path.isOdooAddon)
+            res ~= new OdooAddon(addon_path);
+    }
+    return res;
 }

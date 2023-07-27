@@ -8,9 +8,8 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import thepath;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
-private import odood.exception: OdoodException;
 
 
 class CommandScriptPy: OdoodCommand {
@@ -26,7 +25,7 @@ class CommandScriptPy: OdoodCommand {
         auto dbname = args.option("db");
         Path script = args.arg("script");
 
-        enforce!OdoodException(
+        enforce!OdoodCLIException(
             project.databases.exists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
@@ -53,8 +52,7 @@ class CommandScriptSQL: OdoodCommand {
         auto dbname = args.option("db");
         Path script = args.arg("script");
 
-        // TODO: check existense of db via SQL
-        enforce!OdoodException(
+        enforce!OdoodCLIException(
             project.databases.exists(dbname),
             "Database %s does not exists!".format(dbname));
 

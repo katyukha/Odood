@@ -12,11 +12,10 @@ private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 private import colored;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.exception: OdoodException;
 
 
 enum AddonDisplayType {
@@ -362,7 +361,7 @@ class CommandAddonsUpdate: OdoodCommand {
         if (!args.flag("all")) {
             foreach(addon_name; args.args("addon")) {
                 auto addon = project.addons.getByString(addon_name);
-                enforce!OdoodException(
+                enforce!OdoodCLIException(
                     !addon.isNull,
                     "%s does not look like addon name or path to addon".format(
                         addon_name));
@@ -398,7 +397,7 @@ class CommandAddonsUpdate: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }
@@ -440,7 +439,7 @@ class CommandAddonsInstall: OdoodCommand {
         OdooAddon[] addons;
         foreach(addon_name; args.args("addon")) {
             auto addon = project.addons.getByString(addon_name);
-            enforce!OdoodException(
+            enforce!OdoodCLIException(
                 !addon.isNull,
                 "%s does not look like addon name or path to addon".format(
                     addon_name));
@@ -472,7 +471,7 @@ class CommandAddonsInstall: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 }
 
@@ -506,7 +505,7 @@ class CommandAddonsUninstall: OdoodCommand {
         OdooAddon[] addons;
         foreach(addon_name; args.args("addon")) {
             auto addon = project.addons.getByString(addon_name);
-            enforce!OdoodException(
+            enforce!OdoodCLIException(
                 !addon.isNull,
                 "%s does not look like addon name or path to addon".format(
                     addon_name));
@@ -532,7 +531,7 @@ class CommandAddonsUninstall: OdoodCommand {
         }
 
         if (start_again)
-            project.server.spawn(true);
+            project.server.start;
     }
 }
 
@@ -589,7 +588,7 @@ class CommandAddonsIsInstalled: OdoodCommand {
         auto project = Project.loadProject;
 
         auto addon_n = project.addons.getByString(args.arg("addon"));
-        enforce!OdoodException(
+        enforce!OdoodCLIException(
             !addon_n.isNull,
             "Cannot find addon %s".format(args.arg("addon")));
         auto addon = addon_n.get();

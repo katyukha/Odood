@@ -1,20 +1,26 @@
 module odood.cli.core.exception;
 
+private import std.exception;
+
+
+/** Base class for all Odood CLI exceptions
+  **/
+class OdoodCLIException : Exception {
+    mixin basicExceptionCtors;
+}
+
 
 /** This exception identifies, that in Odood program commandr Command
   * is used instead of OdoodCommand.
   * Currently, it is not allowed to mix odood commands and commandr commands
   * in one app
   **/
-class OdoodCLICommandNoExecuteException : Exception {
-
-    this(string msg, string file = __FILE__, size_t line = __LINE__) {
-        super(msg, file, line);
-    }
+class OdoodCLICommandNoExecuteException : OdoodCLIException {
+    mixin basicExceptionCtors;
 }
 
 
-class OdoodCLIExitException : Exception
+class OdoodCLIExitException : OdoodCLIException
 {
     private int _exit_code;
 

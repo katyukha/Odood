@@ -15,10 +15,10 @@ private import std.typecons: Nullable, nullable;
 private import std.regex;
 
 private import thepath: Path;
+private import theprocess;
 private import semver;
 
 private import odood.exception: OdoodException;
-private import odood.utils.theprocess;
 
 
 /** Parse python version

@@ -108,7 +108,7 @@ class CommandVenvUpdateOdoo: OdoodCommand {
         project.updateOdoo(args.flag("backup"));
 
         if (start_server)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }
@@ -120,6 +120,8 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         super("reinstall-odoo", "Reinstall Odoo to different Odoo version.");
         this.add(new Flag(
             "b", "backup", "Backup Odoo before update."));
+        this.add(new Flag(
+            null, "no-backup", "Do not take backup of Odoo and venv."));
         this.add(new Flag(
             null, "reinstall-venv", "Reinstall virtualenv too..."));
         this.add(new Option(
@@ -142,14 +144,14 @@ class CommandVenvReinstallOdoo: OdoodCommand {
 
         project.reinstallOdoo(
             OdooSerie(args.option("version")),
-            args.flag("backup"),
+            !args.flag("no-backup") || args.flag("backup"),
             args.flag("reinstall-venv"),
             args.option("venv-py-version", "auto"),
             args.option("venv-node-version", "lts"),
         );
 
         if (start_server)
-            project.server.spawn(true);
+            project.server.start;
     }
 
 }

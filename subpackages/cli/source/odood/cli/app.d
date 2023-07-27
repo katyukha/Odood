@@ -125,13 +125,6 @@ class App: OdoodProgram {
     override int run(ref string[] args) {
         try {
             return super.run(args);
-        } catch (OdoodException e) {
-            // TODO: Use custom colodred formatting for errors
-            if (enable_debug)
-                error("Odood Exception catched:\n%s".format(e));
-            else
-                error("%s".format(e.msg));
-            return 1;
         } catch (Exception e) {
             // TODO: Use custom colodred formatting for errors
             if (enable_debug)

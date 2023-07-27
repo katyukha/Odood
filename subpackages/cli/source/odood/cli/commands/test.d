@@ -19,7 +19,6 @@ private import odood.cli.core: OdoodCommand, exitWithCode;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.exception: OdoodException;
 
 
 /** Color log level, depending on log level itself
@@ -95,6 +94,8 @@ class CommandTest: OdoodCommand {
         this.add(new Flag(
             null, "isw", "Ignore warnings that are considered safe."));
         this.add(new Flag(
+            null, "simplified-log", "Display simplified log messages."));
+        this.add(new Flag(
             null, "migration", "Run migration against stable branch."));
         this.add(new Flag(
             null, "coverage", "Calculate code coverage."));
@@ -141,9 +142,14 @@ class CommandTest: OdoodCommand {
 
         auto testRunner = project.testRunner();
 
-        testRunner.registerLogHandler((in rec) {
-            printLogRecord(rec);
-        });
+        if (args.flag("simplified-log"))
+            testRunner.registerLogHandler((in rec) {
+                printLogRecordSimplified(rec);
+            });
+        else
+            testRunner.registerLogHandler((in rec) {
+                printLogRecord(rec);
+            });
 
         if (args.flag("isw"))
             testRunner.ignoreSafeWarnings();
@@ -257,6 +263,8 @@ class CommandTest: OdoodCommand {
                     "--fail-under",
                     args.option("coverage-fail-under"),
                 ];
+            if (args.flag("coverage-ignore-errors"))
+                coverage_report_options ~= ["--ignore-errors"];
 
             auto coverage_report_res = project.venv.run(
                 ["coverage", "report",] ~ coverage_report_options

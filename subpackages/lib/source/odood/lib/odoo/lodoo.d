@@ -192,7 +192,6 @@ const struct LOdoo {
         Path databaseBackup(
                 in string dbname,
                 in BackupFormat backup_format = BackupFormat.zip) {
-            // TODO: Add ability to specify backup path
             import std.datetime.systime: Clock;
 
             string dest_name="db-backup-%s-%s.%s.%s".format(

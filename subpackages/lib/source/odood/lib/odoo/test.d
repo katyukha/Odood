@@ -403,10 +403,14 @@ struct OdooTestRunner {
     /** Take clean up actions before test finished
       **/
     void cleanUp() {
-        if (_temporary_db &&
-                _db_no_drop == false &&
-                _databases.exists(_test_db_name)) {
-            _databases.drop(_test_db_name);
+        if (_temporary_db && _databases.exists(_test_db_name)) {
+            if (_db_no_drop == false)
+                _databases.drop(_test_db_name);
+            else
+                infof(
+                    "Database %s was not dropt, because test runner " ~
+                    "configured to not drop temporary db after test.",
+                    _test_db_name);
         }
     }
 
@@ -561,7 +565,7 @@ struct OdooTestRunner {
             auto update_res =_server.pipeServerLog(
                 getCoverageOptions(),
                 [
-                    "--update=%s".format(getModuleList),
+                    "--update=%s".format(getModuleList(true)),
                     "--log-level=info",
                     "--stop-after-init",
                     "--workers=0",

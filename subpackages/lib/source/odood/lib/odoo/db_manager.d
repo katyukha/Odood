@@ -60,8 +60,9 @@ struct OdooDatabaseManager {
       **/
     bool exists(in string name) const {
         // TODO: replace with project's db wrapper to check if database exists
-        //       This could simplify performance by avoiding call to python
-        //       interpreter
+        //       This could improve performance by avoiding call to python
+        //       interpreter. Take into account that database could exist,
+        //       but still could not be visible for Odoo.
         return _project.lodoo(_test_mode).databaseExists(name);
     }
 
@@ -170,6 +171,10 @@ struct OdooDatabaseManager {
         import odood.utils.odoo.db: parseDatabaseBackupManifest;
 
         enforce!OdoodException(
+                backup_path.exists,
+                "Cannot restore! Backup %s does not exists!".format(backup_path));
+
+        enforce!OdoodException(
             [".sql", ".zip"].canFind(backup_path.extension),
             "Cannot restore database backup %s" ~ backup_path.toString ~
             ": unsupported backup format!\n" ~
@@ -221,6 +226,7 @@ struct OdooDatabaseManager {
       * Params:
       *     name = name of database to restore
       *     backup_path = path to database backup to restore
+      *     backup_name = name of backup located in standard backup location or path to backup as string.
       *     validate_strict = if set to true,
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
@@ -232,6 +238,18 @@ struct OdooDatabaseManager {
         _restoreValidateBackup(backup_path, validate_strict);
 
         return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+    }
+
+    /// ditto
+    auto restore(
+            in string name,
+            in string backup_name,
+            in bool validate_strict=true) const {
+        Path backup_path = Path(backup_name);
+        if (!backup_path.exists)
+            // Try to search for backup in standard backup directory.
+            backup_path = _project.directories.backups.join(backup_name);
+        return restore(name, backup_path, validate_strict);
     }
 
     /** Return database wrapper, that allows to interact with database

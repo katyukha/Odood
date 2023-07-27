@@ -1,9 +1,6 @@
 /// Module contains functions to install python for Odood project
 module odood.lib.install.python;
 
-private import semver;
-private import thepath: Path;
-
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
@@ -11,9 +8,12 @@ private import std.parallelism: totalCPUs;
 private import std.conv: to;
 private import std.logger;
 
+private import semver;
+private import thepath: Path;
+private import theprocess;
+
 private import odood.lib.project: Project;
 private import odood.lib.venv: PySerie;
-private import odood.utils.theprocess;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: download, parsePythonVersion;
 private import odood.exception: OdoodException;

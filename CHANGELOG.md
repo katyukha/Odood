@@ -1,5 +1,27 @@
 # Changelog
 
+## Release 0.0.11 (2023-07-27)
+
+### Added
+
+- New option `--simplified-log` added to `odood test` command.
+  Thus it is possible to display meaningful log info (log level, logger, message).
+
+### Changed
+
+- Command `odood venv reinstall-odoo` now backups old odoo by default.
+  But it is possible to disable backup with option `--no-backup`
+- Now it is allowed to specify only name of backup to restore database from.
+  In this case, Odood will try to find corresponding backup in standard
+  backups directory of project.
+
+### Fixed
+
+- Correctly handle `--additional-addons` passed for tests
+  in case when migration test enabled: update that addons before running tests.
+
+---
+
 ## Release 0.0.10 (2023-07-08)
 
 ### Added
