@@ -28,6 +28,7 @@ private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.ci: CommandCi;
 private import odood.cli.commands.info: CommandInfo;
+private import odood.cli.commands.odoo: CommandOdoo;
 
 
 /** Class that represents main OdoodProgram
@@ -54,6 +55,7 @@ class App: OdoodProgram {
         this.add(new CommandPSQL());
         this.add(new CommandCi());
         this.add(new CommandInfo());
+        this.add(new CommandOdoo());
 
         // shortcuts
         this.add(new CommandServerStart());

@@ -1,6 +1,7 @@
 module odood.cli.commands.log;
 
 private import std.logger;
+private import theprocess;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
@@ -17,6 +18,6 @@ class CommandLogView: OdoodCommand {
         import std.process;
         auto project = Project.loadProject;
         tracef("Viewing logfile: %s", project.odoo.logfile.toString);
-        execvp("less", ["less", project.odoo.logfile.toString]);
+        Process("less").withArgs(project.odoo.logfile.toString).execv;
     }
 }

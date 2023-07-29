@@ -6,6 +6,8 @@ private import std.conv: to, ConvException;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
+private import theprocess: Process;
+
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 
@@ -18,37 +20,32 @@ class CommandPSQL: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import std.process;
-        import std.algorithm;
-        import std.array;
-        auto project = Project.loadProject;
+        auto odoo_conf = Project.loadProject.getOdooConfig();
 
-        string[string] env = environment.toAA;
-
-        auto odoo_conf = project.getOdooConfig();
-
-        env["PGDATABASE"] = args.option("db");
+        auto psql = Process("psql")
+            .withEnv("PGDATABASE", args.option("db"))
+            .withEnv(
+                "PGUSER",
+                odoo_conf["options"].hasKey("db_user") ?
+                    odoo_conf["options"].getKey("db_user") : "odoo")
+            .withEnv(
+                "PGPASSWORD",
+                odoo_conf["options"].hasKey("db_password") ?
+                    odoo_conf["options"].getKey("db_password") : "odoo");
 
         if (odoo_conf["options"].hasKey("db_host")) 
-            env["PGHOST"] = odoo_conf["options"].getKey("db_host");
+            psql.setEnv(
+                "PGHOST", odoo_conf["options"].getKey("db_host"));
         if (odoo_conf["options"].hasKey("db_port")) {
             auto db_port = odoo_conf["options"].getKey("db_port");
             try {
-                env["PGPORT"] = db_port.to!(int).to!string;
+                psql.setEnv("PGPORT", db_port.to!(int).to!string);
             } catch (ConvException) {
                 warningf("Unparsable value for db port: %s", db_port);
             }
         }
 
-        env["PGUSER"] = odoo_conf["options"].hasKey("db_user") ?
-            odoo_conf["options"].getKey("db_user") : "odoo";
-        env["PGPASSWORD"] = odoo_conf["options"].hasKey("db_password") ?
-            odoo_conf["options"].getKey("db_password") : "odoo";
-
-        execvpe(
-            "psql", ["psql"],
-            env.byKeyValue.map!(
-                (i) => "%s=%s".format(i.key, i.value)).array);
+        psql.execv;
     }
 }
 

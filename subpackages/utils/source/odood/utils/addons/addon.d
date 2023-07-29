@@ -1,5 +1,6 @@
 module odood.utils.addons.addon;
 
+private import std.logger;
 private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;
 private import std.exception: enforce;

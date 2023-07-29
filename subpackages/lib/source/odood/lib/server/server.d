@@ -118,7 +118,7 @@ struct OdooServer {
       *     coverage = coverage options
       *     options = odoo server options
       **/
-    private auto getServerRunner(
+    auto getServerRunner(
             in CoverageOptions coverage,
             in string[] options...) const {
         auto runner = _project.venv.runner()
@@ -156,7 +156,7 @@ struct OdooServer {
     }
 
     /// ditto
-    private auto getServerRunner(in string[] options...) const {
+    auto getServerRunner(in string[] options...) const {
         return getServerRunner(CoverageOptions(false), options);
     }
 

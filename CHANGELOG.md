@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Command `odood odoo shell` that allows to open odoo shell for specified db.
+
+---
+
 ## Release 0.0.11 (2023-07-27)
 
 ### Added
