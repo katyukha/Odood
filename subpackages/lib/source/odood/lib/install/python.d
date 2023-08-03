@@ -45,7 +45,7 @@ bool isSystemPythonSuitable(in Project project) {
     auto sys_py_ver = project.getSystemPythonVersion;
     if (project.odoo.serie <= OdooSerie(10))
         return (sys_py_ver >= SemVer(2, 7) && sys_py_ver < SemVer(3));
-    if (project.odoo.serie <= OdooSerie(12))
+    if (project.odoo.serie <= OdooSerie(13))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 9));
     if (project.odoo.serie <= OdooSerie(14))
         return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 10));
