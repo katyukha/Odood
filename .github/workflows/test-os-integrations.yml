@@ -95,7 +95,7 @@ jobs:
         with:
           linux: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
 
-      - name: Run tests (Ubuntu 22.04)
+      - name: Run tests (Debian Bullseye)
         if: matrix.image == 'debian:bullseye'
         env:
           POSTGRES_HOST: postgres

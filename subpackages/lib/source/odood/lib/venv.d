@@ -154,7 +154,7 @@ const struct VirtualEnv {
             in Nullable!Path workDir=Nullable!Path.init,
             in string[string] env=null,
             std.process.Config config = std.process.Config.none) {
-        return run(args, workDir, env, config).ensureStatus();
+        return run(args, workDir, env, config).ensureStatus(true);
     }
 
     /// ditto
@@ -293,7 +293,7 @@ const struct VirtualEnv {
                 .withArgs(["-xzf", python_download_path.toString])
                 .inWorkDir(tmp_dir)
                 .execute()
-                .ensureStatus();
+                .ensureStatus(true);
         }
 
         // Configure python build
@@ -302,7 +302,7 @@ const struct VirtualEnv {
             .withArgs(python_configure_opts)
             .inWorkDir(python_build_dir)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
 
         // Build python itself
         info("Building python...");
@@ -310,7 +310,7 @@ const struct VirtualEnv {
             .withArgs(["--jobs=%s".format(totalCPUs > 1 ? totalCPUs -1 : 1)])
             .inWorkDir(python_build_dir)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
 
         // Install python
         info("Installing python...");
@@ -320,7 +320,7 @@ const struct VirtualEnv {
                 "install"])
             .inWorkDir(python_build_dir)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
 
         // Create symlink to 'python' if needed
         if (!python_path.join("bin", "python").exists &&
@@ -355,7 +355,7 @@ const struct VirtualEnv {
                 .withArgs(tmp_dir.join("get-pip.py").toString)
                 .inWorkDir(python_path)
                 .execute()
-                .ensureStatus();
+                .ensureStatus(true);
         }
 
         // Create symlink for 'pip' if needed
@@ -397,7 +397,7 @@ const struct VirtualEnv {
                             "-p", "python2",
                             _path.toString])
                         .execute()
-                        .ensureStatus();
+                        .ensureStatus(true);
                     break;
                 case PySerie.py3:
                     Process("python3")
@@ -406,7 +406,7 @@ const struct VirtualEnv {
                             "-p", "python3",
                             _path.toString])
                         .execute()
-                        .ensureStatus();
+                        .ensureStatus(true);
                     break;
             }
         } else {
@@ -416,7 +416,7 @@ const struct VirtualEnv {
             Process(_path.join("python", "bin", "pip"))
                 .withArgs("install", "virtualenv")
                 .execute()
-                .ensureStatus();
+                .ensureStatus(true);
 
             // Initialize virtualenv inside built python env
             Process(_path.join("python", "bin", "python"))
@@ -425,7 +425,7 @@ const struct VirtualEnv {
                     "-p", _path.join("python", "bin", "python").toString,
                     _path.toString])
                 .execute()
-                .ensureStatus();
+                .ensureStatus(true);
         }
 
         //// Add bash script to run any command in virtual env

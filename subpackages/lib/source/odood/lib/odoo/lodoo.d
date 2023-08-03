@@ -67,7 +67,7 @@ const struct LOdoo {
           * in case of non-zero exit status.
           **/
         auto runE(in string[] args, std.process.Config config) {
-            return run(args, config).ensureStatus!OdoodException;
+            return run(args, config).ensureStatus!OdoodException(true);
         }
 
         /// ditto
