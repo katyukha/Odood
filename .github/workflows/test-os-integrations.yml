@@ -30,7 +30,7 @@ jobs:
 
       - name: Download LDC compiler
         run: |
-          wget -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
+          wget -q -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
           tar -xf /tmp/ldc2.tar.xz
           ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
 
@@ -61,10 +61,13 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
-          # will assign a random free host port
-          - 5432/tcp
+          - 5432:5432/tcp
         # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v3
@@ -80,7 +83,7 @@ jobs:
 
       - name: Download LDC compiler
         run: |
-          wget -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
+          wget -q -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
           tar -xf /tmp/ldc2.tar.xz
           ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
 

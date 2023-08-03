@@ -1,5 +1,6 @@
 module tests.basic;
 
+import std.logger;
 import std.file;
 import std.process;
 import std.array;
@@ -7,6 +8,7 @@ import std.format;
 import std.algorithm;
 
 import thepath;
+import theprocess;
 import unit_threaded.assertions;
 
 import odood.lib.project;
@@ -19,14 +21,18 @@ import odood.cli.commands.test: printLogRecord;
 /// Create new database user in postgres db
 void createDbUser(in string user, in string password) {
     import dpq.connection: Connection;
-    auto connection = Connection(
-        "host=%s port=%s dbname=postgres user=%s password=%s".format(
-            environment.get("POSTGRES_HOST", "localhost"),
-            environment.get("POSTGRES_PORT", "5432"),
-            environment.get("POSTGRES_USER", "odoo"),
-            environment.get("POSTGRES_PASSWORD", "odoo"))
-        );
+
+    auto connection_str = "host=%s port=%s dbname=postgres user=%s password=%s".format(
+        environment.get("POSTGRES_HOST", "localhost"),
+        environment.get("POSTGRES_PORT", "5432"),
+        environment.get("POSTGRES_USER", "odoo"),
+        environment.get("POSTGRES_PASSWORD", "odoo"));
+
+    infof("Connecting to postgres via: %s", connection_str);
+    auto connection = Connection(connection_str);
     scope(exit) connection.close();
+
+    infof("Creating db user '%s' with password '%s' for tests", user, password);
     connection.exec(
         "CREATE USER \"%s\" WITH CREATEDB PASSWORD '%s';".format(
             user, password));
@@ -76,7 +82,21 @@ void testDatabaseManagement(in Project project) {
     project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
-    auto backup_path = project.databases.backup(project.genDbName("test-2"));
+    Path backup_path;
+    try {
+        backup_path = project.databases.backup(project.genDbName("test-2"));
+    } catch (Exception e) {
+        auto tmp_path = createTempPath();
+        scope(exit) tmp_path.remove();
+
+        // Print output of pg_dump, because Odoo do not do it.
+        auto res = Process("/usr/bin/pg_dump")
+            .withArgs("--no-owner", "--file", tmp_path.join("dump.sql").toString, project.genDbName("test-2"))
+            .execute()
+            .ensureOk(true);
+        infof("DEBUG: pg_dump_output: %s", res.output);
+        throw e;
+    }
 
     project.databases.drop(project.genDbName("test-2"));
     project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
@@ -215,6 +235,7 @@ unittest {
             environment.get("POSTGRES_PORT", "5432"),
             "odood15test",
             "odoo")
+        .setHttp("localhost", "15069")
         .result();
     project.initialize(odoo_conf);
     project.save();
@@ -265,6 +286,7 @@ unittest {
             environment.get("POSTGRES_PORT", "5432"),
             "odood14test",
             "odoo")
+        .setHttp("localhost", "14069")
         .result();
     project.initialize(odoo_conf);
     project.save();
@@ -315,6 +337,7 @@ unittest {
             environment.get("POSTGRES_PORT", "5432"),
             "odood13test",
             "odoo")
+        .setHttp("localhost", "13069")
         .result();
     project.initialize(odoo_conf);
     project.save();
@@ -365,6 +388,7 @@ unittest {
             environment.get("POSTGRES_PORT", "5432"),
             "odood12test",
             "odoo")
+        .setHttp("localhost", "12069")
         .result();
     project.initialize(odoo_conf);
     project.save();
@@ -415,6 +439,7 @@ unittest {
             environment.get("POSTGRES_PORT", "5432"),
             "odood14to15test",
             "odoo")
+        .setHttp("localhost", "14169")
         .result();
     project.initialize(odoo_conf);
     project.save();
