@@ -1,0 +1,113 @@
+# Workflow to run tests in docker containers for OS that are not supported by github actions.
+name: Tests OS integrations
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  tests:
+    name: Tests
+    strategy:
+      matrix:
+        image: ["debian:bullseye"]
+    env:
+      INSTALL_LDC2_VERSION: "1.33.0"
+    runs-on: ubuntu-22.04
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update apt registry
+        run: apt-get update
+
+      - name: Install system dependencies (for compiler setup)
+        run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
+
+      - name: Install system dependencies (for Odood)
+        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
+
+      - name: Download LDC compiler
+        run: |
+          wget -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
+          tar -xf /tmp/ldc2.tar.xz
+          ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
+
+      - name: Run tests (Debian Bullseye
+        if: matrix.image == 'debian:bullseye'
+        run: dub test -b unittest-cov --override-config=pyd/python39
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: unittests
+          name: odood-unittests
+
+  integration-test:
+    name: Integration Tests
+    strategy:
+      matrix:
+        image: ["debian:bullseye"]
+    env:
+      INSTALL_LDC2_VERSION: "1.33.0"
+    runs-on: ubuntu-22.04
+    container: ${{ matrix.image }}
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          # will assign a random free host port
+          - 5432/tcp
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update apt registry
+        run: apt-get update
+
+      - name: Install system dependencies (for compiler setup)
+        run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
+
+      - name: Install system dependencies (for Odood)
+        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
+
+      - name: Download LDC compiler
+        run: |
+          wget -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
+          tar -xf /tmp/ldc2.tar.xz
+          ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
+
+      - name: Prepare dependencies for deb package
+        id: prepare_deb_deps
+        run: |
+          echo "debian_bullseye_deps=$(cat .ci/deps/debian.bullseye.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
+
+      - name: Install system (runtime) dependencies (Debian Bullseye)
+        if: matrix.image == 'debian:bullseye'
+        uses: lyricwulf/abc@v1
+        with:
+          linux: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
+
+      - name: Run tests (Ubuntu 22.04)
+        if: matrix.image == 'debian:bullseye'
+        env:
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python39
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: integration-unittests
+          name: odood-integration-unittests
+
+
