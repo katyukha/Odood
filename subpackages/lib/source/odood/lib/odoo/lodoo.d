@@ -194,6 +194,11 @@ const struct LOdoo {
           * Returns:
           *     Path where backup was stored.
           **/
+        deprecated(
+            "Because this method is not reliable, Odoo hides output of pgdump, " ~
+            "it is difficult to understand what happened in case of errors. " ~
+            "Thus Odood now have its own implementation of backup at " ~
+            "`project.databases.backup` method.")
         Path databaseBackup(
                 in string dbname,
                 in BackupFormat backup_format = BackupFormat.zip) {

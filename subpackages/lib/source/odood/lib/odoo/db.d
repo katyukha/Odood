@@ -8,6 +8,7 @@ private import std.exception: enforce;
 private import thepath: Path;
 private import dpq.connection;
 
+private import odood.lib.odoo.config;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.exception: OdoodException;
@@ -25,26 +26,17 @@ package(odood.lib) struct OdooDatabase {
         _project = project;
         _dbname = dbname;
 
-        auto odoo_conf = _project.getOdooConfig;
-
-        auto conn_host = odoo_conf["options"].hasKey("db_host") ?
-            odoo_conf["options"].getKey("db_host") : "localhost";
-        auto conn_port = odoo_conf["options"].hasKey("db_port") ?
-            odoo_conf["options"].getKey("db_port") : "5432";
-        auto conn_user = odoo_conf["options"].hasKey("db_user") ?
-            odoo_conf["options"].getKey("db_user") : "odoo";
-        auto conn_password = odoo_conf["options"].hasKey("db_password") ?
-            odoo_conf["options"].getKey("db_password") : "odoo";
+        auto db_conf = _project.parseOdooDatabaseConfig;
 
         string conn_str = "dbname='%s'".format(dbname);
-        if (conn_host != "False" && conn_host != "None")
-            conn_str ~= " host='%s'".format(conn_host);
-        if (conn_port != "False" && conn_port != "None")
-            conn_str ~= " port='%s'".format(conn_port);
-        if (conn_user != "False" && conn_user != "None")
-            conn_str ~= " user='%s'".format(conn_user);
-        if (conn_password != "False" && conn_password != "None")
-            conn_str ~= " password='%s'".format(conn_password);
+        if (db_conf.host)
+            conn_str ~= " host='%s'".format(db_conf.host);
+        if (db_conf.port)
+            conn_str ~= " port='%s'".format(db_conf.port);
+        if (db_conf.user)
+            conn_str ~= " user='%s'".format(db_conf.user);
+        if (db_conf.password)
+            conn_str ~= " password='%s'".format(db_conf.password);
 
         _connection = Connection(conn_str);
     }
