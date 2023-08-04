@@ -26,7 +26,21 @@ jobs:
         run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
 
       - name: Install system dependencies (for Odood)
-        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev make
+        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
+
+      #- name: Install system dependencies (for python build)
+        #run: apt-get install --no-install-recommends -yq make build-essential libssl-dev zlib1g-dev libbz2-dev liblzma-dev libffi-dev
+
+      - name: Prepare dependencies for deb package
+        id: prepare_deb_deps
+        run: |
+          echo "debian_bullseye_deps=$(cat .ci/deps/debian.bullseye.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
+
+      - name: Install system (runtime) dependencies (Debian Bullseye)
+        if: matrix.image == 'debian:bullseye'
+        uses: lyricwulf/abc@v1
+        with:
+          linux: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
 
       - name: Download LDC compiler
         run: |
@@ -34,7 +48,7 @@ jobs:
           tar -xf /tmp/ldc2.tar.xz
           ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
 
-      - name: Run tests (Debian Bullseye
+      - name: Run tests (Debian Bullseye)
         if: matrix.image == 'debian:bullseye'
         run: dub test -b unittest-cov --override-config=pyd/python39
 
