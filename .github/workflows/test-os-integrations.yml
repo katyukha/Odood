@@ -26,7 +26,7 @@ jobs:
         run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
 
       - name: Install system dependencies (for Odood)
-        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
+        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev make
 
       - name: Download LDC compiler
         run: |
