@@ -4,15 +4,19 @@
 module odood.lib.odoo.db_manager;
 
 private import std.logger;
+private import std.json;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
 
-private import thepath: Path;
+private import thepath;
+private import theprocess;
+private import zipper;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
+private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib.odoo.db: OdooDatabase;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
@@ -103,6 +107,12 @@ struct OdooDatabaseManager {
         );
     }
 
+    /** Prepare dump manifest for the database
+      **/
+    string dumpManifest(in string dbname) const {
+        return _project.lodoo(_test_mode).databaseDumpManifext(dbname);
+    }
+
     /** Backup database
       *
       * Params:
@@ -119,13 +129,75 @@ struct OdooDatabaseManager {
             in string dbname, in Path backup_path,
             in BackupFormat backup_format = BackupFormat.zip,
             in string prefix = DEFAULT_BACKUP_PREFIX) const {
+        import std.stdio;
+        import std.process;
         Path dest = backup_path.exists && backup_path.isDir ?
             backup_path.join(
                 generateBackupName(dbname, prefix, backup_format)) :
             backup_path;
 
-        return _project.lodoo(_test_mode).databaseBackup(
-            dbname, dest, backup_format);
+        infof("Backing up database %s to %s", dbname, dest);
+
+        auto db_config = _project.parseOdooDatabaseConfig;
+
+        // TODO: Use resolveProgramPath here
+        auto pg_dump = Process("pg_dump")
+            .withArgs("--no-owner", dbname);
+        if (db_config.host)
+            pg_dump.setEnv("PGHOST", db_config.host);
+        if (db_config.port)
+            pg_dump.setEnv("PGPORT", db_config.port);
+        if (db_config.user)
+            pg_dump.setEnv("PGUSER", db_config.user);
+        if (db_config.password)
+            pg_dump.setEnv("PGPASSWORD", db_config.password);
+
+        final switch (backup_format) {
+            case BackupFormat.zip:
+                // Create temp directory
+                const auto tmp_dir = createTempPath();
+                scope(exit) tmp_dir.remove();
+
+                // Run database backup
+                auto dump_pid = pg_dump
+                    .addArgs("--file=" ~ tmp_dir.join("dump.sql").toString)
+                    .spawn(
+                        std.stdio.File("/dev/null"),
+                        tmp_dir.join("pg_dump.output.log").openFile("wt"),
+                        tmp_dir.join("pg_dump.error.log").openFile("wt"));
+
+                // Copy filestore to temporary directory
+                _project.directories.data
+                    .join("filestore", dbname)
+                    .copyTo(tmp_dir.join("filestore"));
+
+                // Prepare dump manifest
+                tmp_dir.join("manifest.json").writeFile(dumpManifest(dbname));
+
+                // Wait database backup completed, and ensure it is ok.
+                enforce!OdoodException(
+                    dump_pid.wait == 0,
+                    "Cannot dump postgresql database.\n%s\nOutput: %s\nErrors: %s\n".format(
+                        pg_dump,
+                        tmp_dir.join("pg_dump.output.log").readFileText,
+                        tmp_dir.join("pg_dump.error.log").readFileText));
+
+                // Save it all in Zip archive
+                Zipper(dest, ZipMode.CREATE)
+                    .add(tmp_dir.join("filestore"), "filestore")
+                    .add(tmp_dir.join("manifest.json"))
+                    .add(tmp_dir.join("dump.sql"));
+                return dest;
+            case BackupFormat.sql:
+                // In case of SQL backups, just call pg_dump and let it do its job.
+                auto dump_pid = pg_dump
+                    .addArgs(
+                        "--format=c",
+                        "--file=" ~ dest.toString)
+                    .execute
+                    .ensureOk(true);
+                return dest;
+        }
     }
 
     /** Backup database.

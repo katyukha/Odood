@@ -82,21 +82,7 @@ void testDatabaseManagement(in Project project) {
     project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
 
-    Path backup_path;
-    try {
-        backup_path = project.databases.backup(project.genDbName("test-2"));
-    } catch (Exception e) {
-        auto tmp_path = createTempPath();
-        scope(exit) tmp_path.remove();
-
-        // Print output of pg_dump, because Odoo do not do it.
-        auto res = Process("/usr/bin/pg_dump")
-            .withArgs("--no-owner", "--file", tmp_path.join("dump.sql").toString, project.genDbName("test-2"))
-            .execute()
-            .ensureOk(true);
-        infof("DEBUG: pg_dump_output: %s", res.output);
-        throw e;
-    }
+    auto backup_path = project.databases.backup(project.genDbName("test-2"));
 
     project.databases.drop(project.genDbName("test-2"));
     project.databases.exists(project.genDbName("test-1")).shouldBeTrue();

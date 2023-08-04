@@ -160,6 +160,11 @@ const struct LOdoo {
           * Returns:
           *     Path where backup was stored.
           **/
+        deprecated(
+            "Because this method is not reliable, Odoo hides output of pgdump, " ~
+            "it is difficult to understand what happened in case of errors. " ~
+            "Thus Odood now have its own implementation of backup at " ~
+            "`project.databases.backup` method.")
         Path databaseBackup(
                 in string dbname, in Path backup_path,
                 in BackupFormat backup_format = BackupFormat.zip) {
@@ -221,6 +226,10 @@ const struct LOdoo {
         auto databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
             return runE("db-restore", name, backup_path.toString);
+        }
+
+        auto databaseDumpManifext(in string name) {
+            return runE("db-dump-manifest", name).output;
         }
 
         /** Update list of addons

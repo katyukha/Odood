@@ -1,5 +1,9 @@
 module odood.lib.odoo.config;
 
+private import std.algorithm;
+private import std.uni;
+private import std.typecons;
+
 private import thepath: Path;
 private import dini;
 
@@ -114,4 +118,35 @@ struct OdooConfigBuilder {
     auto result() {
         return _odoo_conf;
     }
+}
+
+
+/** We have to preprocess config value to handle
+  * possible False and None values.
+  * And this function will do this job.
+  **/
+string getConfVal(Ini config, in string key, return in string defValue=null) {
+    string value = config["options"].getKey(key, "None");
+    if (value.toLower.among("none", "false"))
+        return defValue;
+    return value;
+}
+
+
+/** Parse Odoo's database config and return tuple with following fields:
+  * host, port, user, password
+  **/
+auto parseOdooDatabaseConfig(in Project project) {
+    // TODO: handle test config
+    auto config = project.readOdooConfig;
+
+
+    return Tuple!(
+        string, "host", string, "port", string, "user", string, "password"
+    )(
+        config.getConfVal("db_host"),
+        config.getConfVal("db_port"),
+        config.getConfVal("db_user"),
+        config.getConfVal("db_password"),
+    );
 }
