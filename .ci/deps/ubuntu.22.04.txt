@@ -12,13 +12,15 @@ libfreetype6-dev
 zlib1g-dev
 libxml2-dev
 libxslt-dev
-bzip2
+libbz2-dev
 libsasl2-dev
 libldap2-dev
 libssl-dev
 libffi-dev
+liblzma-dev
 fontconfig
 libmagic1
 postgresql-client
 lsb-base
 git
+make
