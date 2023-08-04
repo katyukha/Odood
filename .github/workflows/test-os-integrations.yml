@@ -101,16 +101,8 @@ jobs:
           tar -xf /tmp/ldc2.tar.xz
           ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
 
-      - name: Prepare dependencies for deb package
-        id: prepare_deb_deps
-        run: |
-          echo "debian_bullseye_deps=$(cat .ci/deps/debian.bullseye.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
-
-      - name: Install system (runtime) dependencies (Debian Bullseye)
-        if: matrix.image == 'debian:bullseye'
-        uses: lyricwulf/abc@v1
-        with:
-          linux: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
+      - name: Install package dependencies
+        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/debian.bullseye.txt)
 
       - name: Run tests (Debian Bullseye)
         if: matrix.image == 'debian:bullseye'
