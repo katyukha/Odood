@@ -298,11 +298,19 @@ const struct VirtualEnv {
 
         // Configure python build
         info("Running python's configure script...");
-        Process(python_build_dir.join("configure"))
+        auto configure_status = Process(python_build_dir.join("configure"))
             .withArgs(python_configure_opts)
             .inWorkDir(python_build_dir)
-            .execute()
-            .ensureStatus(true);
+            .execute();
+
+        if (configure_status.isNotOk()) {
+            import std.stdio;
+            if (python_build_dir.join("config.status").exists) {
+                writeln("Config.status:");
+                python_build_dir.join("config.status").readFileText.writeln;
+            }
+        }
+        configure_status.ensureOk(true);
 
         // Build python itself
         info("Building python...");
