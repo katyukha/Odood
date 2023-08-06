@@ -257,7 +257,7 @@ const struct VirtualEnv {
 
         // Define paths and links to download python
         string python_download_link =
-            "https://www.python.org/ftp/python/%s/Python-%s.tgz".format(
+            "https://www.python.org/ftp/python/%s/Python-%s.tar.xz".format(
                     build_version, build_version);
         auto python_download_path = tmp_dir.join(
             "python-%s.tgz".format(build_version));
@@ -290,7 +290,7 @@ const struct VirtualEnv {
             // Extract only if needed
             info("Unpacking python...");
             Process("tar")
-                .withArgs(["-xzf", python_download_path.toString])
+                .withArgs(["-xf", python_download_path.toString])
                 .inWorkDir(tmp_dir)
                 .execute()
                 .ensureStatus(true);
@@ -298,19 +298,11 @@ const struct VirtualEnv {
 
         // Configure python build
         info("Running python's configure script...");
-        auto configure_status = Process(python_build_dir.join("configure"))
+        Process(python_build_dir.join("configure"))
             .withArgs(python_configure_opts)
             .inWorkDir(python_build_dir)
-            .execute();
-
-        if (configure_status.isNotOk()) {
-            import std.stdio;
-            if (python_build_dir.join("config.status").exists) {
-                writeln("Config.status:");
-                python_build_dir.join("config.status").readFileText.writeln;
-            }
-        }
-        configure_status.ensureOk(true);
+            .execute()
+            .ensureOk(true);
 
         // Build python itself
         info("Building python...");
