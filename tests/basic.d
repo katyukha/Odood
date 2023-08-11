@@ -32,9 +32,9 @@ void createDbUser(in string user, in string password) {
     auto connection = Connection(connection_str);
     scope(exit) connection.close();
 
-    auto res_user_exists = connection.execParams(
-        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='$1')", user);
-    if (res_user_exists[0][0].as!string.get != "t") {
+    auto res_user_exists = connection.exec(
+        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='%s')".format(user));
+    if (res_user_exists[0][0].as!string != "t") {
         infof("Creating db user '%s' with password '%s' for tests", user, password);
         connection.exec(
             "CREATE USER \"%s\" WITH CREATEDB PASSWORD '%s';".format(
@@ -113,6 +113,7 @@ void testDatabaseManagement(in Project project) {
 void testAddonsManagementBasic(in Project project) {
     project.databases.create(project.genDbName("test-1"), true);
 
+    // Install/update/uninstall standard 'crm' addon
     project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
     project.addons.install(project.genDbName("test-1"), "crm");
     project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeTrue();
@@ -216,10 +217,10 @@ void runBasicTests(in Project project) {
      * - test addons testing
      */
 
-    //// Test server management
+    // Test server management
     testServerManagement(project);
 
-    //// Test LOdoo Database operations
+    // Test LOdoo Database operations
     testDatabaseManagement(project);
 
     // Test basic addons management
@@ -236,7 +237,7 @@ void runBasicTests(in Project project) {
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood",
+        "tmp-odood-15",
     );
     scope(exit) temp_path.remove();
 
@@ -269,7 +270,7 @@ unittest {
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood",
+        "tmp-odood-14",
     );
     scope(exit) temp_path.remove();
 
@@ -302,7 +303,7 @@ unittest {
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood",
+        "tmp-odood-13",
     );
     scope(exit) temp_path.remove();
 
@@ -335,7 +336,7 @@ unittest {
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood",
+        "tmp-odood-12",
     );
     scope(exit) temp_path.remove();
 
@@ -368,7 +369,7 @@ unittest {
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood",
+        "tmp-odood-14-15",
     );
     scope(exit) temp_path.remove();
 

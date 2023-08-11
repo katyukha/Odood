@@ -99,6 +99,7 @@ final class OdooAddon {
 
     /// Initialize addon based on path and name
     this(in Path path, in string name) {
+        // TODO: there is no need to specify name here. It have to be computed based on path.
         this._name = name;
         this._path = path.toAbsolute;
         this._manifest_path = getAddonManifestPath(_path).get;
@@ -108,6 +109,7 @@ final class OdooAddon {
       * computation of name of addon.
       **/
     this(in Path path) {
+        // TODO: Handle case when path is '.'
         this(path, path.baseName);
     }
 

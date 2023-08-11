@@ -297,7 +297,7 @@ struct AddonManager {
             "--max-cron-threads=0",
             "--stop-after-init",
             _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
-            "--pidfile=/dev/null",
+            "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
             "--logfile=%s".format(_project.odoo.logfile.toString),
         ];
 
