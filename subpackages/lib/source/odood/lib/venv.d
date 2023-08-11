@@ -243,6 +243,7 @@ const struct VirtualEnv {
                      in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
         import std.parallelism: totalCPUs;
+        import std.process: environment;
 
         infof("Building python version %s...", build_version);
 
@@ -259,7 +260,7 @@ const struct VirtualEnv {
         string python_download_link =
             "https://www.python.org/ftp/python/%s/Python-%s.tar.xz".format(
                     build_version, build_version);
-        auto python_download_path = tmp_dir.join(
+        auto python_download_path = getCacheDir("python", tmp_dir).join(
             "python-%s.tgz".format(build_version));
         auto python_build_dir = tmp_dir.join(
             "Python-%s".format(build_version));

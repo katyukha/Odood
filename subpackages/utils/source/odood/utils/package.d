@@ -121,6 +121,9 @@ void download(
 
 
 /** Generate random string of specified length
+  *
+  * Params:
+  *     length = length of random string to generate.
   **/
 string generateRandomString(in uint length) {
     import std.ascii: letters, digits;
@@ -131,3 +134,41 @@ string generateRandomString(in uint length) {
     return result;
 }
 
+
+/** Get cache dir for specified name if cache is configured.
+  * This could be used to cached downloads like python or Odoo,
+  * in cases when downloading of same file is frequent operation.
+  *
+  * Params:
+  *     name = name of cache to get path for
+  *
+  * Returns: nullable path to specified directory inside cache dir.
+  *     If cache is not enabled, the retuns Nullable!Path.init
+  **/
+Nullable!Path getCacheDir(in string name) {
+    import std.process;
+    auto cache_path = Path(environment.get("ODOOD_CACHE_DIR"));
+    if (cache_path.isValid && cache_path.isAbsolute) {
+        cache_path = cache_path.join(name);
+        // Create path if it does not exists yet
+        if (!cache_path.exists) cache_path.mkdir(true);
+        return cache_path.nullable;
+    }
+    return Nullable!Path.init;
+}
+
+/** Get cache dir for specified name if cache is configured.
+  * This could be used to cached downloads like python or Odoo,
+  * in cases when downloading of same file is frequent operation.
+  *
+  * Params:
+  *     name = name of cache to get path for
+  *     defaultDir = default path to be returned if cache was not enabled
+  *
+  * Returns: path to directory inside cache dir, or default directory
+  **/
+Path getCacheDir(in string name, in Path defaultDir) {
+    auto cache_dir = getCacheDir(name);
+    if (cache_dir.isNull) return defaultDir;
+    return cache_dir.get;
+}

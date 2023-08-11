@@ -24,12 +24,18 @@ private import odood.utils;
   *     project = Project to download Odoo to.
  **/
 void installDownloadOdoo(in Project project) {
-    auto odoo_archive_path = project.directories.downloads.join(
+    auto odoo_cache_dir = getCacheDir("odoo");
+
+    // Cleanup Odoo if we do not use cache
+    bool cleanup_odoo = odoo_cache_dir.isNull;
+
+    auto odoo_archive_path = odoo_cache_dir.get(
+        project.directories.downloads).join(
             "odoo.%s.zip".format(project.odoo.branch));
     scope(exit) {
         // Automatically remove downloaded odoo archive on extraction
-        // completed
-        if (odoo_archive_path.exists)
+        // completed (if cache not used)
+        if (cleanup_odoo && odoo_archive_path.exists)
             odoo_archive_path.remove();
     }
 
@@ -182,7 +188,7 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
      *       log to some log file, but in case of running tests, it is required
      *       to print logs to stderr or stdout, thus logs could be displayed
      *       to user and processed on the fly. Unfortunately, older versions of
-     *       Odoo, do not support of passign empty value to '--logfile' option.
+     *       Odoo, do not support passign empty value to '--logfile' option.
      *       Thus, the only way to write logs to file or stdout conditionally
      *       is to use separate config files for them.
      */
@@ -201,6 +207,7 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
                 project.odoo.serie.major,
                 uniform(2, 9)));
     } else {
+        // TODO: Add case for Odoo 16.0+ too use correct settings.
         odoo_test_conf["options"].setKey(
             "http_port",
             "%s%s69".format(

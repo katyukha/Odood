@@ -32,10 +32,14 @@ void createDbUser(in string user, in string password) {
     auto connection = Connection(connection_str);
     scope(exit) connection.close();
 
-    infof("Creating db user '%s' with password '%s' for tests", user, password);
-    connection.exec(
-        "CREATE USER \"%s\" WITH CREATEDB PASSWORD '%s';".format(
-            user, password));
+    auto res_user_exists = connection.execParams(
+        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='$1')", user);
+    if (res_user_exists[0][0].as!string.get != "t") {
+        infof("Creating db user '%s' with password '%s' for tests", user, password);
+        connection.exec(
+            "CREATE USER \"%s\" WITH CREATEDB PASSWORD '%s';".format(
+                user, password));
+    }
 }
 
 /// Generate db name for the test for specified project
@@ -203,6 +207,31 @@ void testRunningScripts(in Project project) {
 }
 
 
+/// Run basic tests for project
+void runBasicTests(in Project project) {
+    /* Plan:
+     * - test server management
+     * - test database management
+     * - test repo downloading
+     * - test addons testing
+     */
+
+    //// Test server management
+    testServerManagement(project);
+
+    //// Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
+
+    // TODO: Complete the test
+}
+
+
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
@@ -231,26 +260,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(15));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
-    /* Plan:
-     * - test server management
-     * - test database management
-     * - test repo downloading
-     * - test addons testing
-     */
-
-    // Test server management
-    testServerManagement(project);
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project);
-
-    // Test basic addons management
-    testAddonsManagementBasic(project);
-
-    // Test running scripts
-    testRunningScripts(project);
-
-    // TODO: Complete the test
+    // Run basic tests
+    project.runBasicTests;
 }
 
 
@@ -282,26 +293,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(14));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
-    /* Plan:
-     * - test server management
-     * - test database management
-     * - test repo downloading
-     * - test addons testing
-     */
-
-    // Test server management
-    testServerManagement(project);
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project);
-
-    // Test basic addons management
-    testAddonsManagementBasic(project);
-
-    // Test running scripts
-    testRunningScripts(project);
-
-    // TODO: Complete the test
+    // Run basic tests
+    project.runBasicTests;
 }
 
 
@@ -333,26 +326,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(13));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
-    /* Plan:
-     * - test server management
-     * - test database management
-     * - test repo downloading
-     * - test addons testing
-     */
-
-    // Test server management
-    testServerManagement(project);
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project);
-
-    // Test basic addons management
-    testAddonsManagementBasic(project);
-
-    // Test running scripts
-    testRunningScripts(project);
-
-    // TODO: Complete the test
+    // Run basic tests
+    project.runBasicTests;
 }
 
 
@@ -384,26 +359,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(12));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
-    /* Plan:
-     * - test server management
-     * - test database management
-     * - test repo downloading
-     * - test addons testing
-     */
-
-    // Test server management
-    testServerManagement(project);
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project);
-
-    // Test basic addons management
-    testAddonsManagementBasic(project);
-
-    // Test running scripts
-    testRunningScripts(project);
-
-    // TODO: Complete the test
+    // Run basic tests
+    project.runBasicTests;
 }
 
 
@@ -453,25 +410,6 @@ unittest {
     // Test that server initialization works fine
     project.server.run("--stop-after-init", "--no-http");
 
-
-    /* Plan:
-     * - test server management
-     * - test database management
-     * - test repo downloading
-     * - test addons testing
-     */
-
-    // Test server management
-    testServerManagement(project);
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project);
-
-    // Test basic addons management
-    ///testAddonsManagementBasic(project);
-
-    // Test running scripts
-    testRunningScripts(project);
-
-    // TODO: Complete the test
+    // Run basic tests
+    project.runBasicTests;
 }
