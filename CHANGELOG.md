@@ -1,10 +1,16 @@
 # Changelog
 
-## Unreleased
+## Release 0.0.12 (2023-08-14)
 
 ### Added
 
 - Command `odood odoo shell` that allows to open odoo shell for specified db.
+- Added release for `debian:bullseye`
+
+### Changed
+
+- Implement backup of database on D level. This way it provides better error handling.
+- Added ability to cache downloads if `ODOOD_CACHE_DIR` environment variable is set.
 
 ---
 
