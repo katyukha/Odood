@@ -207,7 +207,7 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
                 project.odoo.serie.major,
                 uniform(2, 9)));
     } else {
-        // TODO: Add case for Odoo 16.0+ too use correct settings.
+        // TODO: Add case for Odoo 16.0+ to use correct settings.
         odoo_test_conf["options"].setKey(
             "http_port",
             "%s%s69".format(

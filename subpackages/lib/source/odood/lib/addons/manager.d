@@ -72,7 +72,7 @@ struct AddonManager {
     Nullable!OdooAddon getByName(in string addon_name) {
         foreach(path; addons_paths) {
             if (path.join(addon_name).isOdooAddon)
-                return new OdooAddon(path.join(addon_name), addon_name).nullable;
+                return new OdooAddon(path.join(addon_name)).nullable;
         }
         return Nullable!OdooAddon.init;
     }

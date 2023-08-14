@@ -14,6 +14,7 @@ private import theprocess;
 
 private import odood.lib.project: Project;
 private import odood.lib.venv: PySerie;
+private import odood.lib.odoo.python;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: download, parsePythonVersion;
 private import odood.exception: OdoodException;
@@ -54,30 +55,6 @@ bool isSystemPythonSuitable(in Project project) {
 
     /// Unknown odoo version
     return false;
-}
-
-
-// TODO: move to odoo/python ?
-/** Suggest python version for specified project.
-  * This is used to determine what version of python to build.
-  * Returns: the suggested python version for specified project.
-  **/
-string suggestPythonVersion(in Project project) {
-    if (project.odoo.serie <= OdooSerie(10))
-        return "2.7.18";
-    if (project.odoo.serie == OdooSerie(11))
-        return "3.7.17";
-    if (project.odoo.serie == OdooSerie(12))
-        return "3.7.17";
-    if (project.odoo.serie == OdooSerie(13))
-        return "3.8.17";
-    if (project.odoo.serie == OdooSerie(14))
-        return "3.8.17";
-    if (project.odoo.serie == OdooSerie(15))
-        return "3.8.17";
-    if (project.odoo.serie == OdooSerie(16))
-        return "3.8.17";
-    return "3.8.17";
 }
 
 
