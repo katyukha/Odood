@@ -262,7 +262,7 @@ struct OdooDatabaseManager {
         } catch (OdoodException e) {
             warningf(
                 "Cannot find/parse backup (%s) manifest: %s",
-                backup_path, e);
+                backup_path, e.msg);
             // TODO: try to guess if it is SQL backup or ZIP backup, and
             //       do correct validation;
             return;

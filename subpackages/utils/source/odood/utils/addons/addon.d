@@ -70,6 +70,15 @@ private struct OdooAddonManifest {
         return [];
     }
 
+    /// Return list of python dependencies
+    string[] python_dependencies() {
+        if (!_manifest.has_key("external_dependencies"))
+            return [];
+        if (!_manifest["external_dependencies"].has_key("python"))
+            return [];
+        return _manifest["external_dependencies"]["python"].to_d!(string[]);
+    }
+
     // TODO: Parse the version to some specific struct, that
     //       have to automatically guess module version in same way as odoo do
     string module_version() {
