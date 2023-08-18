@@ -32,6 +32,16 @@ private immutable ODOO_TEST_HTTP_PORT=8269;
 private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
 
 
+/** Generate name of test database for specified Odood project
+  *
+  * Params:
+  *     project = project to generate name of test database for.
+  **/
+string generateTestDbName(in Project project) pure {
+    return "odood%s-odood-test".format(project.odoo.serie.major);
+}
+
+
 // Regular expressions to check for errors
 private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`At least one test failed`),
@@ -235,8 +245,7 @@ struct OdooTestRunner {
       **/
     private void getOrCreateTestDb() {
         if (!_test_db_name)
-            setDatabaseName(
-                "odood%s-odood-test".format(_project.odoo.serie.major));
+            setDatabaseName(generateTestDbName(_project));
         if (!_lodoo.databaseExists(_test_db_name)) {
             _lodoo.databaseCreate(_test_db_name, true);
         }

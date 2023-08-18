@@ -12,10 +12,10 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.lodoo: BackupFormat;
+private import odood.lib.odoo.test: generateTestDbName;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 private import odood.utils.addons.addon: OdooAddon;
-
 
 
 class CommandDatabaseList: OdoodCommand {
@@ -42,6 +42,8 @@ class CommandDatabaseCreate: OdoodCommand {
         this.add(new Flag("d", "demo", "Load demo data for this db"));
         this.add(new Flag(
             "r", "recreate", "Recreate database if it already exists."));
+        this.add(new Flag(
+            null, "tdb", "Automatically generate default name of test database"));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -58,14 +60,22 @@ class CommandDatabaseCreate: OdoodCommand {
         this.add(new Option(
             null, "install-file",
             "Install all modules listed in specified file.").repeating);
-        this.add(new Argument("name", "Name of database").required());
+        this.add(new Argument("name", "Name of database").optional);
+    }
+
+    string getDatabaseName(ProgramArgs args, in Project project) {
+        if (args.arg("name"))
+            return args.arg("name");
+        if (args.flag("tdb"))
+            return generateTestDbName(project);
+        throw new OdoodCLIException("It is required to specify name of database or option --tdb.");
     }
 
     public override void execute(ProgramArgs args) {
         import std.array: empty;
 
         auto project = Project.loadProject;
-        string dbname = args.arg("name");
+        string dbname = getDatabaseName(args, project);
 
         OdooAddon[] to_install;
         foreach(addon_name; args.options("install")) {

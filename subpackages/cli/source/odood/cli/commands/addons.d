@@ -4,9 +4,9 @@ private import std.stdio;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.algorithm: sort, filter, startsWith;
+private import std.algorithm;
 private import std.conv: to;
-private import std.string: capitalize, strip;
+private import std.string: capitalize, strip, join;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -600,6 +600,60 @@ class CommandAddonsIsInstalled: OdoodCommand {
 }
 
 
+class CommandAddonsGeneratePyRequirements: OdoodCommand {
+    this() {
+        super(
+            "generate-py-requirements",
+            "Generate python's requirements.txt from addon's manifests. " ~
+            "By default, it prints requirements to stdout.");
+        this.add(new Option(
+            "o", "out-file", "Path to file where to store generated requirements"));
+        this.add(new Option(
+            null, "dir",
+            "Directory to search for addons to generate requirements.txt for.").repeating);
+        this.add(new Option(
+            null, "dir-r",
+            "Directory to recursively search for addons to generate requirements.txt for.").repeating);
+        this.add(new Argument(
+            "addon", "Name of addon to generate manifest for.").repeating.optional);
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        Path output_path;
+        bool print_to_file = false;
+        if (args.option("out-file")) {
+            output_path = Path(args.option("out-file"));
+            print_to_file = true;
+        }
+
+        string[] dependencies;
+
+        foreach(string search_path; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(search_path), false))
+                foreach(dependency; addon.manifest.python_dependencies)
+                    dependencies ~= dependency;
+
+        foreach(string search_path; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(search_path), true))
+                foreach(dependency; addon.manifest.python_dependencies)
+                    dependencies ~= dependency;
+
+        foreach(addon_name; args.args("addon")) {
+            auto addon = project.addons.getByString(addon_name);
+            if (!addon.isNull)
+                foreach(dependency; addon.get.manifest.python_dependencies)
+                    dependencies ~= dependency;
+        }
+
+        string requirements_content = dependencies.sort.uniq.join("\n") ~ "\n";
+        if (print_to_file)
+            output_path.writeFile(requirements_content);
+        else
+            writeln(requirements_content);
+    }
+}
 
 class CommandAddons: OdoodCommand {
     this() {
@@ -612,6 +666,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsUninstall());
         this.add(new CommandAddonsAdd());
         this.add(new CommandAddonsIsInstalled());
+        this.add(new CommandAddonsGeneratePyRequirements());
     }
 }
 
