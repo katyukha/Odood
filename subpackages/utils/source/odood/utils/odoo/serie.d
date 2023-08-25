@@ -10,8 +10,8 @@ private import std.string : format;
   * mechanics to parse and compare Odoo series
   **/
 @safe struct OdooSerie {
-    private ubyte _major;
-    private ubyte _minor;
+    private uint _major;
+    private uint _minor;
     private bool _isValid = false;
 
     /** Construct new Odoo serie instance
@@ -22,9 +22,9 @@ private import std.string : format;
     pure this(in string ver) {
         auto parts = ver.split(".");
         if (parts.length == 2) {
-            this(parts[0].to!ubyte, parts[1].to!ubyte);
+            this(parts[0].to!uint, parts[1].to!uint);
         } else if (parts.length == 1) {
-            this(parts[0].to!ubyte, 0);
+            this(parts[0].to!uint, 0);
         } else {
             this(0, 0);
         }
@@ -36,7 +36,7 @@ private import std.string : format;
       *     major = "major" parto of odoo serie
       *     minor = "minor" part of odoo serie
       **/
-    pure this(in ubyte major, in ubyte minor=0) {
+    pure this(in uint major, in uint minor=0) {
         this._major = major;
         this._minor = minor;
         if (_major > 0) _isValid = true;
@@ -55,10 +55,10 @@ private import std.string : format;
     pure nothrow bool isValid() const { return this._isValid; }
 
     /// Return "major" part of Odoo serie
-    pure nothrow ubyte major() const { return this._major; }
+    pure nothrow uint major() const { return this._major; }
 
     /// Return "minor" part of Odoo serie
-    pure nothrow ubyte minor() const { return this._minor; }
+    pure nothrow uint minor() const { return this._minor; }
 
     ///
     unittest {
@@ -104,7 +104,7 @@ private import std.string : format;
         return this.opCmp(OdooSerie(other));
     }
 
-    pure int opCmp(in ubyte other) const {
+    pure int opCmp(in uint other) const {
         return this.opCmp(OdooSerie(other));
     }
 
@@ -119,7 +119,7 @@ private import std.string : format;
         return this.opEquals(OdooSerie(other));
     }
 
-    pure int opEquals(in ubyte other) const {
+    pure int opEquals(in uint other) const {
         return this.opEquals(OdooSerie(other));
     }
 

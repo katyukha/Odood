@@ -286,7 +286,7 @@ void gitClone(
     Process("git")
         .setArgs(git_options)
         .execute()
-        .ensureStatus();
+        .ensureOk(true);
 }
 
 /** Check if specified path is git repository
