@@ -10,37 +10,35 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.addons.addon_version: OdooAddonVersion;
 
 
 /// Resolve version conflict in provided manifest content.
 string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
     import std.regex;
-    import semver;
 
     auto immutable RE_CONFLICT = ctRegex!(
         `^<<<<<<< HEAD\n` ~
-        `(?P<head>\s+["']version["']:\s["'](?P<headserie>\d+\.\d+)\.(?P<headver>\d+\.\d+\.\d+)["'],\n)` ~
+        `(?P<head>\s+["']version["']:\s["'](?P<headversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n)` ~
         `=======\n` ~
-        `(?P<changekey>\s+["']version["']:\s)(?P<changequote>["'])(?P<changeserie>\d+\.\d+)\.(?P<changever>\d+\.\d+\.\d+)["'],\n` ~
+        `(?P<changekey>\s+["']version["']:\s)(?P<changequote>["'])(?P<changeversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n` ~
         `>>>>>>> .*\n`, "m");
 
     // function that is responsible for replace
     string fn_replace(Captures!(string) captures) {
-        immutable OdooSerie head_serie = captures["headserie"];
-        const SemVer head_version = captures["headver"];
-
-        immutable OdooSerie change_serie = captures["changeserie"];
-        const SemVer change_version = captures["changever"];
+        const OdooAddonVersion head_version = OdooAddonVersion(captures["headversion"])
+            .ensureIsStandard.withSerie(serie);
+        const OdooAddonVersion change_version = OdooAddonVersion(captures["changeversion"])
+            .ensureIsStandard.withSerie(serie);
 
         auto new_ver = change_version > head_version ? change_version : head_version;
 
         // TODO: find better way. Check if head and change versions are valid
-        assert(new_ver.isValid, "New version is not valid!");
+        assert(new_ver.isStandard, "New version is not valid!");
 
-        return "%s%s%s.%s%s,\n".format(
+        return "%s%s%s%s,\n".format(
             captures["changekey"],
             captures["changequote"],
-            serie.toString,
             new_ver.toString,
             captures["changequote"],
         );
@@ -70,7 +68,6 @@ unittest {
     'version': '16.0.1.10.0',
     'category': 'Helpdesk',
 }`);
-
 }
 
 

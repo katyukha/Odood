@@ -4,8 +4,10 @@ private import std.string;
 private import std.algorithm;
 private import std.conv;
 private import std.array;
+private import std.exception;
 
 private import odood.utils.odoo.serie;
+private import odood.exception;
 
 
 /// This struct represents version of Odoo addon
@@ -19,7 +21,7 @@ private import odood.utils.odoo.serie;
 
     @disable this();
 
-    this(in OdooSerie serie, in uint major, in uint minor, in uint patch) {
+    this(in OdooSerie serie, in uint major, in uint minor, in uint patch) pure {
         _serie = serie;
         _major = major;
         _minor = minor;
@@ -28,11 +30,11 @@ private import odood.utils.odoo.serie;
         _raw_version = _serie.toString ~ "." ~ _major.to!string ~ "." ~ _minor.to!string ~ "." ~ patch.to!string;
     }
 
-    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor, in uint patch) {
+    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor, in uint patch) pure {
         this(OdooSerie(serie_major, serie_minor), major, minor, patch);
     }
 
-    this(in string addon_version) {
+    this(in string addon_version) pure {
         _raw_version = addon_version.idup;
 
         try {
@@ -85,7 +87,7 @@ private import odood.utils.odoo.serie;
     }
 
     // Comparison operators
-    pure nothrow int opCmp(in OdooAddonVersion other) const {
+    int opCmp(in OdooAddonVersion other) const pure nothrow {
         // If both versions are standard, then we have to compare parts
         // of versions.
         if (this.isStandard && other.isStandard) {
@@ -111,13 +113,39 @@ private import odood.utils.odoo.serie;
         return this.rawVersion < other.rawVersion ? -1 : 1;
     }
 
-    pure nothrow bool opEquals(in OdooAddonVersion other) const {
+    bool opEquals(in OdooAddonVersion other) const pure nothrow {
         if (this.isStandard && other.isStandard)
             return this.serie == other.serie &&
                 this.major == other.major &&
                 this.minor == other.minor &&
                 this.patch == other.patch;
         return this.rawVersion == other.rawVersion;
+    }
+
+    /** Ensure that addon versions is in standard format
+      **/
+    auto ref ensureIsStandard() const pure {
+        enforce!OdoodException(
+            isStandard, "Odoo addon version '%s' does not confirm version standard!".format(rawVersion));
+        return this;
+    }
+
+    /** Return this version for different Odoo serie
+      **/
+    auto withSerie(in OdooSerie serie) const pure {
+        return OdooAddonVersion(serie, major, minor, patch);
+    }
+
+    /// ditto
+    auto withSerie(in uint serie_major, in uint serie_minor=0) const pure {
+        return OdooAddonVersion(serie_major, serie_minor, major, minor, patch);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+
+        auto v = OdooAddonVersion("15.0.1.2.3");
+        v.withSerie(16).should == OdooAddonVersion("16.0.1.2.3");
     }
 }
 
