@@ -13,6 +13,8 @@ private import pyd.make_object: PydConversionException;
 
 private import thepath: Path;
 
+private import odood.utils.addons.addon_version;
+
 
 /** Struct designed to read addons manifest
   **/
@@ -79,10 +81,10 @@ private struct OdooAddonManifest {
         return _manifest["external_dependencies"]["python"].to_d!(string[]);
     }
 
-    // TODO: Parse the version to some specific struct, that
-    //       have to automatically guess module version in same way as odoo do
-    string module_version() {
-        return _manifest.get("version", "").to_d!string;
+    /// Returns parsed module version
+    auto module_version() {
+        // If version is not specified, then return "1.0"
+        return OdooAddonVersion(_manifest.get("version", "1.0").to_d!string);
     }
 
     /// Access manifest item as string:

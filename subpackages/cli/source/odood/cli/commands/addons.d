@@ -122,7 +122,7 @@ class CommandAddonsList: OdoodCommand {
                 return addon.path.toString;
             case AddonDisplayType.by_name_version:
                 return "%10s\t%s".format(
-                    addon.manifest.module_version, addon.name);
+                    addon.manifest.module_version.toString, addon.name);
         }
     }
 
@@ -200,7 +200,7 @@ class CommandAddonsList: OdoodCommand {
         foreach(field; fields) {
             switch(field) {
                 case "version":
-                    row ~= [addon.manifest.module_version];
+                    row ~= [addon.manifest.module_version.toString];
                     break;
                 case "price":
                     if (addon.manifest.price.is_set)
