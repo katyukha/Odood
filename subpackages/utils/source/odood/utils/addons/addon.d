@@ -184,6 +184,8 @@ Nullable!Path getAddonManifestPath(in Path path) {
 
 /** Find odoo addons in specified path.
   *
+  * If provided path is path to addon, then it will be included in result.
+  *
   * Params:
   *     path = path to addon or directory that contains addons
   *     recursive = if set to true, then search for addons in subdirectories

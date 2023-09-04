@@ -7,7 +7,7 @@
 - Command `odood addons generate-py-requirements` that allows to generate
   requirements txt files for specified modules.
 - Added new option `--tdb` to `odood db create` command,
-   that allows to use automatically generated default name for tests database.
+  that allows to use automatically generated default name for tests database.
 
 ---
 
