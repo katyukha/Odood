@@ -147,6 +147,9 @@ private import odood.exception;
         auto v = OdooAddonVersion("15.0.1.2.3");
         v.withSerie(16).should == OdooAddonVersion("16.0.1.2.3");
     }
+
+    // TODO: add method to return addon's part of version as semver
+    // TODO: add method to increase major, minor, patch
 }
 
 @safe unittest {
