@@ -76,8 +76,7 @@ void download(
         in Path dest_path,
         in Duration timeout=15.seconds,
         in ubyte max_retries=3) {
-    import requests: Request, Response;
-    import requests.streams: ConnectError;
+    import requests: Request, Response, RequestException;
     import core.thread: Thread;
 
     enforce!OdoodException(
@@ -85,37 +84,36 @@ void download(
         "Cannot download %s to %s! Destination path already exists!".format(
             url, dest_path));
 
-    auto request = Request();
-    request.useStreaming = true;
-    request.timeout = timeout;
-
-    Response response;
     for(ubyte attempt = 0; attempt <= max_retries; ++attempt) {
         try {
-            response = request.get(url);
-        } catch (ConnectError e) {
+            auto request = Request();
+            request.useStreaming = true;
+            request.timeout = timeout;
+
+            auto response = request.get(url);
+            auto stream = response.receiveAsRange();
+
+            auto f_dest = dest_path.openFile("wb");
+            scope(exit) f_dest.close();
+
+            while (!stream.empty) {
+                f_dest.rawWrite(stream.front);
+                stream.popFront;
+            }
+        } catch (RequestException e) {
             // if it is last attempt and we got error, then throw it as is
             if (attempt == max_retries) throw e;
 
             // sleep for 1 second in case of failure
-            Thread.sleep(1.seconds);
+            Thread.sleep((attempt+1).seconds);
             warningf(
                 "Cannot download %s because %s. Attempt %s/%s. Retrying",
-                url, e.msg, attempt, max_retries);
+                url, e.msg, attempt+1, max_retries);
             // and try again
             continue;
         }
-        // connected
+        // Download successfully completed, break the cycle
         break;
-    }
-    auto stream = response.receiveAsRange();
-
-    auto f_dest = dest_path.openFile("wb");
-    scope(exit) f_dest.close();
-
-    while (!stream.empty) {
-        f_dest.rawWrite(stream.front);
-        stream.popFront;
     }
 }
 
