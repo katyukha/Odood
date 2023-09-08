@@ -8,6 +8,9 @@
   requirements txt files for specified modules.
 - Added new option `--tdb` to `odood db create` command,
   that allows to use automatically generated default name for tests database.
+- Added new command `odood db list-installed-addons`.
+  This command could be used to print to stdout or
+  file list of addons installed on specific databases.
 
 ---
 
