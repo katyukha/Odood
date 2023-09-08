@@ -89,3 +89,10 @@ struct OdooAddonManifest {
     }
 
 }
+
+
+// Initialize pyd as early as possible.
+shared static this() {
+    import pyd.def: py_init;
+    py_init();
+}
