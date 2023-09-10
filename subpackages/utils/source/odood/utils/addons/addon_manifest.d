@@ -1,13 +1,13 @@
 module odood.utils.addons.addon_manifest;
 
-private import std.typecons: Nullable, nullable, tuple;
-private import std.conv: to;
+private import std.format;
+private import std.string;
+private import std.typecons;
 
-private import pyd.embedded: py_eval;
-private import pyd.pydobject: PydObject;
-private import pyd.make_object: PydConversionException;
+private import thepath;
 
-private import thepath: Path;
+private import odood.utils.tipy;
+private import odood.utils.tipy.python;
 
 private import odood.utils.addons.addon_version;
 
@@ -15,84 +15,169 @@ private import odood.utils.addons.addon_version;
 /** Struct designed to read addons manifest
   **/
 struct OdooAddonManifest {
-    private PydObject _manifest;
 
-    this(in Path path) {
-        _manifest = py_eval(path.readFileText);
-    }
-
-    /// Allows to access manifest as pyd object
-    auto raw_manifest() {
-        return _manifest;
-    }
-
-    /// Is addon installable
-    bool installable() {
-        return _manifest.get("installable", true).to_d!bool;
-    }
-
-    /// Is this addon application
-    bool application() {
-        return _manifest.get("application", false).to_d!bool;
-    }
-
-    /** Price info for this addon
+    /** Use separate struct to handle prices
+      * The default currency is EUR
       *
-      * Returns:
-      *     tuple with following fields:
-      *     - currency
-      *     - price
-      *     - is_set
+      * Additionally, this struct contains field is_set, that determines
+      * if price was set in manifest or not (even if price is 0).
       **/
-    auto price() {
-        string currency = _manifest.get("currency","EUR").to_d!string;
+    private struct ManifestPrice {
+        string currency;
         float price;
-        if (_manifest.has_key("price")) {
-            try
-                price = _manifest["price"].to_d!float;
-            catch (PydConversionException)
-                price = _manifest["price"].to_d!(string).to!float;
-            return tuple!(
-                "currency", "price", "is_set"
-            )(currency, price, true);
+        bool is_set = false;
+
+        string toString() const {
+            if (is_set)
+                return "%s %s".format(price, currency);
+            return "";
         }
-        return tuple!(
-            "currency", "price", "is_set"
-        )(currency, price, false);
     }
 
-    /// Return list of dependencies of addon
-    string[] dependencies() {
-        if (_manifest.has_key("depends"))
-            return _manifest["depends"].to_d!(string[]);
-        return [];
+    string name;
+    OdooAddonVersion module_version = OdooAddonVersion("1.0");
+    string author;
+    string category;
+    string description;
+    string license;
+    string maintainer;
+
+    bool auto_install=false;
+    bool application=false;
+    bool installable=true;
+
+    // Dependencies
+    string[] dependencies;
+    string[] python_dependencies;
+    string[] bin_dependencies;
+
+    // CR&D Extensions
+    string[] tags;
+
+    ManifestPrice price;
+
+    /// Return string representation of manifest
+    string toString() const {
+        return "AddonManifest: %s (%s)".format(name, module_version);
+    }
+}
+
+/** Parse Odoo manifest file
+  **/
+auto parseOdooManifest(in string manifest_content) {
+    OdooAddonManifest manifest;
+
+    auto parsed = callPyFunc(_fn_literal_eval, manifest_content);
+    scope(exit) Py_DecRef(parsed);
+
+    // PyDict_GetItemString returns borrowed reference,
+    // thus there is no need to call Py_DecRef from our side
+    if (auto val = PyDict_GetItemString(parsed, "name".toStringz))
+        manifest.name = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "version".toStringz))
+        manifest.module_version = OdooAddonVersion(val.convertPyToD!string);
+    if (auto val = PyDict_GetItemString(parsed, "author".toStringz))
+        manifest.author = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "category".toStringz))
+        manifest.category = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "description".toStringz))
+        manifest.description = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "license".toStringz))
+        manifest.license = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "maintainer".toStringz))
+        manifest.maintainer = val.convertPyToD!string;
+
+    if (auto val = PyDict_GetItemString(parsed, "auto_install".toStringz))
+        manifest.auto_install = val.convertPyToD!bool;
+    if (auto val = PyDict_GetItemString(parsed, "application".toStringz))
+        manifest.application = val.convertPyToD!bool;
+    if (auto val = PyDict_GetItemString(parsed, "installable".toStringz))
+        manifest.installable = val.convertPyToD!bool;
+
+    if (auto val = PyDict_GetItemString(parsed, "depends".toStringz))
+        manifest.dependencies = val.convertPyToD!(string[]);
+    if (auto external_deps = PyDict_GetItemString(parsed, "external_dependencies".toStringz)) {
+        if (auto val = PyDict_GetItemString(external_deps, "python".toStringz))
+            manifest.python_dependencies = val.convertPyToD!(string[]);
+        if (auto val = PyDict_GetItemString(external_deps, "bin".toStringz))
+            manifest.bin_dependencies = val.convertPyToD!(string[]);
     }
 
-    /// Return list of python dependencies
-    string[] python_dependencies() {
-        if (!_manifest.has_key("external_dependencies"))
-            return [];
-        if (!_manifest["external_dependencies"].has_key("python"))
-            return [];
-        return _manifest["external_dependencies"]["python"].to_d!(string[]);
+    if (auto val = PyDict_GetItemString(parsed, "tags".toStringz))
+        manifest.tags = val.convertPyToD!(string[]);
+
+
+    if (auto py_price = PyDict_GetItemString(parsed, "price".toStringz)) {
+        manifest.price.price = py_price.convertPyToD!float;
+
+        if (auto py_currency = PyDict_GetItemString(parsed, "currency".toStringz)) {
+            manifest.price.currency = py_currency.convertPyToD!string;
+        } else {
+            manifest.price.currency = "EUR";
+        }
+
+        manifest.price.is_set = true;
     }
 
-    /// Returns parsed module version
-    auto module_version() {
-        // If version is not specified, then return "1.0"
-        return OdooAddonVersion(_manifest.get("version", "1.0").to_d!string);
-    }
+    return manifest;
+}
 
-    /// Access manifest item as string:
-    string opIndex(in string index) {
-        return _manifest.get(index, "").to_d!string;
-    }
+/// ditto
+auto parseOdooManifest(in Path path) {
+    return parseOdooManifest(path.readFileText);
+}
+
+// Module level link to ast module
+private PyObject* _fn_literal_eval;
+
+// Initialize python interpreter (import ast.literal_eval)
+shared static this() {
+    loadPyLib;
+
+    Py_Initialize();
+
+    auto mod_ast = PyImport_ImportModule("ast");
+    scope(exit) Py_DecRef(mod_ast);
+
+    // Save function literal_eval from ast on module level
+    _fn_literal_eval = PyObject_GetAttrString(
+        mod_ast, "literal_eval".toStringz
+    ).pyEnforce;
+
 
 }
 
+// Finalize python interpreter (do clean up)
+shared static ~this() {
+    if (_fn_literal_eval) Py_DecRef(_fn_literal_eval);
+    Py_Finalize();
+}
 
-// Initialize pyd as early as possible.
-shared static this() {
-    import pyd.def: py_init;
-    py_init();
+
+// Tests
+unittest {
+    auto manifest = parseOdooManifest(`{
+    'name': "A Module",
+    'version': '1.0',
+    'depends': ['base'],
+    'author': "Author Name",
+    'category': 'Category',
+    'description': """
+    Description text
+    """,
+    # data files always loaded at installation
+    'data': [
+        'views/mymodule_view.xml',
+    ],
+    # data files containing optionally loaded demonstration data
+    'demo': [
+        'demo/demo_data.xml',
+    ],
+}`);
+
+    assert(manifest.name == "A Module");
+    assert(manifest.module_version.isStandard == false);
+    assert(manifest.module_version.toString == "1.0");
+    assert(manifest.module_version.rawVersion == "1.0");
+    assert(manifest.dependencies == ["base"]);
 }

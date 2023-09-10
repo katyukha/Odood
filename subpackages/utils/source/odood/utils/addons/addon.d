@@ -20,8 +20,7 @@ private import odood.utils.addons.addon_manifest;
 final class OdooAddon {
     private immutable string _name;
     private immutable Path _path;
-    private immutable Path _manifest_path;
-    private Nullable!OdooAddonManifest _manifest;
+    private OdooAddonManifest _manifest;
 
     @disable this();
 
@@ -32,10 +31,9 @@ final class OdooAddon {
       *     path = Path to addon on filesystem
       **/
     this(in Path path) {
-        // TODO: there is no need to specify name here. It have to be computed based on path.
         this._path = path.toAbsolute;
         this._name = _path.baseName;
-        this._manifest_path = getAddonManifestPath(_path).get;
+        this._manifest = parseOdooManifest(getAddonManifestPath(_path).get);
     }
 
     /// name of the addon
@@ -45,15 +43,7 @@ final class OdooAddon {
     auto path() const => _path;
 
     /// module manifest
-    auto manifest() {
-        if (_manifest.isNull)
-            _manifest = OdooAddonManifest(_manifest_path).nullable;
-
-        return _manifest.get;
-    }
-
-    /// Get module manifest
-    auto getManifest() const => OdooAddonManifest(_manifest_path);
+    auto manifest() const => _manifest;
 
     /// Addons are comparable by name
     pure nothrow int opCmp(in OdooAddon other) const {

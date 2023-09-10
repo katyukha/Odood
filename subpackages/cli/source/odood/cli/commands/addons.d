@@ -199,8 +199,35 @@ class CommandAddonsList: OdoodCommand {
         ];
         foreach(field; fields) {
             switch(field) {
+                case "name":
+                    row ~= [addon.manifest.name];
+                    break;
                 case "version":
                     row ~= [addon.manifest.module_version.toString];
+                    break;
+                case "author":
+                    row ~= [addon.manifest.author];
+                    break;
+                case "category":
+                    row ~= [addon.manifest.category];
+                    break;
+                case "license":
+                    row ~= [addon.manifest.license];
+                    break;
+                case "maintainer":
+                    row ~= [addon.manifest.maintainer];
+                    break;
+                case "auto_install":
+                    row ~= [addon.manifest.auto_install.to!string];
+                    break;
+                case "application":
+                    row ~= [addon.manifest.application.to!string];
+                    break;
+                case "installable":
+                    row ~= [addon.manifest.installable.to!string];
+                    break;
+                case "tags":
+                    row ~= [addon.manifest.tags.join(", ")];
                     break;
                 case "price":
                     if (addon.manifest.price.is_set)
@@ -212,8 +239,7 @@ class CommandAddonsList: OdoodCommand {
                         row ~= ["", ""];
                     break;
                 default:
-                    row ~= [addon.manifest[field]];
-                    break;
+                    throw new OdoodCLIException("Unsupported manifest field %s".format(field));
             }
         }
         return row;

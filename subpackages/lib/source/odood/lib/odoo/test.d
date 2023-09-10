@@ -337,7 +337,7 @@ struct OdooTestRunner {
 
     /// Add new module to test run
     auto ref addModule(in OdooAddon addon) {
-        if (!addon.getManifest.installable) {
+        if (!addon.manifest.installable) {
             warningf("Addon %s is not installable. Skipping", addon.name);
             return this;
         }
@@ -358,7 +358,7 @@ struct OdooTestRunner {
 
     /// Add new additional module to install before test
     auto ref addAdditionalModule(in OdooAddon addon) {
-        if (!addon.getManifest.installable) {
+        if (!addon.manifest.installable) {
             warningf("Additional addon %s is not installable. Skipping", addon.name);
             return this;
         }
