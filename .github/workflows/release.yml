@@ -27,8 +27,8 @@ jobs:
 
       - name: Build Odood
         run: |
-          dub build -b release -c bash-autocomplete --override-config=pyd/python38
-          dub build -b release --override-config=pyd/python38
+          dub build -b release -c bash-autocomplete
+          dub build -b release
 
       - name: Prepare dependencies for deb package
         id: prepare_deb_deps
@@ -86,8 +86,8 @@ jobs:
 
       - name: Build Odood
         run: |
-          dub build -b release -c bash-autocomplete --override-config=pyd/python310
-          dub build -b release --override-config=pyd/python310
+          dub build -b release -c bash-autocomplete
+          dub build -b release
 
       - name: Prepare dependencies for deb package
         id: prepare_deb_deps
@@ -152,8 +152,8 @@ jobs:
 
       - name: Build Odood
         run: |
-          dub build -b release -c bash-autocomplete --override-config=pyd/python39
-          dub build -b release --override-config=pyd/python39
+          dub build -b release -c bash-autocomplete
+          dub build -b release
 
       - name: Prepare dependencies for deb package
         id: prepare_deb_deps

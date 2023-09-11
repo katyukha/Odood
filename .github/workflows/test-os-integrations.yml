@@ -47,7 +47,7 @@ jobs:
 
       - name: Run tests (Debian Bullseye)
         if: matrix.image == 'debian:bullseye'
-        run: dub test -b unittest-cov --override-config=pyd/python39
+        run: dub test -b unittest-cov
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
@@ -103,7 +103,7 @@ jobs:
 
       - name: Run tests (Debian Bullseye)
         if: matrix.image == 'debian:bullseye'
-        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python39 -- --threads=1 --verbose
+        run: dub test -b unittest-cov -c unittest-silly
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3

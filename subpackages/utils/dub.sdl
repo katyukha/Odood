@@ -9,7 +9,6 @@ dependency "thepath" version=">=0.1.7"
 dependency "theprocess" version=">=0.0.5"
 dependency "zipper" version=">=0.0.3"
 dependency "semver" version=">=0.4.0"
-dependency "pyd" version=">=0.14.4"
 dependency "bindbc-loader" version="~>1.1.2"
 dependency "bindbc-common" version="~master"
 

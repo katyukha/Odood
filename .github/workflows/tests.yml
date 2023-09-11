@@ -28,10 +28,10 @@ jobs:
 
       - name: Run tests
         if: matrix.os == 'ubuntu-20.04'
-        run: dub test -b unittest-cov --override-config=pyd/python38
+        run: dub test -b unittest-cov
       - name: Run tests
         if: matrix.os == 'ubuntu-22.04'
-        run: dub test -b unittest-cov --override-config=pyd/python310
+        run: dub test -b unittest-cov
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
@@ -98,7 +98,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         if: matrix.os == 'ubuntu-20.04'
-        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python38
+        run: dub test -b unittest-cov -c unittest-silly
       - name: Run tests (Ubuntu 22.04)
         env:
           POSTGRES_HOST: localhost
@@ -106,7 +106,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         if: matrix.os == 'ubuntu-22.04'
-        run: dub test -b unittest-cov -c unittest-silly --override-config=pyd/python310
+        run: dub test -b unittest-cov -c unittest-silly
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3

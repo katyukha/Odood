@@ -14,7 +14,6 @@
 		"dyaml": "0.9.2",
 		"east_asian_width": "1.1.0",
 		"prettyprint": "1.0.9",
-		"pyd": "0.14.4",
 		"requests": "2.1.1",
 		"semver": "0.5.0",
 		"silly": "1.1.1",
