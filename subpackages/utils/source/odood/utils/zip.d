@@ -26,12 +26,20 @@ void extract_zip_archive(
         in Path archive,
         in Path destination,
         in string unfold_path=null) {
+    import squiz_box;
+    import std.algorithm;
+
     enforce!OdoodException(
         archive.exists,
         "ZipArchive %s does not exists!".format(archive));
 
-    auto zip = Zipper(archive.toAbsolute);
-    zip.extractTo(destination, unfold_path);
+    destination.mkdir;
+    readBinaryFile(archive.toString)
+        .unboxZip()
+        .each!(e => e.extractTo(destination.toString));
+
+    //auto zip = Zipper(archive.toAbsolute);
+    //zip.extractTo(destination, unfold_path);
 }
 
 /// Example of unarchiving archive
