@@ -206,6 +206,11 @@ struct AddonManager {
                   addon.name);
             _project.venv.installPyRequirements(dest.join("requirements.txt"));
         } else if (py_requirements && addon.manifest.python_dependencies.length > 0) {
+            // TOOD: Handle case when python dependencies from manifest are bad:
+            //       - not a pip package
+            //       - python module from standard lib
+            //       - other strage thing
+            //       May be it have sense to check this on manifest parsing stage.
             infof("Installing python requirements for addon '%s' from manifest",
                   addon.name);
             _project.venv.installPyPackages(addon.manifest.python_dependencies);
