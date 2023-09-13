@@ -10,14 +10,17 @@ private import std.string: join, empty, rightJustify;
 private import std.conv: to;
 private import std.typecons: Nullable, nullable;
 private import std.algorithm;
+private import std.regex;
+private import std.array;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 private import colored;
 
-private import odood.cli.core: OdoodCommand, exitWithCode;
+private import odood.cli.core: OdoodCommand, OdoodCLIException, exitWithCode;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
+private import odood.utils.addons.addon: OdooAddon;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -126,6 +129,12 @@ class CommandTest: OdoodCommand {
             null, "additional-addon",
             "Specify additional addon to install before test. ").repeating);
         this.add(new Option(
+            null, "skip",
+            "Skip (do not run tests) addon specified by name.").repeating);
+        this.add(new Option(
+            null, "skip-re",
+            "Skip (do not run tests) addon specified by regex.").repeating);
+        this.add(new Option(
             null, "migration-start-ref",
             "git reference (branch/commit/tag) to start migration from"));
         this.add(new Option(
@@ -133,6 +142,41 @@ class CommandTest: OdoodCommand {
             "run migration tests for repo specified by path"));
         this.add(new Argument(
             "addon", "Name of addon to run tests for.").optional.repeating);
+    }
+
+    /** Find addons to test
+      **/
+    private auto findAddons(ProgramArgs args, in Project project) {
+        string[] skip_addons = args.options("skip");
+        auto skip_regexes = args.options("skip-re").map!(r => regex(r)).array;
+
+        OdooAddon[] addons;
+        foreach(search_path; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(search_path), false)) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+
+        foreach(search_path; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(search_path), true)) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+
+        foreach(addon_name; args.args("addon")) {
+            if (skip_addons.canFind(addon_name)) continue;
+            if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon_name)) continue;
+
+            auto addon = project.addons(true).getByString(addon_name);
+            enforce!OdoodCLIException(
+                !addon.isNull,
+                "Cannot find addon %s!".format(addon_name));
+            addons ~= addon.get;
+        }
+
+        return addons;
     }
 
     public override void execute(ProgramArgs args) {
@@ -154,16 +198,9 @@ class CommandTest: OdoodCommand {
         if (args.flag("isw"))
             testRunner.ignoreSafeWarnings();
 
-        foreach(string search_path; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(search_path), false))
-                testRunner.addModule(addon);
-
-        foreach(string search_path; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(search_path), true))
-                testRunner.addModule(addon);
-
-        foreach(addon_name; args.args("addon"))
-            testRunner.addModule(addon_name);
+        foreach(addon; findAddons(args, project)) {
+            testRunner.addModule(addon);
+        }
 
         foreach(addon_name; args.options("additional-addon"))
             testRunner.addAdditionalModule(addon_name);
@@ -195,6 +232,7 @@ class CommandTest: OdoodCommand {
 
         auto res = testRunner.run();
 
+        // TODO: Try to use tabletool to generate table-like output
         if (args.flag("warning-report") && !res.warnings.empty) {
             writeln();
             writeln("*".replicate(21).yellow);

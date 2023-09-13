@@ -2,6 +2,15 @@
 
 ## Release 0.0.14 (Unreleased)
 
+### Added
+- Added new options `--skip` and `--skip-re` to `odood test` command,
+  that allow to not run tests for specified addons.
+  Useful in cases, when there is need to skip some addons
+  found via options `--dir` and `--dir-r`
+
+### Changed
+- Load Python dynamically, thus make Odood more portable.
+
 ---
 
 ## Release 0.0.13 (2023-09-08)
