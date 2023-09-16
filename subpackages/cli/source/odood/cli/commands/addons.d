@@ -7,6 +7,8 @@ private import std.exception: enforce;
 private import std.algorithm;
 private import std.conv: to;
 private import std.string: capitalize, strip, join;
+private import std.regex;
+private import std.array;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -346,7 +348,78 @@ class CommandAddonsUpdateList: OdoodCommand {
 }
 
 
-class CommandAddonsUpdate: OdoodCommand {
+/** Base command class for addons install/update/uninstall commands.
+  * This class configures base options and provides unified method to parse
+  * options and arguments responsible for searching addons
+  **/
+class CommandAddonsUpdateInstallUninstall: OdoodCommand {
+    this(T...)(auto ref T args) {
+        super(args);
+
+        // Search for addons options
+        this.add(new Option(
+            null, "dir", "Directory to search for addons").repeating);
+        this.add(new Option(
+            null, "dir-r",
+            "Directory to recursively search for addons").repeating);
+        this.add(new Option(
+            null, "skip", "Skip addon specified by name.").repeating);
+        this.add(new Option(
+            null, "skip-re", "Skip addon specified by regex.").repeating);
+        this.add(
+            new Option(
+                "f", "file",
+                "Read addons names from file (addon names must be separated by new lines)"
+            ).optional().repeating());
+        this.add(new Argument(
+            "addon", "Specify names of addons as arguments.").optional.repeating);
+    }
+
+    /** Find addons to test
+      **/
+    protected auto findAddons(ProgramArgs args, in Project project) {
+        string[] skip_addons = args.options("skip");
+        auto skip_regexes = args.options("skip-re").map!(r => regex(r)).array;
+
+        OdooAddon[] addons;
+        foreach(search_path; args.options("dir"))
+            foreach(addon; project.addons.scan(Path(search_path), false)) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+
+        foreach(search_path; args.options("dir-r"))
+            foreach(addon; project.addons.scan(Path(search_path), true)) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+
+        foreach(addon_name; args.args("addon")) {
+            if (skip_addons.canFind(addon_name)) continue;
+            if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon_name)) continue;
+
+            auto addon = project.addons(true).getByString(addon_name);
+            enforce!OdoodCLIException(
+                !addon.isNull,
+                "Cannot find addon %s!".format(addon_name));
+            addons ~= addon.get;
+        }
+        foreach(path; args.options("file")) {
+            foreach(addon; project.addons.parseAddonsList(Path(path))) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+        }
+
+        return addons;
+    }
+
+}
+
+class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
     this() {
         super("update", "Update specified addons.");
         this.add(
@@ -357,24 +430,8 @@ class CommandAddonsUpdate: OdoodCommand {
                 "d", "db", "Database(s) to update addons in."
             ).repeating());
         this.add(
-            new Option(
-                null, "dir", "Directory to search for addons to be updated"
-            ).repeating());
-        this.add(
-            new Option(
-                null, "dir-r", "Directory to recursively search for addons to be installed"
-            ).repeating());
-        this.add(
-            new Option(
-                "f", "file",
-                "Install addons from file (addon names must be separated by new lines)"
-            ).optional().repeating());
-        this.add(
             new Flag(
                 "a", "all", "Update all modules"));
-        this.add(
-            new Argument(
-                "addon", "Name of addon to update").optional().repeating());
     }
 
     public override void execute(ProgramArgs args) {
@@ -382,30 +439,6 @@ class CommandAddonsUpdate: OdoodCommand {
 
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
-
-        OdooAddon[] addons;
-        if (!args.flag("all")) {
-            foreach(addon_name; args.args("addon")) {
-                auto addon = project.addons.getByString(addon_name);
-                enforce!OdoodCLIException(
-                    !addon.isNull,
-                    "%s does not look like addon name or path to addon".format(
-                        addon_name));
-                addons ~= addon.get;
-            }
-
-            foreach(dir; args.options("dir"))
-                foreach(addon; project.addons.scan(Path(dir)))
-                    addons ~= addon;
-
-            foreach(dir; args.options("dir-r"))
-                foreach(addon; project.addons.scan(Path(dir), true))
-                    addons ~= addon;
-
-            foreach(path; args.options("file")) {
-                addons ~= project.addons.parseAddonsList(Path(path));
-            }
-        }
 
         auto start_again=false;
         if (project.server.isRunning) {
@@ -419,7 +452,7 @@ class CommandAddonsUpdate: OdoodCommand {
             if (args.flag("all"))
                 project.addons.updateAll(db);
             else
-                project.addons.update(db, addons);
+                project.addons.update(db, findAddons(args, project));
         }
 
         if (start_again)
@@ -429,7 +462,7 @@ class CommandAddonsUpdate: OdoodCommand {
 }
 
 
-class CommandAddonsInstall: OdoodCommand {
+class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
     this() {
         super("install", "Install specified addons.");
         this.add(
@@ -439,21 +472,6 @@ class CommandAddonsInstall: OdoodCommand {
             new Option(
                 "d", "db", "Database(s) to install addons in."
             ).optional().repeating());
-        this.add(
-            new Option(
-                null, "dir", "Directory to search for addons to be installed"
-            ).optional().repeating());
-        this.add(
-            new Option(
-                null, "dir-r", "Directory to recursively search for addons to be installed"
-            ).optional().repeating());
-        this.add(
-            new Option(
-                "f", "file", "Install addons from file (addon names must be separated by new lines)"
-            ).optional().repeating());
-        this.add(
-            new Argument(
-                "addon", "Name of addon to install").optional().repeating());
     }
 
     public override void execute(ProgramArgs args) {
@@ -461,28 +479,6 @@ class CommandAddonsInstall: OdoodCommand {
 
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
-
-        OdooAddon[] addons;
-        foreach(addon_name; args.args("addon")) {
-            auto addon = project.addons.getByString(addon_name);
-            enforce!OdoodCLIException(
-                !addon.isNull,
-                "%s does not look like addon name or path to addon".format(
-                    addon_name));
-            addons ~= addon.get;
-        }
-
-        foreach(dir; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(dir)))
-                addons ~= addon;
-
-        foreach(dir; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(dir), true))
-                addons ~= addon;
-
-        foreach(path; args.options("file")) {
-            addons ~= project.addons.parseAddonsList(Path(path));
-        }
 
         auto start_again=false;
         if (project.server.isRunning) {
@@ -493,7 +489,7 @@ class CommandAddonsInstall: OdoodCommand {
         foreach(db; dbnames) {
             if (args.flag("ual"))
                 project.lodoo.addonsUpdateList(db, true);
-            project.addons.install(db, addons);
+            project.addons.install(db, findAddons(args, project));
         }
 
         if (start_again)
@@ -502,24 +498,13 @@ class CommandAddonsInstall: OdoodCommand {
 }
 
 
-class CommandAddonsUninstall: OdoodCommand {
+class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
     this() {
         super("uninstall", "Uninstall specified addons.");
         this.add(
             new Option(
                 "d", "db", "Database(s) to uninstall addons in."
             ).optional().repeating());
-        this.add(
-            new Option(
-                null, "dir", "Directory to search for addons to be uninstalled"
-            ).optional().repeating());
-        this.add(
-            new Option(
-                null, "dir-r", "Directory to recursively search for addons to be uninstalled"
-            ).optional().repeating());
-        this.add(
-            new Argument(
-                "addon", "Name of addon to uninstall").optional().repeating());
     }
 
     public override void execute(ProgramArgs args) {
@@ -528,24 +513,6 @@ class CommandAddonsUninstall: OdoodCommand {
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
 
-        OdooAddon[] addons;
-        foreach(addon_name; args.args("addon")) {
-            auto addon = project.addons.getByString(addon_name);
-            enforce!OdoodCLIException(
-                !addon.isNull,
-                "%s does not look like addon name or path to addon".format(
-                    addon_name));
-            addons ~= addon.get;
-        }
-
-        foreach(dir; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(dir)))
-                addons ~= addon;
-
-        foreach(dir; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(dir), true))
-                addons ~= addon;
-
         auto start_again=false;
         if (project.server.isRunning) {
             project.server.stop;
@@ -553,7 +520,7 @@ class CommandAddonsUninstall: OdoodCommand {
         }
 
         foreach(db; dbnames) {
-            project.addons.uninstall(db, addons);
+            project.addons.uninstall(db, findAddons(args, project));
         }
 
         if (start_again)

@@ -121,27 +121,31 @@ class CommandTest: OdoodCommand {
         this.add(new Option(
             "d", "db", "Database to run tests for."));
         this.add(new Option(
+            null, "additional-addon",
+            "Specify additional addon to install before test. ").repeating);
+
+        // Search for addons options and arguments
+        this.add(new Option(
             null, "dir", "Directory to search for addons to test").repeating);
         this.add(new Option(
             null, "dir-r",
             "Directory to recursively search for addons to test").repeating);
-        this.add(new Option(
-            null, "additional-addon",
-            "Specify additional addon to install before test. ").repeating);
         this.add(new Option(
             null, "skip",
             "Skip (do not run tests) addon specified by name.").repeating);
         this.add(new Option(
             null, "skip-re",
             "Skip (do not run tests) addon specified by regex.").repeating);
+        this.add(new Argument(
+            "addon", "Name of addon to run tests for.").optional.repeating);
+
+        // Migration options
         this.add(new Option(
             null, "migration-start-ref",
             "git reference (branch/commit/tag) to start migration from"));
         this.add(new Option(
             null, "migration-repo",
             "run migration tests for repo specified by path"));
-        this.add(new Argument(
-            "addon", "Name of addon to run tests for.").optional.repeating);
     }
 
     /** Find addons to test

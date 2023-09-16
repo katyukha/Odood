@@ -7,6 +7,9 @@
   that allow to not run tests for specified addons.
   Useful in cases, when there is need to skip some addons
   found via options `--dir` and `--dir-r`
+- Added new options `--skip` and `--skip-re` to `odood addons install/update/uninstall` commands.
+  Useful in cases, when there is need to skip some addons
+  found via options `--dir` and `--dir-r`
 
 ### Changed
 - Load Python dynamically, thus make Odood more portable.
