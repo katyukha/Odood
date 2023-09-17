@@ -67,6 +67,9 @@ struct OdooAddonManifest {
 auto parseOdooManifest(in string manifest_content) {
     OdooAddonManifest manifest;
 
+    auto gstate = PyGILState_Ensure();
+    scope(exit) PyGILState_Release(gstate);
+
     auto parsed = callPyFunc(_fn_literal_eval, manifest_content);
     scope(exit) Py_DecRef(parsed);
 
@@ -135,6 +138,9 @@ shared static this() {
     loadPyLib;
 
     Py_Initialize();
+
+    auto gstate = PyGILState_Ensure();
+    scope(exit) PyGILState_Release(gstate);
 
     auto mod_ast = PyImport_ImportModule("ast");
     scope(exit) Py_DecRef(mod_ast);

@@ -13,7 +13,14 @@ enum Py_file_input = 257;
 enum Py_eval_input = 258;
 enum Py_func_type_input = 345;
 
+// Dummy structure to represent pointer to python object
 struct PyObject {};
+
+// Copied from python pystate.h
+enum PyGILState_STATE {
+    PyGILState_LOCKED,
+    PyGILState_UNLOCKED,
+};
 
 alias Py_ssize_t = size_t;
 
@@ -24,6 +31,10 @@ mixin(joinFnBinds!false((){
         {q{void}, q{Py_Initialize}},
         {q{void}, q{Py_Finalize}},
         {q{void}, q{Py_DecRef}, q{PyObject* o}},
+
+        // GIL
+        {q{PyGILState_STATE}, q{PyGILState_Ensure}},
+        {q{void}, q{PyGILState_Release}, q{PyGILState_STATE}},
 
         // Import & module
         {q{PyObject*}, q{PyImport_ImportModule}, q{const char* name}},
