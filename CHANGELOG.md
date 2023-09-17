@@ -10,9 +10,13 @@
 - Added new options `--skip` and `--skip-re` to `odood addons install/update/uninstall` commands.
   Useful in cases, when there is need to skip some addons
   found via options `--dir` and `--dir-r`
+- Added new option `--skip-errors` to `odood addons install` command, that allows
+  to not fail when installing addons in database,
+  thus allowing to install addons to other databases, and fail in the end.
 
 ### Changed
 - Load Python dynamically, thus make Odood more portable.
+- Command `odood addons install` now will report Odoo errors raised during addons installation.
 
 ---
 

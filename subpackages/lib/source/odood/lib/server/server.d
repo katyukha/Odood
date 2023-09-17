@@ -244,7 +244,7 @@ struct OdooServer {
       *     env = extra environment variables to pass to the server
       **/
     auto runE(in string[] options, in string[string] env=null) const {
-        auto result = run(options, env).ensureStatus(true);
+        auto result = run(options, env).ensureStatus!ServerCommandFailedException(true);
         return result;
     }
 

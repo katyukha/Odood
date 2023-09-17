@@ -54,6 +54,10 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
     /// Unparsed line of this message
     string full_str;
 
+    bool isError() const {
+        return log_level == "ERROR" || log_level == "CRITICAL";
+    }
+
     /// String representation of this message
     const(string) toString() const {
         import std.format: format;

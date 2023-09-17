@@ -164,9 +164,10 @@ private struct OdooTestResult {
     auto errors() const {
         import std.algorithm;
         return _log_records.filter!((r) {
-            if (r.log_level == "ERROR" || r.log_level == "CRITICAL")
+            if (r.isError)
                 return true;
 
+            // Try to detect warnings that we treat as errors
             foreach(check; RE_ERROR_CHECKS)
                if (r.msg.matchFirst(check))
                    return true;

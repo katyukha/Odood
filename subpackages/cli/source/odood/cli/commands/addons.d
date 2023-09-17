@@ -3,7 +3,7 @@ module odood.cli.commands.addons;
 private import std.stdio;
 private import std.logger;
 private import std.format: format;
-private import std.exception: enforce;
+private import std.exception: enforce, basicExceptionCtors;
 private import std.algorithm;
 private import std.conv: to;
 private import std.string: capitalize, strip, join;
@@ -15,9 +15,20 @@ private import commandr: Argument, Option, Flag, ProgramArgs;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
+private import odood.cli.utils: printLogRecordSimplified;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.lib.odoo.log: OdooLogProcessor;
+private import odood.lib.server.exception: ServerCommandFailedException;
+
+
+/** This exception could be throwed when install/update/uninstall command
+  * failed.
+  **/
+class AddonsInstallUpdateUninstallFailed : OdoodCLIException {
+    mixin basicExceptionCtors;
+}
 
 
 enum AddonDisplayType {
@@ -472,6 +483,9 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
             new Option(
                 "d", "db", "Database(s) to install addons in."
             ).optional().repeating());
+        this.add(
+            new Flag(
+                null, "skip-errors", "Do not fail on errors during installation."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -486,14 +500,39 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
             start_again=true;
         }
 
+        auto log_file = project.odoo.logfile.openFile("rt");
+        bool error = false;
+        scope(exit) log_file.close();
         foreach(db; dbnames) {
-            if (args.flag("ual"))
-                project.lodoo.addonsUpdateList(db, true);
-            project.addons.install(db, findAddons(args, project));
+            auto log_start = log_file.size();
+            try {
+                if (args.flag("ual"))
+                    project.lodoo.addonsUpdateList(db, true);
+                project.addons.install(db, findAddons(args, project));
+            } catch (ServerCommandFailedException e) {
+                error = true;
+
+                // Print errors from logfile to stdout.
+                if (log_file.size > log_start) {
+                    writeln("Following errors detected during install:".red);
+                    log_file.seek(log_start);
+                    foreach(log_line; OdooLogProcessor(log_file))
+                        if (log_line.isError)
+                            printLogRecordSimplified(log_line);
+                }
+                if (!args.flag("skip-errors"))
+                    // TODO: Throw custom error. And in case when skip error is set, then throw error after the loop
+                    throw new AddonsInstallUpdateUninstallFailed(
+                        "Addon installation for database %s failed!".format(db));
+            }
         }
 
         if (start_again)
             project.server.start;
+
+        if (error)
+            throw new AddonsInstallUpdateUninstallFailed(
+                "Addon installation failed!");
     }
 }
 
