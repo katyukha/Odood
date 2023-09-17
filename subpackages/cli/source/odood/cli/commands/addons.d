@@ -367,6 +367,12 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     this(T...)(auto ref T args) {
         super(args);
 
+        // Select databases to run command for
+        this.add(
+            new Option(
+                "d", "db", "Database(s) to apply operation to."
+            ).repeating());
+
         // Search for addons options
         this.add(new Option(
             null, "dir", "Directory to search for addons").repeating);
@@ -384,6 +390,11 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             ).optional().repeating());
         this.add(new Argument(
             "addon", "Specify names of addons as arguments.").optional.repeating);
+
+        // Other flags
+        this.add(
+            new Flag(
+                null, "skip-errors", "Do not fail on errors during installation."));
     }
 
     /** Find addons to test
@@ -428,69 +439,9 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         return addons;
     }
 
-}
-
-class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
-    this() {
-        super("update", "Update specified addons.");
-        this.add(
-            new Flag(
-                null, "ual", "Update addons list before install.")),
-        this.add(
-            new Option(
-                "d", "db", "Database(s) to update addons in."
-            ).repeating());
-        this.add(
-            new Flag(
-                "a", "all", "Update all modules"));
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
-        string[] dbnames = args.options("db") ?
-            args.options("db") : project.databases.list();
-
-        auto start_again=false;
-        if (project.server.isRunning) {
-            project.server.stop;
-            start_again=true;
-        }
-
-        foreach(db; dbnames) {
-            if (args.flag("ual"))
-                project.lodoo.addonsUpdateList(db, true);
-            if (args.flag("all"))
-                project.addons.updateAll(db);
-            else
-                project.addons.update(db, findAddons(args, project));
-        }
-
-        if (start_again)
-            project.server.start;
-    }
-
-}
-
-
-class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
-    this() {
-        super("install", "Install specified addons.");
-        this.add(
-            new Flag(
-                null, "ual", "Update addons list before install.")),
-        this.add(
-            new Option(
-                "d", "db", "Database(s) to install addons in."
-            ).optional().repeating());
-        this.add(
-            new Flag(
-                null, "skip-errors", "Do not fail on errors during installation."));
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
+    /** Apply delegate for each database
+      **/
+    protected auto applyForDatabases(ProgramArgs args, in Project project, void delegate (in string dbname) dg) {
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
 
@@ -503,12 +454,12 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
         auto log_file = project.odoo.logfile.openFile("rt");
         bool error = false;
         scope(exit) log_file.close();
+
         foreach(db; dbnames) {
             auto log_start = log_file.size();
             try {
-                if (args.flag("ual"))
-                    project.lodoo.addonsUpdateList(db, true);
-                project.addons.install(db, findAddons(args, project));
+                // Try to apply delegate
+                dg(db);
             } catch (ServerCommandFailedException e) {
                 error = true;
 
@@ -536,34 +487,64 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
     }
 }
 
-
-class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
+class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
     this() {
-        super("uninstall", "Uninstall specified addons.");
+        super("update", "Update specified addons.");
         this.add(
-            new Option(
-                "d", "db", "Database(s) to uninstall addons in."
-            ).optional().repeating());
+            new Flag(
+                null, "ual", "Update addons list before install.")),
+        this.add(
+            new Flag(
+                "a", "all", "Update all modules"));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        string[] dbnames = args.options("db") ?
-            args.options("db") : project.databases.list();
+        applyForDatabases(args, project, (in string dbname) {
+            if (args.flag("ual"))
+                project.lodoo.addonsUpdateList(dbname, true);
+            if (args.flag("all"))
+                project.addons.updateAll(dbname);
+            else
+                project.addons.update(dbname, findAddons(args, project));
+        });
+    }
 
-        auto start_again=false;
-        if (project.server.isRunning) {
-            project.server.stop;
-            start_again=true;
-        }
+}
 
-        foreach(db; dbnames) {
-            project.addons.uninstall(db, findAddons(args, project));
-        }
 
-        if (start_again)
-            project.server.start;
+class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
+    this() {
+        super("install", "Install specified addons.");
+        this.add(
+            new Flag(
+                null, "ual", "Update addons list before install."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        applyForDatabases(args, project, (in string dbname) {
+            if (args.flag("ual"))
+                project.lodoo.addonsUpdateList(dbname, true);
+            project.addons.install(dbname, findAddons(args, project));
+        });
+    }
+}
+
+
+class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
+    this() {
+        super("uninstall", "Uninstall specified addons.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        applyForDatabases(args, project, (in string dbname) {
+            project.addons.uninstall(dbname, findAddons(args, project));
+        });
     }
 }
 
