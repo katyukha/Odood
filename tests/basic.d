@@ -15,7 +15,7 @@ import odood.lib.project;
 import odood.utils.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
 
-import odood.cli.commands.test: printLogRecord;
+import odood.cli.utils: printLogRecord;
 
 
 /// Create new database user in postgres db

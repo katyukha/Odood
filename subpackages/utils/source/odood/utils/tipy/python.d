@@ -16,6 +16,9 @@ enum Py_func_type_input = 345;
 // Dummy structure to represent pointer to python object
 struct PyObject {};
 
+// Dummy structure to represent pointer to pythons thread state
+struct PyThreadState {};
+
 // Copied from python pystate.h
 enum PyGILState_STATE {
     PyGILState_LOCKED,
@@ -29,12 +32,17 @@ mixin(joinFnBinds!false((){
     FnBind[] ret = [
         // General
         {q{void}, q{Py_Initialize}},
+        {q{void}, q{PyEval_InitThreads}},
+        {q{int}, q{PyEval_ThreadsInitialized}},
+        {q{PyThreadState*}, q{PyEval_SaveThread}},
+        {q{void}, q{PyEval_RestoreThread}, q{PyThreadState *tstate}},
         {q{void}, q{Py_Finalize}},
         {q{void}, q{Py_DecRef}, q{PyObject* o}},
 
         // GIL
         {q{PyGILState_STATE}, q{PyGILState_Ensure}},
         {q{void}, q{PyGILState_Release}, q{PyGILState_STATE}},
+
 
         // Import & module
         {q{PyObject*}, q{PyImport_ImportModule}, q{const char* name}},

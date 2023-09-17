@@ -67,10 +67,11 @@ struct OdooAddonManifest {
 auto parseOdooManifest(in string manifest_content) {
     OdooAddonManifest manifest;
 
+    // Acuire python's GIL
     auto gstate = PyGILState_Ensure();
     scope(exit) PyGILState_Release(gstate);
 
-    auto parsed = callPyFunc(_fn_literal_eval, manifest_content);
+    auto parsed = callPyFunc(cast(PyObject*)_fn_literal_eval, manifest_content);
     scope(exit) Py_DecRef(parsed);
 
     // PyDict_GetItemString returns borrowed reference,
@@ -131,31 +132,34 @@ auto parseOdooManifest(in Path path) {
 }
 
 // Module level link to ast module
-private PyObject* _fn_literal_eval;
+private shared PyObject* _fn_literal_eval;
+private shared PyThreadState* _py_thread_state;
 
 // Initialize python interpreter (import ast.literal_eval)
 shared static this() {
     loadPyLib;
 
     Py_Initialize();
-
-    auto gstate = PyGILState_Ensure();
-    scope(exit) PyGILState_Release(gstate);
+    if (!PyEval_ThreadsInitialized())
+        PyEval_InitThreads();
 
     auto mod_ast = PyImport_ImportModule("ast");
     scope(exit) Py_DecRef(mod_ast);
 
     // Save function literal_eval from ast on module level
-    _fn_literal_eval = PyObject_GetAttrString(
+    _fn_literal_eval = cast(shared PyObject*)PyObject_GetAttrString(
         mod_ast, "literal_eval".toStringz
     ).pyEnforce;
 
-
+    _py_thread_state = cast(shared PyThreadState*)PyEval_SaveThread();
 }
 
 // Finalize python interpreter (do clean up)
 shared static ~this() {
-    if (_fn_literal_eval) Py_DecRef(_fn_literal_eval);
+    if (_py_thread_state)
+        PyEval_RestoreThread(cast(PyThreadState*)_py_thread_state);
+    if (_fn_literal_eval)
+        Py_DecRef(cast(PyObject*)_fn_literal_eval);
     Py_Finalize();
 }
 
@@ -186,4 +190,41 @@ unittest {
     assert(manifest.module_version.toString == "1.0");
     assert(manifest.module_version.rawVersion == "1.0");
     assert(manifest.dependencies == ["base"]);
+}
+
+// Test multithreading
+unittest {
+    auto test_manifest = `{
+        'name': "A Module",
+        'version': '%s.0',
+        'depends': ['base'],
+        'author': "Author Name",
+        'category': 'Category',
+        'description': """
+        Description text
+        """,
+        # data files always loaded at installation
+        'data': [
+            'views/mymodule_view.xml',
+        ],
+        # data files containing optionally loaded demonstration data
+        'demo': [
+            'demo/demo_data.xml',
+        ],
+    }`;
+
+    import std.parallelism: taskPool;
+    import std.range;
+    import std.random;
+
+    // Try to evaluate manifest from different threads
+    foreach(i; taskPool.parallel(test_manifest.repeat.take(30), 1)) {
+        auto ver = std.random.uniform(2, 1000);
+        auto manifest = parseOdooManifest(i.format(ver));
+        assert(manifest.name == "A Module");
+        assert(manifest.module_version.isStandard == false);
+        assert(manifest.module_version.toString == "%s.0".format(ver));
+        assert(manifest.module_version.rawVersion == "%s.0".format(ver));
+        assert(manifest.dependencies == ["base"]);
+    }
 }
