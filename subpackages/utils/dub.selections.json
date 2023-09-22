@@ -13,6 +13,6 @@
 		"thepath": "0.1.8",
 		"theprocess": "0.0.5",
 		"unit-threaded": "2.1.7",
-		"zipper": "0.0.3"
+		"zipper": "0.0.4-bindbc"
 	}
 }

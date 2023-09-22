@@ -6,8 +6,6 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.json;
 
-private import deimos.zip;
-
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
