@@ -7,6 +7,7 @@ private import std.typecons: Nullable, nullable;
 private import std.logger;
 
 private import thepath: Path;
+private import theprocess: Process;
 private import dini: Ini;
 private import dyaml;
 private import zipper;
@@ -27,6 +28,14 @@ public import odood.lib.project.config:
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.git: isGitRepo;
 private import odood.utils: generateRandomString;
+
+
+/** Defined the way to install Odoo: from archive or from git
+  **/
+enum OdooInstallType {
+    Archive,
+    Git,
+}
 
 
 /** The Odood project.
@@ -269,6 +278,19 @@ class Project {
             save(config_path);
     }
 
+    /** Return installation type of Odoo in this project.
+      * Odoo could be installed from archive, that is default and requires
+      * small amount of data to be downloaded on installation.
+      * Or, it could be installed as git repo with history. This type of
+      * installation mostly interested for developers, whow want to push
+      * some pull requests to Odoo repo.
+      **/
+    OdooInstallType odoo_install_type() const {
+        if (this.odoo.path.join(".git").exists)
+            return OdooInstallType.Git;
+        return OdooInstallType.Archive;
+    }
+
     /** Initialize project.
       * This will create new project directory and install Odoo there.
       *
@@ -277,7 +299,8 @@ class Project {
       **/
     void initialize(ref Ini odoo_config,
             in string python_version="auto",
-            in string node_version="lts") {
+            in string node_version="lts",
+            in OdooInstallType install_type=OdooInstallType.Archive) {
         import odood.lib.install;
 
         // Initialize project directories
@@ -286,7 +309,14 @@ class Project {
 
         // Initialize project (install everything needed)
         // TODO: parallelize download of Odoo and installation of virtualenv
-        this.installDownloadOdoo();
+        with(OdooInstallType) final switch(install_type) {
+            case Archive:
+                this.installDownloadOdoo();
+                break;
+            case Git:
+                this.installCloneGitOdoo();
+                break;
+        }
         this.installVirtualenv(python_version, node_version);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
@@ -354,20 +384,39 @@ class Project {
     void updateOdoo(in bool backup=false) {
         import odood.lib.install;
 
-        // TODO: Add support for cases when odoo installed via git
-        //       In this case it is better to just run git pull
-        enforce!OdoodException(
-            !this.odoo.path.join(".git").exists,
-            "Cannot update odoo that is git repo yet!");
+        with(OdooInstallType) final switch(this.odoo_install_type) {
+            case Archive:
+                if (this.odoo.path.exists()) {
+                    if (backup)
+                        backupOdooSource();
+                    infof("Removing odoo installation at %s", this.odoo.path);
+                    this.odoo.path.remove();
+                }
 
-        if (this.odoo.path.exists()) {
-            if (backup)
-                backupOdooSource();
-            infof("Removing odoo installation at %s", this.odoo.path);
-            this.odoo.path.remove();
+                this.installDownloadOdoo();
+                break;
+            case Git:
+                import std.datetime.systime: Clock;
+
+                auto dt_string = Clock.currTime.toISOString;
+                auto tag_name = "%s-before-update-%s".format(
+                    this.odoo.serie, dt_string);
+
+                Process("git")
+                    .withArgs(
+                        "tag",
+                        "-a", tag_name,
+                        "-m", "Save before odoo update (%s)".format(dt_string))
+                    .inWorkDir(this.odoo.path)
+                    .execute()
+                    .ensureOk(true);
+                Process("git")
+                    .withArgs("pull")
+                    .inWorkDir(this.odoo.path)
+                    .execute()
+                    .ensureOk(true);
+                break;
         }
-
-        this.installDownloadOdoo();
         this.installOdoo();
         infof("Odoo update completed.");
     }
@@ -383,6 +432,7 @@ class Project {
       **/
     void reinstallOdoo(
             in OdooSerie serie,
+            in OdooInstallType install_type,
             in bool backup=true,
             in bool reinstall_venv=false,
             in string venv_py_version="auto",
@@ -390,10 +440,6 @@ class Project {
     in(serie.isValid)
     do {
         import odood.lib.install;
-
-        enforce!OdoodException(
-            !this.odoo.path.join(".git").exists,
-            "Cannot reinstall odoo that is git repo yet!");
 
         auto origin_serie = this.odoo.serie;
 
@@ -418,7 +464,14 @@ class Project {
                 venv_node_version);
         }
 
-        this.installDownloadOdoo();
+        with(OdooInstallType) final switch(install_type) {
+            case Archive:
+                this.installDownloadOdoo();
+                break;
+            case Git:
+                this.installCloneGitOdoo();
+                break;
+        }
         this.installOdoo();
 
         // TODO: Take care on repostitories and custom addons.
@@ -428,6 +481,22 @@ class Project {
         infof(
             "Odoo successfully reinstalled from %s to %s version.",
             origin_serie, this.odoo.serie);
+    }
+
+    /// ditto
+    void reinstallOdoo(
+            in OdooSerie serie,
+            in bool backup=true,
+            in bool reinstall_venv=false,
+            in string venv_py_version="auto",
+            in string venv_node_version="lts") {
+        this.reinstallOdoo(
+            serie,
+            this.odoo_install_type,
+            backup,
+            reinstall_venv,
+            venv_py_version,
+            venv_node_version);
     }
 
     /// Get configuration for Odoo

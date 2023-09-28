@@ -15,6 +15,7 @@ private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
 private import odood.utils.zip;
+private import odood.utils.git;
 private import odood.utils;
 
 
@@ -64,6 +65,20 @@ void installDownloadOdoo(in Project project) {
     extract_zip_archive(
         odoo_archive_path, project.odoo.path,
         "%s-%s/".format(repo_name, project.odoo.branch));
+}
+
+/** Clone Odoo from Git
+  *
+  * Params:
+  *     project = Project to download Odoo to.
+ **/
+void installCloneGitOdoo(in Project project) {
+    gitClone(
+        parseGitURL(project.odoo.repo),
+        project.odoo.path,
+        project.odoo.branch,
+        true,  // Single branch
+    );
 }
 
 

@@ -13,6 +13,8 @@
 - Added new option `--skip-errors` to `odood addons install/update/uninstall` commands, that allows
   to not fail when installing addons in database,
   thus allowing to install addons to other databases, and fail in the end.
+- Added new option `--install-type` to `odood init` and `odood venv reinstall-odoo` commands,
+  thus, now it is possible to install Odoo as git repo or as unpacked archive depending on this option
 
 ### Changed
 - Load Python dynamically, thus make Odood more portable.

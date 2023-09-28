@@ -276,7 +276,7 @@ void gitClone(
     enforce!OdoodException(
         !dest.join(".git").exists,
         "It seems that repo %s already clonned to %s!".format(repo, dest));
-    infof("Clonning repository (branch=%s): %s", branch, repo);
+    infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
     // TODO: Make branch optional
     string[] git_options = ["clone", "-b", branch];

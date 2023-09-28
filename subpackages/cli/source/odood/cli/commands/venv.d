@@ -1,10 +1,10 @@
 module odood.cli.commands.venv;
 
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
 private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project;
+private import odood.lib.project: Project, OdooInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -131,7 +131,11 @@ class CommandVenvReinstallOdoo: OdoodCommand {
             null, "venv-node-version", "Install specific node version.")
                 .defaultValue("lts"));
         this.add(new Option(
-            "v", "version", "Odoo version to install.").required);
+            null, "install-type", "Installation type. Accept values: git, archive. Default: archive.")
+                .defaultValue("archive")
+                .acceptsValues(["git", "archive"]));
+        this.add(new Option(
+            "v", "version", "Odoo version to install."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -142,8 +146,25 @@ class CommandVenvReinstallOdoo: OdoodCommand {
             project.server.stop();
         }
 
+        OdooInstallType install_type = OdooInstallType.Archive;
+        switch(args.option("install-type")) {
+            case "git":
+                install_type = OdooInstallType.Git;
+                break;
+            case "archive":
+                install_type = OdooInstallType.Archive;
+                break;
+            default:
+                install_type = project.odoo_install_type;
+                break;
+        }
+
+        auto reinstall_version = args.option("version") ?
+            OdooSerie(args.option("version")) : project.odoo.serie;
+
         project.reinstallOdoo(
-            OdooSerie(args.option("version")),
+            reinstall_version,
+            install_type,
             !args.flag("no-backup") || args.flag("backup"),
             args.flag("reinstall-venv"),
             args.option("venv-py-version", "auto"),

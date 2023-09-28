@@ -5,10 +5,10 @@ private import std.format: format;
 private import std.exception: enforce;
 
 private import thepath: Path;
-private import commandr: Option, Flag, ProgramArgs;
+private import commandr: Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
+private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -21,6 +21,10 @@ class CommandInit: OdoodCommand {
             .required());
         this.add(new Option("v", "odoo-version", "Version of Odoo to install")
             .required().defaultValue("14.0"));
+        this.add(new Option(
+            null, "install-type", "Installation type. Accept values: git, archive. Default: archive.")
+                .defaultValue("archive")
+                .acceptsValues(["git", "archive"]));
         this.add(new Option(
             null, "odoo-branch", "Branch in Odoo repo to install Odoo from."));
         this.add(new Option(
@@ -82,6 +86,19 @@ class CommandInit: OdoodCommand {
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
 
+
+        OdooInstallType install_type = OdooInstallType.Archive;
+        switch(args.option("install-type")) {
+            case "git":
+                install_type = OdooInstallType.Git;
+                break;
+            case "archive":
+                install_type = OdooInstallType.Archive;
+                break;
+            default:
+                assert(0, "Unsupported installation type");
+        }
+
         auto project = new Project(
             install_dir,
             odoo_version,
@@ -93,7 +110,8 @@ class CommandInit: OdoodCommand {
         project.initialize(
             odoo_config,
             args.option("py-version", "auto"),
-            args.option("node-version", "lts"));
+            args.option("node-version", "lts"),
+            install_type);
         project.save();
 
         if (args.flag("create-db-user")) {
