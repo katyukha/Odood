@@ -56,3 +56,19 @@ configuration "unittest-silly" {
     dependency "unit-threaded:assertions" version="*"
     dependency "silly" version="*"
 }
+
+/* Integration tests with unit-threaded */
+configuration "unittest-integration-ut" {
+    targetType "executable"
+    targetName "odood-unittest-integration-ut"
+
+    /* Use configuration without dips to avoid link errors */
+    subConfiguration "unit-threaded" "nodips"
+
+    dependency "unit-threaded" version="*"
+
+    mainSourceFile "source/odood/app.d"
+    sourcePaths "tests"
+
+    versions "OdoodUnittestIntegrationUT"
+}

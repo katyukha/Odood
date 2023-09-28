@@ -6,10 +6,22 @@ import std.format: format;
 import odood.exception: OdoodException;
 import odood.cli.app;
 
+version(OdoodUnittestIntegrationUT) {
+    import unit_threaded;
+    mixin runTestsMain!(
+        //"odood",
+        //"odood.app",
+        //"odood.exception",
+        //"odood.utils",
+        //"odood.utils.zip",
+        //"odood.lib",
+        //"odood.cli",
+        "tests.basic",
+    );
 
 /** Run CLI application
   **/
-int main(string[] args) {
+} else int main(string[] args) {
     auto program = new App();
 
     version(odood_bash_autocomplete) {

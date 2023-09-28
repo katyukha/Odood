@@ -4,87 +4,74 @@ on:
   push:
     branches:
       - '*'
+env:
+  ODOOD_DLANG_COMPILER: ldc-1.34.0
 
+# In this test, we build Odood on Ubuntu 20.04 and then try to run
+# produced binary on different distros and versions
 jobs:
-  tests:
-    name: Tests
-    strategy:
-      matrix:
-        image: ["debian:bullseye"]
-    env:
-      INSTALL_LDC2_VERSION: "1.34.0"
-    runs-on: ubuntu-22.04
-    container:
-      image: ${{ matrix.image }}
+  # Compile test builds on ubuntu 20.04
+  compile-ubuntu-20_04:
+    name: Build Ubuntu:20.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
 
-      - name: Update apt registry
-        run: apt-get update
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
 
-      - name: Install system dependencies (for compiler setup)
-        run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
-
-      - name: Install system dependencies (for Odood)
-        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
-
-      - name: Prepare dependencies for deb package
-        id: prepare_deb_deps
-        run: |
-          echo "debian_bullseye_deps=$(cat .ci/deps/debian.bullseye.txt | tr '\n' ' ' )" >> $GITHUB_OUTPUT
-
-      - name: Install system (runtime) dependencies (Debian Bullseye)
-        if: matrix.image == 'debian:bullseye'
+      - name: Install system dependencies
         uses: lyricwulf/abc@v1
         with:
-          linux: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
+          linux: libzip-dev libpq-dev python3-dev
 
-      - name: Download LDC compiler
+      - name: Build Odood
         run: |
-          wget -q -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
-          tar -xf /tmp/ldc2.tar.xz
-          ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
+          dub build -b unittest-cov -c unittest-integration-ut
 
-      - name: Run tests (Debian Bullseye)
-        if: matrix.image == 'debian:bullseye'
-        run: dub test -b unittest-cov
-
-      - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+      - name: Upload Odood compiled assets
+        uses: actions/upload-artifact@v3
         with:
-          flags: unittests
-          name: odood-unittests
+          name: odood-ubuntu-20.04
+          path: |
+            build/odood-unittest-integration-ut
 
-  integration-test:
-    name: Integration Tests
+  # Run integration tests for different operation systems
+  run-integration-tests:
+    name: Run integration tests
     strategy:
       matrix:
-        image: ["debian:bullseye"]
-    env:
-      INSTALL_LDC2_VERSION: "1.33.0"
+        image:
+          - "debian:bullseye"
+          - "ubuntu:20.04"
+          - "ubuntu:22.04"
+          - "ubuntu:23.04"
     runs-on: ubuntu-22.04
-    container: ${{ matrix.image }}
-
+    needs:
+      - compile-ubuntu-20_04
+    container:
+      image: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: 'noninteractive'
     steps:
       - uses: actions/checkout@v3
 
+      - name: 'Download artifacts for ubuntu 20.04'
+        uses: actions/download-artifact@v3
+        with:
+          name: odood-ubuntu-20.04
+          path: build
+
       - name: Update apt registry
         run: apt-get update
-
-      - name: Upgrade apt packages
-        run: apt-get -yq upgrade
-
-      - name: Install system dependencies (for compiler setup)
-        run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
-
-      - name: Install system dependencies (for Odood)
-        run: apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
-
-      - name: Install system dependencies (for python build)
-        run: apt-get install --no-install-recommends -yq build-essential
 
       - name: Install system dependencies (postgresql)
         run: apt-get install --no-install-recommends -yq postgresql sudo
+
+      - name: Install package dependencies
+        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
 
       - name: Start postgresql
         run: /etc/init.d/postgresql start
@@ -92,23 +79,17 @@ jobs:
       - name: Create default role for postgresql
         run: sudo -u postgres -H psql -c "CREATE USER odoo WITH SUPERUSER PASSWORD 'odoo';"
 
-      - name: Download LDC compiler
-        run: |
-          wget -q -T 5 -O /tmp/ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v${INSTALL_LDC2_VERSION}/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64.tar.xz
-          tar -xf /tmp/ldc2.tar.xz
-          ln -s $(pwd)/ldc2-${INSTALL_LDC2_VERSION}-linux-x86_64/bin/* /bin/
+      - name: Make test build executable
+        run: chmod a+x ./build/odood-unittest-integration-ut
 
-      - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/debian.bullseye.txt)
+      - name: List available tests
+        run: ./build/odood-unittest-integration-ut --list
 
-      - name: Run tests (Debian Bullseye)
-        if: matrix.image == 'debian:bullseye'
-        run: dub test -b unittest-cov -c unittest-silly
+      - name: Run tests
+        run: ./build/odood-unittest-integration-ut --chrono
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
         with:
-          flags: integration-unittests
-          name: odood-integration-unittests
-
-
+          flags: integration-unittests-${{ matrix.image }}
+          name: odood-integration-unittests-${{ matrix.image }}
