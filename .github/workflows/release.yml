@@ -33,7 +33,7 @@ jobs:
       - name: Prepare dependencies for deb package
         id: prepare_deb_deps
         run: |
-          echo "ubuntu_20_04_deps=$(cat .ci/deps/ubuntu.20.04.txt | tr '\n' ',' | sed 's/,$/\n/')" >> $GITHUB_OUTPUT
+          echo "universal_deb_deps=$(cat .ci/deps/universal-deb.txt | tr '\n' ',' | sed 's/,$/\n/')" >> $GITHUB_OUTPUT
 
       - name: Prepare debian build
         run: |
@@ -52,146 +52,21 @@ jobs:
           maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
           version: ${{ github.ref_name }} # v*.*.*
           arch: 'amd64'
-          depends: ${{ steps.prepare_deb_deps.outputs.ubuntu_20_04_deps }}
+          depends: ${{ steps.prepare_deb_deps.outputs.universal_dep_deps }}
           desc: 'Odood - the easy way to handle multiple local Odoo installations.'
 
       - name: Move deb package to build dir with correct name
         run: |
-          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_ubuntu_20_04.deb
+          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_amd64.deb
 
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v3
         with:
-          name: odood-ubuntu-20.04
+          name: odood-amd64
           path: |
             build/odood
             build/odood.bash
-            build/odood_${{ github.ref_name }}_ubuntu_20_04.deb
-
-  build-ubuntu-22_04:
-    name: Build Ubuntu:22.04
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install D compiler
-        uses: dlang-community/setup-dlang@v1
-        with:
-          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
-
-      - name: Install system dependencies
-        uses: lyricwulf/abc@v1
-        with:
-          linux: libzip-dev libpq-dev python3-dev
-
-      - name: Build Odood
-        run: |
-          dub build -b release -c bash-autocomplete
-          dub build -b release
-
-      - name: Prepare dependencies for deb package
-        id: prepare_deb_deps
-        run: |
-          echo "ubuntu_22_04_deps=$(cat .ci/deps/ubuntu.22.04.txt | tr '\n' ',' | sed 's/,$/\n/')" >> $GITHUB_OUTPUT
-
-      - name: Prepare debian build
-        run: |
-          mkdir -p .debpkg/usr/bin
-          mkdir -p .debpkg/etc/bash_completion.d
-          cp build/odood .debpkg/usr/bin/odood
-          cp build/odood.bash .debpkg/etc/bash_completion.d/odood.bash
-          chmod a+x .debpkg/usr/bin/odood
-
-      - name: Build debian package
-        id: build_debian_package
-        uses: jiro4989/build-deb-action@v2
-        with:
-          package: odood
-          package_root: .debpkg
-          maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
-          version: ${{ github.ref_name }} # v*.*.*
-          arch: 'amd64'
-          depends: ${{ steps.prepare_deb_deps.outputs.ubuntu_22_04_deps }}
-          desc: 'Odood - the easy way to handle multiple local Odoo installations.'
-
-      - name: Move deb package to build dir with correct name
-        run: |
-          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_ubuntu_22_04.deb
-
-      - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: odood-ubuntu-22.04
-          path: |
-            build/odood
-            build/odood.bash
-            build/odood_${{ github.ref_name }}_ubuntu_22_04.deb
-
-  build-debian-bullseye:
-    name: Build Debian Bullseye
-    runs-on: ubuntu-22.04
-    container: debian:bullseye
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Update apt registry
-        run: apt-get update
-
-      - name: Install system dependencies (for compiler setup)
-        run: apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
-
-      - name: Install D compiler
-        uses: dlang-community/setup-dlang@v1
-        with:
-          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
-
-      - name: Install system dependencies
-        uses: lyricwulf/abc@v1
-        with:
-          linux: libzip-dev libpq-dev python3-dev
-
-      - name: Build Odood
-        run: |
-          dub build -b release -c bash-autocomplete
-          dub build -b release
-
-      - name: Prepare dependencies for deb package
-        id: prepare_deb_deps
-        run: |
-          echo "debian_bullseye_deps=$(cat .ci/deps/debian.bullseye.txt | tr '\n' ',' | sed 's/,$/\n/')" >> $GITHUB_OUTPUT
-
-      - name: Prepare debian build
-        run: |
-          mkdir -p .debpkg/usr/bin
-          mkdir -p .debpkg/etc/bash_completion.d
-          cp build/odood .debpkg/usr/bin/odood
-          cp build/odood.bash .debpkg/etc/bash_completion.d/odood.bash
-          chmod a+x .debpkg/usr/bin/odood
-
-      - name: Build debian package
-        id: build_debian_package
-        uses: jiro4989/build-deb-action@v2
-        with:
-          package: odood
-          package_root: .debpkg
-          maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
-          version: ${{ github.ref_name }} # v*.*.*
-          arch: 'amd64'
-          depends: ${{ steps.prepare_deb_deps.outputs.debian_bullseye_deps }}
-          desc: 'Odood - the easy way to handle multiple local Odoo installations.'
-
-      - name: Move deb package to build dir with correct name
-        run: |
-          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_debian_bullseye.deb
-
-      - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: odood-debian-bullseye
-          path: |
-            build/odood
-            build/odood.bash
-            build/odood_${{ github.ref_name }}_debian_bullseye.deb
+            build/odood_${{ github.ref_name }}_amd64.deb
 
   publish_release:
     name: Build Ubuntu:22.04
@@ -200,28 +75,14 @@ jobs:
       contents: write
     needs:
       - build-ubuntu-20_04
-      - build-ubuntu-22_04
-      - build-debian-bullseye
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
+      - name: 'Download artifacts for amd64'
         uses: actions/download-artifact@v3
         with:
-          name: odood-ubuntu-20.04
-          path: build-ubuntu-20.04
-
-      - name: 'Download artifacts for ubuntu 22.04'
-        uses: actions/download-artifact@v3
-        with:
-          name: odood-ubuntu-22.04
-          path: build-ubuntu-22.04
-
-      - name: 'Download artifacts for Debian Bullseye'
-        uses: actions/download-artifact@v3
-        with:
-          name: odood-debian-bullseye
-          path: build-debian-bullseye
+          name: odood-amd64
+          path: build-amd64
 
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
@@ -243,9 +104,7 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'true'
         with:
           files: |
-            build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
-            build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
-            build-debian-bullseye/odood_${{ github.ref_name }}_debian_bullseye.deb
+            build-amd64/odood_${{ github.ref_name }}_amd64.deb
           prerelease: true
           body_path: CHANGELOG.00.md
 
@@ -254,8 +113,6 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'false'
         with:
           files: |
-            build-ubuntu-20.04/odood_${{ github.ref_name }}_ubuntu_20_04.deb
-            build-ubuntu-22.04/odood_${{ github.ref_name }}_ubuntu_22_04.deb
-            build-debian-bullseye/odood_${{ github.ref_name }}_debian_bullseye.deb
+            build-amd64/odood_${{ github.ref_name }}_amd64.deb
           prerelease: false
           body_path: CHANGELOG.00.md
