@@ -18,6 +18,7 @@
 
 ### Changed
 - Load Python dynamically, thus make Odood more portable.
+- Finally, make Odood portable. Now we have universal deb package, that could be installed on most debian-based repos newer then ubuntu:20.04
 - Commands `odood addons install/update/uninstall` now will report Odoo errors raised during addons installation.
 
 ---
