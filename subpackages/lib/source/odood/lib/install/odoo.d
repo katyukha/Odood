@@ -221,8 +221,7 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
             "%s%s72".format(
                 project.odoo.serie.major,
                 uniform(2, 9)));
-    } else {
-        // TODO: Add case for Odoo 16.0+ to use correct settings.
+    } else if (project.odoo.serie < OdooSerie(16)) {
         odoo_test_conf["options"].setKey(
             "http_port",
             "%s%s69".format(
@@ -230,6 +229,17 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
                 uniform(2, 9)));
         odoo_test_conf["options"].setKey(
             "longpolling_port",
+            "%s%s72".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+    } else {
+        odoo_test_conf["options"].setKey(
+            "http_port",
+            "%s%s69".format(
+                project.odoo.serie.major,
+                uniform(2, 9)));
+        odoo_test_conf["options"].setKey(
+            "gevent_port",
             "%s%s72".format(
                 project.odoo.serie.major,
                 uniform(2, 9)));

@@ -352,29 +352,6 @@ class Project {
         return backup_path;
     }
 
-    /** Backup virtualenv
-      **/
-    //private Path backupVenv() {
-        // TODO: Make it working
-        //import std.datetime.systime: Clock;
-        //// Archive current odoo source code
-        //auto backup_path = project.directories.backups.join(
-            //"venv-%s-%s-%s.zip".format(
-                //project.odoo.serie,
-                //"%s-%s-%s".format(
-                    //Clock.currTime.year,
-                    //Clock.currTime.month,
-                    //Clock.currTime.day),
-                //generateRandomString(4)
-            //)
-        //);
-        //infof("Saving backup of Odoo sources to %s...", backup_path);
-        //Zipper(
-            //backup_path,
-            //ZipMode.CREATE,
-        //).add(project.venv.path);
-    //}
-
     /** Update odoo to newer version
       *
       * Params:
@@ -451,7 +428,6 @@ class Project {
         }
 
         if (reinstall_venv && this.venv.path.exists()) {
-            // TODO: Take backup of venv
             this.venv.path.remove();
         }
 

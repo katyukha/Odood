@@ -264,13 +264,11 @@ class CommandTest: OdoodCommand {
                 writeln(coverage_report_res.output);
 
                 // Exit with error code
-                // TODO: Try to avoid exception;
                 exitWithCode(1, "Test failed");
             }
         }
 
         if (!res.success)
-            // TODO: Try to avoid exception, and just return non-zero exit-code
             exitWithCode(1, "Test failed");
     }
 }

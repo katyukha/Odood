@@ -278,15 +278,14 @@ void gitClone(
         "It seems that repo %s already clonned to %s!".format(repo, dest));
     infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
-    // TODO: Make branch optional
-    string[] git_options = ["clone", "-b", branch];
+    auto proc = Process("git")
+        .withArgs("clone");
+    if (branch)
+        proc.addArgs("-b", branch);
     if (single_branch)
-        git_options ~= ["--single-branch"];
-    git_options ~= [repo.applyCIRewrites.toUrl, dest.toString];
-    Process("git")
-        .setArgs(git_options)
-        .execute()
-        .ensureOk(true);
+        proc.addArgs("--single-branch");
+    proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
+    proc.execute().ensureOk(true);
 }
 
 /** Check if specified path is git repository

@@ -472,7 +472,6 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
                             printLogRecordSimplified(log_line);
                 }
                 if (!args.flag("skip-errors"))
-                    // TODO: Throw custom error. And in case when skip error is set, then throw error after the loop
                     throw new AddonsInstallUpdateUninstallFailed(
                         "Addon installation for database %s failed!".format(db));
             }
