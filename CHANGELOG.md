@@ -1,6 +1,6 @@
 # Changelog
 
-## Release 0.0.14 (Unreleased)
+## Release 0.0.14 (2023-10-04)
 
 ### Added
 - Added new options `--skip` and `--skip-re` to `odood test` command,
