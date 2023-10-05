@@ -1,5 +1,14 @@
 # Changelog
 
+## Release 0.0.15 (Unreleased)
+
+### Fixes
+
+- Fix error when running `addons install/update/uninstall` with non-existing
+  logfile. This was caused by attempt to determine starting point of logfile
+  to search for errors happened during operation.
+  Now this case is handled correctly.
+
 ## Release 0.0.14 (2023-10-04)
 
 ### Added

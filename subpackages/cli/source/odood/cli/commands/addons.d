@@ -451,20 +451,37 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             start_again=true;
         }
 
-        auto log_file = project.odoo.logfile.openFile("rt");
+        File log_file;
+        if (project.odoo.logfile.exists)
+            // Open file only if file exists
+            log_file = project.odoo.logfile.openFile("rt");
+
         bool error = false;
         scope(exit) log_file.close();
 
         foreach(db; dbnames) {
-            auto log_start = log_file.size();
+            if (!log_file.isOpen && project.odoo.logfile.exists)
+                // If file is not opened but exists, open it.
+                // This is needed to correctly compute starting point
+                // for tracking log messages happened during operation (dg)
+                log_file.open(project.odoo.logfile.toString, "rt");
+
+            auto log_start = log_file.isOpen ? log_file.size() : 0;
+
             try {
                 // Try to apply delegate
                 dg(db);
             } catch (ServerCommandFailedException e) {
                 error = true;
 
+                if (!log_file.isOpen && project.odoo.logfile.exists)
+                    // If file is not opened but exists, open it.
+                    // This is needed to be able to read log messages
+                    // happeded during execution of dg delegate
+                    log_file.open(project.odoo.logfile.toString, "rt");
+
                 // Print errors from logfile to stdout.
-                if (log_file.size > log_start) {
+                if (log_file.isOpen && log_file.size > log_start) {
                     writeln("Following errors detected during install:".red);
                     log_file.seek(log_start);
                     foreach(log_line; OdooLogProcessor(log_file))
