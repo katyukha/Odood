@@ -306,6 +306,9 @@ class CommandAddonsLink: OdoodCommand {
             "r", "recursive",
             "Search for addons in this directory recursively."));
         this.add(new Flag(
+            null, "manifest-requirements",
+            "Install python dependencies from manifest's external dependencies"));
+        this.add(new Flag(
             null, "ual", "Update addons list for all databases"));
         this.add(new Argument(
             "path", "Path to search for addons in.").required());
@@ -317,7 +320,10 @@ class CommandAddonsLink: OdoodCommand {
         project.addons.link(
             Path(args.arg("path")),
             args.flag("recursive"),
-            args.flag("force"));
+            args.flag("force"),
+            true,  // Install py deps from requirements.txt
+            args.flag("manifest-requirements"),
+        );
 
         if (args.flag("ual"))
             foreach(dbname; project.databases.list())
@@ -579,6 +585,9 @@ class CommandAddonsAdd: OdoodCommand {
             "If set, then Odood will automatically process " ~
             "odoo_requirements.txt file inside repositories mentioned in " ~
             "provided odoo_requirements.txt"));
+        this.add(new Flag(
+            null, "manifest-requirements",
+            "Install python dependencies from manifest's external dependencies"));
         this.add(new Option(
             null, "odoo-apps", "Add addon from odoo apps.").repeating);
         this.add(new Option(
@@ -597,7 +606,10 @@ class CommandAddonsAdd: OdoodCommand {
             project.addons.processOdooRequirements(
                 Path(requirements_path),
                 args.flag("single-branch"),
-                args.flag("recursive"));
+                args.flag("recursive"),
+                true, // Install python deps from requirements.txt file if exists
+                args.flag("manifest-requirements")
+            );
     }
 
 }

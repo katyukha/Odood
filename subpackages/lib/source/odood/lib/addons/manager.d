@@ -23,6 +23,12 @@ private import odood.utils.zip: extract_zip_archive;
 private import odood.utils.git: parseGitURL, gitClone;
 private import odood.exception: OdoodException;
 
+/// Install python dependencies requirements.txt by default
+immutable bool DEFAULT_INSTALL_PY_REQUREMENTS = true;
+
+/// Install python dependencies from addon manifest by default
+immutable bool DEFAULT_INSTALL_MANIFEST_REQUREMENTS = true;
+
 
 /// Struct that provide API to manage odoo addons for the project
 struct AddonManager {
@@ -165,12 +171,15 @@ struct AddonManager {
       *     force = if set, then rewrite link to this addon
       *         (if it was already linked).
       *     py_requirements = if set, then automatically install python
-      *         requirements for requirements.txt file or from external deps
+      *         requirements for requirements.txt file
+      *     manifest_requirements = if set, then automatically install
+      *         python requirements from manifest
       **/
     void link(
             OdooAddon addon,
             in bool force=false,
-            in bool py_requirements=true) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
         auto dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("Linking addon %s (%s -> %s)",
@@ -205,12 +214,7 @@ struct AddonManager {
             infof("Installing python requirements for addon '%s'",
                   addon.name);
             _project.venv.installPyRequirements(dest.join("requirements.txt"));
-        } else if (py_requirements && addon.manifest.python_dependencies.length > 0) {
-            // TOOD: Handle case when python dependencies from manifest are bad:
-            //       - not a pip package
-            //       - python module from standard lib
-            //       - other strage thing
-            //       May be it have sense to check this on manifest parsing stage.
+        } else if (manifest_requirements && addon.manifest.python_dependencies.length > 0) {
             infof("Installing python requirements for addon '%s' from manifest",
                   addon.name);
             _project.venv.installPyPackages(addon.manifest.python_dependencies);
@@ -228,14 +232,17 @@ struct AddonManager {
       *         (if it was already linked).
       *     py_requirements = if set, then automatically install python
       *         requirements for requirements.txt file
+      *     manifest_requirements = if set, then automatically install
+      *         python requirements from manifest
       **/
     void link(
             in Path search_path,
             in bool recursive=false,
             in bool force=false,
-            in bool py_requirements=true) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
         foreach(addon; scan(search_path, recursive))
-            link(addon, force, py_requirements);
+            link(addon, force, py_requirements, manifest_requirements);
 
         if (py_requirements && search_path.join("requirements.txt").exists) {
             infof("Installing python requirements from '%s'",
@@ -472,7 +479,10 @@ struct AddonManager {
     }
 
     /// Download from odoo apps
-    void downloadFromOdooApps(in string addon_name) const {
+    void downloadFromOdooApps(
+            in string addon_name,
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
         auto temp_dir = createTempPath();
         scope(exit) temp_dir.remove();
 
@@ -495,7 +505,11 @@ struct AddonManager {
             } else {
                 infof("Copying addon %s...", addon.name);
                 addon.path.copyTo(_project.directories.downloads);
-                link(_project.directories.downloads.join(addon.name));
+                link(
+                    _project.directories.downloads.join(addon.name),
+                    false,  // force
+                    py_requirements,
+                    manifest_requirements);
             }
         }
     }
@@ -516,11 +530,17 @@ struct AddonManager {
       *         by path
       *     recurisve = recursively process odoo_requirements.txt in
       *         clonned repositories
+      *     py_requirements = if set, then automatically install python
+      *         requirements for requirements.txt file
+      *     manifest_requirements = if set, then automatically install
+      *         python requirements from manifest
       **/
     void processOdooRequirements(
             in Path path,
             in bool single_branch=false,
-            in bool recursive=false) {
+            in bool recursive=false,
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
         foreach(line; parseOdooRequirements(path))
             // TODO: In case when only single module request,
             //       add only single module
@@ -534,7 +554,7 @@ struct AddonManager {
                         recursive);
                     break;
                 case OdooRequirementsLineType.odoo_apps:
-                    downloadFromOdooApps(line.addon);
+                    downloadFromOdooApps(line.addon, py_requirements, manifest_requirements);
                     break;
             }
     }
@@ -550,12 +570,18 @@ struct AddonManager {
       *     single_branch = if set, then clone only single branch of repo
       *     recursive = if set, then automatically process odoo_requirements.txt
       *         inside clonned repo, to recursively fetch its dependencies
+      *     py_requirements = if set, then automatically install python
+      *         requirements for requirements.txt file
+      *     manifest_requirements = if set, then automatically install
+      *         python requirements from manifest
       **/
     void addRepo(
             in string url,
             in string branch,
             in bool single_branch=false,
-            in bool recursive=true) {
+            in bool recursive=true,
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
         import std.algorithm;
         import std.string: toLower;
         import std.array: array;
@@ -575,7 +601,12 @@ struct AddonManager {
 
         // TODO: Do we need to create instance of repo here?
         auto repo = new AddonRepository(_project, dest);
-        link(repo.path, true);
+        link(
+            repo.path,
+            true,  // recursive
+            false, // force
+            py_requirements,
+            manifest_requirements);
 
         // If there is odoo_requirements.txt file present, then we have to
         // process it.
@@ -583,7 +614,9 @@ struct AddonManager {
             processOdooRequirements(
                 repo.path.join("odoo_requirements.txt"),
                 single_branch,
-                recursive);
+                recursive,
+                py_requirements,
+                manifest_requirements);
         }
     }
 
@@ -591,8 +624,16 @@ struct AddonManager {
     void addRepo(
             in string url,
             in bool single_branch=false,
-            in bool recursive=true) {
-        addRepo(url, _project.odoo.serie.toString, single_branch, recursive);
+            in bool recursive=true,
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
+        addRepo(
+            url,
+            _project.odoo.serie.toString,
+            single_branch,
+            recursive,
+            py_requirements,
+            manifest_requirements);
     }
 
     /// Get repository instance for specified path
