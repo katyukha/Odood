@@ -4,8 +4,19 @@ The easy way to install and manage odoo for local development.
 This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/) and is compatible with
 odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
 
+---
+
+[![Github Actions](https://github.com/katyukha/odood/actions/workflows/tests.yml/badge.svg)](https://github.com/katyukha/odood/actions/workflows/tests.yml?branch=master)
+[![codecov](https://codecov.io/gh/katyukha/odood/branch/master/graph/badge.svg?token=IUXBCNSHNQ)](https://codecov.io/gh/katyukha/odood)
+[![DUB](https://img.shields.io/dub/v/odood)](https://code.dlang.org/packages/odood)
+![DUB](https://img.shields.io/dub/l/odood)
+
+---
+
 
 ## Current state
+
+![Current status](https://img.shields.io/badge/Current%20Status-Alpha-purple)
 
 The project is still *under development*.
 

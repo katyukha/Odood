@@ -180,6 +180,8 @@ struct AddonManager {
             in bool force=false,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+        // TODO: Implement separate struct LinkOptions to handle all link options.
+        //       this could simplify the code.
         auto dest = _project.directories.addons.join(addon.name);
         if (!dest.exists) {
             tracef("Linking addon %s (%s -> %s)",
