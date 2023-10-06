@@ -2,6 +2,13 @@
 
 ## Release 0.0.15 (Unreleased)
 
+### Added
+
+- Added ability skip addons specified in file during install/update/upgrade.
+- Added new options to `odood test` command:
+    - `--file` that could be used to pass the path to file to read addons to test from
+    - `--skip-file` read names of addons to skip from file
+
 ### Changed
 
 - Installation of dependencies from manifest is now optional.

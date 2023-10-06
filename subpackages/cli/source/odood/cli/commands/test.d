@@ -69,12 +69,22 @@ class CommandTest: OdoodCommand {
         this.add(new Option(
             null, "dir-r",
             "Directory to recursively search for addons to test").repeating);
+        this.add(
+            new Option(
+                "f", "file",
+                "Read addons names from file (addon names must be separated by new lines)"
+            ).optional().repeating());
         this.add(new Option(
             null, "skip",
             "Skip (do not run tests) addon specified by name.").repeating);
         this.add(new Option(
             null, "skip-re",
             "Skip (do not run tests) addon specified by regex.").repeating);
+        this.add(
+            new Option(
+                null, "skip-file",
+                "Skip addons listed in specified file (addon names must be separated by new lines)"
+            ).optional().repeating());
         this.add(new Argument(
             "addon", "Name of addon to run tests for.").optional.repeating);
 
@@ -92,6 +102,10 @@ class CommandTest: OdoodCommand {
     private auto findAddons(ProgramArgs args, in Project project) {
         string[] skip_addons = args.options("skip");
         auto skip_regexes = args.options("skip-re").map!(r => regex(r)).array;
+
+        foreach(path; args.options("skip-file"))
+            foreach(addon; project.addons.parseAddonsList(Path(path)))
+                skip_addons ~= addon.name;
 
         OdooAddon[] addons;
         foreach(search_path; args.options("dir"))
@@ -119,6 +133,13 @@ class CommandTest: OdoodCommand {
             addons ~= addon.get;
         }
 
+        foreach(path; args.options("file")) {
+            foreach(addon; project.addons.parseAddonsList(Path(path))) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+        }
         return addons;
     }
 

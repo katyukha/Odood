@@ -385,14 +385,19 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         this.add(new Option(
             null, "dir-r",
             "Directory to recursively search for addons").repeating);
+        this.add(
+            new Option(
+                "f", "file",
+                "Read addons names from file (addon names must be separated by new lines)"
+            ).optional().repeating());
         this.add(new Option(
             null, "skip", "Skip addon specified by name.").repeating);
         this.add(new Option(
             null, "skip-re", "Skip addon specified by regex.").repeating);
         this.add(
             new Option(
-                "f", "file",
-                "Read addons names from file (addon names must be separated by new lines)"
+                null, "skip-file",
+                "Skip addons listed in specified file (addon names must be separated by new lines)"
             ).optional().repeating());
         this.add(new Argument(
             "addon", "Specify names of addons as arguments.").optional.repeating);
@@ -408,6 +413,10 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     protected auto findAddons(ProgramArgs args, in Project project) {
         string[] skip_addons = args.options("skip");
         auto skip_regexes = args.options("skip-re").map!(r => regex(r)).array;
+
+        foreach(path; args.options("skip-file"))
+            foreach(addon; project.addons.parseAddonsList(Path(path)))
+                skip_addons ~= addon.name;
 
         OdooAddon[] addons;
         foreach(search_path; args.options("dir"))
