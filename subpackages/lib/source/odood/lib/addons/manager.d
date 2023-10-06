@@ -27,7 +27,7 @@ private import odood.exception: OdoodException;
 immutable bool DEFAULT_INSTALL_PY_REQUREMENTS = true;
 
 /// Install python dependencies from addon manifest by default
-immutable bool DEFAULT_INSTALL_MANIFEST_REQUREMENTS = true;
+immutable bool DEFAULT_INSTALL_MANIFEST_REQUREMENTS = false;
 
 
 /// Struct that provide API to manage odoo addons for the project
