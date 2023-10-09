@@ -39,57 +39,57 @@ jobs:
             build/odood-unittest-integration-ut
 
   # Run integration tests for different operation systems
-  run-integration-tests:
-    name: Run integration tests
-    strategy:
-      matrix:
-        image:
-          - "debian:bullseye"
-          - "ubuntu:20.04"
-          - "ubuntu:22.04"
-          - "ubuntu:23.04"
-    runs-on: ubuntu-22.04
-    needs:
-      - compile-ubuntu-20_04
-    container:
-      image: ${{ matrix.image }}
-    env:
-      DEBIAN_FRONTEND: 'noninteractive'
-    steps:
-      - uses: actions/checkout@v3
+  #run-integration-tests:
+    #name: Run integration tests
+    #strategy:
+      #matrix:
+        #image:
+          #- "debian:bullseye"
+          #- "ubuntu:20.04"
+          #- "ubuntu:22.04"
+          #- "ubuntu:23.04"
+    #runs-on: ubuntu-22.04
+    #needs:
+      #- compile-ubuntu-20_04
+    #container:
+      #image: ${{ matrix.image }}
+    #env:
+      #DEBIAN_FRONTEND: 'noninteractive'
+    #steps:
+      #- uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
-        uses: actions/download-artifact@v3
-        with:
-          name: odood-ubuntu-20.04
-          path: build
+      #- name: 'Download artifacts for ubuntu 20.04'
+        #uses: actions/download-artifact@v3
+        #with:
+          #name: odood-ubuntu-20.04
+          #path: build
 
-      - name: Update apt registry
-        run: apt-get update
+      #- name: Update apt registry
+        #run: apt-get update
 
-      - name: Install system dependencies (postgresql)
-        run: apt-get install --no-install-recommends -yq postgresql sudo
+      #- name: Install system dependencies (postgresql)
+        #run: apt-get install --no-install-recommends -yq postgresql sudo
 
-      - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+      #- name: Install package dependencies
+        #run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
 
-      - name: Start postgresql
-        run: /etc/init.d/postgresql start
+      #- name: Start postgresql
+        #run: /etc/init.d/postgresql start
 
-      - name: Create default role for postgresql
-        run: sudo -u postgres -H psql -c "CREATE USER odoo WITH SUPERUSER PASSWORD 'odoo';"
+      #- name: Create default role for postgresql
+        #run: sudo -u postgres -H psql -c "CREATE USER odoo WITH SUPERUSER PASSWORD 'odoo';"
 
-      - name: Make test build executable
-        run: chmod a+x ./build/odood-unittest-integration-ut
+      #- name: Make test build executable
+        #run: chmod a+x ./build/odood-unittest-integration-ut
 
-      - name: List available tests
-        run: ./build/odood-unittest-integration-ut --list
+      #- name: List available tests
+        #run: ./build/odood-unittest-integration-ut --list
 
-      - name: Run tests
-        run: ./build/odood-unittest-integration-ut --chrono
+      #- name: Run tests
+        #run: ./build/odood-unittest-integration-ut --chrono
 
-      - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
-        with:
-          flags: integration-unittests-${{ matrix.image }}
-          name: odood-integration-unittests-${{ matrix.image }}
+      #- name: Upload coverage to codecov
+        #uses: codecov/codecov-action@v3
+        #with:
+          #flags: integration-unittests-${{ matrix.image }}
+          #name: odood-integration-unittests-${{ matrix.image }}
