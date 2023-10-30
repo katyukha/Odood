@@ -309,6 +309,13 @@ struct OdooDatabaseManager {
             in bool validate_strict=true) const {
         _restoreValidateBackup(backup_path, validate_strict);
 
+        /* TODO: Implement database restoration in D
+         *
+         * 1. Restore filestore
+         * 2. Restore database
+         * 3. Set correct assert rights for filestore if needed
+         */
+
         return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
     }
 
