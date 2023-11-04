@@ -18,7 +18,7 @@
 		"requests": "2.1.1",
 		"semver": "0.5.0",
 		"tabletool": "0.5.0",
-		"thepath": "1.0.0",
+		"thepath": "1.1.0",
 		"theprocess": "0.0.5",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.7",

@@ -10,15 +10,8 @@ private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.utils: generateRandomString;
+private import odood.utils.odoo.db: BackupFormat;
 private import odood.exception: OdoodException;
-
-
-/** Supported backup formats
-  **/
-enum BackupFormat {
-    zip,  /// ZIP backup format that includes filestore
-    sql,  /// SQL-only backup, that contains only SQL dump
-}
 
 
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
@@ -228,7 +221,7 @@ const struct LOdoo {
 
         /** Restore database
           **/
-        auto databaseRestore(in string name, in Path backup_path) {
+        deprecated auto databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
             return runE("db-restore", name, backup_path.toString);
         }

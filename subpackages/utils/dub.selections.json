@@ -10,7 +10,7 @@
 		"prettyprint": "1.0.9",
 		"requests": "2.1.1",
 		"semver": "0.5.0",
-		"thepath": "1.0.0",
+		"thepath": "1.1.0",
 		"theprocess": "0.0.5",
 		"unit-threaded": "2.1.7",
 		"zipper": "0.0.4-bindbc"

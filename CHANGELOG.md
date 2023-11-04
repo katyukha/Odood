@@ -1,5 +1,14 @@
 # Changelog
 
+## Release 0.0.16 (Unreleased)
+
+### Changed
+
+- Database restoration reimplemented in D,
+  thus now it restores db dump and filestore in parallel.
+
+---
+
 ## Release 0.0.15 (2023-10-30)
 
 ### Added

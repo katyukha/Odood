@@ -5,6 +5,7 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.logger;
+private import std.conv: to, ConvException;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -168,7 +169,7 @@ class Project {
     this(in Path project_root, in OdooSerie odoo_serie) {
         this(project_root,
              odoo_serie,
-             odoo_serie.toString, 
+             odoo_serie.toString,
              DEFAULT_ODOO_REPO);
     }
 
@@ -209,6 +210,41 @@ class Project {
       * install packages, etc
       **/
     auto venv() const { return _venv; }
+
+    /** psql process prepared and configured to run
+      *
+      * This method could be used to get prepared psql command
+      * with already configured params for connection to database
+      *
+      * Returns: Process instance (from theprocess package)
+      **/
+    auto psql() const {
+        auto odoo_conf = getOdooConfig();
+
+        // TODO: Use resolveProgramPath here
+        auto res = Process("psql")
+            .withEnv(
+                "PGUSER",
+                odoo_conf["options"].hasKey("db_user") ?
+                    odoo_conf["options"].getKey("db_user") : "odoo")
+            .withEnv(
+                "PGPASSWORD",
+                odoo_conf["options"].hasKey("db_password") ?
+                    odoo_conf["options"].getKey("db_password") : "odoo");
+
+        if (odoo_conf["options"].hasKey("db_host"))
+            res.setEnv(
+                "PGHOST", odoo_conf["options"].getKey("db_host"));
+        if (odoo_conf["options"].hasKey("db_port")) {
+            auto db_port = odoo_conf["options"].getKey("db_port");
+            try {
+                res.setEnv("PGPORT", db_port.to!(int).to!string);
+            } catch (ConvException) {
+                warningf("Unparsable value for db port: %s", db_port);
+            }
+        }
+        return res;
+    }
 
     /** OdooServer wrapper to manage server of this Odood project
       * Provides basic methods to start/stop/etc odoo server.

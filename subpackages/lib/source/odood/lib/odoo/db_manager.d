@@ -9,16 +9,18 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
+private import std.algorithm: canFind;
+private import std.string: join, startsWith, chompPrefix;
 
 private import thepath;
 private import theprocess;
 private import zipper;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib.odoo.db: OdooDatabase;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.odoo.db: detectDatabaseBackupFormat, BackupFormat;
 private import odood.utils: generateRandomString;
 private import odood.exception: OdoodException;
 
@@ -229,40 +231,22 @@ struct OdooDatabaseManager {
         return backup(dbname, _project.directories.backups, backup_format);
     }
 
-    /** Validate backup provided for restore method.
+    /** Validate backup (ZIP format) provided for restore method.
       *
       * Params:
       *     backup_path = Path to database backup to validate
       *     strict = if set to true, then will raise error if backup
       *         requires addons that are not available in this odoo install.
       **/
-    void _restoreValidateBackup(in Path backup_path, in bool strict) const {
-        import std.json;
-        import std.string: join;
-        import std.algorithm: canFind;
+    void _restoreValidateBackupZip(Zipper backup, in bool strict) const {
         import odood.utils.odoo.db: parseDatabaseBackupManifest;
-
-        enforce!OdoodException(
-                backup_path.exists,
-                "Cannot restore! Backup %s does not exists!".format(backup_path));
-
-        enforce!OdoodException(
-            [".sql", ".zip"].canFind(backup_path.extension),
-            "Cannot restore database backup %s" ~ backup_path.toString ~
-            ": unsupported backup format!\n" ~
-            "Supported backup formats: .zip, .sql");
-
-        if (backup_path.extension == ".sql")
-            // No validation available for SQL
-            return;
 
         JSONValue manifest;
         try {
-            manifest = parseDatabaseBackupManifest(backup_path);
+            manifest = parseDatabaseBackupManifest(backup);
         } catch (OdoodException e) {
             warningf(
-                "Cannot find/parse backup (%s) manifest: %s",
-                backup_path, e.msg);
+                "Cannot find/parse backup manifest: %s", e.msg);
             // TODO: try to guess if it is SQL backup or ZIP backup, and
             //       do correct validation;
             return;
@@ -271,8 +255,8 @@ struct OdooDatabaseManager {
         OdooSerie backup_serie = manifest["version"].get!string;
         enforce!OdoodException(
             backup_serie == _project.odoo.serie,
-            "Cannot restore backup %s: backup version %s do not match odoo version %s".format(
-                backup_path, backup_serie, _project.odoo.serie));
+            "Cannot restore backup: backup version %s do not match odoo version %s".format(
+                backup_serie, _project.odoo.serie));
 
         // TODO: check PG version
 
@@ -282,15 +266,159 @@ struct OdooDatabaseManager {
             if (addon.isNull) {
                 missing_addons ~= name;
                 warningf(
-                    "Addon %s is not available, but used in backup %s",
-                    name, backup_path);
+                    "Addon %s is not available, but used in backup", name);
             }
         }
         if (strict && missing_addons.length > 0)
             throw new OdoodException(
-                "Cannot restore backup %s, because following addons missing:\n%s".format(
-                    backup_path, missing_addons.join("\n")));
+                "Cannot restore backup, because following addons missing:\n%s".format(
+                    missing_addons.join("\n")));
+    }
 
+    /** Restore database from backup of old v7 SQL format
+      *
+      * Params:
+      *     name = name of database to restore
+      *     backup_path = path to database backup to restore
+      *     backup_name = name of backup located in standard backup location or path to backup as string.
+      *     validate_strict = if set to true,
+      *         then raise error if backup is not valid,
+      *         otherwise only warning will be emited to log.
+      **/
+    auto _restoreSQL(
+            in string name,
+            in Path backup_path,
+            in bool validate_strict=true) const {
+
+        // TODO: Detect format, it may be plain SQL or custom SQL format
+
+        // Use lodoo to restore backup for now
+        return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+    }
+
+    /** Create empty database before restoration
+      *
+      * Params:
+      *     name = name of database to create
+      **/
+    void _createEmptyDB(in string name) const {
+        import std.uni;
+        import dpq.exception;
+        import odood.lib.odoo.config: getConfVal;
+        auto odoo_conf = _project.getOdooConfig();
+        auto db_template = odoo_conf.getConfVal("db_template", "template0");
+        auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
+
+        auto pg_db = this.get("postgres").connection;
+        scope(exit) pg_db.close();
+        pg_db.exec(
+            "CREATE DATABASE \"%s\" ENCODING 'unicode' %s TEMPLATE %s".format(
+                name, collate, db_template));
+
+        // Install 'unaccent' extension if needed
+        if (odoo_conf.getConfVal("unaccent").toLower == "true") {
+            try {
+                auto db = this.get(name);
+                scope(exit) db.close();
+                db.runSQLQuery("CREATE EXTENSION IF NOT EXISTS unaccent");
+            } catch (DPQException e) {
+                // Do nothing
+            }
+        }
+    }
+
+    /** Restore database from new backup of ZIP format
+      *
+      * Params:
+      *     name = name of database to restore
+      *     backup_path = path to database backup to restore
+      *     backup_name = name of backup located in standard backup location or path to backup as string.
+      *     validate_strict = if set to true,
+      *         then raise error if backup is not valid,
+      *         otherwise only warning will be emited to log.
+      **/
+    auto _restoreZIP(
+            in string name,
+            in Path backup_path,
+            in bool validate_strict=true) const {
+        import std.parallelism;
+        auto backup_zip = Zipper(backup_path);
+        _restoreValidateBackupZip(backup_zip, validate_strict);
+
+        infof("Restoring database %s from %s", name, backup_path);
+
+        _createEmptyDB(name);
+
+        auto fs_path = _project.directories.data.join("filestore", name);
+        scope(failure) {
+            // TODO: Use pure SQL to check if db exists and for cleanup
+            if (this.exists(name)) this.drop(name);
+            if (fs_path.exists()) fs_path.remove();
+        }
+
+        // Prepare tasks
+        auto t_restore_db = scopedTask(() {
+            import std.process: wait, pipe;
+            import std.stdio;
+
+            auto zip = Zipper(backup_path);
+            auto dump = zip.entry("dump.sql");
+
+            auto psql_pipe = pipe();
+            scope(exit) psql_pipe.close();
+            auto psql_pid = _project.psql
+                .withArgs(
+                    "--file=-",
+                    "-q",
+                    "--dbname=%s".format(name))
+                .spawn(
+                    psql_pipe.readEnd,
+                    File("/dev/null", "wt"),
+                    std.stdio.stderr,
+                );
+            scope(exit) psql_pid.wait();
+
+            tracef("Restoring database %s dump", name);
+            dump.readByChunk!char(
+                (scope const char[] chunk, in ulong chunk_size) {
+                    psql_pipe.writeEnd.write(chunk[0 .. chunk_size]);
+                });
+
+            psql_pipe.writeEnd.flush();
+            psql_pipe.writeEnd.close();
+            tracef("Dump of database %s successfully restored!", name);
+        });
+
+        auto t_restore_fs = scopedTask(() {
+            // Restore filestore
+            tracef("Restore filestore for database %s", name);
+            auto zip = Zipper(backup_path);
+            fs_path.mkdir(true);
+            foreach(entry; zip.entries) {
+                if (entry.name.startsWith("filestore/")) {
+                    entry.unzipTo(
+                        fs_path.join(
+                            entry.name.chompPrefix("filestore/")));
+                }
+            }
+            if (_project.odoo.server_user)
+                // Set correct ownership for database's filestore
+                fs_path.chown(_project.odoo.server_user);
+            tracef("Filestore for database %s was successfully restored", name);
+        });
+
+        // Run tasks
+        t_restore_db.executeInNewThread();
+        t_restore_fs.executeInNewThread();
+
+        // Wait tasks
+        t_restore_db.yieldForce();
+        t_restore_fs.yieldForce();
+
+        // TODO: set access rights for filestore
+        // TODO: restore other files.
+
+        infof("Database %s restored from backup %s", name, backup_path);
     }
 
     /** Restore database
@@ -303,24 +431,28 @@ struct OdooDatabaseManager {
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
       **/
-    auto restore(
+    void restore(
             in string name,
             in Path backup_path,
             in bool validate_strict=true) const {
-        _restoreValidateBackup(backup_path, validate_strict);
+        enforce!OdoodException(
+                backup_path.exists,
+                "Cannot restore! Backup %s does not exists!".format(backup_path));
 
-        /* TODO: Implement database restoration in D
-         *
-         * 1. Restore filestore
-         * 2. Restore database
-         * 3. Set correct assert rights for filestore if needed
-         */
+        auto backup_format = backup_path.detectDatabaseBackupFormat;
 
-        return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+        final switch(backup_format) {
+            case BackupFormat.zip:
+                _restoreZIP(name, backup_path, validate_strict);
+                break;
+            case BackupFormat.sql:
+                _restoreSQL(name, backup_path, validate_strict);
+                break;
+        }
     }
 
     /// ditto
-    auto restore(
+    void restore(
             in string name,
             in string backup_name,
             in bool validate_strict=true) const {
@@ -328,7 +460,7 @@ struct OdooDatabaseManager {
         if (!backup_path.exists)
             // Try to search for backup in standard backup directory.
             backup_path = _project.directories.backups.join(backup_name);
-        return restore(name, backup_path, validate_strict);
+        restore(name, backup_path, validate_strict);
     }
 
     /** Return database wrapper, that allows to interact with database
