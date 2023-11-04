@@ -152,11 +152,11 @@ void testAddonsManagementBasic(in Project project) {
     test_result.success.shouldBeTrue();
 
     // Try to fetch bureaucrate-helpdesk-lite from odoo apps
-    project.addons.downloadFromOdooApps("bureaucrat_helpdesk_lite");
-    project.directories.addons.join("bureaucrat_helpdesk_lite").exists.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_helpdesk_lite").isSymlink.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_helpdesk_lite").readLink.shouldEqual(
-        project.directories.downloads.join("bureaucrat_helpdesk_lite"));
+    project.addons.downloadFromOdooApps("bureaucrat_knowledge");
+    project.directories.addons.join("bureaucrat_knowledge").exists.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_knowledge").isSymlink.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_knowledge").readLink.shouldEqual(
+        project.directories.downloads.join("bureaucrat_knowledge"));
 
     // Test parsing addons-list.txt file
     auto parsed_addons = project.addons.parseAddonsList(
