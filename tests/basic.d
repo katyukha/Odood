@@ -233,6 +233,90 @@ void runBasicTests(in Project project) {
 }
 
 
+@("Basic Test Odoo 17")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-17",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 17 instance
+    createDbUser("odood17test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(17));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood17test",
+            "odoo")
+        .setHttp("localhost", "17069")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(17));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    //project.runBasicTests;
+
+    /*
+     * TODO: Currently, because some addons used in tests are not ported to 17,
+     *       we do not test addons management. But later, when that addons ported
+     *       we have to chage this and run tests for addons management for Odoo 17
+     */
+
+    // Test server management
+    testServerManagement(project);
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    //testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
+}
+
+
+@("Basic Test Odoo 16")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-16",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 16 instance
+    createDbUser("odood16test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(16));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood16test",
+            "odoo")
+        .setHttp("localhost", "16069")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(16));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    project.runBasicTests;
+}
+
+
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
