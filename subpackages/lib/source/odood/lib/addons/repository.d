@@ -77,7 +77,7 @@ class AddonRepository {
             .setWorkDir(_path)
             .setFlag(std.process.Config.stderrPassThrough)
             .execute()
-            .ensureStatus()
+            .ensureStatus(true)
             .output.strip();
     }
 
@@ -88,7 +88,7 @@ class AddonRepository {
             .setArgs("fetch", "origin")
             .setWorkDir(_path)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
     }
 
     /// ditto
@@ -97,7 +97,7 @@ class AddonRepository {
             .setArgs("fetch", "origin", branch)
             .setWorkDir(_path)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
     }
 
     /** Switch repo to specified branch
@@ -107,7 +107,7 @@ class AddonRepository {
             .setArgs("checkout", branch_name)
             .setWorkDir(_path)
             .execute()
-            .ensureStatus();
+            .ensureStatus(true);
 
     }
 }
