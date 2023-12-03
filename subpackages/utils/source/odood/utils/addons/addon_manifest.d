@@ -35,11 +35,12 @@ struct OdooAddonManifest {
     }
 
     string name;
+    string summary;
     OdooAddonVersion module_version = OdooAddonVersion("1.0");
     string author;
     string category;
     string description;
-    string license;
+    string license="LGPL-3";
     string maintainer;
 
     bool auto_install=false;
@@ -78,6 +79,8 @@ auto parseOdooManifest(in string manifest_content) {
     // thus there is no need to call Py_DecRef from our side
     if (auto val = PyDict_GetItemString(parsed, "name".toStringz))
         manifest.name = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "summary".toStringz))
+        manifest.summary = val.convertPyToD!string;
     if (auto val = PyDict_GetItemString(parsed, "version".toStringz))
         manifest.module_version = OdooAddonVersion(val.convertPyToD!string);
     if (auto val = PyDict_GetItemString(parsed, "author".toStringz))

@@ -215,6 +215,9 @@ class CommandAddonsList: OdoodCommand {
                 case "name":
                     row ~= [addon.manifest.name];
                     break;
+                case "summary":
+                    row ~= [addon.manifest.summary];
+                    break;
                 case "version":
                     row ~= [addon.manifest.module_version.toString];
                     break;
