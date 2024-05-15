@@ -1,12 +1,12 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"bindbc-common": "~master",
-		"bindbc-loader": "1.1.3",
+		"bindbc-common": "0.1.6",
+		"bindbc-loader": "1.1.5",
 		"cachetools": "0.3.1",
 		"color": "0.0.9",
 		"colored": "0.0.31",
-		"commandr": "~master",
+		"commandr": "1.0.0",
 		"dini": "2.0.0",
 		"dlibzip": "1.9.2",
 		"dpq": "0.11.6",
@@ -15,13 +15,13 @@
 		"east_asian_width": "1.1.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
-		"requests": "2.1.1",
+		"requests": "2.1.3",
 		"semver": "0.5.0",
 		"tabletool": "0.5.0",
-		"thepath": "1.1.0",
+		"thepath": "1.2.0",
 		"theprocess": "0.0.5",
 		"tinyendian": "0.2.0",
-		"unit-threaded": "2.1.7",
-		"zipper": "0.0.4-bindbc"
+		"unit-threaded": "2.1.9",
+		"zipper": "0.0.5"
 	}
 }
