@@ -77,6 +77,7 @@ void download(
         in Duration timeout=15.seconds,
         in ubyte max_retries=3) {
     import requests: Request, Response, RequestException;
+    import requests.streams: ConnectError, TimeoutException, NetworkException;
     import core.thread: Thread;
 
     enforce!OdoodException(
@@ -100,7 +101,14 @@ void download(
                 f_dest.rawWrite(stream.front);
                 stream.popFront;
             }
-        } catch (RequestException e) {
+        } catch (Exception e) {
+            // If exception is not retriable, just reraise it.
+            if (cast(RequestException)e is null &&
+                    cast(ConnectError)e is null &&
+                    cast(TimeoutException)e is null &&
+                    cast(NetworkException)e is null)
+                throw e;
+
             // if it is last attempt and we got error, then throw it as is
             if (attempt == max_retries) throw e;
 
