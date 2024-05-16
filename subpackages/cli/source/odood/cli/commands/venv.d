@@ -55,6 +55,24 @@ class CommandVenvInstallPyPackages: OdoodCommand {
 
 }
 
+
+class CommandVenvPIP: OdoodCommand {
+
+    this() {
+        super("pip", "Run pip for this environment. All arguments after '--' will be forwarded directly to pip.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        project.venv.runner
+            .addArgs("pip")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
 class CommandVenvReinstall: OdoodCommand {
 
     this() {
@@ -186,6 +204,7 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvReinstall());
         this.add(new CommandVenvUpdateOdoo());
         this.add(new CommandVenvReinstallOdoo());
+        this.add(new CommandVenvPIP());
     }
 }
 

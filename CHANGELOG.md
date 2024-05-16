@@ -2,6 +2,11 @@
 
 ## Release 0.0.16 (Unreleased)
 
+### Added
+
+- New command `odood venv pip` that allows to run pip from current venv.
+
+
 ### Changed
 
 - Database restoration reimplemented in D,
