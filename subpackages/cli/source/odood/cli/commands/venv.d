@@ -73,6 +73,40 @@ class CommandVenvPIP: OdoodCommand {
 }
 
 
+class CommandVenvNPM: OdoodCommand {
+
+    this() {
+        super("npm", "Run npm for this environment. All arguments after '--' will be forwarded directly to npm.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        project.venv.runner
+            .addArgs("npm")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
+class CommandVenvPython: OdoodCommand {
+
+    this() {
+        super("python", "Run python for this environment. All arguments after '--' will be forwarded directly to python.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        project.venv.runner
+            .addArgs("python")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
 class CommandVenvReinstall: OdoodCommand {
 
     this() {
@@ -205,6 +239,8 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvUpdateOdoo());
         this.add(new CommandVenvReinstallOdoo());
         this.add(new CommandVenvPIP());
+        this.add(new CommandVenvNPM());
+        this.add(new CommandVenvPython());
     }
 }
 

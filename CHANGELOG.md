@@ -5,6 +5,8 @@
 ### Added
 
 - New command `odood venv pip` that allows to run pip from current venv.
+- New command `odood venv npm` that allows to run npm from current venv.
+- New command `odood venv python` that allows to run python from current venv.
 
 
 ### Changed
