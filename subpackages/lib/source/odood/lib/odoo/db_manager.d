@@ -403,6 +403,9 @@ struct OdooDatabaseManager {
                         fs_path.join(
                             entry.name.chompPrefix("filestore/")));
                 }
+                // Restore MuK Dms files (if present
+                // TODO: May be remove it in future.
+                // May be this feature is not needed.
                 if (entry.name.startsWith("files/")) {
                     entry.unzipTo(
                         fs_path.join(
@@ -425,9 +428,6 @@ struct OdooDatabaseManager {
         // Wait tasks
         t_restore_db.yieldForce();
         t_restore_fs.yieldForce();
-
-        // TODO: set access rights for filestore
-        // TODO: restore other files.
 
         infof("Database %s restored from backup %s", name, backup_path);
     }
