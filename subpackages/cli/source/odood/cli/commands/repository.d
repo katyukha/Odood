@@ -37,6 +37,8 @@ class CommandRepositoryAdd: OdoodCommand {
             "odoo_requirements.txt file inside clonned repo."));
         this.add(new Option(
             "b", "branch", "Branch to clone"));
+        this.add(new Flag(
+            null, "ual", "Update addons list."));
         this.add(new Argument("repo", "Repository URL to clone from.").required());
     }
 
@@ -57,8 +59,11 @@ class CommandRepositoryAdd: OdoodCommand {
                 args.option("branch") : project.odoo.branch,
             args.flag("single-branch"),
             args.flag("recursive"));
-    }
 
+        if (args.flag("ual"))
+            foreach(dbname; project.databases.list())
+                project.lodoo.addonsUpdateList(dbname);
+    }
 }
 
 

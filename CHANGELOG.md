@@ -7,6 +7,8 @@
 - New command `odood venv pip` that allows to run pip from current venv.
 - New command `odood venv npm` that allows to run npm from current venv.
 - New command `odood venv python` that allows to run python from current venv.
+- Added new option `--ual` to command `odood repo add` that allows to automatically
+  update list of addons when repository was added.
 
 
 ### Changed
