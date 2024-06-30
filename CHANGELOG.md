@@ -9,6 +9,7 @@
 - New command `odood venv python` that allows to run python from current venv.
 - Added new option `--ual` to command `odood repo add` that allows to automatically
   update list of addons when repository was added.
+- New command `odood venv run` that allows to run any command from current venv.
 
 
 ### Changed

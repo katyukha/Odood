@@ -107,6 +107,22 @@ class CommandVenvPython: OdoodCommand {
 }
 
 
+class CommandVenvRun: OdoodCommand {
+
+    this() {
+        immutable string description = "" ~
+            "Run command in this virtual environment. " ~
+            "The command and all arguments must be specified after '--'. " ~
+            "For example: 'odood venv run -- ipython'";
+        super("run", description);
+    }
+
+    public override void execute(ProgramArgs args) {
+        Project.loadProject.venv.runner.addArgs(args.argsRest).execv;
+    }
+
+}
+
 class CommandVenvReinstall: OdoodCommand {
 
     this() {
@@ -241,6 +257,7 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvPIP());
         this.add(new CommandVenvNPM());
         this.add(new CommandVenvPython());
+        this.add(new CommandVenvRun());
     }
 }
 
