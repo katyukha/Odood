@@ -1,6 +1,5 @@
 module odood.cli.commands.ci;
 
-private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
 

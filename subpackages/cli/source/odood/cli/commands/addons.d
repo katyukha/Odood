@@ -1,6 +1,6 @@
 module odood.cli.commands.addons;
 
-private import std.stdio;
+private import std.stdio: writeln, File;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce, basicExceptionCtors;
@@ -8,7 +8,7 @@ private import std.algorithm;
 private import std.conv: to;
 private import std.string: capitalize, strip, join;
 private import std.regex;
-private import std.array;
+private import std.array: array;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;

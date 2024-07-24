@@ -1,6 +1,5 @@
 module odood.cli.commands.discover;
 
-private import std.stdio;
 private import std.format: format;
 private import std.exception: enforce;
 

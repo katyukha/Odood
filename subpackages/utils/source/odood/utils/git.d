@@ -1,6 +1,6 @@
 module odood.utils.git;
 
-private import std.logger;
+private import std.logger: warningf, infof;
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
@@ -8,7 +8,7 @@ private import std.format: format;
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
-private import theprocess;
+private import theprocess: Process;
 
 
 // TODO: Add parsing of branch name from url

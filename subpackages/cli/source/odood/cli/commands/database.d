@@ -1,12 +1,11 @@
 module odood.cli.commands.database;
 
 private import std.logger;
-private import std.stdio;
+private import std.stdio: writeln;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.typecons;
 private import std.algorithm;
-private import std.string;
+private import std.string: join;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;

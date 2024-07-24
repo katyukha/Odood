@@ -4,19 +4,19 @@ module odood.utils;
   * Thus, they could be used in other projects that do not use Odood projects.
   **/
 
-private import core.time;
+private import core.time: Duration, seconds;
 private import core.sys.posix.sys.types: pid_t;
-private import std.logger;
+private import std.logger: warningf;
 private import std.process: Pid;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
-private import std.regex;
+private import std.regex: ctRegex, matchFirst;
 
 private import thepath: Path;
-private import theprocess;
-private import semver;
+private import theprocess: Process;
+private import semver: SemVer;
 
 private import odood.exception: OdoodException;
 

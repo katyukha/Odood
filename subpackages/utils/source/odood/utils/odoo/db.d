@@ -1,15 +1,14 @@
 module odood.utils.odoo.db;
 
-private import std.logger;
 private import std.string: toStringz, fromStringz, strip;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.json;
+private import std.json: parseJSON;
 
 private import thepath: Path;
+private import zipper: Zipper;
 
 private import odood.exception: OdoodException;
-private import odood.utils.zip;
 private import odood.utils.odoo.serie: OdooSerie;
 
 

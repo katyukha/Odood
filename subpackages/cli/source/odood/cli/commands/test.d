@@ -3,7 +3,7 @@ module odood.cli.commands.test;
 private import core.time;
 
 private import std.logger;
-private import std.stdio;
+private import std.stdio: writeln, writefln;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.string: join, empty, rightJustify;

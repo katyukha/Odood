@@ -1,11 +1,6 @@
 module odood.utils.tipy.python;
 
-private import std.string;
-private import std.stdio;
-private import std.path;
-
 private import bindbc.common.codegen: joinFnBinds, FnBind;
-
 
 // Copied from python
 enum Py_single_input = 256;

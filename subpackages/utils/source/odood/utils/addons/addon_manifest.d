@@ -1,10 +1,9 @@
 module odood.utils.addons.addon_manifest;
 
-private import std.format;
-private import std.string;
-private import std.typecons;
+private import std.format: format;
+private import std.string: toStringz;
 
-private import thepath;
+private import thepath: Path;
 
 private import odood.utils.tipy;
 private import odood.utils.tipy.python;

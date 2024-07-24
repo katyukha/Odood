@@ -2,7 +2,7 @@
 module odood.cli.commands.info;
 
 private import std.json;
-private import std.stdio;
+private import std.stdio: writefln, writeln;
 
 private import colored;
 private import commandr: Option, Flag, ProgramArgs;

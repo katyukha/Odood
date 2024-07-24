@@ -6,7 +6,7 @@ private import std.format: format;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
-private import thepath;
+private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;

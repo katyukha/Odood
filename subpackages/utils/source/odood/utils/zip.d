@@ -1,6 +1,6 @@
 module odood.utils.zip;
 
-private import std.logger;
+private import std.logger: warningf;
 private import std.format: format;
 private import std.algorithm.searching: endsWith, startsWith;
 private import std.exception: enforce;
