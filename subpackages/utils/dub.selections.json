@@ -12,7 +12,7 @@
 		"semver": "0.5.0",
 		"thepath": "1.2.0",
 		"theprocess": "0.0.5",
-		"unit-threaded": "2.1.9",
+		"unit-threaded": "2.2.0",
 		"zipper": "0.0.5"
 	}
 }
