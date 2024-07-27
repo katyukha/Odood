@@ -22,7 +22,6 @@ enum PyGILState_STATE {
 
 alias Py_ssize_t = size_t;
 
-
 mixin(joinFnBinds!false((){
     FnBind[] ret = [
         // General

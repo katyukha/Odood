@@ -5,7 +5,7 @@ private import std.string: splitLines, strip, empty;
 private import std.algorithm: startsWith;
 private import std.regex;
 private import std.typecons: Nullable, nullable;
-private import std.exception;
+private import std.exception: basicExceptionCtors, enforce;
 private import std.format: format;
 
 private import thepath: Path;

@@ -8,7 +8,6 @@ private import std.parallelism: totalCPUs;
 private import std.conv: to;
 private import std.logger;
 
-private import semver;
 private import thepath: Path;
 private import theprocess;
 
@@ -17,6 +16,7 @@ private import odood.lib.venv: PySerie;
 private import odood.lib.odoo.python;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: download, parsePythonVersion;
+private import odood.utils.versioned: Version;
 private import odood.exception: OdoodException;
 
 
@@ -25,16 +25,16 @@ private import odood.exception: OdoodException;
   *
   * Params:
   *     project = instance of Odood project to get version of system python for.
-  * Returns: SemVer version of system python interpreter
+  * Returns: Version version of system python interpreter
   **/
-SemVer getSystemPythonVersion(in Project project) {
+Version getSystemPythonVersion(in Project project) {
     /* If system python is not available, then return version 0.0.0.
      * In this case, system python will not be suitable, and thus
      * Odood will try to build python from sources.
      */
     auto python_interpreter = resolveProgram(project.venv.py_interpreter_name);
     if (python_interpreter.isNull)
-        return SemVer(0, 0, 0);
+        return Version(0, 0, 0);
 
     return parsePythonVersion(python_interpreter.get);
 }
@@ -45,15 +45,15 @@ SemVer getSystemPythonVersion(in Project project) {
 bool isSystemPythonSuitable(in Project project) {
     auto sys_py_ver = project.getSystemPythonVersion;
     if (project.odoo.serie <= OdooSerie(10))
-        return (sys_py_ver >= SemVer(2, 7) && sys_py_ver < SemVer(3));
+        return (sys_py_ver >= Version(2, 7) && sys_py_ver < Version(3));
     if (project.odoo.serie <= OdooSerie(13))
-        return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 9));
+        return (sys_py_ver >= Version(3, 6) && sys_py_ver < Version(3, 9));
     if (project.odoo.serie <= OdooSerie(14))
-        return (sys_py_ver >= SemVer(3, 6) && sys_py_ver < SemVer(3, 10));
+        return (sys_py_ver >= Version(3, 6) && sys_py_ver < Version(3, 10));
     if (project.odoo.serie <= OdooSerie(16))
-        return (sys_py_ver >= SemVer(3, 7) && sys_py_ver < SemVer(3, 11));
+        return (sys_py_ver >= Version(3, 7) && sys_py_ver < Version(3, 11));
     if (project.odoo.serie <= OdooSerie(17))
-        return (sys_py_ver >= SemVer(3, 10));
+        return (sys_py_ver >= Version(3, 10));
 
     /// Unknown odoo version
     return false;

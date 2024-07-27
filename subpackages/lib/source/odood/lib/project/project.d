@@ -11,7 +11,7 @@ private import thepath: Path;
 private import theprocess: Process;
 private import dini: Ini;
 private import dyaml;
-private import zipper;
+private import zipper: Zipper, ZipMode;
 
 private import odood.exception: OdoodException;
 

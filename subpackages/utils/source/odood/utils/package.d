@@ -16,9 +16,9 @@ private import std.regex: ctRegex, matchFirst;
 
 private import thepath: Path;
 private import theprocess: Process;
-private import semver: SemVer;
 
 private import odood.exception: OdoodException;
+private import odood.utils.versioned: Version;
 
 
 /** Parse python version
@@ -27,7 +27,7 @@ private import odood.exception: OdoodException;
   *     project = instance of Odood project to get version of system python for.
   * Returns: SemVer version of system python interpreter
   **/
-package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
+package(odood) @safe Version parsePythonVersion(in Path interpreter_path) {
     auto python_version_raw = Process(interpreter_path)
         .withArgs("--version")
         .execute()
@@ -42,7 +42,7 @@ package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
         !re_match.empty,
         "Cannot parse python interpreter (%s) version '%s'".format(
             interpreter_path, python_version_raw));
-    return SemVer(re_match[1]);
+    return Version(re_match[1]);
 }
 
 

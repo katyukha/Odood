@@ -9,7 +9,7 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 
-public import zipper;
+private import zipper;
 
 /** Extract zip archive to destination directory
 

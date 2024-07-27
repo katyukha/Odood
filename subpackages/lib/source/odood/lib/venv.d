@@ -9,11 +9,11 @@ private static import std.process;
 
 private import thepath: Path;
 private static import dyaml;
-private import semver: SemVer, VersionPart;
 
 private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.utils;
+private import odood.utils.versioned: Version;
 
 // TOOD: May be it have sense to move this to utils subpackage.
 
@@ -233,13 +233,13 @@ const struct VirtualEnv {
       **/
     void buildPython(in string build_version,
                      in bool enable_sqlite=false) {
-        // Convert string representation of version into SemVer instance
+        // Convert string representation of version into Version instance
         // for further processing
-        buildPython(SemVer(build_version), enable_sqlite);
+        buildPython(Version(build_version), enable_sqlite);
     }
 
     /// ditto
-    void buildPython(in SemVer build_version,
+    void buildPython(in Version build_version,
                      in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
         import std.parallelism: totalCPUs;
@@ -326,27 +326,27 @@ const struct VirtualEnv {
         // Create symlink to 'python' if needed
         if (!python_path.join("bin", "python").exists &&
                 python_path.join("bin", "python%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "python%s".format(build_version.query(VersionPart.MAJOR))),
+                    "bin", "python%s".format(build_version.major)),
                     python_path.join("bin", "python"));
             python_path.join(
-                "bin", "python%s".format(build_version.query(VersionPart.MAJOR))
+                "bin", "python%s".format(build_version.major)
             ).symlink(python_path.join("bin", "python"));
         }
 
         // Install pip if needed
         if (!python_path.join("bin", "pip").exists &&
                 !python_path.join("bin", "pip%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             infof("Installing pip for just installed python...");
 
-            immutable auto url_get_pip_py = build_version < SemVer(3, 7) ?
+            immutable auto url_get_pip_py = build_version < Version(3, 7) ?
                 "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(
-                        build_version.query(VersionPart.MAJOR),
-                        build_version.query(VersionPart.MINOR)) :
+                        build_version.major,
+                        build_version.minor) :
                 "https://bootstrap.pypa.io/pip/get-pip.py";
             tracef("Downloading get-pip.py from %s", url_get_pip_py);
             download(
@@ -362,14 +362,14 @@ const struct VirtualEnv {
         // Create symlink for 'pip' if needed
         if (!python_path.join("bin", "pip").exists &&
                 python_path.join("bin", "pip%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))),
+                    "bin", "pip%s".format(build_version.major)),
                     python_path.join("bin", "pip"));
             python_path.join(
-                "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))
+                "bin", "pip%s".format(build_version.major)
             ).symlink(python_path.join("bin", "pip"));
         }
     }
