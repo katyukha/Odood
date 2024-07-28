@@ -1,4 +1,4 @@
-module odood.utils.tipy.python;
+module odood.tipy.python;
 
 private import bindbc.common.codegen: joinFnBinds, FnBind;
 

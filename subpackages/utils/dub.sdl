@@ -8,13 +8,12 @@ dependency "requests" version=">=2.0.0"
 dependency "thepath" version=">=1.2.0"
 dependency "theprocess" version=">=0.0.5"
 dependency "zipper" version="~>0.0.5"
-dependency "bindbc-loader" version="~>1.1.5"
-dependency "bindbc-common" version="~>0.1.6"
 
 targetPath "build"
 targetType "library"
 
 dependency "odood:exception" path="../../"
+dependency "odood:tipy" path="../../"
 
 subConfiguration "zipper" "libraryDynamic"
 

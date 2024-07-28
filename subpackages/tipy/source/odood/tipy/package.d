@@ -1,4 +1,4 @@
-module odood.utils.tipy;
+module odood.tipy;
 
 private import std.string;
 private import std.traits:
@@ -6,11 +6,10 @@ private import std.traits:
 private import std.range: ElementType;
 
 private static import bindbc.loader;
-
-private import odood.utils.tipy.python;
-
-
 private bindbc.loader.SharedLib pylib;
+
+private import odood.tipy.python;
+
 
 private enum supported_lib_names = [
     "libpython3.11.so",
@@ -34,7 +33,7 @@ bool loadPyLib() {
         }
 
         auto err_count = bindbc.loader.errorCount;
-        odood.utils.tipy.python.bindModuleSymbols(pylib);
+        odood.tipy.python.bindModuleSymbols(pylib);
         if (bindbc.loader.errorCount == err_count)
             return true;
     }

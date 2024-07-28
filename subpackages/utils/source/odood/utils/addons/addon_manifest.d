@@ -5,8 +5,8 @@ private import std.string: toStringz;
 
 private import thepath: Path;
 
-private import odood.utils.tipy;
-private import odood.utils.tipy.python;
+private import odood.tipy;
+private import odood.tipy.python;
 
 private import odood.utils.addons.addon_version;
 

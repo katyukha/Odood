@@ -2,7 +2,7 @@ module odood.utils.versioned;
 
 private import std.conv: to, ConvOverflowException;
 private import std.range: empty, zip;
-private import std.algorithm: canFind;
+private import std.algorithm.searching: canFind;
 private import std.string : isNumeric;
 private import std.array: split;
 

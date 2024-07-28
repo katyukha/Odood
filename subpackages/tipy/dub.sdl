@@ -1,0 +1,18 @@
+name "tipy"
+description "Dynamically loaded python."
+authors "Dmytro Katyukha"
+copyright "Copyright © 2022-2023, Dmytro Katyukha"
+license "MPL-2.0"
+
+dependency "bindbc-loader" version="~>1.1.5"
+dependency "bindbc-common" version="~>0.1.6"
+
+targetPath "build"
+targetType "library"
+
+configuration "library" {
+}
+
+configuration "sourceLibrary" {
+    targetType "sourceLibrary"
+}

@@ -1,7 +1,7 @@
 module odood.utils.addons.addon_version;
 
 private import std.format: format;
-private import std.algorithm: map;
+private import std.algorithm.iteration: map;
 private import std.conv: to;
 private import std.array: array, split;
 private import std.exception: enforce;
