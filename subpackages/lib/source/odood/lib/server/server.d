@@ -10,7 +10,7 @@ private import std.exception: enforce;
 private import std.conv: to;
 private import std.format: format;
 private import std.string: join, strip;
-private import std.algorithm: map;
+private import std.algorithm.iteration: map;
 
 private import thepath: Path;
 

@@ -4,7 +4,8 @@ private import std.logger;
 private import std.stdio: writeln;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.algorithm;
+private import std.algorithm.sorting: sort;
+private import std.algorithm.iteration: uniq;
 private import std.string: join;
 
 private import thepath: Path;

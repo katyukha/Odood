@@ -2,7 +2,7 @@ module odood.lib.project.discover;
 
 private import std.logger;
 private import std.string: splitLines, strip, empty;
-private import std.algorithm: startsWith;
+private import std.algorithm.searching: startsWith;
 private import std.regex;
 private import std.typecons: Nullable, nullable;
 private import std.exception: basicExceptionCtors, enforce;

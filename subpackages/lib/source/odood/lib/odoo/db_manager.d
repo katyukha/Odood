@@ -9,7 +9,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
-private import std.algorithm: canFind;
+private import std.algorithm.searching: canFind;
 private import std.string: join, startsWith, chompPrefix;
 
 private import thepath;

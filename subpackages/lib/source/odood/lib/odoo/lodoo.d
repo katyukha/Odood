@@ -4,6 +4,9 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable;
+private import std.array: split, array;
+private import std.algorithm.iteration: filter;
+private import std.process: Config;
 private static import std.process;
 
 private import thepath: Path;
@@ -79,9 +82,6 @@ const struct LOdoo {
         /** Return list of databases available on this odoo instance
           **/
         string[] databaseList() {
-            import std.array: split, array;
-            import std.algorithm.iteration: filter;
-            import std.process: Config;
             auto res = runE(["db-list"], Config.stderrPassThrough);
             return res.output.split("\n").filter!(db => db && db != "").array;
         }

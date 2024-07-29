@@ -9,7 +9,7 @@ private import std.logger;
 private import std.regex;
 private import std.string: join, empty;
 private import std.format: format;
-private import std.algorithm: map;
+private import std.algorithm.iteration: map, filter;
 private import std.exception: enforce;
 
 private import thepath: Path;
@@ -154,7 +154,6 @@ private struct OdooTestResult {
       *
       **/
     auto warnings() const {
-        import std.algorithm;
         return _log_records.filter!(r => r.log_level == "WARNING");
     }
 
@@ -162,7 +161,6 @@ private struct OdooTestResult {
       *
       **/
     auto errors() const {
-        import std.algorithm;
         return _log_records.filter!((r) {
             if (r.isError)
                 return true;

@@ -1,6 +1,6 @@
 module odood.lib.server.exception;
 
-private import std.exception;
+private import std.exception: basicExceptionCtors;
 private import odood.exception: OdoodException;
 
 
