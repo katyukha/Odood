@@ -16,7 +16,6 @@ private enum VersionPart {
 }
 
 
-
 @safe struct Version {
     private uint _major=0;
     private uint _minor=0;

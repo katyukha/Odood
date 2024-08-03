@@ -1,6 +1,5 @@
 module odood.lib.project.project;
 
-private import std.stdio;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;

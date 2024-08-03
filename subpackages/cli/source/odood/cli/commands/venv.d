@@ -5,6 +5,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
+private import odood.lib.install;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -63,8 +64,7 @@ class CommandVenvPIP: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        project.venv.runner
+        Project.loadProject.venv.runner
             .addArgs("pip")
             .addArgs(args.argsRest)
             .execv;
@@ -80,9 +80,24 @@ class CommandVenvNPM: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        project.venv.runner
+        Project.loadProject.venv.runner
             .addArgs("npm")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
+class CommandVenvIPython: OdoodCommand {
+
+    this() {
+        super("ipython", "Run ipython in this environment. All arguments after '--' will be forwarded directly to python.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        Project.loadProject.venv.runner
+            .addArgs("ipython")
             .addArgs(args.argsRest)
             .execv;
     }
@@ -136,7 +151,6 @@ class CommandVenvReinstall: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import odood.lib.install;
         auto project = Project.loadProject;
 
         if (project.venv.path.exists)
@@ -165,7 +179,6 @@ class CommandVenvUpdateOdoo: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import odood.lib.install;
         auto project = Project.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
@@ -256,6 +269,7 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvReinstallOdoo());
         this.add(new CommandVenvPIP());
         this.add(new CommandVenvNPM());
+        this.add(new CommandVenvIPython());
         this.add(new CommandVenvPython());
         this.add(new CommandVenvRun());
     }

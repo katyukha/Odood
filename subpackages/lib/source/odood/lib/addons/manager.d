@@ -3,10 +3,10 @@ module odood.lib.addons.manager;
 private import std.logger;
 private import std.typecons: Nullable, nullable;
 private import std.array: split, empty, array;
-private import std.string: join, strip, startsWith;
+private import std.string: join, strip, startsWith, toLower;
 private import std.format: format;
 private import std.file: SpanMode;
-private import std.exception: enforce;
+private import std.exception: enforce, ErrnoException;
 private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
@@ -256,7 +256,6 @@ struct AddonManager {
 
     /// Check if addon is linked or not
     bool isLinked(in OdooAddon addon) const {
-        import std.exception: ErrnoException;
         auto check_path = _project.directories.addons.join(addon.name);
         if (!check_path.exists)
             return false;
@@ -584,9 +583,6 @@ struct AddonManager {
             in bool recursive=true,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
-        import std.algorithm;
-        import std.string: toLower;
-        import std.array: array;
 
         auto git_url = parseGitURL(url);
         auto dest = _project.directories.repositories.join(

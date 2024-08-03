@@ -5,6 +5,7 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.logger;
 private import std.typecons: Nullable, nullable;
+private import std.string: chompPrefix, strip;
 private static import std.process;
 
 private import thepath: Path;
@@ -54,7 +55,6 @@ class AddonRepository {
       *     If result is null, then git repository is in detached-head mode.
       **/
     Nullable!string getCurrBranch() {
-        import std.string: chompPrefix, strip;
         auto result = Process("git")
             .setArgs(["symbolic-ref", "-q", "HEAD"])
             .setWorkDir(_path)
@@ -71,7 +71,6 @@ class AddonRepository {
       *     SHA1 hash of current commit
       **/
     string getCurrCommit() {
-        import std.string: strip;
         return Process("git")
             .setArgs(["rev-parse", "-q", "HEAD"])
             .setWorkDir(_path)

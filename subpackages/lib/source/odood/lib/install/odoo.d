@@ -190,7 +190,7 @@ void installOdoo(in Project project) {
   *     odoo_config = Ini struture that represents desired odoo config
   **/
 void installOdooConfig(in Project project, in Ini odoo_config) {
-    import std.random;
+    import std.random: uniform;
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
     Ini odoo_test_conf = cast(Ini) odoo_config;

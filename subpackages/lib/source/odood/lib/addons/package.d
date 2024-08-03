@@ -1,3 +1,3 @@
 module odood.lib.addons;
 
-import odood.lib.addons.manager: AddonManager;
+public import odood.lib.addons.manager: AddonManager;

@@ -3,6 +3,7 @@ module odood.lib.odoo.config;
 private import std.algorithm;
 private import std.uni;
 private import std.typecons;
+private import std.array: join;
 
 private import thepath: Path;
 private import dini;
@@ -20,7 +21,6 @@ private import odood.utils.odoo.serie: OdooSerie;
   *    Ini file structure, that could be used to read and modify config
   **/
 Ini initOdooConfig(in Project project) {
-    import std.array;
     // Generate default config
     Ini odoo_conf;
     IniSection options = IniSection("options");

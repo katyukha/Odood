@@ -6,6 +6,7 @@ module odood.utils;
 
 private import core.time: Duration, seconds;
 private import core.sys.posix.sys.types: pid_t;
+private import core.thread: Thread;
 private import std.logger: warningf;
 private import std.process: Pid;
 private import std.exception: enforce;
@@ -78,7 +79,6 @@ void download(
         in ubyte max_retries=3) {
     import requests: Request, Response, RequestException;
     import requests.streams: ConnectError, TimeoutException, NetworkException;
-    import core.thread: Thread;
 
     enforce!OdoodException(
         !dest_path.exists,

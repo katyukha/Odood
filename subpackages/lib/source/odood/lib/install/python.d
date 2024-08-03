@@ -65,9 +65,6 @@ bool isSystemPythonSuitable(in Project project) {
 void installVirtualenv(in Project project,
                        in string python_version,
                        in string node_version) {
-    import std.parallelism: totalCPUs;
-    import odood.lib.install.python;
-
     if (python_version == "auto") {
         if (isSystemPythonSuitable(project))
             project.venv.initializeVirtualEnv("system", node_version);
@@ -82,11 +79,13 @@ void installVirtualenv(in Project project,
 
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
-    if (project.odoo.serie > OdooSerie(10)) {
+    if (project.odoo.serie > OdooSerie(10))
         project.venv.installPyPackages("setuptools>=45,<58");
-    }
 
     // Install javascript dependecies
-    // TODO: Make it optional, install automatically only for odoo <= 11
-    project.venv.installJSPackages("less@3.9.0", "rtlcss");
+    project.venv.installJSPackages("rtlcss");
+
+    // Install lessjs only for versions less then 11
+    if (project.odoo.serie <= 11)
+        project.venv.installJSPackages("less@3.9.0");
 }

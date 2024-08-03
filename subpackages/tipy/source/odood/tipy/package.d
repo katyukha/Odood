@@ -3,7 +3,8 @@ module odood.tipy;
 private import std.string;
 private import std.traits:
     isSomeString, isScalarType, isIntegral, isBoolean, isFloatingPoint, isArray;
-private import std.range: ElementType;
+private import std.range: ElementType, iota;
+
 
 private static import bindbc.loader;
 private bindbc.loader.SharedLib pylib;
@@ -67,6 +68,7 @@ void pyEnsureNoError() {
     }
 }
 
+
 /** Ensure that pyobjec is valid and no error is produced
   *
   * Params:
@@ -95,6 +97,7 @@ if (isSomeString!T) {
     scope(exit) Py_DecRef(str);
     return PyBytes_AsString(str).fromStringz.idup;
 }
+
 
 /// ditto
 T convertPyToD(T)(PyObject* o)
@@ -167,9 +170,6 @@ PyObject* convertToPy(T)(T val) {
   *     PyObject pointer that represents result of function execution
   **/
 auto callPyFunc(T...)(PyObject* fn, T params) {
-    import std.range: iota;
-    //import std.stdio;
-
     auto args = PyTuple_New(T.length);
     scope(exit) Py_DecRef(args);
 

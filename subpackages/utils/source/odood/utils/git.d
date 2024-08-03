@@ -1,9 +1,11 @@
 module odood.utils.git;
 
-private import std.logger: warningf, infof;
+private import std.logger: infof;
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.process: environment;
+private import std.algorithm.iteration: splitter;
 
 private import thepath: Path;
 
@@ -72,7 +74,6 @@ private struct GitURL {
     /** Split path on segments
       **/
     string[] toPathSegments() const {
-        import std.algorithm: splitter;
         string[] path_segments;
         foreach(p; path.splitter("/"))
             path_segments ~= p;
@@ -82,7 +83,6 @@ private struct GitURL {
     /** Apply CI rewrites for Git URL
       **/
     auto applyCIRewrites() const {
-        import std.process: environment;
 
         // If it is not running on gitlab CI at CI_JOB_TOKEN_GIT_HOST,
         // then no need to apply rewrites
@@ -170,7 +170,6 @@ unittest {
 /// Test CI integration
 unittest {
     import unit_threaded.assertions;
-    import std.process: environment;
 
     environment.get("CI_JOB_TOKEN_GIT_HOST").shouldBeNull;
 
