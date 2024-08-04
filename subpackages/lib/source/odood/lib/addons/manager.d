@@ -10,6 +10,7 @@ private import std.exception: enforce, ErrnoException;
 private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
+private import zipper: Zipper;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: readOdooConfig;
@@ -19,7 +20,6 @@ private import odood.utils.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.utils: download;
-private import odood.utils.zip: extract_zip_archive;
 private import odood.utils.git: parseGitURL, gitClone;
 private import odood.exception: OdoodException;
 
@@ -494,7 +494,8 @@ struct AddonManager {
                 addon_name, _project.odoo.serie, addon_name),
             download_path);
         infof("Unpacking addon %s from odoo apps...", addon_name);
-        extract_zip_archive(download_path, temp_dir.join("apps"));
+        Zipper(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
+
 
         enforce!OdoodException(
             isOdooAddon(temp_dir.join("apps", addon_name)),

@@ -1,6 +1,5 @@
 module odood.utils.odoo.db;
 
-private import std.string: toStringz, fromStringz, strip;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.json: parseJSON;
@@ -39,6 +38,7 @@ auto detectDatabaseBackupFormat(in Path path) {
                     "Cannot detect backup format for %s".format(path));
     }
 }
+
 
 /** Parse database backup's manifest
   *

@@ -5,6 +5,8 @@ private import std.format: format;
 private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
+private import std.parallelism: totalCPUs;
+
 private static import std.process;
 
 private import thepath: Path;
@@ -242,8 +244,6 @@ const struct VirtualEnv {
     void buildPython(in Version build_version,
                      in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
-        import std.parallelism: totalCPUs;
-        import std.process: environment;
 
         infof("Building python version %s...", build_version);
 
@@ -385,8 +385,6 @@ const struct VirtualEnv {
     void initializeVirtualEnv(
             in string python_version,
             in string node_version) {
-        import std.parallelism: totalCPUs;
-
         info("Installing virtualenv...");
 
         if (python_version == "system") {
