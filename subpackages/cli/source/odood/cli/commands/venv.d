@@ -96,12 +96,17 @@ class CommandVenvIPython: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        Project.loadProject.venv.runner
+        auto project = Project.loadProject;
+
+        // If ipython not installed, install it automatically
+        if (!project.venv.path.join("bin", "ipython").exists)
+            project.venv.installPyPackages("ipython")
+
+        project.venv.runner
             .addArgs("ipython")
             .addArgs(args.argsRest)
             .execv;
     }
-
 }
 
 
