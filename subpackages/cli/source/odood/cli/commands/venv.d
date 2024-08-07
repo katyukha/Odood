@@ -100,7 +100,7 @@ class CommandVenvIPython: OdoodCommand {
 
         // If ipython not installed, install it automatically
         if (!project.venv.path.join("bin", "ipython").exists)
-            project.venv.installPyPackages("ipython")
+            project.venv.installPyPackages("ipython");
 
         project.venv.runner
             .addArgs("ipython")

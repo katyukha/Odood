@@ -92,7 +92,7 @@ const struct VirtualEnv {
     /// Initialize run-in-venv script
     private void initRunInVenvScript() const {
         // Add bash script to run any command in virtual env
-        import std.file: getAttributes, setAttributes;
+        import std.file: setAttributes;
         import std.conv : octal;
         _path.join("bin", "run-in-venv").writeFile(
             SCRIPT_RUN_IN_ENV.format(
