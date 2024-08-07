@@ -10,7 +10,6 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 
 
-
 class CommandRepositoryAdd: OdoodCommand {
     this() {
         super("add", "Add git repository to Odood project.");
@@ -86,12 +85,31 @@ class CommandRepositorySetUpPreCommit: OdoodCommand {
 }
 
 
+class CommandRepositoryRunPreCommit: OdoodCommand {
+    this() {
+        super("run-pre-commit", "Run pre-commit for specified repo.");
+        this.add(new Argument(
+            "path", "Path to repository to run pre-commit for.").optional());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        auto path = args.arg("path") ? Path(args.arg("path")) : Path.current;
+        project.venv.runner
+            .withArgs("pre-commit", "run", "--all-files")
+            .inWorkDir(path)
+            .execv();
+    }
+
+}
+
 
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositorySetUpPreCommit());
+        this.add(new CommandRepositoryRunPreCommit());
     }
 }
 

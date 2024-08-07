@@ -11,6 +11,7 @@
 - Added new option `--ual` to command `odood repo add` that allows to automatically
   update list of addons when repository was added.
 - New command `odood venv run` that allows to run any command from current venv.
+- New command `odood repo run-pre-commit` to run [pre-commit](https://pre-commit.com/) for the repo.
 
 
 ### Changed
