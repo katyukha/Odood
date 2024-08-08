@@ -35,6 +35,10 @@ enum PySerie {
     py3=3,
 }
 
+/* TODO: move to utils package?
+ *       Dyaml integration should be kept in lib
+ */
+
 /** VirtualEnv wrapper, to simplify operations within virtual environment
   *
   **/

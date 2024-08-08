@@ -16,6 +16,7 @@ private import odood.utils.git: parseGitURL, gitClone;
 private import theprocess;
 
 
+// TODO: move to utils as GitRepo, and subclass in lib as AddonRepository
 class AddonRepository {
     private const Project _project;
     private const Path _path;
