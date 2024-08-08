@@ -20,14 +20,20 @@ private auto immutable RE_GIT_URL = ctRegex!(
 
 
 /// Struct to handle git urls
-package(odood.utils.git) struct GitURL {
-    // TODO: Make fields private and add properties for public access
-    string scheme;
-    string user;
-    string password;
-    string host;
-    string port;
-    string path;
+struct GitURL {
+    private string _scheme;
+    private string _user;
+    private string _password;
+    private string _host;
+    private string _port;
+    private string _path;
+
+    string scheme() const => _scheme;
+    string user() const => _user;
+    string password() const => _password;
+    string host() const => _host;
+    string port() const => _port;
+    string path() const => _path;
 
     @disable this();
 
@@ -37,19 +43,19 @@ package(odood.utils.git) struct GitURL {
             !re_match.empty || !re_match["path"] || !re_match["host"],
             "Cannot parse git url '%s'".format(url));
 
-        user = re_match["user"];
-        password = re_match["password"];
-        host = re_match["host"];
-        port = re_match["port"];
-        path = re_match["path"];
+        _user = re_match["user"];
+        _password = re_match["password"];
+        _host = re_match["host"];
+        _port = re_match["port"];
+        _path = re_match["path"];
 
         // If no scheme detected, but there is user in the URL, then
         // it seems to be SSH url
         if (!re_match["scheme"] && user)
             // TODO: may be use separate regex for SSH urls
-            scheme = "ssh";
+            _scheme = "ssh";
         else
-            scheme = re_match["scheme"];
+            _scheme = re_match["scheme"];
     }
 
     /** Convert to string that is suitable to pass to git clone
@@ -98,16 +104,16 @@ package(odood.utils.git) struct GitURL {
 
         GitURL result = this;
         if ((scheme == "https" || scheme == "http") && !user && !password) {
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         } else if (scheme == "ssh" && user == "git" && !password) {
-            result.scheme = "https";
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._scheme = "https";
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         } else if (!scheme && !user && !password) {
-            result.scheme = "https";
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._scheme = "https";
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         }
 
         return result;

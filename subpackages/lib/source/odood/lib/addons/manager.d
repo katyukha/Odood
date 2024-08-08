@@ -544,7 +544,7 @@ struct AddonManager {
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
         foreach(line; parseOdooRequirements(path))
-            // TODO: In case when only single module request,
+            // TODO: In case when only single module requested,
             //       add only single module
             final switch (line.type) {
                 case OdooRequirementsLineType.repo:

@@ -1,9 +1,5 @@
 module odood.utils.git.repository;
 
-private import std.regex;
-private import std.exception: enforce;
-private import std.format: format;
-private import std.logger;
 private import std.typecons: Nullable, nullable;
 private import std.string: chompPrefix, strip;
 private static import std.process;
@@ -11,7 +7,6 @@ private static import std.process;
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
-private import odood.utils.git: parseGitURL, gitClone;
 private import theprocess;
 
 
