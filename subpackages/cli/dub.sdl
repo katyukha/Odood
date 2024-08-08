@@ -5,9 +5,9 @@ copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 dependency "colored" version=">=0.0.31"
 dependency "tabletool" version="~>0.5.0"
-dependency "commandr" version=">=1.0.0"
+/*dependency "commandr" version=">=1.0.0"*/
 /*dependency "commandr" path="../../../commandr"*/
-/*dependency "commandr" repository="git+https://github.com/katyukha/commandr.git" version="~dev-fx"*/
+dependency "commandr" repository="git+https://github.com/katyukha/commandr.git" version="~master"
 
 dependency "odood:lib" path="../../"
 

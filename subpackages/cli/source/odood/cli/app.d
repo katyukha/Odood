@@ -39,6 +39,7 @@ class App: OdoodProgram {
     this() {
         super("odood", _version);
         this.summary("Easily manage odoo installations.");
+        this.topicGroup("Main");
         this.add(new CommandInit());
         this.add(new CommandServer());
         this.add(new CommandStatus());
@@ -56,6 +57,7 @@ class App: OdoodProgram {
         this.add(new CommandOdoo());
 
         // shortcuts
+        this.topicGroup("Shortcuts");
         this.add(new CommandServerStart());
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
