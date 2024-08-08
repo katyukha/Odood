@@ -256,7 +256,7 @@ struct AddonManager {
 
     /// Check if addon is linked or not
     bool isLinked(in OdooAddon addon) const {
-        auto check_path = _project.directories.addons.join(addon.name);
+        const auto check_path = _project.directories.addons.join(addon.name);
         if (!check_path.exists)
             return false;
 

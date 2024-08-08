@@ -12,7 +12,7 @@ private bindbc.loader.SharedLib pylib;
 private import odood.tipy.python;
 
 
-private enum supported_lib_names = [
+private static immutable enum supported_lib_names = [
     "libpython3.11.so",
     "libpython3.10.so",
     "libpython3.9.so",
@@ -33,7 +33,7 @@ bool loadPyLib() {
             continue;
         }
 
-        auto err_count = bindbc.loader.errorCount;
+        const auto err_count = bindbc.loader.errorCount;
         odood.tipy.python.bindModuleSymbols(pylib);
         if (bindbc.loader.errorCount == err_count)
             return true;
@@ -102,7 +102,7 @@ if (isSomeString!T) {
 /// ditto
 T convertPyToD(T)(PyObject* o)
 if (isBoolean!T) {
-    int result = PyObject_IsTrue(o);
+    const int result = PyObject_IsTrue(o);
     switch(result) {
         case 1: return true;
         case 0: return false;
@@ -138,7 +138,7 @@ if (isArray!T && !isSomeString!T) {
 T convertPyToD(T)(PyObject* o)
 if (isFloatingPoint!T) {
     auto number = PyNumber_Float(o).pyEnforce;
-    double result = PyFloat_AsDouble(number);
+    const double result = PyFloat_AsDouble(number);
     pyEnsureNoError;
     return result;
 }

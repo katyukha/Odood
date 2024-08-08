@@ -168,7 +168,7 @@ shared static ~this() {
 
 // Tests
 unittest {
-    auto manifest = parseOdooManifest(`{
+    immutable auto manifest = parseOdooManifest(`{
     'name': "A Module",
     'version': '1.0',
     'depends': ['base'],
@@ -222,7 +222,7 @@ unittest {
     // Try to evaluate manifest from different threads
     foreach(i; taskPool.parallel(test_manifest.repeat.take(30), 1)) {
         auto ver = std.random.uniform(2, 1000);
-        auto manifest = parseOdooManifest(i.format(ver));
+        const auto manifest = parseOdooManifest(i.format(ver));
         assert(manifest.name == "A Module");
         assert(manifest.module_version.isStandard == false);
         assert(manifest.module_version.toString == "%s.0".format(ver));

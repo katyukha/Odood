@@ -192,7 +192,7 @@ struct OdooDatabaseManager {
                 return dest;
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
-                auto dump_pid = pg_dump
+                pg_dump
                     .addArgs(
                         "--format=c",
                         "--file=" ~ dest.toString)
@@ -337,7 +337,7 @@ struct OdooDatabaseManager {
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
       **/
-    auto _restoreZIP(
+    void _restoreZIP(
             in string name,
             in Path backup_path,
             in bool validate_strict=true) const {
