@@ -66,6 +66,46 @@ project with Odood is to run command `odood discover odoo-helper` somewhere insi
 [odoo-helper](https://katyukha.gitlab.io/odoo-helper-scripts/) project.
 
 
+## Quick start
+
+Use following command to create new local odoo instance:
+
+```bash
+odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17069 --create-db-user
+```
+
+This command will create new virtual environment for Odoo and install odoo there.
+Also, this command will automatically create database user for this Odoo instance.
+
+Next, change current working directory to directory where we installed Odoo:
+
+```bash
+cd odoo-17.0
+```
+
+After this, just run command:
+
+```bash
+odood browse
+```
+
+and it will automatically start Odoo and open it in browser.
+
+Next, you can use following commands to manage server:
+
+```bash
+odood server start
+odood server stop
+odood server restart
+```
+
+Additionally you can manage odoo addons from commandline via command `odood addons`.
+See help for this command for more info:
+
+```bash
+odood addons --help
+```
+
 ## Level up your service quality
 
 Level up your service quality with [Service Desk](https://crnd.pro/solutions/service-desk) / [ITSM](https://crnd.pro/itsm) solution by [CR&D](https://crnd.pro/).
