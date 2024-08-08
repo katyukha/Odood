@@ -1,39 +1,28 @@
 module odood.lib.addons.repository;
 
-private import std.regex;
-private import std.exception: enforce;
-private import std.format: format;
-private import std.logger;
-private import std.typecons: Nullable, nullable;
-private import std.string: chompPrefix, strip;
-private static import std.process;
+private import std.logger: warningf;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
-private import odood.utils.git: parseGitURL, gitClone;
+private import odood.utils.git: GitRepository, parseGitURL, gitClone;
 private import theprocess;
 
 
-// TODO: move to utils as GitRepo, and subclass in lib as AddonRepository
-class AddonRepository {
+class AddonRepository : GitRepository{
     private const Project _project;
-    private const Path _path;
 
     @disable this();
 
     this(in Project project, in Path path) {
+        super(path);
         _project = project;
-        _path = path;
     }
-
-    /// Return path for this repo
-    auto path() const => _path;
 
     /// Check if repository has pre-commit configuration.
     bool hasPreCommitConfig() const {
-        return _path.join(".pre-commit-config.yaml").exists;
+        return path.join(".pre-commit-config.yaml").exists;
     }
 
     /// Setup Precommit if needed
@@ -45,69 +34,7 @@ class AddonRepository {
             warningf(
                 "Cannot set up pre-commit for repository %s, " ~
                 "because it does not have pre-commit configuration!",
-                _path);
+                path);
         }
-    }
-
-    /** Find the name of current git branch for this repo.
-      *
-      * Returns: Nullable!string
-      *     If current branch is detected, result is non-null.
-      *     If result is null, then git repository is in detached-head mode.
-      **/
-    Nullable!string getCurrBranch() {
-        auto result = Process("git")
-            .setArgs(["symbolic-ref", "-q", "HEAD"])
-            .setWorkDir(_path)
-            .setFlag(std.process.Config.Flags.stderrPassThrough)
-            .execute();
-        if (result.status == 0)
-            return result.output.strip().chompPrefix("refs/heads/").nullable;
-        return Nullable!(string).init;
-    }
-
-    /** Get current commit
-      *
-      * Returns:
-      *     SHA1 hash of current commit
-      **/
-    string getCurrCommit() {
-        return Process("git")
-            .setArgs(["rev-parse", "-q", "HEAD"])
-            .setWorkDir(_path)
-            .setFlag(std.process.Config.stderrPassThrough)
-            .execute()
-            .ensureStatus(true)
-            .output.strip();
-    }
-
-    /** Fetch remote 'origin'
-      **/
-    void fetchOrigin() {
-        Process("git")
-            .setArgs("fetch", "origin")
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus(true);
-    }
-
-    /// ditto
-    void fetchOrigin(in string branch) {
-        Process("git")
-            .setArgs("fetch", "origin", branch)
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus(true);
-    }
-
-    /** Switch repo to specified branch
-      **/
-    void switchBranchTo(in string branch_name) {
-        Process("git")
-            .setArgs("checkout", branch_name)
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus(true);
-
     }
 }

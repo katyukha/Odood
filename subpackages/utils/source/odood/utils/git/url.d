@@ -1,4 +1,4 @@
-module odood.utils.git;
+module odood.utils.git.url;
 
 private import std.logger: infof;
 private import std.regex: ctRegex, matchFirst;
@@ -15,12 +15,13 @@ private import theprocess: Process;
 
 // TODO: Add parsing of branch name from url
 /// Regex for parsing git URL
-auto immutable RE_GIT_URL = ctRegex!(
+private auto immutable RE_GIT_URL = ctRegex!(
     `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\.]+)(:(?P<password>[\w\-\.]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
 
 
 /// Struct to handle git urls
-private struct GitURL {
+package(odood.utils.git) struct GitURL {
+    // TODO: Make fields private and add properties for public access
     string scheme;
     string user;
     string password;
@@ -115,12 +116,6 @@ private struct GitURL {
     string toString() const {
         return toUrl();
     }
-}
-
-
-/// Parse git url for further processing
-GitURL parseGitURL(in string url) {
-    return GitURL(url);
 }
 
 ///
@@ -259,46 +254,4 @@ unittest {
         password.shouldBeNull;
         toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
     }
-}
-
-
-/// Clone git repository to provided destination directory
-void gitClone(
-        in GitURL repo,
-        in Path dest,
-        in string branch,
-        in bool single_branch=false) {
-    enforce!OdoodException(
-        dest.isValid,
-        "Cannot clone repo %s! Destination path %s is invalid!".format(
-            repo, dest));
-    enforce!OdoodException(
-        !dest.join(".git").exists,
-        "It seems that repo %s already clonned to %s!".format(repo, dest));
-    infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
-
-    auto proc = Process("git")
-        .withArgs("clone");
-    if (branch)
-        proc.addArgs("-b", branch);
-    if (single_branch)
-        proc.addArgs("--single-branch");
-    proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
-    proc.execute().ensureOk(true);
-}
-
-/** Check if specified path is git repository
-  **/
-bool isGitRepo(in Path path) {
-    if (path.join(".git").exists)
-        return true;
-
-    const auto result = Process("git")
-        .setArgs("rev-parse", "--git-dir")
-        .setWorkDir(path)
-        .execute();
-    if (result.status == 0)
-        return true;
-
-    return false;
 }
