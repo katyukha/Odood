@@ -15,6 +15,8 @@ targetType "library"
 dependency "odood:utils" path="../../"
 dependency "odood:exception" path="../../"
 
+stringImportPaths "data/"
+
 configuration "library" {
 }
 

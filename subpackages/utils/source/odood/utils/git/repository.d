@@ -18,6 +18,7 @@ class GitRepository {
     @disable this();
 
     this(in Path path) {
+        // TODO: automatically handle root path for the repo?
         _path = path;
     }
 
