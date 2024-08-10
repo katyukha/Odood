@@ -79,4 +79,10 @@ class AddonRepository : GitRepository{
                 path);
         }
     }
+
+    /// Return array of odoo addons, found in this repo.
+    /// this method searches for addons recursively by default.
+    auto addons(in bool recursive=true) const {
+        return project.addons.scan(path, recursive);
+    }
 }

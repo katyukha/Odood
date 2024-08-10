@@ -8,6 +8,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
+private import odood.lib.odoo.utils: fixVersionConflict;
 
 
 class CommandRepositoryAdd: OdoodCommand {
@@ -62,6 +63,27 @@ class CommandRepositoryAdd: OdoodCommand {
         if (args.flag("ual"))
             foreach(dbname; project.databases.list())
                 project.lodoo.addonsUpdateList(dbname);
+    }
+}
+
+
+class CommandRepositoryFixVersionConflict: OdoodCommand {
+    this() {
+        super(
+            "fix-version-conflict",
+            "Fix version conflicts in manifests of addons in this repo.");
+        this.add(new Argument(
+            "path", "Path to repository to fix conflicts in.").optional());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")) : Path.current);
+        foreach(addon; repo.addons)
+            addon.path.join("__manifest__.py").fixVersionConflict(
+                    project.odoo.serie);
     }
 }
 
@@ -134,6 +156,7 @@ class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
+        this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryInitPreCommit());
         this.add(new CommandRepositorySetUpPreCommit());
         this.add(new CommandRepositoryRunPreCommit());
