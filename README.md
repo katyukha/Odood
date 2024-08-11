@@ -30,7 +30,7 @@ Following features currently implemented:
 - [ ] CI utils (versions, forwardports, etc)
 - [ ] Postgres utils
 - [ ] Doc utils
-- [ ] Linters
+- [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
 
 
 ## Installation (as Debian Package)
@@ -97,7 +97,18 @@ Next, you can use following commands to manage server:
 odood server start
 odood server stop
 odood server restart
+odood server log
 ```
+
+Next, let's create some test database with pre-installed CRM module
+for this instance:
+
+```bash
+odood db create --demo my-test-database --install=crm
+```
+
+After this command, you will have created odoo database `my-test-database` with
+already installed module `crm`.
 
 Additionally you can manage odoo addons from commandline via command `odood addons`.
 See help for this command for more info:

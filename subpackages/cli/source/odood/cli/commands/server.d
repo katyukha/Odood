@@ -5,6 +5,7 @@ private import std.format: format;
 private import std.exception: enforce;
 
 private import thepath: Path;
+private import theprocess: Process;
 private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
@@ -124,6 +125,21 @@ class CommandServerBrowse: OdoodCommand {
     }
 
 }
+
+
+class CommandServerLogView: OdoodCommand {
+    this() {
+        super("log", "View server logs.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.process;
+        auto project = Project.loadProject;
+        tracef("Viewing logfile: %s", project.odoo.logfile.toString);
+        Process("less").withArgs(project.odoo.logfile.toString).execv;
+    }
+}
+
 
 class CommandServer: OdoodCommand {
     this() {
