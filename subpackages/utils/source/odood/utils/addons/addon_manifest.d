@@ -168,7 +168,7 @@ shared static ~this() {
 
 // Tests
 unittest {
-    immutable auto manifest = parseOdooManifest(`{
+    const auto manifest = parseOdooManifest(`{
     'name': "A Module",
     'version': '1.0',
     'depends': ['base'],
@@ -196,7 +196,7 @@ unittest {
 
 // Test multithreading
 unittest {
-    auto test_manifest = `{
+    immutable auto test_manifest = `{
         'name': "A Module",
         'version': '%s.0',
         'depends': ['base'],
