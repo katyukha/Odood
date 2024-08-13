@@ -17,6 +17,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 
 private import odood.utils.git;
 private import odood.utils;
+private import odood.utils.versioned: Version;
 
 
 /** Download Odoo to odoo.path specified by project
@@ -180,9 +181,15 @@ void installOdoo(in Project project) {
         ).writeFile(common_content);
     }
 
-    project.venv.python(
-        ["setup.py", "develop"],
-        project.odoo.path);
+    if (project.venv.py_version < Version(3, 10))
+        project.venv.python(
+            ["setup.py", "develop"],
+            project.odoo.path,  // workDir
+        );
+    else
+        // For newer versions of python use pip to install Odoo,
+        // because setup.py does not work anymore
+        project.venv.pip("install", "--editable", project.odoo.path.toString);
 }
 
 
