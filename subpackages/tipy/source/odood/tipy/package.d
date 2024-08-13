@@ -13,6 +13,8 @@ private import odood.tipy.python;
 
 
 private static immutable enum supported_lib_names = [
+    "libpython3.13.so",
+    "libpython3.12.so",
     "libpython3.11.so",
     "libpython3.10.so",
     "libpython3.9.so",

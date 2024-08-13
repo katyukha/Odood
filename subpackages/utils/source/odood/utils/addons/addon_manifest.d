@@ -1,5 +1,6 @@
 module odood.utils.addons.addon_manifest;
 
+private import std.exception: enforce;
 private import std.format: format;
 private import std.string: toStringz;
 
@@ -8,6 +9,7 @@ private import thepath: Path;
 private import odood.tipy;
 private import odood.tipy.python;
 
+private import odood.exception: OdoodException;
 private import odood.utils.addons.addon_version;
 
 
@@ -136,10 +138,15 @@ auto parseOdooManifest(in Path path) {
 // Module level link to ast module
 private shared PyObject* _fn_literal_eval;
 private shared PyThreadState* _py_thread_state;
+private shared bool _py_initialized = false;
 
 // Initialize python interpreter (import ast.literal_eval)
 shared static this() {
-    loadPyLib;
+    // TODO: think about lazy initialization of python
+    enforce!OdoodException(
+        loadPyLib,
+        "Cannot load python as library!",
+    );
 
     Py_Initialize();
     if (!PyEval_ThreadsInitialized())
@@ -154,6 +161,7 @@ shared static this() {
     ).pyEnforce;
 
     _py_thread_state = cast(shared PyThreadState*)PyEval_SaveThread();
+    _py_initialized = cast(shared bool)true;
 }
 
 // Finalize python interpreter (do clean up)
@@ -162,7 +170,8 @@ shared static ~this() {
         PyEval_RestoreThread(cast(PyThreadState*)_py_thread_state);
     if (_fn_literal_eval)
         Py_DecRef(cast(PyObject*)_fn_literal_eval);
-    Py_Finalize();
+    if (_py_initialized)
+        Py_Finalize();
 }
 
 
