@@ -42,6 +42,7 @@ jobs:
   run-integration-tests:
     name: Run integration tests
     strategy:
+      fail-fast: false
       matrix:
         image:
           - "debian:bullseye"

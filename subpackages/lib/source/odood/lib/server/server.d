@@ -174,7 +174,7 @@ struct OdooServer {
 
         enforce!OdoodException(
             !detach || _project.odoo.server_supervisor == ProjectServerSupervisor.Odood,
-            "Cannot run Odoo server in beckground, because it is not managed byt Odood.");
+            "Cannot run Odoo server in background, because it is not managed byt Odood.");
 
         auto runner = getServerRunner(
             "--pidfile=%s".format(_project.odoo.pidfile));
