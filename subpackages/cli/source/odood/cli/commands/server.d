@@ -150,6 +150,7 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
         this.add(new CommandServerBrowse());
+        this.add(new CommandServerLogView());
     }
 }
 

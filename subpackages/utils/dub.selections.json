@@ -4,7 +4,7 @@
 		"bindbc-common": "0.1.6",
 		"bindbc-loader": "1.1.5",
 		"cachetools": "0.3.1",
-		"dshould": "1.7.1",
+		"dshould": "1.7.2",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
 		"requests": "2.1.3",

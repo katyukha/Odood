@@ -6,7 +6,7 @@
 		"cachetools": "0.3.1",
 		"dini": "2.0.0",
 		"dpq": "0.11.6",
-		"dshould": "1.7.1",
+		"dshould": "1.7.2",
 		"dyaml": "0.10.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",

@@ -8,7 +8,7 @@
 		"commandr": {"version":"~master","repository":"git+https://github.com/katyukha/commandr.git"},
 		"dini": "2.0.0",
 		"dpq": "0.11.6",
-		"dshould": "1.7.1",
+		"dshould": "1.7.2",
 		"dyaml": "0.10.0",
 		"east_asian_width": "1.1.0",
 		"odood": {"path":"../../"},
