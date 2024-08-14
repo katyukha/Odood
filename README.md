@@ -35,6 +35,8 @@ Following features currently implemented:
 
 ## Installation (as Debian Package)
 
+This is the recommended way to install Odood.
+
 1. Download package for your os from [Releases](https://github.com/katyukha/Odood/releases)
 2. Install downloaded debian package
 3. Run `odood --help` to get info about available commands
@@ -42,16 +44,15 @@ Following features currently implemented:
 
 ## Installation (locally from source)
 
+*Note*, that this way is mostly useful for development of Odood, and requires
+significant RAM amount to build Odood. Better, download and install it as debian package.
+
 If you want to install it locally from source, follow steps below:
 
 0. Clone this repository and checkout in the repository root.
 1. Install system dependencies for this project (you can check lists of depenencies [here](https://github.com/katyukha/Odood/tree/main/.ci/deps)).
 2. Install [DLang compiler](https://dlang.org/download.html)
-3. Build Odood
-    - Find the version of python you use (`python3 --version`)
-    - Run command `dub build -b release --override-config=pyd/pythonXY` where `X` is major version of python and `Y` is minor version of python.
-      For example, if you use Python 3.11, then command to build Odoo will look like `dub build -b release --override-config=pyd/python311`
-    - After build completed, there will be generated binary `odood` in `build` directory.
+3. Build Odood with command `dub build -b release`. After build completed, there will be generated binary `odood` in `build` directory.
 4. Link Odoo binary to bin directory:
     - Assume that current working directory is Odood source code root.
     - `mkdir -p ~/bin`
