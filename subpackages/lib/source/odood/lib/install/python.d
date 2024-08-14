@@ -48,7 +48,7 @@ bool isSystemPythonSuitable(in Project project) {
     if (project.odoo.serie <= OdooSerie(16))
         return (sys_py_ver >= Version(3, 7) && sys_py_ver < Version(3, 11));
     if (project.odoo.serie <= OdooSerie(17))
-        return (sys_py_ver >= Version(3, 10));
+        return (sys_py_ver >= Version(3, 10) && sys_py_ver < Version(3, 12));
 
     /// Unknown odoo version
     return false;

@@ -404,7 +404,7 @@ struct OdooDatabaseManager {
                             entry.name.chompPrefix("filestore/")));
                 }
                 // Restore MuK Dms files (if present
-                // TODO: May be remove it in future.
+                // TODO: May be remove it in future, or make optional
                 // May be this feature is not needed.
                 if (entry.name.startsWith("files/")) {
                     entry.unzipTo(
