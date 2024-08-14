@@ -5,6 +5,7 @@ private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.logger;
 private import std.conv: to, ConvException;
+private import std.datetime.systime: Clock;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -210,6 +211,13 @@ class Project {
       **/
     auto venv() const { return _venv; }
 
+    /** String representation of Odood project
+      **/
+    override string toString() const {
+        return "Odood project (odoo: %s, py: %s) at %s".format(
+            _odoo.serie, _venv.py_version, _project_root);
+    }
+
     /** psql process prepared and configured to run
       *
       * This method could be used to get prepared psql command
@@ -367,7 +375,6 @@ class Project {
     /** Backup odoo sources located at this.odoo.path.
       **/
     private Path backupOdooSource() {
-        import std.datetime.systime: Clock;
         // Archive current odoo source code
         auto backup_path = this.directories.backups.join(
             "odoo-%s-%s-%s.zip".format(
@@ -408,7 +415,6 @@ class Project {
                 this.installDownloadOdoo();
                 break;
             case Git:
-                import std.datetime.systime: Clock;
 
                 auto dt_string = Clock.currTime.toISOString;
                 auto tag_name = "%s-before-update-%s".format(

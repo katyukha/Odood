@@ -50,6 +50,7 @@ string genDbName(in Project project, in string name) {
 
 /// Test server management functions
 void testServerManagement(in Project project) {
+    infof("Testing server management for %s", project);
     import core.thread.osthread;
     import core.time;
 
@@ -65,12 +66,17 @@ void testServerManagement(in Project project) {
 
     project.server.stop();
 
+    // We have to wait while odoo stops
+    Thread.sleep(2.seconds);
+
     project.server.isRunning.should == false;
+    infof("Testing server management for %s. Complete: Ok.", project);
 }
 
 
 /// Test database management functions
 void testDatabaseManagement(in Project project) {
+    infof("Testing database management for %s", project);
     project.databases.list.empty.shouldBeTrue();
 
     project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
@@ -106,11 +112,14 @@ void testDatabaseManagement(in Project project) {
     project.databases.drop(project.genDbName("test-1"));
     project.databases.drop(project.genDbName("test-2"));
     project.databases.list.empty.shouldBeTrue();
+
+    infof("Testing database management for %s. Complete: Ok.", project);
 }
 
 
 /// Test addons manager
 void testAddonsManagementBasic(in Project project) {
+    infof("Testing addons management for %s", project);
     project.databases.create(project.genDbName("test-1"), true);
 
     // Install/update/uninstall standard 'crm' addon
@@ -151,7 +160,7 @@ void testAddonsManagementBasic(in Project project) {
         .run();
     test_result.success.shouldBeTrue();
 
-    // Try to fetch bureaucrate-helpdesk-lite from odoo apps
+    // Try to fetch bureaucrate-knowledge from odoo apps
     project.addons.downloadFromOdooApps("bureaucrat_knowledge");
     project.directories.addons.join("bureaucrat_knowledge").exists.shouldBeTrue;
     project.directories.addons.join("bureaucrat_knowledge").isSymlink.shouldBeTrue;
@@ -169,11 +178,13 @@ void testAddonsManagementBasic(in Project project) {
 
     // Drop database
     project.databases.drop(project.genDbName("test-1"));
+    infof("Testing addons management for %s. Complete: Ok.", project);
 }
 
 
 /// Test running scripts
 void testRunningScripts(in Project project) {
+    infof("Testing running scripts for %s", project);
     auto dbname = project.genDbName("test-1");
     project.databases.create(dbname, true);
     scope(exit) project.databases.drop(dbname);
@@ -205,6 +216,8 @@ void testRunningScripts(in Project project) {
             "SELECT name FROM res_partner WHERE id = 2"
         ).get(0, 0).as!string.get.shouldEqual("Test PY 42");
     }
+
+    infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
 

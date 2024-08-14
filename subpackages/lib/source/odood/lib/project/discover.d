@@ -21,7 +21,7 @@ private import odood.lib.odoo.python: guessPySerie;
 private import odood.exception: OdoodException;
 
 
-private auto RE_CONF_LINE=ctRegex!(
+private auto RE_CONF_LINE = ctRegex!(
     `^\s*(?P<name>[\w_]+)\s*=\s*(?P<val>[^\s;#]+).*$`, "m");
 
 
