@@ -71,7 +71,6 @@ void installVirtualenv(in Project project,
         project.venv.initializeVirtualEnv(python_version, node_version);
     }
 
-
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
     if (project.odoo.serie > OdooSerie(10))

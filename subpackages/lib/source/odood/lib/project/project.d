@@ -345,22 +345,36 @@ class Project {
             in string node_version="lts",
             in OdooInstallType install_type=OdooInstallType.Archive) {
         import odood.lib.install;
+        import std.parallelism;
 
         // Initialize project directories
         this.project_root.mkdir(true);
         this.directories.initializeDirecotires();
 
-        // Initialize project (install everything needed)
-        // TODO: parallelize download of Odoo and installation of virtualenv
-        with(OdooInstallType) final switch(install_type) {
-            case Archive:
-                this.installDownloadOdoo();
-                break;
-            case Git:
-                this.installCloneGitOdoo();
-                break;
-        }
-        this.installVirtualenv(python_version, node_version);
+        // Prepare tasks to install Odoo and virtualenv in parallel
+        auto t_install_odoo = scopedTask(() {
+            with(OdooInstallType) final switch(install_type) {
+                case Archive:
+                    this.installDownloadOdoo();
+                    break;
+                case Git:
+                    this.installCloneGitOdoo();
+                    break;
+            }
+        });
+        auto t_install_venv = scopedTask(() {
+            this.installVirtualenv(python_version, node_version);
+        });
+
+        // Run tasks
+        t_install_odoo.executeInNewThread();
+        t_install_venv.executeInNewThread();
+
+        // Wait tasks
+        t_install_odoo.yieldForce();
+        t_install_venv.yieldForce();
+
+        // Installl and configure Odoo itself
         this.installOdoo();
         this.installOdooConfig(odoo_config);
         // TODO: Automatically save config
