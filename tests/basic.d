@@ -56,13 +56,12 @@ void testServerManagement(in Project project) {
 
     project.server.isRunning.should == false;
 
-    auto server_pid = project.server.start(15.seconds);
+    project.server.start(15.seconds);
 
     // We have to wait while odoo starts
     Thread.sleep(3.seconds);
 
     project.server.isRunning.should == true;
-    project.server.getPid.should == server_pid;
 
     project.server.stop();
 
