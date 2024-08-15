@@ -1,10 +1,13 @@
 module odood.cli.commands.server;
 
+private import core.time;
 private import std.logger;
+private import std.conv: to;
 private import std.format: format;
 private import std.exception: enforce;
 
 private import thepath: Path;
+private import theprocess: Process;
 private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
@@ -29,11 +32,16 @@ class CommandServerRun: OdoodCommand {
 class CommandServerStart: OdoodCommand {
     this() {
         super("start", "Run the server in background.");
+        this.add(new Option(
+            "t", "timeout", "Timeout to wait while server starts"));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.server.start;
+        auto timeout = args.option("timeout") ?
+            args.option("timeout").to!long.seconds :
+            Duration.zero;
+        project.server.start(timeout);
     }
 
 }
@@ -72,14 +80,21 @@ class CommandServerStop: OdoodCommand {
 class CommandServerRestart: OdoodCommand {
     this() {
         super("restart", "Restart the server running in background.");
+        this.add(new Option(
+            "t", "timeout", "Timeout to wait while server starts"));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+
+        auto timeout = args.option("timeout") ?
+            args.option("timeout").to!long.seconds :
+            Duration.zero;
+
         if (project.server.isRunning)
             project.server.stop();
 
-        project.server.start;
+        project.server.start(timeout);
     }
 
 }
@@ -125,6 +140,21 @@ class CommandServerBrowse: OdoodCommand {
 
 }
 
+
+class CommandServerLogView: OdoodCommand {
+    this() {
+        super("log", "View server logs.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.process;
+        auto project = Project.loadProject;
+        tracef("Viewing logfile: %s", project.odoo.logfile.toString);
+        Process("less").withArgs(project.odoo.logfile.toString).execv;
+    }
+}
+
+
 class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
@@ -134,6 +164,7 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
         this.add(new CommandServerBrowse());
+        this.add(new CommandServerLogView());
     }
 }
 

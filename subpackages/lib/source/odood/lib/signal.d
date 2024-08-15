@@ -2,7 +2,6 @@ module odood.lib.signal;
 
 private import core.sys.posix.signal;
 
-private import std.logger;
 private import std.exception;
 private import core.atomic : atomicOp, atomicLoad, atomicStore;
 

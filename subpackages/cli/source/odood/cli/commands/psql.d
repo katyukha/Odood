@@ -20,32 +20,9 @@ class CommandPSQL: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto odoo_conf = Project.loadProject.getOdooConfig();
-
-        auto psql = Process("psql")
+        Project.loadProject.psql
             .withEnv("PGDATABASE", args.option("db"))
-            .withEnv(
-                "PGUSER",
-                odoo_conf["options"].hasKey("db_user") ?
-                    odoo_conf["options"].getKey("db_user") : "odoo")
-            .withEnv(
-                "PGPASSWORD",
-                odoo_conf["options"].hasKey("db_password") ?
-                    odoo_conf["options"].getKey("db_password") : "odoo");
-
-        if (odoo_conf["options"].hasKey("db_host")) 
-            psql.setEnv(
-                "PGHOST", odoo_conf["options"].getKey("db_host"));
-        if (odoo_conf["options"].hasKey("db_port")) {
-            auto db_port = odoo_conf["options"].getKey("db_port");
-            try {
-                psql.setEnv("PGPORT", db_port.to!(int).to!string);
-            } catch (ConvException) {
-                warningf("Unparsable value for db port: %s", db_port);
-            }
-        }
-
-        psql.execv;
+            .execv;
     }
 }
 

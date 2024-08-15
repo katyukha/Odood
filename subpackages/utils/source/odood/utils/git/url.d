@@ -1,30 +1,39 @@
-module odood.utils.git;
+module odood.utils.git.url;
 
-private import std.logger;
+private import std.logger: infof;
 private import std.regex: ctRegex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.process: environment;
+private import std.algorithm.iteration: splitter;
 
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
-private import theprocess;
+private import theprocess: Process;
 
 
 // TODO: Add parsing of branch name from url
 /// Regex for parsing git URL
-auto immutable RE_GIT_URL = ctRegex!(
+private auto immutable RE_GIT_URL = ctRegex!(
     `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\.]+)(:(?P<password>[\w\-\.]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
 
 
 /// Struct to handle git urls
-private struct GitURL {
-    string scheme;
-    string user;
-    string password;
-    string host;
-    string port;
-    string path;
+struct GitURL {
+    private string _scheme;
+    private string _user;
+    private string _password;
+    private string _host;
+    private string _port;
+    private string _path;
+
+    string scheme() const => _scheme;
+    string user() const => _user;
+    string password() const => _password;
+    string host() const => _host;
+    string port() const => _port;
+    string path() const => _path;
 
     @disable this();
 
@@ -34,19 +43,19 @@ private struct GitURL {
             !re_match.empty || !re_match["path"] || !re_match["host"],
             "Cannot parse git url '%s'".format(url));
 
-        user = re_match["user"];
-        password = re_match["password"];
-        host = re_match["host"];
-        port = re_match["port"];
-        path = re_match["path"];
+        _user = re_match["user"];
+        _password = re_match["password"];
+        _host = re_match["host"];
+        _port = re_match["port"];
+        _path = re_match["path"];
 
         // If no scheme detected, but there is user in the URL, then
         // it seems to be SSH url
         if (!re_match["scheme"] && user)
             // TODO: may be use separate regex for SSH urls
-            scheme = "ssh";
+            _scheme = "ssh";
         else
-            scheme = re_match["scheme"];
+            _scheme = re_match["scheme"];
     }
 
     /** Convert to string that is suitable to pass to git clone
@@ -72,7 +81,6 @@ private struct GitURL {
     /** Split path on segments
       **/
     string[] toPathSegments() const {
-        import std.algorithm: splitter;
         string[] path_segments;
         foreach(p; path.splitter("/"))
             path_segments ~= p;
@@ -82,7 +90,6 @@ private struct GitURL {
     /** Apply CI rewrites for Git URL
       **/
     auto applyCIRewrites() const {
-        import std.process: environment;
 
         // If it is not running on gitlab CI at CI_JOB_TOKEN_GIT_HOST,
         // then no need to apply rewrites
@@ -97,16 +104,16 @@ private struct GitURL {
 
         GitURL result = this;
         if ((scheme == "https" || scheme == "http") && !user && !password) {
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         } else if (scheme == "ssh" && user == "git" && !password) {
-            result.scheme = "https";
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._scheme = "https";
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         } else if (!scheme && !user && !password) {
-            result.scheme = "https";
-            result.user = "gitlab-ci-token";
-            result.password = environment.get("CI_JOB_TOKEN");
+            result._scheme = "https";
+            result._user = "gitlab-ci-token";
+            result._password = environment.get("CI_JOB_TOKEN");
         }
 
         return result;
@@ -115,12 +122,6 @@ private struct GitURL {
     string toString() const {
         return toUrl();
     }
-}
-
-
-/// Parse git url for further processing
-GitURL parseGitURL(in string url) {
-    return GitURL(url);
 }
 
 ///
@@ -170,7 +171,6 @@ unittest {
 /// Test CI integration
 unittest {
     import unit_threaded.assertions;
-    import std.process: environment;
 
     environment.get("CI_JOB_TOKEN_GIT_HOST").shouldBeNull;
 
@@ -260,46 +260,4 @@ unittest {
         password.shouldBeNull;
         toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
     }
-}
-
-
-/// Clone git repository to provided destination directory
-void gitClone(
-        in GitURL repo,
-        in Path dest,
-        in string branch,
-        in bool single_branch=false) {
-    enforce!OdoodException(
-        dest.isValid,
-        "Cannot clone repo %s! Destination path %s is invalid!".format(
-            repo, dest));
-    enforce!OdoodException(
-        !dest.join(".git").exists,
-        "It seems that repo %s already clonned to %s!".format(repo, dest));
-    infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
-
-    auto proc = Process("git")
-        .withArgs("clone");
-    if (branch)
-        proc.addArgs("-b", branch);
-    if (single_branch)
-        proc.addArgs("--single-branch");
-    proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
-    proc.execute().ensureOk(true);
-}
-
-/** Check if specified path is git repository
-  **/
-bool isGitRepo(in Path path) {
-    if (path.join(".git").exists)
-        return true;
-
-    const auto result = Process("git")
-        .setArgs("rev-parse", "--git-dir")
-        .setWorkDir(path)
-        .execute();
-    if (result.status == 0)
-        return true;
-
-    return false;
 }

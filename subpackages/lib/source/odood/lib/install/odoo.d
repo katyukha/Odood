@@ -9,14 +9,15 @@ private import std.conv: to;
 private import std.regex;
 
 private import dini: Ini;
+private import zipper: Zipper;
 
 private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
-private import odood.utils.zip;
 private import odood.utils.git;
 private import odood.utils;
+private import odood.utils.versioned: Version;
 
 
 /** Download Odoo to odoo.path specified by project
@@ -62,9 +63,12 @@ void installDownloadOdoo(in Project project) {
     infof(
         "Extracting odoo from %s to %s",
         odoo_archive_path, project.odoo.path);
-    extract_zip_archive(
-        odoo_archive_path, project.odoo.path,
-        "%s-%s/".format(repo_name, project.odoo.branch));
+    Zipper(
+        odoo_archive_path.toAbsolute
+    ).extractTo(
+        project.odoo.path,
+        "%s-%s/".format(repo_name, project.odoo.branch),  // unfoldpath
+    );
 }
 
 /** Clone Odoo from Git
@@ -177,9 +181,15 @@ void installOdoo(in Project project) {
         ).writeFile(common_content);
     }
 
-    project.venv.python(
-        ["setup.py", "develop"],
-        project.odoo.path);
+    if (project.venv.py_version < Version(3, 10))
+        project.venv.python(
+            ["setup.py", "develop"],
+            project.odoo.path,  // workDir
+        );
+    else
+        // For newer versions of python use pip to install Odoo,
+        // because setup.py does not work anymore
+        project.venv.pip("install", "--editable", project.odoo.path.toString);
 }
 
 
@@ -190,7 +200,7 @@ void installOdoo(in Project project) {
   *     odoo_config = Ini struture that represents desired odoo config
   **/
 void installOdooConfig(in Project project, in Ini odoo_config) {
-    import std.random;
+    import std.random: uniform;
     // Copy provided config. Thus we will have two configs: normal and test.
     Ini odoo_conf = cast(Ini) odoo_config;
     Ini odoo_test_conf = cast(Ini) odoo_config;

@@ -1,6 +1,6 @@
 module odood.cli.core.logger;
 
-private import std.stdio;
+private import std.stdio: stderr;
 private import std.logger;
 private import std.format: format;
 

@@ -1,6 +1,6 @@
 module odood.cli.utils;
 
-private import std.stdio;
+private import std.stdio: writefln;
 private import std.conv: to;
 
 private import odood.lib.odoo.log: OdooLogRecord;

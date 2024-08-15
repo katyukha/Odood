@@ -1,5 +1,26 @@
 # Changelog
 
+## Release 0.1.0 (2024-08-15)
+
+### Added
+
+- New command `odood venv pip` that allows to run pip from current venv.
+- New command `odood venv npm` that allows to run npm from current venv.
+- New command `odood venv python` that allows to run python from current venv.
+- New command `odood venv ipython` that allows to run ipython from current venv.
+- Added new option `--ual` to command `odood repo add` that allows to automatically
+  update list of addons when repository was added.
+- New command `odood venv run` that allows to run any command from current venv.
+- New command `odood repo run-pre-commit` to run [pre-commit](https://pre-commit.com/) for the repo.
+
+
+### Changed
+
+- Database restoration reimplemented in D,
+  thus now it restores db dump and filestore in parallel.
+
+---
+
 ## Release 0.0.15 (2023-10-30)
 
 ### Added

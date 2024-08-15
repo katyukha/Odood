@@ -3,7 +3,6 @@ module odood.utils.odoo.serie;
 
 private import std.array: split;
 private import std.conv: to;
-private import std.string : format;
 
 
 /** This struct represetns Odoo serie, and provides convenient
@@ -47,7 +46,7 @@ private import std.string : format;
       **/
     pure string toString() const {
         if (this._isValid)
-            return "%s.%s".format(this._major, this._minor);
+            return this._major.to!string ~ "." ~ this._minor.to!string;
         return "<invalid odoo serie>";
     }
 

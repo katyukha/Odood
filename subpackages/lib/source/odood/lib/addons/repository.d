@@ -1,113 +1,88 @@
 module odood.lib.addons.repository;
 
-private import std.regex;
+private import std.logger: warningf, infof;
 private import std.exception: enforce;
-private import std.format: format;
-private import std.logger;
-private import std.typecons: Nullable, nullable;
-private static import std.process;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
-private import odood.utils.git: parseGitURL, gitClone;
+private import odood.utils.git: GitRepository, parseGitURL, gitClone;
 private import theprocess;
 
+// TODO: may be move pre-commit logic somewhere else?
 
-class AddonRepository {
+// Configuration files for pre-commit for Odoo version 17
+immutable string ODOO_PRE_COMMIT_17_PRECOMMIT = import(
+    "pre-commit/17.0/pre-commit-config.yaml");
+immutable string ODOO_PRE_COMMIT_17_ESLINT = import(
+    "pre-commit/17.0/eslintrc.yml");
+immutable string ODOO_PRE_COMMIT_17_FLAKE8 = import(
+    "pre-commit/17.0/flake8");
+immutable string ODOO_PRE_COMMIT_17_ISORT = import(
+    "pre-commit/17.0/isort.cfg");
+immutable string ODOO_PRE_COMMIT_17_PYLINT = import(
+    "pre-commit/17.0/pylintrc");
+
+
+class AddonRepository : GitRepository{
     private const Project _project;
-    private const Path _path;
 
     @disable this();
 
     this(in Project project, in Path path) {
+        super(path);
         _project = project;
-        _path = path;
     }
 
-    /// Return path for this repo
-    auto path() const => _path;
+    auto project() const => _project;
 
     /// Check if repository has pre-commit configuration.
     bool hasPreCommitConfig() const {
-        return _path.join(".pre-commit-config.yaml").exists;
+        return path.join(".pre-commit-config.yaml").exists;
+    }
+
+    /// Initialize pre-commit for this repository
+    void initPreCommit(in bool force=false, in bool setup=true) const {
+        enforce!OdoodException(
+            force || !hasPreCommitConfig,
+            "Cannot init pre-commit. Configuration already exists");
+        enforce!OdoodException(
+            project.odoo.serie == 17,
+            "This feature is available only for Odoo 17 at the moment!");
+        infof("Initializing pre-commit for %s repo!", path);
+        this.path.join(".pre-commit-config.yaml").writeFile(
+            ODOO_PRE_COMMIT_17_PRECOMMIT);
+        this.path.join(".eslintrc.yml").writeFile(
+            ODOO_PRE_COMMIT_17_ESLINT);
+        this.path.join(".flake8").writeFile(
+            ODOO_PRE_COMMIT_17_FLAKE8);
+        this.path.join(".isort.cfg").writeFile(
+            ODOO_PRE_COMMIT_17_ISORT);
+        this.path.join(".pylintrc").writeFile(
+            ODOO_PRE_COMMIT_17_PYLINT);
+
+        if (setup)
+            setUpPreCommit();
     }
 
     /// Setup Precommit if needed
-    void setUpPreCommit() {
+    void setUpPreCommit() const {
         if (hasPreCommitConfig) {
+            infof("Setting up pre-commit for %s repo!", path);
             _project.venv.installPyPackages("pre-commit");
             _project.venv.runE(["pre-commit", "install"]);
         } else {
             warningf(
                 "Cannot set up pre-commit for repository %s, " ~
                 "because it does not have pre-commit configuration!",
-                _path);
+                path);
         }
     }
 
-    /** Find the name of current git branch for this repo.
-      *
-      * Returns: Nullable!string
-      *     If current branch is detected, result is non-null.
-      *     If result is null, then git repository is in detached-head mode.
-      **/
-    Nullable!string getCurrBranch() {
-        import std.string: chompPrefix, strip;
-        auto result = Process("git")
-            .setArgs(["symbolic-ref", "-q", "HEAD"])
-            .setWorkDir(_path)
-            .setFlag(std.process.Config.Flags.stderrPassThrough)
-            .execute();
-        if (result.status == 0)
-            return result.output.strip().chompPrefix("refs/heads/").nullable;
-        return Nullable!(string).init;
-    }
-
-    /** Get current commit
-      *
-      * Returns:
-      *     SHA1 hash of current commit
-      **/
-    string getCurrCommit() {
-        import std.string: strip;
-        return Process("git")
-            .setArgs(["rev-parse", "-q", "HEAD"])
-            .setWorkDir(_path)
-            .setFlag(std.process.Config.stderrPassThrough)
-            .execute()
-            .ensureStatus()
-            .output.strip();
-    }
-
-    /** Fetch remote 'origin'
-      **/
-    void fetchOrigin() {
-        Process("git")
-            .setArgs("fetch", "origin")
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus();
-    }
-
-    /// ditto
-    void fetchOrigin(in string branch) {
-        Process("git")
-            .setArgs("fetch", "origin", branch)
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus();
-    }
-
-    /** Switch repo to specified branch
-      **/
-    void switchBranchTo(in string branch_name) {
-        Process("git")
-            .setArgs("checkout", branch_name)
-            .setWorkDir(_path)
-            .execute()
-            .ensureStatus();
-
+    /// Return array of odoo addons, found in this repo.
+    /// this method searches for addons recursively by default.
+    auto addons(in bool recursive=true) const {
+        return project.addons.scan(path, recursive);
     }
 }

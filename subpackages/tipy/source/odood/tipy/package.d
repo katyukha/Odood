@@ -1,18 +1,20 @@
-module odood.utils.tipy;
+module odood.tipy;
 
 private import std.string;
 private import std.traits:
     isSomeString, isScalarType, isIntegral, isBoolean, isFloatingPoint, isArray;
-private import std.range: ElementType;
+private import std.range: ElementType, iota;
+
 
 private static import bindbc.loader;
-
-private import odood.utils.tipy.python;
-
-
 private bindbc.loader.SharedLib pylib;
 
-private enum supported_lib_names = [
+private import odood.tipy.python;
+
+
+private static immutable enum supported_lib_names = [
+    "libpython3.13.so",
+    "libpython3.12.so",
     "libpython3.11.so",
     "libpython3.10.so",
     "libpython3.9.so",
@@ -33,8 +35,8 @@ bool loadPyLib() {
             continue;
         }
 
-        auto err_count = bindbc.loader.errorCount;
-        odood.utils.tipy.python.bindModuleSymbols(pylib);
+        const auto err_count = bindbc.loader.errorCount;
+        odood.tipy.python.bindModuleSymbols(pylib);
         if (bindbc.loader.errorCount == err_count)
             return true;
     }
@@ -68,6 +70,7 @@ void pyEnsureNoError() {
     }
 }
 
+
 /** Ensure that pyobjec is valid and no error is produced
   *
   * Params:
@@ -97,10 +100,11 @@ if (isSomeString!T) {
     return PyBytes_AsString(str).fromStringz.idup;
 }
 
+
 /// ditto
 T convertPyToD(T)(PyObject* o)
 if (isBoolean!T) {
-    int result = PyObject_IsTrue(o);
+    const int result = PyObject_IsTrue(o);
     switch(result) {
         case 1: return true;
         case 0: return false;
@@ -136,7 +140,7 @@ if (isArray!T && !isSomeString!T) {
 T convertPyToD(T)(PyObject* o)
 if (isFloatingPoint!T) {
     auto number = PyNumber_Float(o).pyEnforce;
-    double result = PyFloat_AsDouble(number);
+    const double result = PyFloat_AsDouble(number);
     pyEnsureNoError;
     return result;
 }
@@ -168,9 +172,6 @@ PyObject* convertToPy(T)(T val) {
   *     PyObject pointer that represents result of function execution
   **/
 auto callPyFunc(T...)(PyObject* fn, T params) {
-    import std.range: iota;
-    //import std.stdio;
-
     auto args = PyTuple_New(T.length);
     scope(exit) Py_DecRef(args);
 

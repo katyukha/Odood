@@ -50,27 +50,32 @@ string genDbName(in Project project, in string name) {
 
 /// Test server management functions
 void testServerManagement(in Project project) {
+    infof("Testing server management for %s", project);
     import core.thread.osthread;
     import core.time;
 
     project.server.isRunning.should == false;
 
-    auto server_pid = project.server.spawn(true);
+    project.server.start(15.seconds);
 
     // We have to wait while odoo starts
     Thread.sleep(3.seconds);
 
     project.server.isRunning.should == true;
-    project.server.getPid.should == server_pid;
 
     project.server.stop();
 
+    // We have to wait while odoo stops
+    Thread.sleep(2.seconds);
+
     project.server.isRunning.should == false;
+    infof("Testing server management for %s. Complete: Ok.", project);
 }
 
 
 /// Test database management functions
 void testDatabaseManagement(in Project project) {
+    infof("Testing database management for %s", project);
     project.databases.list.empty.shouldBeTrue();
 
     project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
@@ -106,11 +111,14 @@ void testDatabaseManagement(in Project project) {
     project.databases.drop(project.genDbName("test-1"));
     project.databases.drop(project.genDbName("test-2"));
     project.databases.list.empty.shouldBeTrue();
+
+    infof("Testing database management for %s. Complete: Ok.", project);
 }
 
 
 /// Test addons manager
 void testAddonsManagementBasic(in Project project) {
+    infof("Testing addons management for %s", project);
     project.databases.create(project.genDbName("test-1"), true);
 
     // Install/update/uninstall standard 'crm' addon
@@ -151,12 +159,12 @@ void testAddonsManagementBasic(in Project project) {
         .run();
     test_result.success.shouldBeTrue();
 
-    // Try to fetch bureaucrate-helpdesk-lite from odoo apps
-    project.addons.downloadFromOdooApps("bureaucrat_helpdesk_lite");
-    project.directories.addons.join("bureaucrat_helpdesk_lite").exists.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_helpdesk_lite").isSymlink.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_helpdesk_lite").readLink.shouldEqual(
-        project.directories.downloads.join("bureaucrat_helpdesk_lite"));
+    // Try to fetch bureaucrate-knowledge from odoo apps
+    project.addons.downloadFromOdooApps("bureaucrat_knowledge");
+    project.directories.addons.join("bureaucrat_knowledge").exists.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_knowledge").isSymlink.shouldBeTrue;
+    project.directories.addons.join("bureaucrat_knowledge").readLink.shouldEqual(
+        project.directories.downloads.join("bureaucrat_knowledge"));
 
     // Test parsing addons-list.txt file
     auto parsed_addons = project.addons.parseAddonsList(
@@ -169,11 +177,13 @@ void testAddonsManagementBasic(in Project project) {
 
     // Drop database
     project.databases.drop(project.genDbName("test-1"));
+    infof("Testing addons management for %s. Complete: Ok.", project);
 }
 
 
 /// Test running scripts
 void testRunningScripts(in Project project) {
+    infof("Testing running scripts for %s", project);
     auto dbname = project.genDbName("test-1");
     project.databases.create(dbname, true);
     scope(exit) project.databases.drop(dbname);
@@ -205,6 +215,8 @@ void testRunningScripts(in Project project) {
             "SELECT name FROM res_partner WHERE id = 2"
         ).get(0, 0).as!string.get.shouldEqual("Test PY 42");
     }
+
+    infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
 
@@ -230,6 +242,90 @@ void runBasicTests(in Project project) {
     testRunningScripts(project);
 
     // TODO: Complete the test
+}
+
+
+@("Basic Test Odoo 17")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-17",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 17 instance
+    createDbUser("odood17test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(17));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood17test",
+            "odoo")
+        .setHttp("localhost", "17069")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(17));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    //project.runBasicTests;
+
+    /*
+     * TODO: Currently, because some addons used in tests are not ported to 17,
+     *       we do not test addons management. But later, when that addons ported
+     *       we have to chage this and run tests for addons management for Odoo 17
+     */
+
+    // Test server management
+    testServerManagement(project);
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project);
+
+    // Test basic addons management
+    //testAddonsManagementBasic(project);
+
+    // Test running scripts
+    testRunningScripts(project);
+}
+
+
+@("Basic Test Odoo 16")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-16",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 16 instance
+    createDbUser("odood16test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(16));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood16test",
+            "odoo")
+        .setHttp("localhost", "16069")
+        .result();
+    project.initialize(odoo_conf);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(16));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    project.runBasicTests;
 }
 
 

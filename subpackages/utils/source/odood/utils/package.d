@@ -4,21 +4,22 @@ module odood.utils;
   * Thus, they could be used in other projects that do not use Odood projects.
   **/
 
-private import core.time;
+private import core.time: Duration, seconds;
 private import core.sys.posix.sys.types: pid_t;
-private import std.logger;
+private import core.thread: Thread;
+private import std.logger: warningf;
 private import std.process: Pid;
-private import std.exception: enforce;
+private import std.exception: enforce, basicExceptionCtors;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
-private import std.regex;
+private import std.regex: ctRegex, matchFirst;
 
 private import thepath: Path;
-private import theprocess;
-private import semver;
+private import theprocess: Process;
 
 private import odood.exception: OdoodException;
+private import odood.utils.versioned: Version;
 
 
 /** Parse python version
@@ -27,7 +28,7 @@ private import odood.exception: OdoodException;
   *     project = instance of Odood project to get version of system python for.
   * Returns: SemVer version of system python interpreter
   **/
-package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
+package(odood) @safe Version parsePythonVersion(in Path interpreter_path) {
     auto python_version_raw = Process(interpreter_path)
         .withArgs("--version")
         .execute()
@@ -42,7 +43,7 @@ package(odood) @safe SemVer parsePythonVersion(in Path interpreter_path) {
         !re_match.empty,
         "Cannot parse python interpreter (%s) version '%s'".format(
             interpreter_path, python_version_raw));
-    return SemVer(re_match[1]);
+    return Version(re_match[1]);
 }
 
 
@@ -63,6 +64,14 @@ bool isProcessRunning(scope Pid pid) {
 }
 
 
+/** This exeption will be raised when it is not possible to download the file
+  **/
+class OdoodDownloadException : OdoodException
+{
+    mixin basicExceptionCtors;
+}
+
+
 /** Download the file from the web
   *
   * Params:
@@ -74,12 +83,12 @@ bool isProcessRunning(scope Pid pid) {
 void download(
         in string url,
         in Path dest_path,
-        in Duration timeout=15.seconds,
-        in ubyte max_retries=3) {
+        in Duration timeout=20.seconds,
+        in ubyte max_retries=7) {
     import requests: Request, Response, RequestException;
-    import core.thread: Thread;
+    import requests.streams: ConnectError, TimeoutException, NetworkException;
 
-    enforce!OdoodException(
+    enforce!OdoodDownloadException(
         !dest_path.exists,
         "Cannot download %s to %s! Destination path already exists!".format(
             url, dest_path));
@@ -100,12 +109,26 @@ void download(
                 f_dest.rawWrite(stream.front);
                 stream.popFront;
             }
-        } catch (RequestException e) {
-            // if it is last attempt and we got error, then throw it as is
-            if (attempt == max_retries) throw e;
+        } catch (Exception e) {
+            // If exception is not retriable, just reraise it.
+            if (!(cast(RequestException)e ||
+                    cast(ConnectError)e ||
+                    cast(TimeoutException)e ||
+                    cast(NetworkException)e))
+                throw new OdoodDownloadException(
+                    "Cannot download %s because not-retriable error: %s".format(
+                        url, e.toString),
+                    e);
 
-            // sleep for 1 second in case of failure
-            Thread.sleep((attempt+1).seconds);
+            // if it is last attempt and we got error, then throw it as is
+            if (attempt == max_retries)
+                throw new OdoodDownloadException(
+                    "Cannot download %s because max (%s) attempts reached: %s".format(
+                        url, attempt, e.toString),
+                    e);
+
+            // sleep for some time in case of failure
+            Thread.sleep((attempt + uniform(1, 5)).seconds);
             warningf(
                 "Cannot download %s because %s. Attempt %s/%s. Retrying",
                 url, e.msg, attempt+1, max_retries);

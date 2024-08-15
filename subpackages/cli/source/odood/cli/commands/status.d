@@ -1,6 +1,6 @@
 module odood.cli.commands.status;
 
-private import std.stdio;
+private import std.stdio: writeln;
 private import std.format: format;
 private import std.exception: enforce;
 

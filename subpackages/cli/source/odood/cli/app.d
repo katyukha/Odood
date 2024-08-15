@@ -13,7 +13,7 @@ private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
 private import odood.cli.commands.server:
     CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart,
-    CommandServerBrowse;
+    CommandServerBrowse, CommandServerLogView;
 private import odood.cli.commands.database: CommandDatabase, CommandDatabaseList;
 private import odood.cli.commands.status: CommandStatus;
 private import odood.cli.commands.addons:
@@ -23,10 +23,8 @@ private import odood.cli.commands.config: CommandConfig;
 private import odood.cli.commands.test: CommandTest;
 private import odood.cli.commands.venv: CommandVenv;
 private import odood.cli.commands.discover: CommandDiscover;
-private import odood.cli.commands.log: CommandLogView;
 private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
-private import odood.cli.commands.ci: CommandCi;
 private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
 
@@ -40,28 +38,32 @@ class App: OdoodProgram {
     this() {
         super("odood", _version);
         this.summary("Easily manage odoo installations.");
+        this.topicGroup("Main");
         this.add(new CommandInit());
         this.add(new CommandServer());
         this.add(new CommandStatus());
         this.add(new CommandDatabase());
         this.add(new CommandAddons());
-        this.add(new CommandConfig());
         this.add(new CommandTest());
         this.add(new CommandRepository());
         this.add(new CommandVenv());
-        this.add(new CommandDiscover());
-        this.add(new CommandLogView());
         this.add(new CommandScript());
         this.add(new CommandPSQL());
-        this.add(new CommandCi());
-        this.add(new CommandInfo());
         this.add(new CommandOdoo());
 
+        // System
+        this.topicGroup("System");
+        this.add(new CommandConfig());
+        this.add(new CommandDiscover());
+        this.add(new CommandInfo());
+
         // shortcuts
+        this.topicGroup("Shortcuts");
         this.add(new CommandServerStart());
         this.add(new CommandServerStop());
         this.add(new CommandServerRestart());
         this.add(new CommandServerBrowse());
+        this.add(new CommandServerLogView());
         this.add(new CommandDatabaseList("lsd"));
         this.add(new CommandAddonsList("lsa"));
         this.add(new CommandAddonsUpdateList("ual"));

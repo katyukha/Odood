@@ -30,10 +30,12 @@ Following features currently implemented:
 - [ ] CI utils (versions, forwardports, etc)
 - [ ] Postgres utils
 - [ ] Doc utils
-- [ ] Linters
+- [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
 
 
 ## Installation (as Debian Package)
+
+This is the recommended way to install Odood.
 
 1. Download package for your os from [Releases](https://github.com/katyukha/Odood/releases)
 2. Install downloaded debian package
@@ -42,16 +44,15 @@ Following features currently implemented:
 
 ## Installation (locally from source)
 
+*Note*, that this way is mostly useful for development of Odood, and requires
+significant RAM amount to build Odood. Better, download and install it as debian package.
+
 If you want to install it locally from source, follow steps below:
 
 0. Clone this repository and checkout in the repository root.
 1. Install system dependencies for this project (you can check lists of depenencies [here](https://github.com/katyukha/Odood/tree/main/.ci/deps)).
 2. Install [DLang compiler](https://dlang.org/download.html)
-3. Build Odood
-    - Find the version of python you use (`python3 --version`)
-    - Run command `dub build -b release --override-config=pyd/pythonXY` where `X` is major version of python and `Y` is minor version of python.
-      For example, if you use Python 3.11, then command to build Odoo will look like `dub build -b release --override-config=pyd/python311`
-    - After build completed, there will be generated binary `odood` in `build` directory.
+3. Build Odood with command `dub build -b release`. After build completed, there will be generated binary `odood` in `build` directory.
 4. Link Odoo binary to bin directory:
     - Assume that current working directory is Odood source code root.
     - `mkdir -p ~/bin`
@@ -65,6 +66,57 @@ The only thing needed to manage [odoo-helper](https://katyukha.gitlab.io/odoo-he
 project with Odood is to run command `odood discover odoo-helper` somewhere inside
 [odoo-helper](https://katyukha.gitlab.io/odoo-helper-scripts/) project.
 
+
+## Quick start
+
+Use following command to create new local odoo instance:
+
+```bash
+odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17069 --create-db-user
+```
+
+This command will create new virtual environment for Odoo and install odoo there.
+Also, this command will automatically create database user for this Odoo instance.
+
+Next, change current working directory to directory where we installed Odoo:
+
+```bash
+cd odoo-17.0
+```
+
+After this, just run command:
+
+```bash
+odood browse
+```
+
+and it will automatically start Odoo and open it in browser.
+
+Next, you can use following commands to manage server:
+
+```bash
+odood server start
+odood server stop
+odood server restart
+odood server log
+```
+
+Next, let's create some test database with pre-installed CRM module
+for this instance:
+
+```bash
+odood db create --demo my-test-database --install=crm
+```
+
+After this command, you will have created odoo database `my-test-database` with
+already installed module `crm`.
+
+Additionally you can manage odoo addons from commandline via command `odood addons`.
+See help for this command for more info:
+
+```bash
+odood addons --help
+```
 
 ## Level up your service quality
 

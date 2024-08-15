@@ -5,7 +5,7 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.34.0
+  ODOOD_DLANG_COMPILER: ldc-1.39.0
 
 # In this test, we build Odood on Ubuntu 20.04 and then try to run
 # produced binary on different distros and versions
@@ -42,12 +42,14 @@ jobs:
   run-integration-tests:
     name: Run integration tests
     strategy:
+      fail-fast: false
       matrix:
         image:
           - "debian:bullseye"
           - "ubuntu:20.04"
           - "ubuntu:22.04"
           - "ubuntu:23.04"
+          - "ubuntu:24.04"
     runs-on: ubuntu-22.04
     needs:
       - compile-ubuntu-20_04

@@ -1,10 +1,10 @@
 module odood.app;
 
-import std.stdio;
+import std.stdio: write;
 import std.format: format;
 
 import odood.exception: OdoodException;
-import odood.cli.app;
+import odood.cli.app: App;
 
 version(OdoodUnittestIntegrationUT) {
     import unit_threaded;

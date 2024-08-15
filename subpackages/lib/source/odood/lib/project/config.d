@@ -5,13 +5,8 @@ private import std.format: format;
 
 private import thepath: Path;
 private static import dyaml;
-private static import dyaml.dumper;
-private static import dyaml.style;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.lib.odoo.python: guessPySerie;
-private import odood.lib.venv: VirtualEnv;
-private import odood.lib.server: OdooServer;
 
 package(odood)
     immutable string DEFAULT_ODOO_REPO="https://github.com/odoo/odoo";

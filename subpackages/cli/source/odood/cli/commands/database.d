@@ -1,21 +1,21 @@
 module odood.cli.commands.database;
 
 private import std.logger;
-private import std.stdio;
+private import std.stdio: writeln;
 private import std.format: format;
 private import std.exception: enforce;
-private import std.typecons;
-private import std.algorithm;
-private import std.string;
+private import std.algorithm.sorting: sort;
+private import std.algorithm.iteration: uniq;
+private import std.string: join;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.lodoo: BackupFormat;
 private import odood.lib.odoo.test: generateTestDbName;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.odoo.db: BackupFormat;
 private import odood.utils: generateRandomString;
 private import odood.utils.addons.addon: OdooAddon;
 

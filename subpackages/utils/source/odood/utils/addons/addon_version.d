@@ -1,12 +1,12 @@
 module odood.utils.addons.addon_version;
 
-private import std.string;
-private import std.algorithm;
-private import std.conv;
-private import std.array;
-private import std.exception;
+private import std.format: format;
+private import std.algorithm.iteration: map;
+private import std.conv: to;
+private import std.array: array, split;
+private import std.exception: enforce;
 
-private import odood.utils.odoo.serie;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception;
 
 

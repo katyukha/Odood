@@ -1,8 +1,8 @@
 module odood.utils.addons.addon;
 
-private import std.logger;
 private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;
+private import std.algorithm.comparison: cmp;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.file: SpanMode;
@@ -47,7 +47,6 @@ final class OdooAddon {
 
     /// Addons are comparable by name
     pure nothrow int opCmp(in OdooAddon other) const {
-        import std.algorithm;
         return cmp(_name, other._name);
     }
 

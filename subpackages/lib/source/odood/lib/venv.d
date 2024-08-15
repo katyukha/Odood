@@ -5,15 +5,17 @@ private import std.format: format;
 private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
+private import std.parallelism: totalCPUs;
+
 private static import std.process;
 
 private import thepath: Path;
 private static import dyaml;
-private import semver: SemVer, VersionPart;
 
 private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.utils;
+private import odood.utils.versioned: Version;
 
 // TOOD: May be it have sense to move this to utils subpackage.
 
@@ -32,6 +34,10 @@ enum PySerie {
     py2=2,
     py3=3,
 }
+
+/* TODO: move to utils package?
+ *       Dyaml integration should be kept in lib
+ */
 
 /** VirtualEnv wrapper, to simplify operations within virtual environment
   *
@@ -90,7 +96,7 @@ const struct VirtualEnv {
     /// Initialize run-in-venv script
     private void initRunInVenvScript() const {
         // Add bash script to run any command in virtual env
-        import std.file: getAttributes, setAttributes;
+        import std.file: setAttributes;
         import std.conv : octal;
         _path.join("bin", "run-in-venv").writeFile(
             SCRIPT_RUN_IN_ENV.format(
@@ -233,17 +239,15 @@ const struct VirtualEnv {
       **/
     void buildPython(in string build_version,
                      in bool enable_sqlite=false) {
-        // Convert string representation of version into SemVer instance
+        // Convert string representation of version into Version instance
         // for further processing
-        buildPython(SemVer(build_version), enable_sqlite);
+        buildPython(Version(build_version), enable_sqlite);
     }
 
     /// ditto
-    void buildPython(in SemVer build_version,
+    void buildPython(in Version build_version,
                      in bool enable_sqlite=false) {
         import std.regex: ctRegex, matchFirst;
-        import std.parallelism: totalCPUs;
-        import std.process: environment;
 
         infof("Building python version %s...", build_version);
 
@@ -326,27 +330,27 @@ const struct VirtualEnv {
         // Create symlink to 'python' if needed
         if (!python_path.join("bin", "python").exists &&
                 python_path.join("bin", "python%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "python%s".format(build_version.query(VersionPart.MAJOR))),
+                    "bin", "python%s".format(build_version.major)),
                     python_path.join("bin", "python"));
             python_path.join(
-                "bin", "python%s".format(build_version.query(VersionPart.MAJOR))
+                "bin", "python%s".format(build_version.major)
             ).symlink(python_path.join("bin", "python"));
         }
 
         // Install pip if needed
         if (!python_path.join("bin", "pip").exists &&
                 !python_path.join("bin", "pip%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             infof("Installing pip for just installed python...");
 
-            immutable auto url_get_pip_py = build_version < SemVer(3, 7) ?
+            immutable auto url_get_pip_py = build_version < Version(3, 7) ?
                 "https://bootstrap.pypa.io/pip/%s.%s/get-pip.py".format(
-                        build_version.query(VersionPart.MAJOR),
-                        build_version.query(VersionPart.MINOR)) :
+                        build_version.major,
+                        build_version.minor) :
                 "https://bootstrap.pypa.io/pip/get-pip.py";
             tracef("Downloading get-pip.py from %s", url_get_pip_py);
             download(
@@ -362,14 +366,14 @@ const struct VirtualEnv {
         // Create symlink for 'pip' if needed
         if (!python_path.join("bin", "pip").exists &&
                 python_path.join("bin", "pip%s".format(
-                        build_version.query(VersionPart.MAJOR))).exists) {
+                        build_version.major)).exists) {
             tracef(
                 "Linking %s to %s",
                 python_path.join(
-                    "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))),
+                    "bin", "pip%s".format(build_version.major)),
                     python_path.join("bin", "pip"));
             python_path.join(
-                "bin", "pip%s".format(build_version.query(VersionPart.MAJOR))
+                "bin", "pip%s".format(build_version.major)
             ).symlink(python_path.join("bin", "pip"));
         }
     }
@@ -385,8 +389,6 @@ const struct VirtualEnv {
     void initializeVirtualEnv(
             in string python_version,
             in string node_version) {
-        import std.parallelism: totalCPUs;
-
         info("Installing virtualenv...");
 
         if (python_version == "system") {

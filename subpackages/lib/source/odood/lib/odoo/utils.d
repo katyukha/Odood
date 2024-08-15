@@ -1,6 +1,7 @@
 module odood.lib.odoo.utils;
 
 private import std.logger;
+private import std.regex;
 private import std.string: toStringz, fromStringz, strip;
 private import std.format: format;
 private import std.exception: enforce;
@@ -13,17 +14,16 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon_version: OdooAddonVersion;
 
 
+private auto immutable RE_VERSION_CONFLICT = ctRegex!(
+    `^<<<<<<< HEAD\n` ~
+    `(?P<head>\s+["']version["']:\s["'](?P<headversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n)` ~
+    `=======\n` ~
+    `(?P<changekey>\s+["']version["']:\s)(?P<changequote>["'])(?P<changeversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n` ~
+    `>>>>>>> .*\n`, "m");
+
+
 /// Resolve version conflict in provided manifest content.
 string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
-    import std.regex;
-
-    auto immutable RE_CONFLICT = ctRegex!(
-        `^<<<<<<< HEAD\n` ~
-        `(?P<head>\s+["']version["']:\s["'](?P<headversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n)` ~
-        `=======\n` ~
-        `(?P<changekey>\s+["']version["']:\s)(?P<changequote>["'])(?P<changeversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n` ~
-        `>>>>>>> .*\n`, "m");
-
     // function that is responsible for replace
     string fn_replace(Captures!(string) captures) {
         const OdooAddonVersion head_version = OdooAddonVersion(captures["headversion"])
@@ -44,7 +44,7 @@ string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
         );
     }
 
-    return manifest_content.replaceAll!(fn_replace)(RE_CONFLICT);
+    return manifest_content.replaceAll!(fn_replace)(RE_VERSION_CONFLICT);
 }
 
 unittest {

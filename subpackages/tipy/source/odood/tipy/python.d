@@ -1,11 +1,6 @@
-module odood.utils.tipy.python;
-
-private import std.string;
-private import std.stdio;
-private import std.path;
+module odood.tipy.python;
 
 private import bindbc.common.codegen: joinFnBinds, FnBind;
-
 
 // Copied from python
 enum Py_single_input = 256;
@@ -26,7 +21,6 @@ enum PyGILState_STATE {
 };
 
 alias Py_ssize_t = size_t;
-
 
 mixin(joinFnBinds!false((){
     FnBind[] ret = [

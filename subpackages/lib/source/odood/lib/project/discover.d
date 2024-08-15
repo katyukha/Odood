@@ -2,10 +2,10 @@ module odood.lib.project.discover;
 
 private import std.logger;
 private import std.string: splitLines, strip, empty;
-private import std.algorithm: startsWith;
+private import std.algorithm.searching: startsWith;
 private import std.regex;
 private import std.typecons: Nullable, nullable;
-private import std.exception;
+private import std.exception: basicExceptionCtors, enforce;
 private import std.format: format;
 
 private import thepath: Path;
@@ -21,7 +21,7 @@ private import odood.lib.odoo.python: guessPySerie;
 private import odood.exception: OdoodException;
 
 
-private auto RE_CONF_LINE=ctRegex!(
+private auto RE_CONF_LINE = ctRegex!(
     `^\s*(?P<name>[\w_]+)\s*=\s*(?P<val>[^\s;#]+).*$`, "m");
 
 

@@ -4,21 +4,17 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable;
+private import std.array: split, array;
+private import std.algorithm.iteration: filter;
+private import std.process: Config;
 private static import std.process;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.utils: generateRandomString;
+private import odood.utils.odoo.db: BackupFormat;
 private import odood.exception: OdoodException;
-
-
-/** Supported backup formats
-  **/
-enum BackupFormat {
-    zip,  /// ZIP backup format that includes filestore
-    sql,  /// SQL-only backup, that contains only SQL dump
-}
 
 
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
@@ -86,9 +82,6 @@ const struct LOdoo {
         /** Return list of databases available on this odoo instance
           **/
         string[] databaseList() {
-            import std.array: split, array;
-            import std.algorithm.iteration: filter;
-            import std.process: Config;
             auto res = runE(["db-list"], Config.stderrPassThrough);
             return res.output.split("\n").filter!(db => db && db != "").array;
         }
@@ -228,7 +221,7 @@ const struct LOdoo {
 
         /** Restore database
           **/
-        auto databaseRestore(in string name, in Path backup_path) {
+        deprecated auto databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
             return runE("db-restore", name, backup_path.toString);
         }

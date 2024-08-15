@@ -5,6 +5,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
+private import odood.lib.install;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -55,6 +56,93 @@ class CommandVenvInstallPyPackages: OdoodCommand {
 
 }
 
+
+class CommandVenvPIP: OdoodCommand {
+
+    this() {
+        super("pip", "Run pip for this environment. All arguments after '--' will be forwarded directly to pip.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        Project.loadProject.venv.runner
+            .addArgs("pip")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
+class CommandVenvNPM: OdoodCommand {
+
+    this() {
+        super("npm", "Run npm for this environment. All arguments after '--' will be forwarded directly to npm.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        Project.loadProject.venv.runner
+            .addArgs("npm")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
+class CommandVenvIPython: OdoodCommand {
+
+    this() {
+        super("ipython", "Run ipython in this environment. All arguments after '--' will be forwarded directly to python.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        // If ipython not installed, install it automatically
+        if (!project.venv.path.join("bin", "ipython").exists)
+            project.venv.installPyPackages("ipython");
+
+        project.venv.runner
+            .addArgs("ipython")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+}
+
+
+class CommandVenvPython: OdoodCommand {
+
+    this() {
+        super("python", "Run python for this environment. All arguments after '--' will be forwarded directly to python.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        project.venv.runner
+            .addArgs("python")
+            .addArgs(args.argsRest)
+            .execv;
+    }
+
+}
+
+
+class CommandVenvRun: OdoodCommand {
+
+    this() {
+        immutable string description = "" ~
+            "Run command in this virtual environment. " ~
+            "The command and all arguments must be specified after '--'. " ~
+            "For example: 'odood venv run -- ipython'";
+        super("run", description);
+    }
+
+    public override void execute(ProgramArgs args) {
+        Project.loadProject.venv.runner.addArgs(args.argsRest).execv;
+    }
+
+}
+
 class CommandVenvReinstall: OdoodCommand {
 
     this() {
@@ -68,7 +156,6 @@ class CommandVenvReinstall: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import odood.lib.install;
         auto project = Project.loadProject;
 
         if (project.venv.path.exists)
@@ -97,7 +184,6 @@ class CommandVenvUpdateOdoo: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import odood.lib.install;
         auto project = Project.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
@@ -186,6 +272,11 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvReinstall());
         this.add(new CommandVenvUpdateOdoo());
         this.add(new CommandVenvReinstallOdoo());
+        this.add(new CommandVenvPIP());
+        this.add(new CommandVenvNPM());
+        this.add(new CommandVenvIPython());
+        this.add(new CommandVenvPython());
+        this.add(new CommandVenvRun());
     }
 }
 

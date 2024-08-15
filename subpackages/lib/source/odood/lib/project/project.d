@@ -1,16 +1,17 @@
 module odood.lib.project.project;
 
-private import std.stdio;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.logger;
+private import std.conv: to, ConvException;
+private import std.datetime.systime: Clock;
 
 private import thepath: Path;
 private import theprocess: Process;
 private import dini: Ini;
 private import dyaml;
-private import zipper;
+private import zipper: Zipper, ZipMode;
 
 private import odood.exception: OdoodException;
 
@@ -168,7 +169,7 @@ class Project {
     this(in Path project_root, in OdooSerie odoo_serie) {
         this(project_root,
              odoo_serie,
-             odoo_serie.toString, 
+             odoo_serie.toString,
              DEFAULT_ODOO_REPO);
     }
 
@@ -209,6 +210,48 @@ class Project {
       * install packages, etc
       **/
     auto venv() const { return _venv; }
+
+    /** String representation of Odood project
+      **/
+    override string toString() const {
+        return "Odood project (odoo: %s, py: %s) at %s".format(
+            _odoo.serie, _venv.py_version, _project_root);
+    }
+
+    /** psql process prepared and configured to run
+      *
+      * This method could be used to get prepared psql command
+      * with already configured params for connection to database
+      *
+      * Returns: Process instance (from theprocess package)
+      **/
+    auto psql() const {
+        auto odoo_conf = getOdooConfig();
+
+        // TODO: Use resolveProgramPath here
+        auto res = Process("psql")
+            .withEnv(
+                "PGUSER",
+                odoo_conf["options"].hasKey("db_user") ?
+                    odoo_conf["options"].getKey("db_user") : "odoo")
+            .withEnv(
+                "PGPASSWORD",
+                odoo_conf["options"].hasKey("db_password") ?
+                    odoo_conf["options"].getKey("db_password") : "odoo");
+
+        if (odoo_conf["options"].hasKey("db_host"))
+            res.setEnv(
+                "PGHOST", odoo_conf["options"].getKey("db_host"));
+        if (odoo_conf["options"].hasKey("db_port")) {
+            auto db_port = odoo_conf["options"].getKey("db_port");
+            try {
+                res.setEnv("PGPORT", db_port.to!(int).to!string);
+            } catch (ConvException) {
+                warningf("Unparsable value for db port: %s", db_port);
+            }
+        }
+        return res;
+    }
 
     /** OdooServer wrapper to manage server of this Odood project
       * Provides basic methods to start/stop/etc odoo server.
@@ -332,7 +375,6 @@ class Project {
     /** Backup odoo sources located at this.odoo.path.
       **/
     private Path backupOdooSource() {
-        import std.datetime.systime: Clock;
         // Archive current odoo source code
         auto backup_path = this.directories.backups.join(
             "odoo-%s-%s-%s.zip".format(
@@ -373,7 +415,6 @@ class Project {
                 this.installDownloadOdoo();
                 break;
             case Git:
-                import std.datetime.systime: Clock;
 
                 auto dt_string = Clock.currTime.toISOString;
                 auto tag_name = "%s-before-update-%s".format(
@@ -483,6 +524,7 @@ class Project {
     /** Check if database contains demo data.
       **/
     deprecated const(bool) hasDatabaseDemoData(in string dbname) const {
+        // TODO: could be removed after starting use of Peque instead of dpq
         auto db = dbSQL(dbname);
         scope(exit) db.close;
 
