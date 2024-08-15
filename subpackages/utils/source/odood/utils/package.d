@@ -9,7 +9,7 @@ private import core.sys.posix.sys.types: pid_t;
 private import core.thread: Thread;
 private import std.logger: warningf;
 private import std.process: Pid;
-private import std.exception: enforce;
+private import std.exception: enforce, basicExceptionCtors;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
@@ -64,6 +64,14 @@ bool isProcessRunning(scope Pid pid) {
 }
 
 
+/** This exeption will be raised when it is not possible to download the file
+  **/
+class OdoodDownloadException : OdoodException
+{
+    mixin basicExceptionCtors;
+}
+
+
 /** Download the file from the web
   *
   * Params:
@@ -80,7 +88,7 @@ void download(
     import requests: Request, Response, RequestException;
     import requests.streams: ConnectError, TimeoutException, NetworkException;
 
-    enforce!OdoodException(
+    enforce!OdoodDownloadException(
         !dest_path.exists,
         "Cannot download %s to %s! Destination path already exists!".format(
             url, dest_path));
@@ -103,14 +111,21 @@ void download(
             }
         } catch (Exception e) {
             // If exception is not retriable, just reraise it.
-            if (cast(RequestException)e is null &&
-                    cast(ConnectError)e is null &&
-                    cast(TimeoutException)e is null &&
-                    cast(NetworkException)e is null)
-                throw e;
+            if (!(cast(RequestException)e ||
+                    cast(ConnectError)e ||
+                    cast(TimeoutException)e ||
+                    cast(NetworkException)e))
+                throw new OdoodDownloadException(
+                    "Cannot download %s because not-retriable error: %s".format(
+                        url, e.toString),
+                    e);
 
             // if it is last attempt and we got error, then throw it as is
-            if (attempt == max_retries) throw e;
+            if (attempt == max_retries)
+                throw new OdoodDownloadException(
+                    "Cannot download %s because max attempts reached: %s".format(
+                        url, e.toString),
+                    e);
 
             // sleep for 1 second in case of failure
             Thread.sleep((attempt+1).seconds);
