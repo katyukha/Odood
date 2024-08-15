@@ -83,8 +83,8 @@ class OdoodDownloadException : OdoodException
 void download(
         in string url,
         in Path dest_path,
-        in Duration timeout=15.seconds,
-        in ubyte max_retries=5) {
+        in Duration timeout=20.seconds,
+        in ubyte max_retries=7) {
     import requests: Request, Response, RequestException;
     import requests.streams: ConnectError, TimeoutException, NetworkException;
 
@@ -123,12 +123,12 @@ void download(
             // if it is last attempt and we got error, then throw it as is
             if (attempt == max_retries)
                 throw new OdoodDownloadException(
-                    "Cannot download %s because max attempts reached: %s".format(
-                        url, e.toString),
+                    "Cannot download %s because max (%s) attempts reached: %s".format(
+                        url, attempt, e.toString),
                     e);
 
-            // sleep for 1 second in case of failure
-            Thread.sleep((attempt+1).seconds);
+            // sleep for some time in case of failure
+            Thread.sleep((attempt + uniform(1, 5)).seconds);
             warningf(
                 "Cannot download %s because %s. Attempt %s/%s. Retrying",
                 url, e.msg, attempt+1, max_retries);
