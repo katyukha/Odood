@@ -3,6 +3,7 @@ module odood.lib.server.server;
 
 private import core.time;
 private import core.sys.posix.sys.types: pid_t;
+private import core.thread: Thread;
 
 private static import std.process;
 private import std.logger;
@@ -183,6 +184,11 @@ struct OdooServer {
             runner.addArgs("--logfile=%s".format(_project.odoo.logfile));
         }
 
+        if (_project.odoo.pidfile.exists) {
+            tracef("Removing pidfile %s before server starts...", _project.odoo.pidfile);
+            _project.odoo.pidfile.remove();
+        }
+
         info("Starting odoo server...");
         auto pid = runner.spawn();
 
@@ -267,8 +273,13 @@ struct OdooServer {
 
     /** Start the Odoo server
       *
+      * Params:
+      *    wait_timeout = how long to wait if server starts.
+      *        If set to Duration.zero (default), then do not wait for server startup.
+      *        Also, if wait_timeout is specified, but system will not start
+      *        during that time, then error will be raised.
       **/
-    void start() const {
+    void start(in Duration wait_timeout=Duration.zero) const {
         final switch(_project.odoo.server_supervisor) {
             case ProjectServerSupervisor.Odood:
                 this.spawn(true);
@@ -280,6 +291,14 @@ struct OdooServer {
                     .ensureOk();
                 break;
         }
+        if (wait_timeout != Duration.zero) {
+            for(long i=0; i < wait_timeout.total!"seconds"; i++)
+                if (!isRunning)
+                    Thread.sleep(1.seconds);
+            enforce!OdoodException(
+                isRunning,
+                "Cannot start Odoo!");
+        }
 
     }
 
@@ -289,7 +308,6 @@ struct OdooServer {
     void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
         import core.stdc.errno;
-        import core.thread: Thread;
         import std.exception: ErrnoException;
 
         info("Stopping odoo server...");
@@ -298,14 +316,20 @@ struct OdooServer {
             odoo_pid > 0,
             "Server is not running!");
 
-        for(ubyte i=0; isProcessRunning(odoo_pid) && i < 10; i++) {
+        for(ubyte i=0; isProcessRunning(odoo_pid) && i < 15; i++) {
             int res = kill(odoo_pid, SIGTERM);
 
             // Wait 1 second, before next check
             Thread.sleep(1.seconds);
 
-            if (res == -1 && errno == ESRCH)
-                break; // Process killed
+            if (res == -1 && errno == ESRCH) {
+                // Process killed successfully
+                if (_project.odoo.pidfile.exists) {
+                    tracef("Removing pidfile %s after server stopped...", _project.odoo.pidfile);
+                    _project.odoo.pidfile.remove();
+                }
+                break;
+            }
             if (res == -1) {
                 throw new ErrnoException("Cannot kill odoo");
             }

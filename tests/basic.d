@@ -56,7 +56,7 @@ void testServerManagement(in Project project) {
 
     project.server.isRunning.should == false;
 
-    auto server_pid = project.server.spawn(true);
+    auto server_pid = project.server.start(15.seconds);
 
     // We have to wait while odoo starts
     Thread.sleep(3.seconds);
