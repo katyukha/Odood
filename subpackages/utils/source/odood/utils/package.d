@@ -84,7 +84,7 @@ void download(
         in string url,
         in Path dest_path,
         in Duration timeout=15.seconds,
-        in ubyte max_retries=3) {
+        in ubyte max_retries=5) {
     import requests: Request, Response, RequestException;
     import requests.streams: ConnectError, TimeoutException, NetworkException;
 
