@@ -60,8 +60,7 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
 
     /// String representation of this message
     const(string) toString() const {
-        import std.format: format;
-        auto msg_truncated = msg.length > 200 ?
+        immutable auto msg_truncated = msg.length > 200 ?
             (msg[0..200] ~ "...") : msg[0..$];
         return "%s %s %s %s %s %s".format(
             date, process_id, log_level, db, logger, msg_truncated);

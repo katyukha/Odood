@@ -6,6 +6,7 @@ private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.parallelism: totalCPUs;
+private import std.regex: ctRegex, matchFirst;
 
 private static import std.process;
 
@@ -247,7 +248,6 @@ const struct VirtualEnv {
     /// ditto
     void buildPython(in Version build_version,
                      in bool enable_sqlite=false) {
-        import std.regex: ctRegex, matchFirst;
 
         infof("Building python version %s...", build_version);
 

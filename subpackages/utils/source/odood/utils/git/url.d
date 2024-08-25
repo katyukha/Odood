@@ -12,7 +12,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
-
+// TODO: Think about using https://code.dlang.org/packages/urld
 // TODO: Add parsing of branch name from url
 /// Regex for parsing git URL
 private auto immutable RE_GIT_URL = ctRegex!(
