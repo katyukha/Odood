@@ -1,6 +1,6 @@
 module odood.utils.versioned;
 
-private import std.conv: to, ConvOverflowException;
+private import std.conv: to, ConvOverflowException, ConvException;
 private import std.range: empty, zip;
 private import std.algorithm.searching: canFind;
 private import std.string : isNumeric;
@@ -32,6 +32,17 @@ private enum VersionPart {
     }
 
     this(in string v) {
+        try {
+            parseVersionString(v);
+            _isValid = true;
+        } catch (ConvException) {
+            // Cannot convert one of version parts to uint,
+            // thus version is not valid
+            _isValid = false;
+        }
+    }
+
+    private pure void parseVersionString(in string v) {
         // TODO: Add validation
         // TODO: Add support of 'v' prefix
         if (v.length == 0) return;
@@ -127,7 +138,6 @@ private enum VersionPart {
                     break;
             }
         }
-        _isValid = true;
     }
 
     pure nothrow uint major() const { return _major; }
@@ -149,6 +159,7 @@ private enum VersionPart {
         return result;
     }
 
+    ///
     unittest {
         import unit_threaded.assertions;
         Version("1.2.3").major.should == 1;
@@ -231,6 +242,15 @@ private enum VersionPart {
         Version("12.34.56+build").build.should == "build";
         Version("12.34.56+build-42").build.should == "build-42";
         Version("12.34.56+build-42").isValid.should == true;
+    }
+
+    // Test invalid versions
+    unittest {
+        import unit_threaded.assertions;
+        Version("2s").isValid.should == false;
+        Version("2.3s").isValid.should == false;
+        Version("2.3.4s").isValid.should == false;
+        Version("2.3.4-s").isValid.should == true;
     }
 
     pure int opCmp(in Version other) const {
