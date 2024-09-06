@@ -16,7 +16,7 @@ private enum VersionPart {
 }
 
 
-@safe struct Version {
+@safe pure struct Version {
     private uint _major=0;
     private uint _minor=0;
     private uint _patch=0;
@@ -24,7 +24,7 @@ private enum VersionPart {
     private string _build;
     private bool _isValid;
 
-    this(in uint major, in uint minor=0, in uint patch=0) {
+    this(in uint major, in uint minor=0, in uint patch=0) nothrow {
         _major = major;
         _minor = minor;
         _patch = patch;
@@ -42,7 +42,7 @@ private enum VersionPart {
         }
     }
 
-    private pure void parseVersionString(in string v) {
+    private void parseVersionString(in string v) {
         // TODO: Add validation
         // TODO: Add support of 'v' prefix
         if (v.length == 0) return;
@@ -140,16 +140,16 @@ private enum VersionPart {
         }
     }
 
-    pure nothrow uint major() const { return _major; }
-    pure nothrow uint minor() const { return _minor; }
-    pure nothrow uint patch() const { return _patch; }
-    pure nothrow string prerelease() const { return _prerelease; }
-    pure nothrow string build() const { return _build; }
+    nothrow uint major() const { return _major; }
+    nothrow uint minor() const { return _minor; }
+    nothrow uint patch() const { return _patch; }
+    nothrow string prerelease() const { return _prerelease; }
+    nothrow string build() const { return _build; }
 
-    pure nothrow bool isValid() const { return _isValid; }
-    pure nothrow bool isStable() const { return _prerelease.empty; }
+    nothrow bool isValid() const { return _isValid; }
+    nothrow bool isStable() const { return _prerelease.empty; }
 
-    pure nothrow string toString() const {
+    nothrow string toString() const {
         string result = _major.to!string ~ "." ~ _minor.to!string ~ "." ~
             _patch.to!string;
         if (_prerelease.length > 0)
@@ -253,7 +253,7 @@ private enum VersionPart {
         Version("2.3.4-s").isValid.should == true;
     }
 
-    pure int opCmp(in Version other) const {
+    int opCmp(in Version other) const {
         // TODO: make it nothrow
         if (this.major != other.major)
             return this.major < other.major ? -1 : 1;
@@ -263,7 +263,7 @@ private enum VersionPart {
             return this.patch < other.patch ? -1 : 1;
 
         // Just copypaste from semver lib
-        int compareSufix(scope const string[] suffix, const string[] anotherSuffix) @safe pure
+        int compareSufix(scope const string[] suffix, const string[] anotherSuffix)
         {
             if (!suffix.empty && anotherSuffix.empty)
                 return -1;
@@ -317,7 +317,7 @@ private enum VersionPart {
         assert(Version("1.0.0-rc.2+build.5") != Version("1.0.0-rc.1+build.5"));
     }
 
-    bool opEquals(in Version other) const pure nothrow {
+    bool opEquals(in Version other) const nothrow {
         return this.major == other.major &&
             this.minor == other.minor &&
             this.patch == other.patch &&
