@@ -1,0 +1,94 @@
+
+# Workflow to test Odoo deployments on various OS
+name: Tests OS deployments
+on:
+  push:
+    branches:
+      - '*'
+env:
+  ODOOD_DLANG_COMPILER: ldc-1.39.0
+
+# In this test, we build Odood on Ubuntu 20.04 and then try to run
+# produced binary on different distros and versions
+jobs:
+  # Compile test builds on ubuntu 20.04
+  compile-ubuntu-20_04:
+    name: Build Ubuntu:20.04
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Build Odood
+        run: |
+          dub build -b unittest-cov
+
+      - name: Upload Odood compiled assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: odood-ubuntu-20.04
+          path: |
+            build/odood
+
+  # Run integration tests for different operation systems
+  run-deployment-tests:
+    name: Run deployment tests
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - "debian:bullseye"
+          #- "ubuntu:20.04"
+          #- "ubuntu:22.04"
+          - "ubuntu:23.04"
+          - "ubuntu:24.04"
+        odoo_version:
+          - "17.0"
+          #- "16.0"
+    runs-on: ubuntu-22.04
+    needs:
+      - compile-ubuntu-20_04
+    container:
+      image: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: 'noninteractive'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 'Download artifacts for ubuntu 20.04'
+        uses: actions/download-artifact@v3
+        with:
+          name: odood-ubuntu-20.04
+          path: build
+
+      - name: Update apt registry
+        run: apt-get update
+
+      - name: Install system dependencies
+        run: apt-get install --no-install-recommends -yq sudo logrotate
+
+      - name: Install package dependencies
+        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: Make test build executable
+        run: chmod a+x ./build/odood
+
+      - name: Run tests
+        run: ./build/odood deploy -v ${{ matrix.odoo_version }}
+
+      # TODO: Add test some operations with this instance
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
