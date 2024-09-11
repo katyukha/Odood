@@ -38,6 +38,9 @@ enum OdooInstallType {
     Git,
 }
 
+/** Define path for odood system-wide project config
+  **/
+immutable auto ODOOD_SYSTEM_CONFIG_PATH = Path("/", "etc", "odood.yml");
 
 /** The Odood project.
   * The main entity to manage whole Odood project
@@ -63,8 +66,9 @@ class Project {
 
         // If config is not found in current directory and above,
         // check server-wide config (may be it is installed in server-mode)
-        if (s_config_path.isNull && Path("/", "etc", "odood.yml").exists)
-            s_config_path = Path("/", "etc", "odood.yml").nullable;
+        if (s_config_path.isNull && ODOOD_SYSTEM_CONFIG_PATH.exists)
+            // We have to copy Path, because nullable does not work on immutable path.
+            s_config_path = Path(ODOOD_SYSTEM_CONFIG_PATH.toString).nullable;
 
         enforce!OdoodException(
             !s_config_path.isNull,

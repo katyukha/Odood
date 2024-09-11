@@ -19,6 +19,9 @@ enum ProjectServerSupervisor {
 
     /// Server is managed by init script in /etc/init.d odoo
     InitScript,
+
+    /// Server is managed by systemd
+    Systemd,
 }
 
 
@@ -80,6 +83,17 @@ struct ProjectConfigOdoo {
         repo = odoo_repo.empty ? DEFAULT_ODOO_REPO : odoo_repo;
     }
 
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in OdooSerie odoo_serie) {
+        this(
+            project_root,
+            directories,
+            odoo_serie,
+            odoo_serie.toString,  // Default branch for serie
+            DEFAULT_ODOO_REPO);
+    }
+
     this(in dyaml.Node config) {
         /* TODO: think about following structure of test config in yml:
          * odoo:
@@ -114,6 +128,9 @@ struct ProjectConfigOdoo {
                 case "init-script":
                     this.server_supervisor = ProjectServerSupervisor.InitScript;
                     break;
+                case "systemd":
+                    this.server_supervisor = ProjectServerSupervisor.Systemd;
+                    break;
                 default:
                     assert(
                         0,
@@ -145,6 +162,9 @@ struct ProjectConfigOdoo {
                 break;
             case ProjectServerSupervisor.InitScript:
                 result["server-supervisor"] = "init-script";
+                break;
+            case ProjectServerSupervisor.Systemd:
+                result["server-supervisor"] = "systemd";
                 break;
         }
 

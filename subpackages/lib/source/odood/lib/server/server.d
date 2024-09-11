@@ -288,7 +288,13 @@ struct OdooServer {
                 Process("/etc/init.d/odoo")
                     .withArgs("start")
                     .execute
-                    .ensureOk();
+                    .ensureOk(true);
+                break;
+            case ProjectServerSupervisor.Systemd:
+                Process("service")
+                    .withArgs("odoo", "start")
+                    .execute
+                    .ensureOk(true);
                 break;
         }
         if (wait_timeout != Duration.zero) {
@@ -350,7 +356,13 @@ struct OdooServer {
                 Process("/etc/init.d/odoo")
                     .withArgs("stop")
                     .execute
-                    .ensureOk();
+                    .ensureOk(true);
+                break;
+            case ProjectServerSupervisor.Systemd:
+                Process("service")
+                    .withArgs("odoo", "stop")
+                    .execute
+                    .ensureOk(true);
                 break;
         }
     }
