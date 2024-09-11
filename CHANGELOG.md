@@ -6,6 +6,14 @@
 
 - New commaand `odood odoo run` that allows to run Odoo itself.
 
+### Changed
+
+- Pre-commit related commands moved to `pre-commit` subcommand.
+  Thus, following commands now available to work with pre-commit:
+    - `odood pre-commit init`
+    - `odood pre-commit set-up`
+    - `odood pre-commit run`
+
 ---
 
 ## Release 0.1.0 (2024-08-15)

@@ -88,78 +88,11 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
 }
 
 
-class CommandRepositoryInitPreCommit: OdoodCommand {
-    this() {
-        super("init-pre-commit", "Initialize pre-commit for this repo.");
-        this.add(new Flag(
-            "f", "force",
-            "Enforce initialization. " ~
-            "This will rewrite pre-commit configurations.")),
-        this.add(new Flag(
-            null, "no-setup",
-            "Do not set up pre-commit. " ~
-            "Could be used if pre-commit already set up.")),
-        this.add(new Argument(
-            "path", "Path to repository to initialize pre-commit.").optional());
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
-        auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")) : Path.current);
-
-        repo.initPreCommit(args.flag("force"), !args.flag("no-setup"));
-    }
-
-}
-
-class CommandRepositorySetUpPreCommit: OdoodCommand {
-    this() {
-        super("set-up-pre-commit", "Set up pre-commit for specified repo.");
-        this.add(new Argument(
-            "path", "Path to repository to configure.").optional());
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
-        auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")) : Path.current);
-
-        repo.setUpPreCommit();
-    }
-
-}
-
-
-class CommandRepositoryRunPreCommit: OdoodCommand {
-    this() {
-        super("run-pre-commit", "Run pre-commit for specified repo.");
-        this.add(new Argument(
-            "path", "Path to repository to run pre-commit for.").optional());
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        auto path = args.arg("path") ? Path(args.arg("path")) : Path.current;
-        project.venv.runner
-            .withArgs("pre-commit", "run", "--all-files")
-            .inWorkDir(path)
-            .execv();
-    }
-
-}
-
-
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositoryFixVersionConflict());
-        this.add(new CommandRepositoryInitPreCommit());
-        this.add(new CommandRepositorySetUpPreCommit());
-        this.add(new CommandRepositoryRunPreCommit());
     }
 }
 

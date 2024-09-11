@@ -27,6 +27,7 @@ private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
+private import odood.cli.commands.precommit: CommandPreCommit;
 
 
 /** Class that represents main OdoodProgram
@@ -47,9 +48,13 @@ class App: OdoodProgram {
         this.add(new CommandTest());
         this.add(new CommandRepository());
         this.add(new CommandVenv());
+        this.add(new CommandOdoo());
+
+        // Dev tools
+        this.topicGroup("Dev Tools");
         this.add(new CommandScript());
         this.add(new CommandPSQL());
-        this.add(new CommandOdoo());
+        this.add(new CommandPreCommit());
 
         // System
         this.topicGroup("System");
