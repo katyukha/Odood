@@ -6,6 +6,7 @@ private import std.logger;
 private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: octal;
+private import std.range: empty;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -14,10 +15,9 @@ private import dini: Ini;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project:
-    Project, OdooInstallType, ODOOD_SYSTEM_CONFIG_PATH;
+    Project, OdooInstallType;
 private import odood.lib.project.config: ProjectServerSupervisor;
 private import odood.lib.odoo.config: initOdooConfig;
-private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -50,6 +50,9 @@ class CommandDeploy: OdoodCommand {
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
 
+        this.add(new Flag(
+            null, "enable-logrotate", "Enable logrotate for Odoo."));
+
         this.add(new Option(
             null, "supervisor", "What superwisor to use for deployment.")
                 .defaultValue("systemd")
@@ -80,6 +83,14 @@ class CommandDeploy: OdoodCommand {
         if (args.flag("local-postgres"))
             config.database.local_postgres = true;
 
+        if (config.database.local_postgres && config.database.password.empty)
+            // Generate default password
+            config.database.password = generateRandomString(
+                    DEFAULT_PASSWORD_LEN);
+
+        if (args.flag("enable-logrotate"))
+            config.logrotate_enable = true;
+
         if (args.option("supervisor"))
             switch(args.option("supervisor")) {
                 case "odood":
@@ -103,26 +114,7 @@ class CommandDeploy: OdoodCommand {
         enforce!OdoodCLIException(
             geteuid == 0 && getegid == 0,
             "This command must be ran as root!");
-
-        enforce!OdoodCLIException(
-            deploy_config.odoo.serie.isValid,
-            "Odoo version %s is not valid".format(args.option("odoo-version")));
-        enforce!OdoodCLIException(
-            !deploy_config.deploy_path.exists,
-            "Deploy path %s already exists. ".format(deploy_config.deploy_path) ~
-            "It seems that there was attempt to install Odoo. " ~
-            "This command can install Odoo only on clean machine.");
-        enforce!OdoodCLIException(
-            !ODOOD_SYSTEM_CONFIG_PATH.exists,
-            "Odood system-wide config already exists at %s. ".format(ODOOD_SYSTEM_CONFIG_PATH) ~
-            "It seems that there was attempt to install Odoo. " ~
-            "This command can install Odoo only on clean machine.");
-        enforce!OdoodCLIException(
-            !Path("etc", "logrotate.d", "odoo").exists,
-            "It seems that Odoo config for logrotate already exists!");
-        enforce!OdoodCLIException(
-            !Path("etc", "systemd", "system", "odoo.service").exists,
-            "It seems that systemd service for Odoo already exists!");
+        deploy_config.ensureValid();
     }
 
     public override void execute(ProgramArgs args) {

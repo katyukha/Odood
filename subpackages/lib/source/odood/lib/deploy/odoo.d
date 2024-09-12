@@ -5,7 +5,7 @@ private import core.sys.posix.pwd: getpwnam, passwd;
 
 private import std.logger: infof;
 private import std.exception: enforce, errnoEnforce;
-private import std.conv: text, octal;
+private import std.conv: to, text, octal;
 private import std.format: format;
 
 private import thepath: Path;
@@ -42,9 +42,9 @@ i"#!/bin/bash
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$(project.venv.bin_path.toString)
 DAEMON=$(project.server.scriptPath.toString)
-NAME=odoo
-DESC=odoo
-CONFIG=$(project.odoo.configfile.toString)
+    NAME=odoo
+    DESC=odoo
+    CONFIG=$(project.odoo.configfile.toString)
 LOGFILE=$(project.odoo.logfile.toString)
 PIDFILE=$(project.odoo.pidfile.toString).pid
 USER=$(project.odoo.server_user)
@@ -110,13 +110,6 @@ exit 0
         .execute
         .ensureOk(true);
     infof("Init script configred successfully. Odoo will be started at startup.");
-
-    //infof("Starting Odoo via init script.");
-    //Process(project.odoo.server_init_script_path)
-        //.withArgs("start")
-        //.execute
-        //.ensureOk(true);
-    //infof("Odoo seems to be started");
 }
 
 
@@ -163,11 +156,9 @@ WantedBy=multi-user.target
 }
 
 
-private void deployLogrotateConfig(in Project project) {
-    immutable auto logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
-
+private void deployLogrotateConfig(in Project project, in DeployConfig config) {
     infof("Configuring logrotate for Odoo...");
-    logrotate_config_path.writeFile(
+    config.logrotate_config_path.writeFile(
 i"$(project.directories.log.toString)/*.log {
     copytruncate
     missingok
@@ -175,10 +166,38 @@ i"$(project.directories.log.toString)/*.log {
 }".text);
 
     // Set access rights for logrotate config
-    logrotate_config_path.setAttributes(octal!755);
-    logrotate_config_path.chown("root", "root");
+    config.logrotate_config_path.setAttributes(octal!755);
+    config.logrotate_config_path.chown("root", "root");
 
     infof("Logrotate configured successfully.");
+}
+
+
+private void deployConfigurePostgresql(in Project project, in DeployConfig config) {
+    // Check if postgresql user for Odoo exists
+    auto output = Process("psql")
+        .setArgs([
+            "-c",
+            i"SELECT count(*) FROM pg_user WHERE usename = '$(config.database.user)';".text,
+        ])
+        .withUser("postgres")
+        .execute
+        .ensureStatus(true)
+        .output;
+
+    if (output.to!int == 0) {
+        // Create postgresql user if "local-postgres" is selected and no user exists
+        infof("Creating postgresql user '%s' for Odoo...", config.database.user);
+        Process("psql")
+            .setArgs([
+                "-c",
+                i"CREATE USER \"$(config.database.user)\" WITH CREATEDB PASSWORD '$(config.database.password)'".text,
+            ])
+            .withUser("postgres")
+            .execute
+            .ensureStatus(true);
+        infof("Postgresql user '%s' for Odoo created successfully.", config.database.user);
+    }
 }
 
 private void setAccessRights(in Project project) {
@@ -231,9 +250,13 @@ Project deployOdoo(in DeployConfig config) {
     // Set access rights for Odoo installed
     project.setAccessRights();
 
+    // Create postgresql user if "local-postgres" is selected and no user exists
+    if (config.database.local_postgres)
+        deployConfigurePostgresql(project, config);
+
     // Configure logrotate
-    // TODO: make it optional
-    deployLogrotateConfig(project);
+    if (config.logrotate_enable)
+        deployLogrotateConfig(project, config);
 
     // Configure systemd
     final switch(config.odoo.server_supervisor) {

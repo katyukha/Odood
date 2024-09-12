@@ -1,20 +1,26 @@
 module odood.lib.deploy.config;
 
 private import std.conv: to;
+private import std.range: empty;
+private import std.exception: enforce;
+private import std.format: format;
 
 private import thepath: Path;
 
 private import odood.lib.odoo.config: initOdooConfig;
-private import odood.lib.project: Project, OdooInstallType;
+private import odood.lib.project:
+    Project,
+    OdooInstallType,
+    ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config:
     ProjectServerSupervisor,
     ProjectConfigDirectories,
     ProjectConfigOdoo;
+private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
-
 
 struct DeployConfigDatabase {
     string host="localhost";
@@ -38,6 +44,7 @@ struct DeployConfigOdoo {
     Path server_systemd_service_path = Path(
         "/", "etc", "systemd", "system", "odoo.service");
 
+    Path pidfile = Path("/", "var", "run", "odoo.pid");
 }
 
 struct DeployConfig {
@@ -48,6 +55,53 @@ struct DeployConfig {
 
     DeployConfigDatabase database;
     DeployConfigOdoo odoo;
+
+    bool logrotate_enable = false;
+    Path logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
+
+    /** Validate deploy config
+      * Throw exception if config is not valid.
+      **/
+    void ensureValid() const {
+        enforce!OdoodDeployException(
+            this.odoo.serie.isValid,
+            "Odoo version is not valid");
+        enforce!OdoodDeployException(
+            !this.deploy_path.exists,
+            "Deploy path %s already exists. ".format(this.deploy_path) ~
+            "It seems that there was attempt to install Odoo. " ~
+            "This command can install Odoo only on clean machine.");
+        enforce!OdoodDeployException(
+            !ODOOD_SYSTEM_CONFIG_PATH.exists,
+            "Odood system-wide config already exists at %s. ".format(ODOOD_SYSTEM_CONFIG_PATH) ~
+            "It seems that there was attempt to install Odoo. " ~
+            "This command can install Odoo only on clean machine.");
+
+        if (this.logrotate_enable)
+            enforce!OdoodDeployException(
+                !Path("etc", "logrotate.d", "odoo").exists,
+                "It seems that Odoo config for logrotate already exists!");
+
+        final switch(this.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood:
+                // Do nothing, no additional check needed.
+                break;
+            case ProjectServerSupervisor.InitScript:
+                enforce!OdoodDeployException(
+                    !this.odoo.server_init_script_path.exists,
+                    "It seems that init.d script for Odoo already exists!");
+                break;
+            case ProjectServerSupervisor.Systemd:
+                enforce!OdoodDeployException(
+                    !this.odoo.server_systemd_service_path.exists,
+                    "It seems that systemd service for Odoo already exists!");
+                break;
+        }
+
+        enforce!OdoodDeployException(
+            !this.database.password.empty,
+            "Password for database must not be empty!");
+    }
 
     auto prepareOdooConfig(in Project project) const
     in (
@@ -89,6 +143,7 @@ struct DeployConfig {
         project_odoo.server_supervisor = this.odoo.server_supervisor;
         project_odoo.server_systemd_service_path = this.odoo.server_systemd_service_path;
         project_odoo.server_init_script_path = this.odoo.server_init_script_path;
+        project_odoo.pidfile = this.odoo.pidfile;
 
         return new Project(
             this.deploy_path,

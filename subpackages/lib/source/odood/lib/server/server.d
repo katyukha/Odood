@@ -83,13 +83,22 @@ struct OdooServer {
       *    - -2 if process specified in pid file is not running
       **/
     pid_t getPid() const {
-        if (_project.odoo.pidfile.exists) {
-            auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
-            if (isProcessRunning(pid))
-                return pid;
-            return -2;
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood, ProjectServerSupervisor.InitScript:
+                if (_project.odoo.pidfile.exists) {
+                    auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
+                    if (isProcessRunning(pid))
+                        return pid;
+                    return -2;
+                }
+                return -1;
+            case ProjectServerSupervisor.Systemd:
+                return Process("systemctl")
+                    .withArgs("show", "--property=MainPID", "--value", "odoo")
+                    .execute
+                    .ensureOk(true)
+                    .output.to!pid_t;
         }
-        return -1;
     }
 
     /** Get environment variables to apply when running Odoo server.

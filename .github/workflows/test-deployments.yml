@@ -53,7 +53,7 @@ jobs:
           - "ubuntu:24.04"
         odoo_version:
           - "17.0"
-          #- "16.0"
+          - "16.0"
     runs-on: ubuntu-22.04
     needs:
       - compile-ubuntu-20_04
@@ -82,7 +82,7 @@ jobs:
       - name: Make test build executable
         run: chmod a+x ./build/odood
 
-      - name: Run tests
+      - name: Deploy with init-script
         run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script
 
       # TODO: Add test some operations with this instance
