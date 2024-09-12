@@ -83,7 +83,7 @@ jobs:
         run: chmod a+x ./build/odood
 
       - name: Run tests
-        run: ./build/odood deploy -v ${{ matrix.odoo_version }}
+        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script
 
       # TODO: Add test some operations with this instance
 
