@@ -44,9 +44,16 @@ class CommandDeploy: OdoodCommand {
             null, "db-user", "Database port").defaultValue("odoo"));
         this.add(new Option(
             null, "db-password", "Database password").defaultValue("odoo"));
+        this.add(new Flag(
+            null, "local-postgres", "Configure local postgresql server"));
 
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
+
+        this.add(new Option(
+            null, "supervisor", "What superwisor to use for deployment.")
+                .defaultValue("systemd")
+                .acceptsValues(["odood", "init-script", "systemd"]));
     }
 
     DeployConfig parseDeployOptions(ProgramArgs args) {
@@ -69,6 +76,25 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("proxy-mode"))
             config.odoo.proxy_mode = true;
+
+        if (args.flag("local-postgres"))
+            config.database.local_postgres = true;
+
+        if (args.option("supervisor"))
+            switch(args.option("supervisor")) {
+                case "odood":
+                    config.odoo.server_supervisor = ProjectServerSupervisor.Odood;
+                    break;
+                case "init-script":
+                    config.odoo.server_supervisor = ProjectServerSupervisor.InitScript;
+                    break;
+                case "systemd":
+                    config.odoo.server_supervisor = ProjectServerSupervisor.Systemd;
+                    break;
+                default:
+                    assert(0, "Not supported supervisor");
+            }
+
         return config;
     }
 

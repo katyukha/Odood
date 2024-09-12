@@ -6,7 +6,10 @@ private import thepath: Path;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project: Project, OdooInstallType;
-private import odood.lib.project.config: ProjectServerSupervisor;
+private import odood.lib.project.config:
+    ProjectServerSupervisor,
+    ProjectConfigDirectories,
+    ProjectConfigOdoo;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -30,6 +33,10 @@ struct DeployConfigOdoo {
 
     string server_user="odoo";
     ProjectServerSupervisor server_supervisor=ProjectServerSupervisor.Systemd;
+    Path server_init_script_path = Path(
+        "/", "etc", "init.d", "odoo");
+    Path server_systemd_service_path = Path(
+        "/", "etc", "systemd", "system", "odoo.service");
 
 }
 
@@ -70,5 +77,22 @@ struct DeployConfig {
             odoo_config["options"].setKey("proxy_mode", "True");
 
         return odoo_config;
+    }
+
+    /** Prepare Odood project for deployment
+      **/
+    auto prepareOdoodProject() const {
+        auto project_directories = ProjectConfigDirectories(this.deploy_path);
+        auto project_odoo = ProjectConfigOdoo(
+            this.deploy_path, project_directories, this.odoo.serie);
+        project_odoo.server_user = this.odoo.server_user;
+        project_odoo.server_supervisor = this.odoo.server_supervisor;
+        project_odoo.server_systemd_service_path = this.odoo.server_systemd_service_path;
+        project_odoo.server_init_script_path = this.odoo.server_init_script_path;
+
+        return new Project(
+            this.deploy_path,
+            project_directories,
+            project_odoo);
     }
 }

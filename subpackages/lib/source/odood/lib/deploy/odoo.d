@@ -13,22 +13,119 @@ private import theprocess: Process;
 
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
-private import odood.lib.project.config:
-    ProjectConfigDirectories, ProjectConfigOdoo;
+private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
 private import odood.lib.deploy.utils: checkSystemUserExists, createSystemUser;
 
 
-immutable auto ODOO_SYSTEMD_PATH = Path(
-    "/", "etc", "systemd", "system", "odoo.service");
+private void deployInitScript(in Project project) {
+
+    infof("Configuring init script for Odoo...");
+
+    // Configure systemd
+    project.odoo.server_init_script_path.writeFile(
+i"#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          odoo
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start odoo daemon at boot time
+# Description:       Enable service provided by daemon.
+# X-Interactive:     true
+### END INIT INFO
+## more info: http://wiki.debian.org/LSBInitScripts
+
+. /lib/lsb/init-functions
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$(project.venv.bin_path.toString)
+DAEMON=$(project.server.scriptPath.toString)
+NAME=odoo
+DESC=odoo
+CONFIG=$(project.odoo.configfile.toString)
+LOGFILE=$(project.odoo.logfile.toString)
+PIDFILE=$(project.odoo.pidfile.toString).pid
+USER=$(project.odoo.server_user)
+export LOGNAME=$USER
+
+test -x $DAEMON || exit 0
+set -e
+
+function _start() {
+    start-stop-daemon --start --quiet --pidfile $PIDFILE --chuid $USER:$USER --background --make-pidfile --exec $DAEMON -- --config $CONFIG --logfile $LOGFILE
+}
+
+function _stop() {
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --oknodo --retry 3
+    rm -f $PIDFILE
+}
+
+function _status() {
+    start-stop-daemon --status --quiet --pidfile $PIDFILE
+    return $?
+}
+
+
+case \"$1\" in
+        start)
+                echo -n \"Starting $DESC: \"
+                _start
+                echo \"ok\"
+                ;;
+        stop)
+                echo -n \"Stopping $DESC: \"
+                _stop
+                echo \"ok\"
+                ;;
+        restart|force-reload)
+                echo -n \"Restarting $DESC: \"
+                _stop
+                sleep 1
+                _start
+                echo \"ok\"
+                ;;
+        status)
+                echo -n \"Status of $DESC: \"
+                _status && echo \"running\" || echo \"stopped\"
+                ;;
+        *)
+                N=/etc/init.d/$NAME
+                echo \"Usage: $N {start|stop|restart|force-reload|status}\" >&2
+                exit 1
+                ;;
+esac
+
+exit 0
+".text);
+
+    // Set access rights for systemd config
+    project.odoo.server_init_script_path.setAttributes(octal!755);
+    project.odoo.server_init_script_path.chown("root", "root");
+
+    // Enable systemd service for Odoo
+    Process("update-rc.d")
+        .withArgs("odoo", "defaults")
+        .execute
+        .ensureOk(true);
+    infof("Init script configred successfully. Odoo will be started at startup.");
+
+    //infof("Starting Odoo via init script.");
+    //Process(project.odoo.server_init_script_path)
+        //.withArgs("start")
+        //.execute
+        //.ensureOk(true);
+    //infof("Odoo seems to be started");
+}
+
 
 private void deploySystemdConfig(in Project project) {
 
     infof("Configuring systemd daemon for Odoo...");
 
     // Configure systemd
-    ODOO_SYSTEMD_PATH.writeFile(
+    project.odoo.server_systemd_service_path.writeFile(
 i"[Unit]
 Description=Odoo Open Source ERP and CRM
 After=network.target
@@ -37,7 +134,7 @@ After=network.target
 Type=simple
 User=$(project.odoo.server_user)
 Group=$(project.odoo.server_user)
-ExecStart=%(project.server.scriptPath) --config $(project.odoo.configfile)
+ExecStart=$(project.server.scriptPath) --config $(project.odoo.configfile)
 KillMode=mixed
 
 [Install]
@@ -45,8 +142,8 @@ WantedBy=multi-user.target
 ".text);
 
     // Set access rights for systemd config
-    ODOO_SYSTEMD_PATH.setAttributes(octal!755);
-    ODOO_SYSTEMD_PATH.chown("root", "root");
+    project.odoo.server_systemd_service_path.setAttributes(octal!755);
+    project.odoo.server_systemd_service_path.chown("root", "root");
 
     // Enable systemd service for Odoo
     Process("systemctl")
@@ -114,19 +211,13 @@ Project deployOdoo(in DeployConfig config) {
     infof("Deploying Odoo %s to %s", config.odoo.serie, config.deploy_path);
 
     // TODO: Move this configuration to Deploy config
-    auto project_directories = ProjectConfigDirectories(config.deploy_path);
-    auto project_odoo = ProjectConfigOdoo(
-        config.deploy_path, project_directories, config.odoo.serie);
-    project_odoo.server_user = config.odoo.server_user;
-    project_odoo.server_supervisor = config.odoo.server_supervisor;
-    project_odoo.server_systemd_service_path = ODOO_SYSTEMD_PATH;
+    auto project = config.prepareOdoodProject();
 
-    auto project = new Project(
-        config.deploy_path,
-        project_directories,
-        project_odoo);
-
+    // We need to keep reference on odoo_config to make initialize work.
+    // TODO: Fix this
     auto odoo_config = config.prepareOdooConfig(project);
+
+    // Initialize project.
     project.initialize(
         odoo_config,
         config.py_version,
@@ -145,8 +236,18 @@ Project deployOdoo(in DeployConfig config) {
     deployLogrotateConfig(project);
 
     // Configure systemd
-    // TODO: make it optional
-    deploySystemdConfig(project);
+    final switch(config.odoo.server_supervisor) {
+        case ProjectServerSupervisor.Odood:
+            // Do nothing.
+            // TODO: May be it have sense to create some link in /usr/sbin for Odoo?
+            break;
+        case ProjectServerSupervisor.InitScript:
+            deployInitScript(project);
+            break;
+        case ProjectServerSupervisor.Systemd:
+            deploySystemdConfig(project);
+            break;
+    }
 
     infof("Odoo deployed successfully.");
     return project;
