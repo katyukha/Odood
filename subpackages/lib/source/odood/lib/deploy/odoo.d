@@ -20,15 +20,15 @@ private import odood.lib.deploy.config: DeployConfig;
 private import odood.lib.deploy.utils: checkSystemUserExists, createSystemUser;
 
 
+immutable auto ODOO_SYSTEMD_PATH = Path(
+    "/", "etc", "systemd", "system", "odoo.service");
 
 private void deploySystemdConfig(in Project project) {
-    immutable auto odoo_systemd_path = Path(
-        "etc", "systemd", "system", "odoo.service");
 
     infof("Configuring systemd daemon for Odoo...");
 
     // Configure systemd
-    odoo_systemd_path.writeFile(
+    ODOO_SYSTEMD_PATH.writeFile(
 i"[Unit]
 Description=Odoo Open Source ERP and CRM
 After=network.target
@@ -45,8 +45,8 @@ WantedBy=multi-user.target
 ".text);
 
     // Set access rights for systemd config
-    odoo_systemd_path.setAttributes(octal!755);
-    odoo_systemd_path.chown("root", "root");
+    ODOO_SYSTEMD_PATH.setAttributes(octal!755);
+    ODOO_SYSTEMD_PATH.chown("root", "root");
 
     // Enable systemd service for Odoo
     Process("systemctl")
@@ -67,7 +67,7 @@ WantedBy=multi-user.target
 
 
 private void deployLogrotateConfig(in Project project) {
-    immutable auto logrotate_config_path = Path("etc", "logrotate.d", "odoo");
+    immutable auto logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
 
     infof("Configuring logrotate for Odoo...");
     logrotate_config_path.writeFile(
@@ -113,11 +113,13 @@ private void setAccessRights(in Project project) {
 Project deployOdoo(in DeployConfig config) {
     infof("Deploying Odoo %s to %s", config.odoo.serie, config.deploy_path);
 
+    // TODO: Move this configuration to Deploy config
     auto project_directories = ProjectConfigDirectories(config.deploy_path);
     auto project_odoo = ProjectConfigOdoo(
         config.deploy_path, project_directories, config.odoo.serie);
     project_odoo.server_user = config.odoo.server_user;
     project_odoo.server_supervisor = config.odoo.server_supervisor;
+    project_odoo.server_systemd_service_path = ODOO_SYSTEMD_PATH;
 
     auto project = new Project(
         config.deploy_path,
