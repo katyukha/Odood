@@ -84,7 +84,10 @@ class CommandDeploy: OdoodCommand {
             config.database.local_postgres = true;
 
         if (config.database.local_postgres && config.database.password.empty)
-            // Generate default password
+            /* Generate default password.
+             * Here we assume that new user will be created in local postgres.
+             * Most likely case.
+             */
             config.database.password = generateRandomString(
                     DEFAULT_PASSWORD_LEN);
 

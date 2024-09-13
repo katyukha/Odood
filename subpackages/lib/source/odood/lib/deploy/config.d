@@ -17,6 +17,7 @@ private import odood.lib.project.config:
     ProjectConfigDirectories,
     ProjectConfigOdoo;
 private import odood.lib.deploy.exception: OdoodDeployException;
+private import odood.lib.deploy.utils: dpkgCheckPackageInstalled;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -101,8 +102,16 @@ struct DeployConfig {
         enforce!OdoodDeployException(
             !this.database.password.empty,
             "Password for database must not be empty!");
+
+        if (this.database.local_postgres)
+            enforce!OdoodDeployException(
+                !dpkgCheckPackageInstalled("potgresql"),
+                "Local postgres requested, but 'postgresql' package is not installed!");
     }
 
+    /** Prepare odoo configuration file for this deployment
+      * based on this deployment configuration
+      **/
     auto prepareOdooConfig(in Project project) const
     in (
         project.odoo.serie == this.odoo.serie

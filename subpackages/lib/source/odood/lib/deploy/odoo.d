@@ -7,6 +7,7 @@ private import std.logger: infof;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: to, text, octal;
 private import std.format: format;
+private import std.string: toStringz;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -16,7 +17,11 @@ private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
-private import odood.lib.deploy.utils: checkSystemUserExists, createSystemUser;
+private import odood.lib.deploy.utils:
+    checkSystemUserExists,
+    createSystemUser,
+    postgresCheckUserExists,
+    postgresCreateUser;
 
 
 private void deployInitScript(in Project project) {
@@ -173,59 +178,8 @@ i"$(project.directories.log.toString)/*.log {
 }
 
 
-private void deployConfigurePostgresql(in Project project, in DeployConfig config) {
-    // Check if postgresql user for Odoo exists
-    auto output = Process("psql")
-        .setArgs([
-            "-c",
-            i"SELECT count(*) FROM pg_user WHERE usename = '$(config.database.user)';".text,
-        ])
-        .withUser("postgres")
-        .execute
-        .ensureStatus(true)
-        .output;
-
-    if (output.to!int == 0) {
-        // Create postgresql user if "local-postgres" is selected and no user exists
-        infof("Creating postgresql user '%s' for Odoo...", config.database.user);
-        Process("psql")
-            .setArgs([
-                "-c",
-                i"CREATE USER \"$(config.database.user)\" WITH CREATEDB PASSWORD '$(config.database.password)'".text,
-            ])
-            .withUser("postgres")
-            .execute
-            .ensureStatus(true);
-        infof("Postgresql user '%s' for Odoo created successfully.", config.database.user);
-    }
-}
-
-private void setAccessRights(in Project project) {
-    import std.string: toStringz;
-    // Get info about odoo user
-    auto pw_odoo = getpwnam(project.odoo.server_user.toStringz);
-    errnoEnforce(
-        pw_odoo !is null,
-        "Cannot get info about user %s".format(project.odoo.server_user));
-
-    // Config is owned by root, but readable by Odoo
-    project.odoo.configfile.chown(0, pw_odoo.pw_gid);
-    project.odoo.configfile.setAttributes(octal!640);
-
-    // Odoo can read and write and create files in log directory
-    project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
-    project.directories.log.setAttributes(octal!750);
-
-    // Make Odoo owner of data directory. Do not allow others to access it.
-    project.directories.data.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
-    project.directories.data.setAttributes(octal!750);
-
-    // Make Odoo owner of project root (/opt/odoo), but not recursively,
-    // thus, Odoo will be able to create files there,
-    // but will not be allowed to change existing files.
-    project.project_root.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
-}
-
+/** Deploy Odoo according provided DeployConfig
+  **/
 Project deployOdoo(in DeployConfig config) {
     infof("Deploying Odoo %s to %s", config.odoo.serie, config.deploy_path);
 
@@ -247,12 +201,38 @@ Project deployOdoo(in DeployConfig config) {
     if (!checkSystemUserExists(project.odoo.server_user))
         createSystemUser(project.project_root, project.odoo.server_user);
 
-    // Set access rights for Odoo installed
-    project.setAccessRights();
+    // Get info about odoo user (that is needed to set up access rights for Odoo files
+    auto pw_odoo = getpwnam(project.odoo.server_user.toStringz);
+    errnoEnforce(
+        pw_odoo !is null,
+        "Cannot get info about user %s".format(project.odoo.server_user));
+
+    // Config is owned by root, but readable by Odoo
+    project.odoo.configfile.chown(0, pw_odoo.pw_gid);
+    project.odoo.configfile.setAttributes(octal!640);
+
+    // Odoo can read and write and create files in log directory
+    project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+    project.directories.log.setAttributes(octal!750);
+
+    // Make Odoo owner of data directory. Do not allow others to access it.
+    project.directories.data.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+    project.directories.data.setAttributes(octal!750);
+
+    // Make Odoo owner of project root (/opt/odoo), but not recursively,
+    // thus, Odoo will be able to create files there,
+    // but will not be allowed to change existing files.
+    project.project_root.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
 
     // Create postgresql user if "local-postgres" is selected and no user exists
     if (config.database.local_postgres)
-        deployConfigurePostgresql(project, config);
+        /* In this case we need to create postgres user
+         * only if it does not exists yet.
+         * If user already exists, we expect,
+         * that user provided correct password for it.
+         */
+        if (!postgresCheckUserExists(config.database.user))
+            postgresCreateUser(config.database.user, config.database.password);
 
     // Configure logrotate
     if (config.logrotate_enable)
