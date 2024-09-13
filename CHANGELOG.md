@@ -1,10 +1,11 @@
 # Changelog
 
-## Release 0.1.1 (unreleased)
+## Release 0.2.0 (unreleased)
 
 ### Added
 
-- New commaand `odood odoo run` that allows to run Odoo itself.
+- New command `odood odoo run` that allows to run Odoo itself.
+- New command `odood deploy` that could be used to deploy production-ready Odoo instance.
 
 ### Changed
 
