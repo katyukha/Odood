@@ -1,9 +1,10 @@
 module odood.lib.deploy.utils;
 
-private import std.logger: infof;
+private import std.logger: infof, tracef;
 private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: to, text;
+private import std.string: strip;
 
 private import core.sys.posix.unistd: geteuid, getegid;
 private import core.sys.posix.pwd: getpwnam_r, passwd;
@@ -47,15 +48,15 @@ void createSystemUser(in Path home, in string name) {
 bool postgresCheckUserExists(in string username) {
     auto output = Process("psql")
         .setArgs([
-            "-c",
+            "-t", "-A", "-c",
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
         .withUser("postgres")
         .execute
         .ensureOk(true)
-        .output;
+        .output.strip;
 
-    return output.to!int == 0;
+    return output.to!int != 0;
 }
 
 
@@ -70,7 +71,7 @@ void postgresCreateUser(in string username, in string password) {
         ])
         .withUser("postgres")
         .execute
-        .ensureStatus(true);
+        .ensureOk(true);
     infof("Postgresql user '%s' for Odoo created successfully.", username);
 }
 
