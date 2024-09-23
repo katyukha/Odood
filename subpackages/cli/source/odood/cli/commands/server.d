@@ -19,6 +19,9 @@ class CommandServerRun: OdoodCommand {
     this() {
         super("run", "Run the server.");
         this.add(new Flag("d", "detach", "Run the server in background."));
+        // TODO: Add ability to run with execv (useful in docker)
+        // TODO: Add ability to update odoo config based on environment,
+        //       that is useful when running inside docker containers
     }
 
     public override void execute(ProgramArgs args) {

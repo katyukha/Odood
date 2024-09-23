@@ -33,6 +33,10 @@ class CommandOdooRun: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
+        // TODO: May be merge with server/run?
+        //       Also, add ability to update config before running
+        //       Odoo based on environment variables, that will be useful in case,
+        //       when running in docker.
         Project.loadProject.server.getServerRunner()
             .addArgs(args.argsRest)
             .execv;

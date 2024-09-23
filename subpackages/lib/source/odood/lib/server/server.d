@@ -118,6 +118,8 @@ struct OdooServer {
             res["OPENERP_SERVER"] = _project.odoo.configfile.toString;
             res["ODOO_RC"] = _project.odoo.configfile.toString;
         }
+        // TODO: Add ability to parse .env files and forward environment variables to Odoo process
+        //       This will allow to run Odoo in docker containers and locally in similar way.
         return res;
     }
 
@@ -176,8 +178,7 @@ struct OdooServer {
       *     detach = if set, then run server in background
       **/
     pid_t spawn(bool detach=false) const {
-        import std.process: Config;
-
+        // TODO: Add ability to handle coverage settings and other odoo options
         enforce!ServerAlreadyRuningException(
             !isRunning,
             "Server already running!");
@@ -189,7 +190,7 @@ struct OdooServer {
         auto runner = getServerRunner(
             "--pidfile=%s".format(_project.odoo.pidfile));
         if (detach) {
-            runner.setFlag(Config.detached);
+            runner.setFlag(std.process.Config.detached);
             runner.addArgs("--logfile=%s".format(_project.odoo.logfile));
         }
 
@@ -236,6 +237,7 @@ struct OdooServer {
       *     env = extra environment variables to pass to the server
       **/
     auto run(in string[] options, in string[string] env=null) const {
+        // TODO: Use serverRunner instead of venv
         auto res = _project.venv.run(
             scriptPath,
             options,
@@ -322,7 +324,7 @@ struct OdooServer {
       **/
     void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
-        import core.stdc.errno;
+        import core.stdc.errno: ESRCH;
         import std.exception: ErrnoException;
 
         info("Stopping odoo server...");
