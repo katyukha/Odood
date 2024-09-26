@@ -195,6 +195,8 @@ struct OdooServer {
         }
 
         if (_project.odoo.pidfile.exists) {
+            // At this point it is already checked that server is not running,
+            // thus it is safe to delete stale pid file.
             tracef("Removing pidfile %s before server starts...", _project.odoo.pidfile);
             _project.odoo.pidfile.remove();
         }

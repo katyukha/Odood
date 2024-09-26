@@ -494,7 +494,7 @@ unittest {
     testServerManagement(project);
 
     // Test that server initialization works fine
-    project.server.run("--stop-after-init", "--no-http");
+    project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Reinstall Odoo to version 15
     project.reinstallOdoo(OdooSerie(15), true);
@@ -505,7 +505,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Test that server initialization works fine
-    project.server.run("--stop-after-init", "--no-http");
+    project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Run basic tests
     project.runBasicTests;
