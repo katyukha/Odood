@@ -6,7 +6,7 @@ private import std.array: split, empty, array;
 private import std.string: join, strip, startsWith, toLower;
 private import std.format: format;
 private import std.file: SpanMode;
-private import std.exception: enforce, ErrnoException;
+private import std.exception: enforce, ErrnoException, basicExceptionCtors;
 private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
@@ -28,6 +28,18 @@ immutable bool DEFAULT_INSTALL_PY_REQUREMENTS = true;
 
 /// Install python dependencies from addon manifest by default
 immutable bool DEFAULT_INSTALL_MANIFEST_REQUREMENTS = false;
+
+class AddonsInstallUpdateException: OdoodException {
+    mixin basicExceptionCtors;
+}
+
+class AddonsInstallException : AddonsInstallUpdateException {
+    mixin basicExceptionCtors;
+}
+
+class AddonsUpdateException : AddonsInstallUpdateException {
+    mixin basicExceptionCtors;
+}
 
 
 /// Struct that provide API to manage odoo addons for the project
@@ -308,30 +320,30 @@ struct AddonManager {
             in cmdIU cmd,
             in string[string] env=null) const {
 
-        string[] server_opts=[
+        // Initialize server runner configuration
+        auto runner = _project.server.getServerRunner(
             "-d", database,
             "--max-cron-threads=0",
             "--stop-after-init",
             _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
             "--logfile=%s".format(_project.odoo.logfile.toString),
-        ];
-
+        ).withEnv(env);
         if (!_project.hasDatabaseDemoData(database))
-            server_opts ~= ["--without-demo=all"];
+            runner.addArgs("--without-demo=all");
 
         auto addon_names_csv = addon_names.join(",");
         final switch(cmd) {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
-                _project.server(_test_mode).runE(
-                    server_opts ~ ["--init=%s".format(addon_names_csv)], env);
+                runner.addArgs("--init=%s".format(addon_names_csv))
+                    .execute.ensureOk!AddonsInstallException(true);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
-                _project.server(_test_mode).runE(
-                    server_opts ~ ["--update=%s".format(addon_names_csv)], env);
+                runner.addArgs("--update=%s".format(addon_names_csv))
+                    .execute.ensureOk!AddonsUpdateException(true);
                 infof("Update of addons for database %s completed!", database);
                 break;
             case cmdIU.uninstall:

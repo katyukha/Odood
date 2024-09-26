@@ -230,46 +230,6 @@ struct OdooServer {
         return pipeServerLog(CoverageOptions(false), options);
     }
 
-    /** Run server with provided options.
-      *
-      * Params:
-      *     options = list of options to pass to the server
-      *     env = extra environment variables to pass to the server
-      **/
-    auto run(in string[] options, in string[string] env=null) const {
-        // TODO: Use serverRunner instead of venv
-        auto res = _project.venv.run(
-            scriptPath,
-            options,
-            _project.project_root,
-            getServerEnv(env));
-
-        return res;
-    }
-
-    /// ditto
-    auto run(in string[] options...) const {
-        return run(options, null);
-    }
-
-    /** Run server with provided options
-      *
-      * In case of non-zero exit code error will be raised.
-      *
-      * Params:
-      *     options = list of options to pass to the server
-      *     env = extra environment variables to pass to the server
-      **/
-    auto runE(in string[] options, in string[string] env=null) const {
-        auto result = run(options, env).ensureStatus!ServerCommandFailedException(true);
-        return result;
-    }
-
-    /// ditto
-    auto runE(in string[] options...) const {
-        return runE(options, null);
-    }
-
     /** Check if the Odoo server is running or not
       *
       **/
@@ -324,7 +284,7 @@ struct OdooServer {
       **/
     void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
-        import core.stdc.errno: ESRCH;
+        import core.stdc.errno: errno, ESRCH;
         import std.exception: ErrnoException;
 
         info("Stopping odoo server...");

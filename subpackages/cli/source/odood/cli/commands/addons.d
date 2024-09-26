@@ -20,7 +20,7 @@ private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.odoo.log: OdooLogProcessor;
-private import odood.lib.server.exception: ServerCommandFailedException;
+private import odood.lib.addons.manager: AddonsInstallUpdateException;
 
 
 /** This exception could be throwed when install/update/uninstall command
@@ -489,7 +489,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             try {
                 // Try to apply delegate
                 dg(db);
-            } catch (ServerCommandFailedException e) {
+            } catch (AddonsInstallUpdateException e) {
                 error = true;
 
                 if (!log_file.isOpen && project.odoo.logfile.exists)

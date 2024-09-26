@@ -14,10 +14,3 @@ class ServerAlreadyRuningException : ServerException
 {
     mixin basicExceptionCtors;
 }
-
-
-class ServerCommandFailedException : ServerException
-{
-    mixin basicExceptionCtors;
-}
-
