@@ -5,12 +5,13 @@ private import std.logger;
 private import std.conv: to;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.algorithm.searching: canFind, startsWith;
 
 private import thepath: Path;
 private import theprocess: Process;
 private import commandr: Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -18,17 +19,34 @@ private import odood.utils.odoo.serie: OdooSerie;
 class CommandServerRun: OdoodCommand {
     this() {
         super("run", "Run the server.");
-        this.add(new Flag("d", "detach", "Run the server in background."));
-        // TODO: Add ability to run with execv (useful in docker)
+        this.add(new Flag(
+            "null", "ignore-running", "Ingore running Odoo instance."));
         // TODO: Add ability to update odoo config based on environment,
-        //       that is useful when running inside docker containers
+        //       that is useful when running inside docker containers.
+        //       For example, we can generate new config, and run Odoo
+        //       with newly generated temporary config, instead of rewriting
+        //       existing one.
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.server.spawn(args.flag("detach"));
-    }
+        auto runner = project.server.getServerRunner();
 
+        if (args.flag("ignore-running")) {
+            // if no --pidfile option specified, enforce no pidfile.
+            // This is needed to avoid messing up pid of running app.
+            if (!args.argsRest.canFind!((e) => e.startsWith("--pidfile")))
+                runner.addArgs("--pidfile=");
+        } else {
+            enforce!OdoodCLIException(
+                !project.server.isRunning,
+                "Odoo server already running!");
+        }
+
+        runner.addArgs(args.argsRest);
+        debug tracef("Running Odoo: %s", runner);
+        runner.execv;
+    }
 }
 
 

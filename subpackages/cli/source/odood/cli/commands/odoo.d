@@ -27,29 +27,10 @@ class CommandOdooShell: OdoodCommand {
 }
 
 
-class CommandOdooRun: OdoodCommand {
-    this() {
-        super("run", "Run Odoo. All arguments after '--' will be passed to Odoo.");
-    }
-
-    public override void execute(ProgramArgs args) {
-        // TODO: May be merge with server/run?
-        //       Also, add ability to update config before running
-        //       Odoo based on environment variables, that will be useful in case,
-        //       when running in docker.
-        Project.loadProject.server.getServerRunner()
-            .addArgs(args.argsRest)
-            .execv;
-    }
-}
-
-
-
 class CommandOdoo: OdoodCommand {
     this() {
         super("odoo", "Odoo-related utility commands.");
         this.add(new CommandOdooShell());
-        this.add(new CommandOdooRun());
     }
 }
 

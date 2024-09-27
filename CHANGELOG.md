@@ -14,6 +14,21 @@
     - `odood pre-commit init`
     - `odood pre-commit set-up`
     - `odood pre-commit run`
+- Change command `odood server run`. Command uses `execv` to run Odoo,
+  thus, Odoo process will replace Odood process. Thus, option `--detach`
+  is not available here. If you want to start Odoo in background, then
+  `odood server start` command exists. Instead, this command (`odood server run`)
+  is designed to run Odoo with provided args in same way as you run Odoo binary directly.
+  For example, following command
+  `odood server run -- -d my_database --install=crm --stop-after-init`,
+  that will install `crm` module, will be translated to `odoo -d my_database --install=crm --stop-after-init`,
+  that will be ran inside virtualenv of current Odood project.
+    - Added new option `--ignore-running` that allows to ignore server running.
+    - Removed option `--detach` as it does not have sense. Use `odood server start` instead.
+
+### Removed
+
+- Removed command `odood odoo run`. Use `odood server run` instead.
 
 ---
 
