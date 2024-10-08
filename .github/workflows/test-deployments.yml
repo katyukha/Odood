@@ -52,6 +52,7 @@ jobs:
           - "ubuntu:23.04"
           - "ubuntu:24.04"
         odoo_version:
+          - "18.0"
           - "17.0"
           - "16.0"
     runs-on: ubuntu-22.04
