@@ -6,6 +6,7 @@
 
 - New command `odood odoo run` that allows to run Odoo itself.
 - New command `odood deploy` that could be used to deploy production-ready Odoo instance.
+- Added experimental support for Odoo 18
 
 ### Changed
 

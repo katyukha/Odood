@@ -33,14 +33,16 @@ string suggestPythonVersion(in Project project) {
     if (project.odoo.serie == OdooSerie(12))
         return "3.7.17";
     if (project.odoo.serie == OdooSerie(13))
-        return "3.8.17";
+        return "3.8.20";
     if (project.odoo.serie == OdooSerie(14))
-        return "3.8.17";
+        return "3.8.20";
     if (project.odoo.serie == OdooSerie(15))
-        return "3.8.17";
+        return "3.8.20";
     if (project.odoo.serie == OdooSerie(16))
-        return "3.8.17";
+        return "3.8.20";
     if (project.odoo.serie == OdooSerie(17))
-        return "3.10.13";
-    return "3.8.17";
+        return "3.10.15";
+    if (project.odoo.serie == OdooSerie(18))
+        return "3.10.15";
+    return "3.8.20";
 }
