@@ -4,8 +4,7 @@
 
 ### Added
 
-- New command `odood odoo run` that allows to run Odoo itself.
-- New command `odood deploy` that could be used to deploy production-ready Odoo instance.
+- New experimental command `odood deploy` that could be used to deploy production-ready Odoo instance.
 - Added experimental support for Odoo 18
 
 ### Changed
@@ -26,10 +25,6 @@
   that will be ran inside virtualenv of current Odood project.
     - Added new option `--ignore-running` that allows to ignore server running.
     - Removed option `--detach` as it does not have sense. Use `odood server start` instead.
-
-### Removed
-
-- Removed command `odood odoo run`. Use `odood server run` instead.
 
 ---
 

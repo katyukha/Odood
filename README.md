@@ -69,7 +69,7 @@ project with Odood is to run command `odood discover odoo-helper` somewhere insi
 
 ## Quick start
 
-Use following command to create new local odoo instance:
+Use following command to create new local (development) odoo instance:
 
 ```bash
 odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17069 --create-db-user
@@ -77,6 +77,11 @@ odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17
 
 This command will create new virtual environment for Odoo and install odoo there.
 Also, this command will automatically create database user for this Odoo instance.
+
+For production installations, you can use command `odood deploy` that will
+deploy Odoo of specified version to machine where this command is running.
+For example: `odood deploy -v 17 --supervisor=systemd --local-postgres --enable-logrotate`
+But this command is still experimental.
 
 Next, change current working directory to directory where we installed Odoo:
 
