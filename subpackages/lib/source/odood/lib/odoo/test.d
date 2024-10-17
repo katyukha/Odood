@@ -520,7 +520,9 @@ struct OdooTestRunner {
                 "--log-level=warn",
                 "--stop-after-init",
                 "--workers=0",
-                "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+                _project.odoo.serie < OdooSerie(16) ?
+                    "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT) :
+                    "--gevent-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
                 opt_http_port,
                 "--database=%s".format(_test_db_name),
             ]

@@ -20,7 +20,7 @@ class CommandServerRun: OdoodCommand {
     this() {
         super("run", "Run the server.");
         this.add(new Flag(
-            "null", "ignore-running", "Ingore running Odoo instance."));
+            null, "ignore-running", "Ingore running Odoo instance."));
         // TODO: Add ability to update odoo config based on environment,
         //       that is useful when running inside docker containers.
         //       For example, we can generate new config, and run Odoo
