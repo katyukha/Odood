@@ -6,6 +6,7 @@
 
 - New experimental command `odood deploy` that could be used to deploy production-ready Odoo instance.
 - Added experimental support for Odoo 18
+- Added new command `odood repo fix-series` that allows to set series for all modules in repo to project's serie.
 
 ### Changed
 
