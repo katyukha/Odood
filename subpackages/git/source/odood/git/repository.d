@@ -8,6 +8,7 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import theprocess;
+private import odood.git: getGitTopLevel;
 
 
 /** Simple class to manage git repositories
@@ -18,15 +19,17 @@ class GitRepository {
     @disable this();
 
     this(in Path path) {
-        // TODO: automatically handle root path for the repo?
-        _path = path;
+        if (path.join(".git").exists)
+            _path = path;
+        else
+            _path = getGitTopLevel(path);
     }
 
     /// Return path for this repo
     auto path() const => _path;
 
     /// Preconfigured runner for git CLI
-    protected auto gitCmd() {
+    protected auto gitCmd() const {
         return Process("git")
             .inWorkDir(_path);
     }

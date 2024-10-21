@@ -3,6 +3,7 @@ module odood.git;
 private import std.logger: infof;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.string: strip;
 
 private import thepath: Path;
 
@@ -61,3 +62,19 @@ bool isGitRepo(in Path path) {
     return false;
 }
 
+/** Returns absolute path to repository root directory.
+
+    Parametrs:
+        path = any path inside repository
+  **/
+Path getGitTopLevel(in Path path) {
+    return Path(
+        Process("git")
+            .inWorkDir(path)
+            .withArgs("rev-parse", "--show-toplevel")
+            .execute
+            .ensureOk(true)
+            .output
+            .strip
+    );
+}
