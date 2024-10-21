@@ -33,6 +33,22 @@ Following features currently implemented:
 - [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
 
 
+## Supported Odoo versions
+
+- Odoo 7.0 (partial)
+- Odoo 8.0 (best efforts)
+- Odoo 9.0 (best efforts)
+- Odoo 10.0 (best efforts)
+- Odoo 11.0 (best efforts)
+- Odoo 12.0 (tested)
+- Odoo 13.0 (tested)
+- Odoo 14.0 (tested)
+- Odoo 15.0 (tested)
+- Odoo 16.0 (tested)
+- Odoo 17.0 (tested)
+- Odoo 18.0 (experimental)
+
+
 ## Installation (as Debian Package)
 
 This is the recommended way to install Odood.
@@ -122,6 +138,21 @@ See help for this command for more info:
 ```bash
 odood addons --help
 ```
+
+It is possible to easily add repositories with third-party addons to odood projects.
+To do this, following command could be used
+
+```bash
+odood repo add --help
+```
+
+For example, if you want to add [crnd-inc/generic-addons](https://github.com/crnd-inc/generic-addons)
+you can run following command:
+
+```bash
+odood repo add --github crnd-inc/generic-addons
+```
+
 
 ## Level up your service quality
 
