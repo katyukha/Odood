@@ -1,4 +1,4 @@
-module odood.utils.git.repository;
+module odood.git.repository;
 
 private import std.typecons: Nullable, nullable;
 private import std.string: chompPrefix, strip;
@@ -87,4 +87,5 @@ class GitRepository {
 
     }
 }
+
 

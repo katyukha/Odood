@@ -1,4 +1,4 @@
-module odood.utils.git.url;
+module odood.git.url;
 
 private import std.logger: infof;
 private import std.regex: ctRegex, matchFirst;
@@ -261,3 +261,4 @@ unittest {
         toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
     }
 }
+

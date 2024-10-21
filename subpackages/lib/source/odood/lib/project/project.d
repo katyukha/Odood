@@ -27,7 +27,7 @@ public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils.git: isGitRepo;
+private import odood.git: isGitRepo;
 private import odood.utils: generateRandomString;
 
 

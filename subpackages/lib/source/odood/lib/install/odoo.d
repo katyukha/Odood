@@ -15,7 +15,7 @@ private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
-private import odood.utils.git;
+private import odood.git;
 private import odood.utils;
 private import odood.utils.versioned: Version;
 

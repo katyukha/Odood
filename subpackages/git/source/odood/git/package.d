@@ -1,4 +1,4 @@
-module odood.utils.git;
+module odood.git;
 
 private import std.logger: infof;
 private import std.exception: enforce;
@@ -9,8 +9,8 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
-public import odood.utils.git.url: GitURL;
-public import odood.utils.git.repository: GitRepository;
+public import odood.git.url: GitURL;
+public import odood.git.repository: GitRepository;
 
 
 /// Parse git url for further processing
@@ -59,3 +59,4 @@ bool isGitRepo(in Path path) {
 
     return false;
 }
+

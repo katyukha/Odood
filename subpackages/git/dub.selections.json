@@ -1,0 +1,11 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"dshould": "1.7.2",
+		"odood": {"path":"../../"},
+		"prettyprint": "1.0.9",
+		"thepath": "2.0.0",
+		"theprocess": "0.0.6",
+		"unit-threaded": "2.2.0"
+	}
+}

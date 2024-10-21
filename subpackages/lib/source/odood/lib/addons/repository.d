@@ -6,7 +6,7 @@ private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
-private import odood.utils.git: GitRepository;
+private import odood.git: GitRepository;
 
 
 class AddonRepository : GitRepository{

@@ -20,7 +20,7 @@ private import odood.utils.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.utils: download;
-private import odood.utils.git: parseGitURL, gitClone;
+private import odood.git: parseGitURL, gitClone;
 private import odood.exception: OdoodException;
 
 /// Install python dependencies requirements.txt by default
