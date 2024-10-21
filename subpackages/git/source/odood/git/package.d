@@ -19,7 +19,7 @@ GitURL parseGitURL(in string url) {
 }
 
 /// Clone git repository to provided destination directory
-void gitClone(
+GitRepository gitClone(
         in GitURL repo,
         in Path dest,
         in string branch,
@@ -41,6 +41,7 @@ void gitClone(
         proc.addArgs("--single-branch");
     proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
     proc.execute().ensureOk(true);
+    return new GitRepository(dest);
 }
 
 

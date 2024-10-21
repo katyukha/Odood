@@ -27,7 +27,7 @@ public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.git: isGitRepo;
+private import odood.git: isGitRepo, GitRepository;
 private import odood.utils: generateRandomString;
 
 
@@ -424,19 +424,12 @@ class Project {
                 auto tag_name = "%s-before-update-%s".format(
                     this.odoo.serie, dt_string);
 
-                Process("git")
-                    .withArgs(
-                        "tag",
-                        "-a", tag_name,
-                        "-m", "Save before odoo update (%s)".format(dt_string))
-                    .inWorkDir(this.odoo.path)
-                    .execute()
-                    .ensureOk(true);
-                Process("git")
-                    .withArgs("pull")
-                    .inWorkDir(this.odoo.path)
-                    .execute()
-                    .ensureOk(true);
+                auto repo = new GitRepository(this.odoo.path);
+                repo.setTag(
+                    tag_name,
+                    "Save before odoo update (%s)".format(dt_string));
+                repo.pull();
+
                 break;
         }
         this.installOdoo();

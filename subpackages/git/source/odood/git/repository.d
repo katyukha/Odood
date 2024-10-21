@@ -25,6 +25,12 @@ class GitRepository {
     /// Return path for this repo
     auto path() const => _path;
 
+    /// Preconfigured runner for git CLI
+    protected auto gitCmd() {
+        return Process("git")
+            .inWorkDir(_path);
+    }
+
     /** Find the name of current git branch for this repo.
       *
       * Returns: Nullable!string
@@ -32,9 +38,8 @@ class GitRepository {
       *     If result is null, then git repository is in detached-head mode.
       **/
     Nullable!string getCurrBranch() {
-        auto result = Process("git")
-            .setArgs(["symbolic-ref", "-q", "HEAD"])
-            .setWorkDir(_path)
+        auto result = gitCmd
+            .withArgs(["symbolic-ref", "-q", "HEAD"])
             .setFlag(std.process.Config.Flags.stderrPassThrough)
             .execute();
         if (result.status == 0)
@@ -48,9 +53,8 @@ class GitRepository {
       *     SHA1 hash of current commit
       **/
     string getCurrCommit() {
-        return Process("git")
-            .setArgs(["rev-parse", "-q", "HEAD"])
-            .setWorkDir(_path)
+        return gitCmd
+            .withArgs(["rev-parse", "-q", "HEAD"])
             .setFlag(std.process.Config.stderrPassThrough)
             .execute()
             .ensureStatus(true)
@@ -60,18 +64,16 @@ class GitRepository {
     /** Fetch remote 'origin'
       **/
     void fetchOrigin() {
-        Process("git")
-            .setArgs("fetch", "origin")
-            .setWorkDir(_path)
+        gitCmd
+            .withArgs("fetch", "origin")
             .execute()
             .ensureStatus(true);
     }
 
     /// ditto
     void fetchOrigin(in string branch) {
-        Process("git")
+        gitCmd
             .setArgs("fetch", "origin", branch)
-            .setWorkDir(_path)
             .execute()
             .ensureStatus(true);
     }
@@ -79,12 +81,34 @@ class GitRepository {
     /** Switch repo to specified branch
       **/
     void switchBranchTo(in string branch_name) {
-        Process("git")
+        gitCmd
             .setArgs("checkout", branch_name)
-            .setWorkDir(_path)
             .execute()
             .ensureStatus(true);
 
+    }
+
+    /** Set annotation tag on current commit in repo
+      **/
+    void setTag(in string tag_name, in string message = null) 
+    in (tag_name.length > 0) {
+        // TODO: add ability to set tag on specific commit
+        gitCmd
+            .withArgs(
+                "tag",
+                "-a", tag_name,
+                "-m", message.length > 0 ? message : tag_name)
+            .execute()
+            .ensureOk(true);
+    }
+
+    /** Pull repository
+      **/
+    void pull() {
+        gitCmd
+            .withArgs("pull")
+            .execute()
+            .ensureOk(true);
     }
 }
 
