@@ -34,7 +34,7 @@ struct DeployConfigDatabase {
 struct DeployConfigOdoo {
     OdooSerie serie;
     bool proxy_mode=false;
-    string http_host="localhost";
+    string http_host=null;
     string http_port="8069";
     uint workers=0;
 
@@ -129,10 +129,12 @@ struct DeployConfig {
         odoo_config["options"].setKey("db_password", database.password);
 
         if (odoo.serie < OdooSerie(11)) {
-            odoo_config["options"].setKey("xmlrpc_interface", odoo.http_host);
+            if (odoo.http_host.length > 0)
+                odoo_config["options"].setKey("xmlrpc_interface", odoo.http_host);
             odoo_config["options"].setKey("xmlrpc_port", odoo.http_port);
         } else {
-            odoo_config["options"].setKey("http_interface", odoo.http_host);
+            if (odoo.http_host.length > 0)
+                odoo_config["options"].setKey("http_interface", odoo.http_host);
             odoo_config["options"].setKey("http_port", odoo.http_port);
         }
 
