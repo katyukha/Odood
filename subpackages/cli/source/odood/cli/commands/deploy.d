@@ -57,6 +57,9 @@ class CommandDeploy: OdoodCommand {
             null, "supervisor", "What superwisor to use for deployment.")
                 .defaultValue("systemd")
                 .acceptsValues(["odood", "init-script", "systemd"]));
+
+        this.add(new Flag(
+            null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
     }
 
     DeployConfig parseDeployOptions(ProgramArgs args) {
@@ -108,6 +111,9 @@ class CommandDeploy: OdoodCommand {
                 default:
                     assert(0, "Not supported supervisor");
             }
+
+        if (args.flag("log-to-stderr"))
+            config.odoo.log_to_stderr = true;
 
         return config;
     }

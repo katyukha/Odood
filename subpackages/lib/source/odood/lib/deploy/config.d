@@ -46,6 +46,8 @@ struct DeployConfigOdoo {
         "/", "etc", "systemd", "system", "odoo.service");
 
     Path pidfile = Path("/", "var", "run", "odoo.pid");
+
+    bool log_to_stderr = false;
 }
 
 struct DeployConfig {
@@ -138,6 +140,9 @@ struct DeployConfig {
 
         if (odoo.proxy_mode)
             odoo_config["options"].setKey("proxy_mode", "True");
+
+        if (odoo.log_to_stderr)
+            odoo_config["options"].removeKey("logfile");
 
         return odoo_config;
     }
