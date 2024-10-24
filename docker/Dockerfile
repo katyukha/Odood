@@ -27,9 +27,9 @@ ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
 COPY ./bin/odood /usr/bin/odood
 
-RUN odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr
+RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr
 
-WORKDIR /opt/odoo
+#WORKDIR /opt/odoo
 
 EXPOSE 8069
 EXPOSE 8071
