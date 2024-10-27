@@ -26,6 +26,9 @@
   that will be ran inside virtualenv of current Odood project.
     - Added new option `--ignore-running` that allows to ignore server running.
     - Removed option `--detach` as it does not have sense. Use `odood server start` instead.
+- Changed generation of default test db name.
+  Before it was: `odood<serie>-odood-test`
+  Now it will be: `<db_user>-odood-test`
 
 ---
 
