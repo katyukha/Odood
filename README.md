@@ -153,6 +153,54 @@ you can run following command:
 odood repo add --github crnd-inc/generic-addons
 ```
 
+## Example setup for docker compose
+
+Odood has prebuilt docker images, that could be used to easily run Odoo powered by Odoo inside docker-based infrastructure.
+
+See examples directory for more details.
+
+Example `docker-compose.yml`:
+
+```yml
+version: '3'
+
+volumes:
+    odood-example-db-data:
+    odood-example-odoo-data:
+
+services:
+    odood-example-db:
+        image: postgres:15
+        container_name: odood-example-db
+        environment:
+            - POSTGRES_USER=odoo
+            - POSTGRES_PASSWORD=odoo-db-pass
+
+            # this is needed to avoid auto-creation of database by postgres itself
+            # databases must be created by Odoo only
+            - POSTGRES_DB=postgres
+        volumes:
+            - odood-example-db-data:/var/lib/postgresql/data
+        restart: "no"
+
+    odood-example-odoo:
+        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        container_name: odood-example-odoo
+        depends_on:
+            - odood-example-db
+        environment:
+            ODOOD_OPT_DB_HOST: odood-example-db
+            ODOOD_OPT_DB_USER: odoo
+            ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+            ODOOD_OPT_ADMIN_PASS: admin
+            ODOOD_OPT_WORKERS: "1"
+        ports:
+            - "8069:8069"
+        volumes:
+            - odood-example-odoo-data:/opt/odoo/data
+        restart: "no"
+```
+
 
 ## Level up your service quality
 
