@@ -583,12 +583,27 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
 }
 
 
+/* TODO: implement command 'autoupdate' with following logic:
+ *       1. Create mapping {addon_name: version} for all addons available in
+ *          filesystem.
+ *       2. For each database, check if there are addons on disk that are not
+ *          mentioned in database. If such addons found,
+ *          update list of addons in database. This stage ma fail and its ok.
+ *          This stage needed to ensure that dependencies of modules updated.
+ *       3. for each database find installed addons that have different
+ *          versions then in addons on disk. And update them
+ *
+ *       This command should be useful on servers to automatically update server
+ *       if needed. But this will require control over module versions.
+ */
+
+
 class CommandAddonsAdd: OdoodCommand {
     this() {
         super("add", "Add addons to the project");
         this.add(new Flag(
             null, "single-branch",
-            "Clone repository wihth --single-branch options. " ~
+            "Clone repository with --single-branch options. " ~
             "This could significantly reduce size of data to be downloaded " ~
             "and increase performance."));
         this.add(new Flag(
