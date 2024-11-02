@@ -192,7 +192,7 @@ services:
             ODOOD_OPT_DB_HOST: odood-example-db
             ODOOD_OPT_DB_USER: odoo
             ODOOD_OPT_DB_PASSWORD: odoo-db-pass
-            ODOOD_OPT_ADMIN_PASS: admin
+            ODOOD_OPT_ADMIN_PASSWD: admin
             ODOOD_OPT_WORKERS: "1"
         ports:
             - "8069:8069"
