@@ -48,6 +48,14 @@ Following features currently implemented:
 - Odoo 17.0 (tested)
 - Odoo 18.0 (experimental)
 
+## Prebuild docker-images with preinstalled Odoo and Odood
+
+You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&repo_name=Odood) to run Odoo managed by Odood in containers:
+- [Odoo 18](https://ghcr.io/katyukha/odood/odoo/18.0)
+- [Odoo 17](https://ghcr.io/katyukha/odood/odoo/17.0)
+- [Odoo 16](https://ghcr.io/katyukha/odood/odoo/16.0)
+- [Odoo 15](https://ghcr.io/katyukha/odood/odoo/15.0)
+
 
 ## Installation (as Debian Package)
 
