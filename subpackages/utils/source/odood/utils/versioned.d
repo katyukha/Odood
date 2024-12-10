@@ -302,6 +302,12 @@ private enum VersionPart {
         return result;
     }
 
+    /// ditto
+    int opCmp(in string other) const {
+        return this.opCmp(Version(other));
+    }
+
+    /// Test version comparisons
     unittest {
         import unit_threaded.assertions;
         assert(Version("1.0.0-alpha") < Version("1.0.0-alpha.1"));
@@ -317,6 +323,22 @@ private enum VersionPart {
         assert(Version("1.0.0-rc.2+build.5") != Version("1.0.0-rc.1+build.5"));
     }
 
+    /// Test comparisons with strings
+    unittest {
+        import unit_threaded.assertions;
+        assert(Version("1.0.0-alpha") < "1.0.0-alpha.1");
+        assert(Version("1.0.0-alpha.1") < "1.0.0-alpha.beta");
+        assert(Version("1.0.0-alpha.beta") < "1.0.0-beta");
+        assert(Version("1.0.0-beta") < "1.0.0-beta.2");
+        assert(Version("1.0.0-beta.2") < "1.0.0-beta.11");
+        assert(Version("1.0.0-beta.11") < "1.0.0-rc.1");
+        assert(Version("1.0.0-rc.1") < "1.0.0");
+        assert(Version("1.0.0-rc.1") > "1.0.0-rc.1+build.5");
+        assert(Version("1.0.0-rc.1+build.5") == "1.0.0-rc.1+build.5");
+        assert(Version("1.0.0-rc.1+build.5") != "1.0.0-rc.1+build.6");
+        assert(Version("1.0.0-rc.2+build.5") != "1.0.0-rc.1+build.5");
+    }
+
     bool opEquals(in Version other) const nothrow {
         return this.major == other.major &&
             this.minor == other.minor &&
@@ -325,6 +347,12 @@ private enum VersionPart {
             this.build == other.build;
     }
 
+    /// ditto
+    bool opEquals(in string other) const {
+        return this.opEquals(Version(other));
+    }
+
+    /// Test equality checks
     unittest {
         import unit_threaded.assertions;
         Version("1.2.3").should == Version(1, 2, 3);
@@ -333,4 +361,12 @@ private enum VersionPart {
         // TODO: more tests needed
     }
 
+    /// Test equality checks with strings
+    unittest {
+        import unit_threaded.assertions;
+        assert(Version("1.2.3") == "1.2.3");
+        assert(Version("1.2") == "1.2");
+        assert(Version("1.0.3") == "1.0.3");
+        // TODO: more tests needed
+    }
 }
