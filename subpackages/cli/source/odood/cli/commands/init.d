@@ -20,7 +20,7 @@ class CommandInit: OdoodCommand {
         this.add(new Option("i", "install-dir", "Directory to install odoo to")
             .required());
         this.add(new Option("v", "odoo-version", "Version of Odoo to install")
-            .required().defaultValue("14.0"));
+            .required().defaultValue("17.0"));
         this.add(new Option(
             null, "install-type", "Installation type. Accept values: git, archive. Default: archive.")
                 .defaultValue("archive")

@@ -5,12 +5,13 @@ private import std.logger;
 private import std.conv: to;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.algorithm.searching: canFind, startsWith;
 
 private import thepath: Path;
 private import theprocess: Process;
 private import commandr: Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -18,14 +19,45 @@ private import odood.utils.odoo.serie: OdooSerie;
 class CommandServerRun: OdoodCommand {
     this() {
         super("run", "Run the server.");
-        this.add(new Flag("d", "detach", "Run the server in background."));
+        this.add(new Flag(
+            null, "ignore-running", "Ingore running Odoo instance. (Do not check/create pidfile)."));
+
+        version(OdoodInDocker)
+            this.add(new Flag(
+                null, "config-from-env", "Apply odoo configuration from envrionment"));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
-        project.server.spawn(args.flag("detach"));
-    }
+        auto runner = project.server.getServerRunner();
 
+        if (args.flag("ignore-running")) {
+            // if no --pidfile option specified, enforce no pidfile.
+            // This is needed to avoid messing up pid of running app.
+            if (!args.argsRest.canFind!((e) => e.startsWith("--pidfile")))
+                runner.addArgs("--pidfile=");
+        } else {
+            enforce!OdoodCLIException(
+                !project.server.isRunning,
+                "Odoo server already running!");
+        }
+
+        version(OdoodInDocker) if (args.flag("config-from-env")) {
+            import std.process: environment;
+            import std.string: chompPrefix, toLower;
+            auto config = project.getOdooConfig;
+            foreach(kv; environment.toAA.byKeyValue) {
+                string key = kv.key.toLower.chompPrefix("odood_opt_");
+                config["options"].setKey(key, kv.value);
+            }
+            // In case when we running in Docker, we can just rewrite config
+            config.save(project.odoo.configfile.toString);
+        }
+
+        runner.addArgs(args.argsRest);
+        debug tracef("Running Odoo: %s", runner);
+        runner.execv;
+    }
 }
 
 

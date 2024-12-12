@@ -37,8 +37,11 @@ private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
   * Params:
   *     project = project to generate name of test database for.
   **/
-string generateTestDbName(in Project project) pure {
-    return "odood%s-odood-test".format(project.odoo.serie.major);
+string generateTestDbName(in Project project) {
+    string prefix = project.getOdooConfig["options"].getKey(
+            "db_user",
+            "odood%s".format(project.odoo.serie.major));
+    return "%s-odood-test".format(prefix);
 }
 
 
@@ -520,7 +523,9 @@ struct OdooTestRunner {
                 "--log-level=warn",
                 "--stop-after-init",
                 "--workers=0",
-                "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+                _project.odoo.serie < OdooSerie(16) ?
+                    "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT) :
+                    "--gevent-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
                 opt_http_port,
                 "--database=%s".format(_test_db_name),
             ]

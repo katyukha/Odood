@@ -1,5 +1,38 @@
 # Changelog
 
+## Release 0.2.0 (2024-12-12)
+
+### Added
+
+- New experimental command `odood deploy` that could be used to deploy production-ready Odoo instance.
+- Added experimental support for Odoo 18
+- Added new command `odood repo fix-series` that allows to set series for all modules in repo to project's serie.
+- Added automatic builds of docker images with pre-installed Odoo.
+
+### Changed
+
+- Pre-commit related commands moved to `pre-commit` subcommand.
+  Thus, following commands now available to work with pre-commit:
+    - `odood pre-commit init`
+    - `odood pre-commit set-up`
+    - `odood pre-commit run`
+- Change command `odood server run`. Command uses `execv` to run Odoo,
+  thus, Odoo process will replace Odood process. Thus, option `--detach`
+  is not available here. If you want to start Odoo in background, then
+  `odood server start` command exists. Instead, this command (`odood server run`)
+  is designed to run Odoo with provided args in same way as you run Odoo binary directly.
+  For example, following command
+  `odood server run -- -d my_database --install=crm --stop-after-init`,
+  that will install `crm` module, will be translated to `odoo -d my_database --install=crm --stop-after-init`,
+  that will be ran inside virtualenv of current Odood project.
+    - Added new option `--ignore-running` that allows to ignore server running.
+    - Removed option `--detach` as it does not have sense. Use `odood server start` instead.
+- Changed generation of default test db name.
+  Before it was: `odood<serie>-odood-test`
+  Now it will be: `<db_user>-odood-test`
+
+---
+
 ## Release 0.1.0 (2024-08-15)
 
 ### Added
@@ -12,7 +45,6 @@
   update list of addons when repository was added.
 - New command `odood venv run` that allows to run any command from current venv.
 - New command `odood repo run-pre-commit` to run [pre-commit](https://pre-commit.com/) for the repo.
-
 
 ### Changed
 

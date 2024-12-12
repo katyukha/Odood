@@ -12,6 +12,7 @@ dependency "dpq" version=">=0.11.6"
 targetPath "build"
 targetType "library"
 
+dependency "odood:git" path="../../"
 dependency "odood:utils" path="../../"
 dependency "odood:exception" path="../../"
 

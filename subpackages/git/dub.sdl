@@ -1,0 +1,25 @@
+name "git"
+description "Odood wrapper for Git CLI"
+authors "Dmytro Katyukha"
+copyright "Copyright © 2022-2023, Dmytro Katyukha"
+license "MPL-2.0"
+
+dependency "thepath" version=">=1.2.0"
+dependency "theprocess" version=">=0.0.7"
+
+targetPath "build"
+targetType "library"
+
+dependency "odood:exception" path="../../"
+
+configuration "library" {
+}
+
+configuration "sourceLibrary" {
+    targetType "sourceLibrary"
+}
+
+configuration "unittest" {
+    dependency "unit-threaded:assertions" version=">=2.0.0"
+}
+

@@ -8,7 +8,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.utils: fixVersionConflict;
+private import odood.lib.odoo.utils: fixVersionConflict, updateManifestSerie;
 
 
 class CommandRepositoryAdd: OdoodCommand {
@@ -88,19 +88,13 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
 }
 
 
-class CommandRepositoryInitPreCommit: OdoodCommand {
+class CommandRepositoryFixSerie: OdoodCommand {
     this() {
-        super("init-pre-commit", "Initialize pre-commit for this repo.");
-        this.add(new Flag(
-            "f", "force",
-            "Enforce initialization. " ~
-            "This will rewrite pre-commit configurations.")),
-        this.add(new Flag(
-            null, "no-setup",
-            "Do not set up pre-commit. " ~
-            "Could be used if pre-commit already set up.")),
+        super(
+            "fix-series",
+            "Fix series in manifests of addons in this repo. Set series to project's serie");
         this.add(new Argument(
-            "path", "Path to repository to initialize pre-commit.").optional());
+            "path", "Path to repository to fix conflicts in.").optional());
     }
 
     public override void execute(ProgramArgs args) {
@@ -108,47 +102,10 @@ class CommandRepositoryInitPreCommit: OdoodCommand {
 
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")) : Path.current);
-
-        repo.initPreCommit(args.flag("force"), !args.flag("no-setup"));
+        foreach(addon; repo.addons)
+            addon.path.join("__manifest__.py").updateManifestSerie(
+                    project.odoo.serie);
     }
-
-}
-
-class CommandRepositorySetUpPreCommit: OdoodCommand {
-    this() {
-        super("set-up-pre-commit", "Set up pre-commit for specified repo.");
-        this.add(new Argument(
-            "path", "Path to repository to configure.").optional());
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
-        auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")) : Path.current);
-
-        repo.setUpPreCommit();
-    }
-
-}
-
-
-class CommandRepositoryRunPreCommit: OdoodCommand {
-    this() {
-        super("run-pre-commit", "Run pre-commit for specified repo.");
-        this.add(new Argument(
-            "path", "Path to repository to run pre-commit for.").optional());
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        auto path = args.arg("path") ? Path(args.arg("path")) : Path.current;
-        project.venv.runner
-            .withArgs("pre-commit", "run", "--all-files")
-            .inWorkDir(path)
-            .execv();
-    }
-
 }
 
 
@@ -157,9 +114,7 @@ class CommandRepository: OdoodCommand {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositoryFixVersionConflict());
-        this.add(new CommandRepositoryInitPreCommit());
-        this.add(new CommandRepositorySetUpPreCommit());
-        this.add(new CommandRepositoryRunPreCommit());
+        this.add(new CommandRepositoryFixSerie());
     }
 }
 

@@ -1,0 +1,73 @@
+version: '3'
+
+volumes:
+    odood-example-ssl-db-data:
+    odood-example-ssl-odoo-data:
+
+services:
+    odood-example-ssl-db:
+        image: postgres:15
+        container_name: odood-example-ssl-db
+        environment:
+            - POSTGRES_USER=odoo
+            - POSTGRES_PASSWORD=odoo-db-pass
+
+            # this is needed to avoid auto-creation of database by postgres itself
+            # databases must be created by Odoo only
+            - POSTGRES_DB=postgres
+        volumes:
+            - odood-example-ssl-db-data:/var/lib/postgresql/data
+        restart: "no"
+
+    odood-example-ssl-odoo:
+        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        container_name: odood-example-ssl-odoo
+        labels:
+          - "traefik.enable=true"
+          - "traefik.http.routers.odoo-route.rule=Host(`localhost`)"
+          - "traefik.http.routers.odoo-route.service=odoo-service"
+          - "traefik.http.routers.odoo-route.entrypoints=webssl"
+          - "traefik.http.routers.odoo-route.tls=true"
+          - "traefik.http.services.odoo-service.loadbalancer.server.port=8069"
+          - "traefik.http.routers.odoo-ge-route.rule=Host(`localhost`) && Path(`/websocket`)"
+          - "traefik.http.routers.odoo-ge-route.service=odoo-ge-service"
+          - "traefik.http.routers.odoo-ge-route.entrypoints=webssl"
+          - "traefik.http.routers.odoo-ge-route.tls=true"
+          - "traefik.http.services.odoo-ge-service.loadbalancer.server.port=8072"
+
+        depends_on:
+            - odood-example-ssl-db
+        environment:
+            ODOOD_OPT_DB_HOST: odood-example-ssl-db
+            ODOOD_OPT_DB_USER: odoo
+            ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+            ODOOD_OPT_ADMIN_PASSWD: admin
+            ODOOD_OPT_WORKERS: "1"
+            ODOOD_OPT_PROXY_MODE: True
+        volumes:
+            - odood-example-ssl-odoo-data:/opt/odoo/data
+        restart: "no"
+
+    odood-example-ssl-traefik:
+      image: "traefik:v3.2"
+      container_name: "odood-example-ssl-traefik"
+      command:
+        #- "--log.level=DEBUG"
+        #- "--api.insecure=true"
+        - "--providers.docker=true"
+        - "--providers.docker.exposedbydefault=false"
+        - "--providers.file.filename=/traefik-certs.yml"
+        - "--entryPoints.web.address=:80"
+        - "--entryPoints.webssl.address=:443"
+        - "--entrypoints.web.http.redirections.entrypoint.to=webssl"
+        - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      ports:
+        - "80:80"
+        - "443:443"
+        - "8080:8080"
+      volumes:
+        - "./traefik/traefik-certs.yml:/traefik-certs.yml"
+        - "./traefik/certs/:/certs/"
+        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
+

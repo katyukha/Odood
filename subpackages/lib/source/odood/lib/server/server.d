@@ -83,13 +83,22 @@ struct OdooServer {
       *    - -2 if process specified in pid file is not running
       **/
     pid_t getPid() const {
-        if (_project.odoo.pidfile.exists) {
-            auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
-            if (isProcessRunning(pid))
-                return pid;
-            return -2;
+        final switch(_project.odoo.server_supervisor) {
+            case ProjectServerSupervisor.Odood, ProjectServerSupervisor.InitScript:
+                if (_project.odoo.pidfile.exists) {
+                    auto pid = _project.odoo.pidfile.readFileText.strip.to!pid_t;
+                    if (isProcessRunning(pid))
+                        return pid;
+                    return -2;
+                }
+                return -1;
+            case ProjectServerSupervisor.Systemd:
+                return Process("systemctl")
+                    .withArgs("show", "--property=MainPID", "--value", "odoo")
+                    .execute
+                    .ensureOk(true)
+                    .output.to!pid_t;
         }
-        return -1;
     }
 
     /** Get environment variables to apply when running Odoo server.
@@ -109,6 +118,8 @@ struct OdooServer {
             res["OPENERP_SERVER"] = _project.odoo.configfile.toString;
             res["ODOO_RC"] = _project.odoo.configfile.toString;
         }
+        // TODO: Add ability to parse .env files and forward environment variables to Odoo process
+        //       This will allow to run Odoo in docker containers and locally in similar way.
         return res;
     }
 
@@ -167,8 +178,7 @@ struct OdooServer {
       *     detach = if set, then run server in background
       **/
     pid_t spawn(bool detach=false) const {
-        import std.process: Config;
-
+        // TODO: Add ability to handle coverage settings and other odoo options
         enforce!ServerAlreadyRuningException(
             !isRunning,
             "Server already running!");
@@ -180,11 +190,13 @@ struct OdooServer {
         auto runner = getServerRunner(
             "--pidfile=%s".format(_project.odoo.pidfile));
         if (detach) {
-            runner.setFlag(Config.detached);
+            runner.setFlag(std.process.Config.detached);
             runner.addArgs("--logfile=%s".format(_project.odoo.logfile));
         }
 
         if (_project.odoo.pidfile.exists) {
+            // At this point it is already checked that server is not running,
+            // thus it is safe to delete stale pid file.
             tracef("Removing pidfile %s before server starts...", _project.odoo.pidfile);
             _project.odoo.pidfile.remove();
         }
@@ -220,45 +232,6 @@ struct OdooServer {
         return pipeServerLog(CoverageOptions(false), options);
     }
 
-    /** Run server with provided options.
-      *
-      * Params:
-      *     options = list of options to pass to the server
-      *     env = extra environment variables to pass to the server
-      **/
-    auto run(in string[] options, in string[string] env=null) const {
-        auto res = _project.venv.run(
-            scriptPath,
-            options,
-            _project.project_root,
-            getServerEnv(env));
-
-        return res;
-    }
-
-    /// ditto
-    auto run(in string[] options...) const {
-        return run(options, null);
-    }
-
-    /** Run server with provided options
-      *
-      * In case of non-zero exit code error will be raised.
-      *
-      * Params:
-      *     options = list of options to pass to the server
-      *     env = extra environment variables to pass to the server
-      **/
-    auto runE(in string[] options, in string[string] env=null) const {
-        auto result = run(options, env).ensureStatus!ServerCommandFailedException(true);
-        return result;
-    }
-
-    /// ditto
-    auto runE(in string[] options...) const {
-        return runE(options, null);
-    }
-
     /** Check if the Odoo server is running or not
       *
       **/
@@ -288,7 +261,13 @@ struct OdooServer {
                 Process("/etc/init.d/odoo")
                     .withArgs("start")
                     .execute
-                    .ensureOk();
+                    .ensureOk(true);
+                break;
+            case ProjectServerSupervisor.Systemd:
+                Process("service")
+                    .withArgs("odoo", "start")
+                    .execute
+                    .ensureOk(true);
                 break;
         }
         if (wait_timeout != Duration.zero) {
@@ -307,7 +286,7 @@ struct OdooServer {
       **/
     void stopOdoodServer() const {
         import core.sys.posix.signal: kill, SIGTERM;
-        import core.stdc.errno;
+        import core.stdc.errno: errno, ESRCH;
         import std.exception: ErrnoException;
 
         info("Stopping odoo server...");
@@ -350,7 +329,13 @@ struct OdooServer {
                 Process("/etc/init.d/odoo")
                     .withArgs("stop")
                     .execute
-                    .ensureOk();
+                    .ensureOk(true);
+                break;
+            case ProjectServerSupervisor.Systemd:
+                Process("service")
+                    .withArgs("odoo", "stop")
+                    .execute
+                    .ensureOk(true);
                 break;
         }
     }

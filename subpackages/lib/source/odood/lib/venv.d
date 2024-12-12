@@ -6,6 +6,7 @@ private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.parallelism: totalCPUs;
+private import std.regex: ctRegex, matchFirst;
 
 private static import std.process;
 
@@ -67,6 +68,9 @@ const struct VirtualEnv {
 
     /// Path where virtualenv isntalled
     @safe pure nothrow const(Path) path() const { return _path; }
+
+    /// Bin path inside this virtualenv
+    @safe pure nothrow const(Path) bin_path() const {return _path.join("bin"); }
 
     /// Serie of python used for this virtualenv (py2 or py3)
     @safe const(PySerie) py_serie() const { return _py_serie; }
@@ -247,7 +251,6 @@ const struct VirtualEnv {
     /// ditto
     void buildPython(in Version build_version,
                      in bool enable_sqlite=false) {
-        import std.regex: ctRegex, matchFirst;
 
         infof("Building python version %s...", build_version);
 

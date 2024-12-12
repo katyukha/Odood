@@ -19,6 +19,9 @@ enum ProjectServerSupervisor {
 
     /// Server is managed by init script in /etc/init.d odoo
     InitScript,
+
+    /// Server is managed by systemd
+    Systemd,
 }
 
 
@@ -59,8 +62,11 @@ struct ProjectConfigOdoo {
     /// Managed by OS.
     ProjectServerSupervisor server_supervisor = ProjectServerSupervisor.Odood;
 
-    /// Path to init script, of project's server is managed by init script.
+    /// Path to init script, if project's server is managed by init script.
     Path server_init_script_path;
+
+    /// Path to systemd service configuration, if project's server is managed by systemd.
+    Path server_systemd_service_path;
 
     this(in Path project_root,
             in ProjectConfigDirectories directories,
@@ -78,6 +84,17 @@ struct ProjectConfigOdoo {
         serie = odoo_serie;
         branch = odoo_branch.empty ? odoo_serie.toString : odoo_branch;
         repo = odoo_repo.empty ? DEFAULT_ODOO_REPO : odoo_repo;
+    }
+
+    this(in Path project_root,
+            in ProjectConfigDirectories directories,
+            in OdooSerie odoo_serie) {
+        this(
+            project_root,
+            directories,
+            odoo_serie,
+            odoo_serie.toString,  // Default branch for serie
+            DEFAULT_ODOO_REPO);
     }
 
     this(in dyaml.Node config) {
@@ -114,6 +131,9 @@ struct ProjectConfigOdoo {
                 case "init-script":
                     this.server_supervisor = ProjectServerSupervisor.InitScript;
                     break;
+                case "systemd":
+                    this.server_supervisor = ProjectServerSupervisor.Systemd;
+                    break;
                 default:
                     assert(
                         0,
@@ -122,6 +142,10 @@ struct ProjectConfigOdoo {
             }
         else
             this.server_supervisor = ProjectServerSupervisor.Odood;
+        if (config.containsKey("server-init-script-path"))
+            this.server_init_script_path = Path(config["server-init-script-path"].as!string);
+        if (config.containsKey("server-systemd-service-path"))
+            this.server_systemd_service_path = Path(config["server-systemd-service-path"].as!string);
     }
 
     dyaml.Node toYAML() const {
@@ -145,6 +169,11 @@ struct ProjectConfigOdoo {
                 break;
             case ProjectServerSupervisor.InitScript:
                 result["server-supervisor"] = "init-script";
+                result["server-init-script-path"] = this.server_init_script_path.toString;
+                break;
+            case ProjectServerSupervisor.Systemd:
+                result["server-supervisor"] = "systemd";
+                result["server-systemd-service-path"] = this.server_systemd_service_path.toString;
                 break;
         }
 

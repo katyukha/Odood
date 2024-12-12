@@ -1,6 +1,6 @@
 module odood.utils.versioned;
 
-private import std.conv: to, ConvOverflowException;
+private import std.conv: to, ConvOverflowException, ConvException;
 private import std.range: empty, zip;
 private import std.algorithm.searching: canFind;
 private import std.string : isNumeric;
@@ -16,7 +16,7 @@ private enum VersionPart {
 }
 
 
-@safe struct Version {
+@safe pure struct Version {
     private uint _major=0;
     private uint _minor=0;
     private uint _patch=0;
@@ -24,7 +24,7 @@ private enum VersionPart {
     private string _build;
     private bool _isValid;
 
-    this(in uint major, in uint minor=0, in uint patch=0) {
+    this(in uint major, in uint minor=0, in uint patch=0) nothrow {
         _major = major;
         _minor = minor;
         _patch = patch;
@@ -32,6 +32,17 @@ private enum VersionPart {
     }
 
     this(in string v) {
+        try {
+            parseVersionString(v);
+            _isValid = true;
+        } catch (ConvException) {
+            // Cannot convert one of version parts to uint,
+            // thus version is not valid
+            _isValid = false;
+        }
+    }
+
+    private void parseVersionString(in string v) {
         // TODO: Add validation
         // TODO: Add support of 'v' prefix
         if (v.length == 0) return;
@@ -127,19 +138,18 @@ private enum VersionPart {
                     break;
             }
         }
-        _isValid = true;
     }
 
-    pure nothrow uint major() const { return _major; }
-    pure nothrow uint minor() const { return _minor; }
-    pure nothrow uint patch() const { return _patch; }
-    pure nothrow string prerelease() const { return _prerelease; }
-    pure nothrow string build() const { return _build; }
+    nothrow uint major() const { return _major; }
+    nothrow uint minor() const { return _minor; }
+    nothrow uint patch() const { return _patch; }
+    nothrow string prerelease() const { return _prerelease; }
+    nothrow string build() const { return _build; }
 
-    pure nothrow bool isValid() const { return _isValid; }
-    pure nothrow bool isStable() const { return _prerelease.empty; }
+    nothrow bool isValid() const { return _isValid; }
+    nothrow bool isStable() const { return _prerelease.empty; }
 
-    pure nothrow string toString() const {
+    nothrow string toString() const {
         string result = _major.to!string ~ "." ~ _minor.to!string ~ "." ~
             _patch.to!string;
         if (_prerelease.length > 0)
@@ -149,6 +159,7 @@ private enum VersionPart {
         return result;
     }
 
+    ///
     unittest {
         import unit_threaded.assertions;
         Version("1.2.3").major.should == 1;
@@ -233,7 +244,16 @@ private enum VersionPart {
         Version("12.34.56+build-42").isValid.should == true;
     }
 
-    pure int opCmp(in Version other) const {
+    // Test invalid versions
+    unittest {
+        import unit_threaded.assertions;
+        Version("2s").isValid.should == false;
+        Version("2.3s").isValid.should == false;
+        Version("2.3.4s").isValid.should == false;
+        Version("2.3.4-s").isValid.should == true;
+    }
+
+    int opCmp(in Version other) const {
         // TODO: make it nothrow
         if (this.major != other.major)
             return this.major < other.major ? -1 : 1;
@@ -243,7 +263,7 @@ private enum VersionPart {
             return this.patch < other.patch ? -1 : 1;
 
         // Just copypaste from semver lib
-        int compareSufix(scope const string[] suffix, const string[] anotherSuffix) @safe pure
+        int compareSufix(scope const string[] suffix, const string[] anotherSuffix)
         {
             if (!suffix.empty && anotherSuffix.empty)
                 return -1;
@@ -282,6 +302,12 @@ private enum VersionPart {
         return result;
     }
 
+    /// ditto
+    int opCmp(in string other) const {
+        return this.opCmp(Version(other));
+    }
+
+    /// Test version comparisons
     unittest {
         import unit_threaded.assertions;
         assert(Version("1.0.0-alpha") < Version("1.0.0-alpha.1"));
@@ -297,7 +323,23 @@ private enum VersionPart {
         assert(Version("1.0.0-rc.2+build.5") != Version("1.0.0-rc.1+build.5"));
     }
 
-    bool opEquals(in Version other) const pure nothrow {
+    /// Test comparisons with strings
+    unittest {
+        import unit_threaded.assertions;
+        assert(Version("1.0.0-alpha") < "1.0.0-alpha.1");
+        assert(Version("1.0.0-alpha.1") < "1.0.0-alpha.beta");
+        assert(Version("1.0.0-alpha.beta") < "1.0.0-beta");
+        assert(Version("1.0.0-beta") < "1.0.0-beta.2");
+        assert(Version("1.0.0-beta.2") < "1.0.0-beta.11");
+        assert(Version("1.0.0-beta.11") < "1.0.0-rc.1");
+        assert(Version("1.0.0-rc.1") < "1.0.0");
+        assert(Version("1.0.0-rc.1") > "1.0.0-rc.1+build.5");
+        assert(Version("1.0.0-rc.1+build.5") == "1.0.0-rc.1+build.5");
+        assert(Version("1.0.0-rc.1+build.5") != "1.0.0-rc.1+build.6");
+        assert(Version("1.0.0-rc.2+build.5") != "1.0.0-rc.1+build.5");
+    }
+
+    bool opEquals(in Version other) const nothrow {
         return this.major == other.major &&
             this.minor == other.minor &&
             this.patch == other.patch &&
@@ -305,6 +347,12 @@ private enum VersionPart {
             this.build == other.build;
     }
 
+    /// ditto
+    bool opEquals(in string other) const {
+        return this.opEquals(Version(other));
+    }
+
+    /// Test equality checks
     unittest {
         import unit_threaded.assertions;
         Version("1.2.3").should == Version(1, 2, 3);
@@ -313,4 +361,12 @@ private enum VersionPart {
         // TODO: more tests needed
     }
 
+    /// Test equality checks with strings
+    unittest {
+        import unit_threaded.assertions;
+        assert(Version("1.2.3") == "1.2.3");
+        assert(Version("1.2") == "1.2");
+        assert(Version("1.0.3") == "1.0.3");
+        // TODO: more tests needed
+    }
 }

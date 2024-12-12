@@ -1,0 +1,63 @@
+version: '3'
+
+volumes:
+    odood-example-db-data:
+    odood-example-odoo-data:
+
+services:
+    odood-example-db:
+        image: postgres:15
+        container_name: odood-example-db
+        environment:
+            - POSTGRES_USER=odoo
+            - POSTGRES_PASSWORD=odoo-db-pass
+
+            # this is needed to avoid auto-creation of database by postgres itself
+            # databases must be created by Odoo only
+            - POSTGRES_DB=postgres
+        volumes:
+            - odood-example-db-data:/var/lib/postgresql/data
+        restart: "no"
+
+    odood-example-odoo:
+        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        container_name: odood-example-odoo
+        labels:
+          - "traefik.enable=true"
+          - "traefik.http.routers.odoo-route.rule=Host(`localhost`)"
+          - "traefik.http.routers.odoo-route.service=odoo-service"
+          - "traefik.http.routers.odoo-route.entrypoints=web"
+          - "traefik.http.services.odoo-service.loadbalancer.server.port=8069"
+          - "traefik.http.routers.odoo-ge-route.rule=Host(`localhost`) && Path(`/websocket`)"
+          - "traefik.http.routers.odoo-ge-route.service=odoo-ge-service"
+          - "traefik.http.routers.odoo-ge-route.entrypoints=web"
+          - "traefik.http.services.odoo-ge-service.loadbalancer.server.port=8072"
+
+        depends_on:
+            - odood-example-db
+        environment:
+            ODOOD_OPT_DB_HOST: odood-example-db
+            ODOOD_OPT_DB_USER: odoo
+            ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+            ODOOD_OPT_ADMIN_PASSWD: admin
+            ODOOD_OPT_WORKERS: "1"
+            ODOOD_OPT_PROXY_MODE: True
+        volumes:
+            - odood-example-odoo-data:/opt/odoo/data
+        restart: "no"
+
+    odood-example-traefik:
+      image: "traefik:v3.2"
+      container_name: "odood-example-traefik"
+      command:
+        #- "--log.level=DEBUG"
+        - "--api.insecure=true"
+        - "--providers.docker=true"
+        - "--providers.docker.exposedbydefault=false"
+        - "--entryPoints.web.address=:80"
+      ports:
+        - "80:80"
+        - "8080:8080"
+      volumes:
+        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+

@@ -1,16 +1,17 @@
-module odood.utils.git;
+module odood.git;
 
 private import std.logger: infof;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.string: strip;
 
 private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
-public import odood.utils.git.url: GitURL;
-public import odood.utils.git.repository: GitRepository;
+public import odood.git.url: GitURL;
+public import odood.git.repository: GitRepository;
 
 
 /// Parse git url for further processing
@@ -19,7 +20,7 @@ GitURL parseGitURL(in string url) {
 }
 
 /// Clone git repository to provided destination directory
-void gitClone(
+GitRepository gitClone(
         in GitURL repo,
         in Path dest,
         in string branch,
@@ -41,6 +42,7 @@ void gitClone(
         proc.addArgs("--single-branch");
     proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
     proc.execute().ensureOk(true);
+    return new GitRepository(dest);
 }
 
 
@@ -58,4 +60,21 @@ bool isGitRepo(in Path path) {
         return true;
 
     return false;
+}
+
+/** Returns absolute path to repository root directory.
+
+    Parametrs:
+        path = any path inside repository
+  **/
+Path getGitTopLevel(in Path path) {
+    return Path(
+        Process("git")
+            .inWorkDir(path)
+            .withArgs("rev-parse", "--show-toplevel")
+            .execute
+            .ensureOk(true)
+            .output
+            .strip
+    );
 }

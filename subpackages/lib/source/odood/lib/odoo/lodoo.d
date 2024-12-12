@@ -16,6 +16,8 @@ private import odood.utils: generateRandomString;
 private import odood.utils.odoo.db: BackupFormat;
 private import odood.exception: OdoodException;
 
+// TODO: Do we need all this for Odoo 17+? It seems that it has built-in commands
+//       for database management
 
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
   * python CLI util

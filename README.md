@@ -33,6 +33,30 @@ Following features currently implemented:
 - [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
 
 
+## Supported Odoo versions
+
+- Odoo 7.0 (partial)
+- Odoo 8.0 (best efforts)
+- Odoo 9.0 (best efforts)
+- Odoo 10.0 (best efforts)
+- Odoo 11.0 (best efforts)
+- Odoo 12.0 (tested)
+- Odoo 13.0 (tested)
+- Odoo 14.0 (tested)
+- Odoo 15.0 (tested)
+- Odoo 16.0 (tested)
+- Odoo 17.0 (tested)
+- Odoo 18.0 (experimental)
+
+## Prebuild docker-images with preinstalled Odoo and Odood
+
+You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&repo_name=Odood) to run Odoo managed by Odood in containers:
+- [Odoo 18](https://ghcr.io/katyukha/odood/odoo/18.0)
+- [Odoo 17](https://ghcr.io/katyukha/odood/odoo/17.0)
+- [Odoo 16](https://ghcr.io/katyukha/odood/odoo/16.0)
+- [Odoo 15](https://ghcr.io/katyukha/odood/odoo/15.0)
+
+
 ## Installation (as Debian Package)
 
 This is the recommended way to install Odood.
@@ -69,7 +93,7 @@ project with Odood is to run command `odood discover odoo-helper` somewhere insi
 
 ## Quick start
 
-Use following command to create new local odoo instance:
+Use following command to create new local (development) odoo instance:
 
 ```bash
 odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17069 --create-db-user
@@ -77,6 +101,11 @@ odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17
 
 This command will create new virtual environment for Odoo and install odoo there.
 Also, this command will automatically create database user for this Odoo instance.
+
+For production installations, you can use command `odood deploy` that will
+deploy Odoo of specified version to machine where this command is running.
+For example: `odood deploy -v 17 --supervisor=systemd --local-postgres --enable-logrotate`
+But this command is still experimental.
 
 Next, change current working directory to directory where we installed Odoo:
 
@@ -117,6 +146,69 @@ See help for this command for more info:
 ```bash
 odood addons --help
 ```
+
+It is possible to easily add repositories with third-party addons to odood projects.
+To do this, following command could be used
+
+```bash
+odood repo add --help
+```
+
+For example, if you want to add [crnd-inc/generic-addons](https://github.com/crnd-inc/generic-addons)
+you can run following command:
+
+```bash
+odood repo add --github crnd-inc/generic-addons
+```
+
+## Example setup for docker compose
+
+Odood has prebuilt docker images, that could be used to easily run Odoo powered by Odoo inside docker-based infrastructure.
+
+See examples directory for more details.
+
+Example `docker-compose.yml`:
+
+```yml
+version: '3'
+
+volumes:
+    odood-example-db-data:
+    odood-example-odoo-data:
+
+services:
+    odood-example-db:
+        image: postgres:15
+        container_name: odood-example-db
+        environment:
+            - POSTGRES_USER=odoo
+            - POSTGRES_PASSWORD=odoo-db-pass
+
+            # this is needed to avoid auto-creation of database by postgres itself
+            # databases must be created by Odoo only
+            - POSTGRES_DB=postgres
+        volumes:
+            - odood-example-db-data:/var/lib/postgresql/data
+        restart: "no"
+
+    odood-example-odoo:
+        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        container_name: odood-example-odoo
+        depends_on:
+            - odood-example-db
+        environment:
+            ODOOD_OPT_DB_HOST: odood-example-db
+            ODOOD_OPT_DB_USER: odoo
+            ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+            ODOOD_OPT_ADMIN_PASSWD: admin
+            ODOOD_OPT_WORKERS: "1"
+        ports:
+            - "8069:8069"
+        volumes:
+            - odood-example-odoo-data:/opt/odoo/data
+        restart: "no"
+```
+
 
 ## Level up your service quality
 

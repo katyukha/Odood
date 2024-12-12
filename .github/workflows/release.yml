@@ -3,7 +3,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
-      - 'v*.*.*-RC*'
+      - 'v*.*.*-*'
 
 env:
   ODOOD_DLANG_COMPILER: ldc-1.39.0
@@ -90,10 +90,10 @@ jobs:
       - name: 'Show directory structure'
         run: ls -R
 
-      - name: Check RC Release
+      - name: Check RC/alpha Release
         id: check-rc-release
         run: |
-          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-(rc|RC)[0-9]+$ ]]; then
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-(rc|RC|[0-9a-zA-Z\.\-]+)[0-9]+$ ]]; then
               echo "is_rc_release=true" >> $GITHUB_OUTPUT
           elif [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "is_rc_release=false" >> $GITHUB_OUTPUT

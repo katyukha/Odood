@@ -1,4 +1,4 @@
-module odood.utils.git.url;
+module odood.git.url;
 
 private import std.logger: infof;
 private import std.regex: ctRegex, matchFirst;
@@ -12,7 +12,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
-
+// TODO: Think about using https://code.dlang.org/packages/urld
 // TODO: Add parsing of branch name from url
 /// Regex for parsing git URL
 private auto immutable RE_GIT_URL = ctRegex!(
@@ -261,3 +261,4 @@ unittest {
         toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
     }
 }
+

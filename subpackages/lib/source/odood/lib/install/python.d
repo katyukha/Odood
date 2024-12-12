@@ -7,10 +7,9 @@ private import thepath: Path;
 private import theprocess: resolveProgram;
 
 private import odood.lib.project: Project;
-private import odood.lib.venv: PySerie;
 private import odood.lib.odoo.python;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: download, parsePythonVersion;
+private import odood.utils: parsePythonVersion;
 private import odood.utils.versioned: Version;
 private import odood.exception: OdoodException;
 
@@ -48,6 +47,8 @@ bool isSystemPythonSuitable(in Project project) {
     if (project.odoo.serie <= OdooSerie(16))
         return (sys_py_ver >= Version(3, 7) && sys_py_ver < Version(3, 11));
     if (project.odoo.serie <= OdooSerie(17))
+        return (sys_py_ver >= Version(3, 10) && sys_py_ver < Version(3, 12));
+    if (project.odoo.serie <= OdooSerie(18))
         return (sys_py_ver >= Version(3, 10) && sys_py_ver < Version(3, 12));
 
     /// Unknown odoo version

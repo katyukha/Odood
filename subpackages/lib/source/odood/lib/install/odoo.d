@@ -15,7 +15,7 @@ private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
-private import odood.utils.git;
+private import odood.git;
 private import odood.utils;
 private import odood.utils.versioned: Version;
 
@@ -146,6 +146,15 @@ void installOdoo(in Project project) {
             "xlwt",
         );
     } else {
+        // Patch requirements txt to avoid using gevent 21.8.0 that requires build.
+        // See https://github.com/odoo/odoo/issues/187021
+        info("Patching Odoo requirements.txt to avoid usage of gevent 21.8.0...");
+        auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+            .replaceAll(
+                regex(r"gevent==21\.8\.0", "g"),
+                "gevent==21.12.0");
+        project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));

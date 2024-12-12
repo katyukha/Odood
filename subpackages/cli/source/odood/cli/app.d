@@ -11,6 +11,7 @@ private import odood.exception: OdoodException;
 private import odood.cli.core.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
+private import odood.cli.commands.deploy: CommandDeploy;
 private import odood.cli.commands.server:
     CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart,
     CommandServerBrowse, CommandServerLogView;
@@ -27,6 +28,7 @@ private import odood.cli.commands.script: CommandScript;
 private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
+private import odood.cli.commands.precommit: CommandPreCommit;
 
 
 /** Class that represents main OdoodProgram
@@ -40,6 +42,7 @@ class App: OdoodProgram {
         this.summary("Easily manage odoo installations.");
         this.topicGroup("Main");
         this.add(new CommandInit());
+        this.add(new CommandDeploy());
         this.add(new CommandServer());
         this.add(new CommandStatus());
         this.add(new CommandDatabase());
@@ -47,9 +50,13 @@ class App: OdoodProgram {
         this.add(new CommandTest());
         this.add(new CommandRepository());
         this.add(new CommandVenv());
+        this.add(new CommandOdoo());
+
+        // Dev tools
+        this.topicGroup("Dev Tools");
         this.add(new CommandScript());
         this.add(new CommandPSQL());
-        this.add(new CommandOdoo());
+        this.add(new CommandPreCommit());
 
         // System
         this.topicGroup("System");

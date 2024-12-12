@@ -21,6 +21,9 @@ private auto immutable RE_VERSION_CONFLICT = ctRegex!(
     `(?P<changekey>\s+["']version["']:\s)(?P<changequote>["'])(?P<changeversion>\d+\.\d+\.\d+\.\d+\.\d+)["'],\n` ~
     `>>>>>>> .*\n`, "m");
 
+private auto immutable RE_MANIFEST_SERIE_VERSION = ctRegex!(
+    `^(?P<verprefix>\s+["']version["']:\s["'])(?P<addonversion>\d+\.\d+\.\d+\.\d+\.\d+)(?P<versuffix>["'],\s*(#.*)?)$`, "m");
+
 
 /// Resolve version conflict in provided manifest content.
 string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
@@ -76,5 +79,49 @@ void fixVersionConflict(in Path manifest_path, in OdooSerie serie) {
     infof("Fixing version conflict in manifest: %s", manifest_path);
     string manifest_content = manifest_path.readFileText()
         .fixVersionConflictImpl(serie);
+    manifest_path.writeFile(manifest_content);
+}
+
+/// Update Odoo serie in manifest to specified.
+string updateManifestSerieImpl(in string manifest_content, in OdooSerie serie) {
+    return manifest_content.replaceAll!((Captures!(string) captures) {
+        const OdooAddonVersion new_version  = OdooAddonVersion(captures["addonversion"])
+            .ensureIsStandard.withSerie(serie);
+
+        // TODO: find better way. Check if head and change versions are valid
+        assert(new_version.isStandard, "New version is not valid!");
+
+        return "%s%s%s".format(
+            captures["verprefix"],
+            new_version.toString,
+            captures["versuffix"],
+        );
+    })(RE_MANIFEST_SERIE_VERSION);
+}
+
+unittest {
+    import unit_threaded.assertions;
+    string manifest_content = `{
+    'name': "Bureaucrat Helpdesk Pro [Obsolete]",
+    'author': "Center of Research and Development",
+    'website': "https://crnd.pro",
+    'version': '16.0.1.10.0',
+    'category': 'Helpdesk',
+}`;
+
+    manifest_content.updateManifestSerieImpl(OdooSerie(17)).shouldEqual(`{
+    'name': "Bureaucrat Helpdesk Pro [Obsolete]",
+    'author': "Center of Research and Development",
+    'website': "https://crnd.pro",
+    'version': '17.0.1.10.0',
+    'category': 'Helpdesk',
+}`);
+}
+
+/// Update serie in manifest
+void updateManifestSerie(in Path manifest_path, in OdooSerie serie) {
+    infof("Updating serie in manifest: %s", manifest_path);
+    string manifest_content = manifest_path.readFileText()
+        .updateManifestSerieImpl(serie);
     manifest_path.writeFile(manifest_content);
 }
