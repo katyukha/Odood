@@ -146,6 +146,17 @@ void installOdoo(in Project project) {
             "xlwt",
         );
     } else {
+        // Patch requirements txt for Odoo 17 and 18 for python 3.10
+        if (project.odoo.serie >= 16 && project.venv.py_version >= Version(3, 10) && project.venv.py_version < Version(3, 11)) {
+            info("Patching Odoo requirements.txt to avoid usage of gevent 21.8.0...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"gevent==21\.8\.0", "g"),
+                    "gevent==21.12.0");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+            warningf("requirements.txt:\n%s", project.odoo.path.join("requirements.txt").readFileText());
+        }
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));
