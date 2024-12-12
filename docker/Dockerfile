@@ -10,6 +10,7 @@ RUN apt-get update -qq && \
         ca-certificates \
         gnupg \
         lsb-release \
+        xfonts-75dpi xfonts-base libx11-6 libxcb1 libxext6 libxrender1 \
         tzdata && \
     locale-gen en_US.UTF-8 && \
     locale-gen en_GB.UTF-8 && \
@@ -19,6 +20,9 @@ RUN apt-get update -qq && \
             apt-key add - && \
 	apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove $ODOOD_DEPENDENCIES && \
+    wget --quiet -O /tmp/wkhtmltopdf.deb https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_$(dpkg --print-architecture).deb && \
+        dpkg -i /tmp/wkhtmltopdf.deb && \
+        rm -f /tmp/wkhtmltopdf.deb && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /root/.cache/pip/*
 
