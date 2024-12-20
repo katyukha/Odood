@@ -95,13 +95,13 @@ private import odood.exception;
     }
 
     /// Odoo Serie major part of the version
-    auto serie_major() const
+    deprecated("Use .serie.major instead") auto serie_major() const
     in (isStandard) {
         return serie.major;
     }
 
     /// Odoo Serie major part of the version
-    auto serie_minor() const
+    deprecated("Use .serie.minor instead") auto serie_minor() const
     in (isStandard) {
         return serie.minor;
     }
