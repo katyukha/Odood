@@ -369,4 +369,37 @@ private enum VersionPart {
         assert(Version("1.0.3") == "1.0.3");
         // TODO: more tests needed
     }
+
+    /// Return new version with increased major part
+    auto incMajor() const pure {
+        return Version(major +1 , 0, 0);
+    }
+
+    /// Test increase of major version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incMajor.should == Version("2.0.0");
+    }
+
+    /// Return new version with increased minor part
+    auto incMinor() const pure {
+        return Version(major, minor + 1, 0);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incMinor.should == Version("1.3.0");
+    }
+
+    /// Return new version with increased patch part
+    auto incPatch() const pure {
+        return Version(major, minor, patch + 1);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incPatch.should == Version("1.2.4");
+    }
 }

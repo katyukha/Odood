@@ -194,8 +194,38 @@ private import odood.exception;
         v.withSerie(16).should == OdooStdVersion("16.0.1.2.3");
     }
 
-    // TODO: add method to return addon's part of version as semver
-    // TODO: add method to increase major, minor, patch
+    /// Return new version with increased major part
+    auto incMajor() const pure {
+        return OdooStdVersion(_serie, _version.incMajor);
+    }
+
+    /// Test increase of major version
+    unittest {
+        import unit_threaded.assertions;
+        OdooStdVersion("18.0.1.2.3").incMajor.should == OdooStdVersion("18.0.2.0.0");
+    }
+
+    /// Return new version with increased minor part
+    auto incMinor() const pure {
+        return OdooStdVersion(_serie, _version.incMinor);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        OdooStdVersion("18.0.1.2.3").incMinor.should == OdooStdVersion("18.0.1.3.0");
+    }
+
+    /// Return new version with increased patch part
+    auto incPatch() const pure {
+        return OdooStdVersion(_serie, _version.incPatch);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        OdooStdVersion("18.0.1.2.3").incPatch.should == OdooStdVersion("18.0.1.2.4");
+    }
 }
 
 deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersion;
