@@ -1,4 +1,4 @@
-module odood.utils.addons.addon_version;
+module odood.utils.odoo.std_version;
 
 private import std.format: format;
 private import std.algorithm.iteration: map;
@@ -10,8 +10,12 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception;
 
 
-/// This struct represents version of Odoo addon
-@safe pure struct OdooAddonVersion {
+/** This struct represents standard odoo version.
+  * It is used as standard version format in Odoo addons
+  * and in some other places.
+  * The format is 5 digits: 2 for serie and 3 for version
+  **/
+@safe pure struct OdooStdVersion {
     private OdooSerie _serie;
     private uint _major;
     private uint _minor;
@@ -87,7 +91,7 @@ private import odood.exception;
     }
 
     // Comparison operators
-    int opCmp(in OdooAddonVersion other) const pure nothrow {
+    int opCmp(in OdooStdVersion other) const pure nothrow {
         // If both versions are standard, then we have to compare parts
         // of versions.
         if (this.isStandard && other.isStandard) {
@@ -113,7 +117,7 @@ private import odood.exception;
         return this.rawVersion < other.rawVersion ? -1 : 1;
     }
 
-    bool opEquals(in OdooAddonVersion other) const pure nothrow {
+    bool opEquals(in OdooStdVersion other) const pure nothrow {
         if (this.isStandard && other.isStandard)
             return this.serie == other.serie &&
                 this.major == other.major &&
@@ -133,30 +137,32 @@ private import odood.exception;
     /** Return this version for different Odoo serie
       **/
     auto withSerie(in OdooSerie serie) const pure {
-        return OdooAddonVersion(serie, major, minor, patch);
+        return OdooStdVersion(serie, major, minor, patch);
     }
 
     /// ditto
     auto withSerie(in uint serie_major, in uint serie_minor=0) const pure {
-        return OdooAddonVersion(serie_major, serie_minor, major, minor, patch);
+        return OdooStdVersion(serie_major, serie_minor, major, minor, patch);
     }
 
     unittest {
         import unit_threaded.assertions;
 
-        auto v = OdooAddonVersion("15.0.1.2.3");
-        v.withSerie(16).should == OdooAddonVersion("16.0.1.2.3");
+        auto v = OdooStdVersion("15.0.1.2.3");
+        v.withSerie(16).should == OdooStdVersion("16.0.1.2.3");
     }
 
     // TODO: add method to return addon's part of version as semver
     // TODO: add method to increase major, minor, patch
 }
 
+deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersion;
+
 @safe unittest {
     import core.exception: AssertError;
     import unit_threaded.assertions;
 
-    auto v = OdooAddonVersion("15.0.1.2.3");
+    auto v = OdooStdVersion("15.0.1.2.3");
     v.isStandard.shouldBeTrue();
     v.serie.should == OdooSerie(15);
     v.major.should == 1;
@@ -164,7 +170,7 @@ private import odood.exception;
     v.patch.should == 3;
     v.toString.should == "15.0.1.2.3";
 
-    v = OdooAddonVersion(OdooSerie(15), 1, 2, 3);
+    v = OdooStdVersion(OdooSerie(15), 1, 2, 3);
     v.isStandard.shouldBeTrue();
     v.serie.should == OdooSerie(15);
     v.major.should == 1;
@@ -172,7 +178,7 @@ private import odood.exception;
     v.patch.should == 3;
     v.toString.should == "15.0.1.2.3";
 
-    v = OdooAddonVersion(15, 0, 1, 2, 3);
+    v = OdooStdVersion(15, 0, 1, 2, 3);
     v.isStandard.shouldBeTrue();
     v.serie.should == OdooSerie(15);
     v.major.should == 1;
@@ -180,7 +186,7 @@ private import odood.exception;
     v.patch.should == 3;
     v.toString.should == "15.0.1.2.3";
 
-    v = OdooAddonVersion("15.0.1.2");
+    v = OdooStdVersion("15.0.1.2");
     v.isStandard.shouldBeFalse();
     v.serie.shouldThrow!AssertError;
     v.major.shouldThrow!AssertError;
@@ -194,7 +200,7 @@ private import odood.exception;
 @safe unittest {
     import unit_threaded.assertions;
 
-    alias V = OdooAddonVersion;
+    alias V = OdooStdVersion;
 
     assert(V("15.0.1.2.3") == V(15, 0, 1, 2, 3));
     assert(V("15.0.1.2.3") <= V(15, 0, 1, 2, 3));

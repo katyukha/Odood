@@ -10,7 +10,7 @@ private import odood.tipy;
 private import odood.tipy.python;
 
 private import odood.exception: OdoodException;
-private import odood.utils.addons.addon_version;
+private import odood.utils.odoo.std_version;
 
 
 /** Struct designed to read addons manifest
@@ -37,7 +37,7 @@ struct OdooAddonManifest {
 
     string name;
     string summary;
-    OdooAddonVersion module_version = OdooAddonVersion("1.0");
+    OdooStdVersion module_version = OdooStdVersion("1.0");
     string author;
     string category;
     string description;
@@ -83,7 +83,7 @@ auto parseOdooManifest(in string manifest_content) {
     if (auto val = PyDict_GetItemString(parsed, "summary".toStringz))
         manifest.summary = val.convertPyToD!string;
     if (auto val = PyDict_GetItemString(parsed, "version".toStringz))
-        manifest.module_version = OdooAddonVersion(val.convertPyToD!string);
+        manifest.module_version = OdooStdVersion(val.convertPyToD!string);
     if (auto val = PyDict_GetItemString(parsed, "author".toStringz))
         manifest.author = val.convertPyToD!string;
     if (auto val = PyDict_GetItemString(parsed, "category".toStringz))
