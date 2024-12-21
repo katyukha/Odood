@@ -402,4 +402,27 @@ private enum VersionPart {
         import unit_threaded.assertions;
         Version("1.2.3").incPatch.should == Version("1.2.4");
     }
+
+    /// Determine if version differs on major, minor or patch level
+    VersionPart differAt(in Version other) const pure
+    in (this != other && this.isValid && other.isValid) {
+        if (this.major != other.major) return VersionPart.MAJOR;
+        if (this.minor != other.minor) return VersionPart.MINOR;
+        if (this.patch != other.patch) return VersionPart.PATCH;
+        if (this.prerelease != other.prerelease) return VersionPart.PRERELEASE;
+        if (this.build != other.build) return VersionPart.BUILD;
+        assert(0, "differAt cannot compare equal versions.");
+    }
+
+    /// Test differAt
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").differAt(Version(2,3,4)).should == VersionPart.MAJOR;
+        Version("1.2.3").differAt(Version(2,2,3)).should == VersionPart.MAJOR;
+
+        Version("1.2.3").differAt(Version(1,3,4)).should == VersionPart.MINOR;
+        Version("1.2.3").differAt(Version(1,3,3)).should == VersionPart.MINOR;
+
+        Version("1.2.3").differAt(Version(1,2,4)).should == VersionPart.PATCH;
+    }
 }
