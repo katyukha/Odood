@@ -7,7 +7,7 @@ private import std.string : isNumeric;
 private import std.array: split;
 
 
-private enum VersionPart {
+enum VersionPart {
     MAJOR,
     MINOR,
     PATCH,
