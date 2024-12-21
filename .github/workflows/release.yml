@@ -25,6 +25,9 @@ jobs:
         with:
           linux: libzip-dev libpq-dev python3-dev
 
+      - name: Set version from tag
+        run: echo "${{ github.ref_name }}" > ./subpackages/lib/data/ODOOD_VERSION"
+
       - name: Build Odood
         run: |
           dub build -b release -c bash-autocomplete
