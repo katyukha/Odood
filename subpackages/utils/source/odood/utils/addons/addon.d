@@ -8,6 +8,7 @@ private import std.exception: enforce;
 private import std.conv: to;
 private import std.file: SpanMode;
 private import std.regex: matchFirst;
+private import std.range: empty;
 
 private import thepath: Path;
 
@@ -76,6 +77,20 @@ final class OdooAddon {
         return result;
     }
 
+    Nullable!string readChangelog() {
+        auto changelog_entries = readChangelogEntries;
+        if (changelog_entries.empty) {
+            return Nullable!(string).init;
+        }
+
+        string result = "# Changelog\n\n";
+        // Note, assume changelog entries already sorted here.
+        foreach(entrie; changelog_entries) {
+            result ~= "## Version " ~ entrie.ver.toString ~ "\n\n";
+            result ~= entrie.data ~ "\n\n";
+        }
+        return result.nullable;
+    }
 }
 
 unittest {
@@ -98,6 +113,17 @@ unittest {
     changelog_entries[1].data.should == "Version 1.1.0";
     changelog_entries[2].ver.should == Version("1.0.0");
     changelog_entries[2].data.should == "Initial release";
+
+    test_addon.readChangelog.get.should == (
+        "# Changelog\n\n" ~
+        "## Version 1.2.0\n\n" ~
+        "Some version description for version 1.2.0\n\n" ~
+        "## Version 1.1.0\n\n" ~
+        "Version 1.1.0\n\n" ~
+        "## Version 1.0.0\n\n" ~
+        "Initial release\n\n"
+    );
+
 }
 
 /// Check if provided path is odoo module
