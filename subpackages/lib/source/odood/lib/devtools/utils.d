@@ -1,4 +1,4 @@
-module odood.lib.odoo.utils;
+module odood.lib.devtools.utils;
 
 private import std.logger;
 private import std.regex;
