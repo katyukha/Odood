@@ -21,10 +21,6 @@ class CommandServerRun: OdoodCommand {
         super("run", "Run the server.");
         this.add(new Flag(
             null, "ignore-running", "Ingore running Odoo instance. (Do not check/create pidfile)."));
-
-        version(OdoodInDocker)
-            this.add(new Flag(
-                null, "config-from-env", "Apply odoo configuration from envrionment"));
     }
 
     public override void execute(ProgramArgs args) {
@@ -40,18 +36,6 @@ class CommandServerRun: OdoodCommand {
             enforce!OdoodCLIException(
                 !project.server.isRunning,
                 "Odoo server already running!");
-        }
-
-        version(OdoodInDocker) if (args.flag("config-from-env")) {
-            import std.process: environment;
-            import std.string: chompPrefix, toLower;
-            auto config = project.getOdooConfig;
-            foreach(kv; environment.toAA.byKeyValue) {
-                string key = kv.key.toLower.chompPrefix("odood_opt_");
-                config["options"].setKey(key, kv.value);
-            }
-            // In case when we running in Docker, we can just rewrite config
-            config.save(project.odoo.configfile.toString);
         }
 
         runner.addArgs(args.argsRest);
