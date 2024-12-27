@@ -58,10 +58,12 @@ class Project {
 
     private VirtualEnv _venv;
 
-    /** Initialize with automatic config discovery
+    /** Try to load project config automaticall. Returns nullable.
       *
+      * Returns:
+      *     Nullable!Project with value set if project loaded successfully and null otherwise.
       **/
-    static auto loadProject() {
+    static Nullable!Project maybeLoadProject() {
         auto s_config_path = Path.current.searchFileUp("odood.yml");
 
         // If config is not found in current directory and above,
@@ -70,11 +72,42 @@ class Project {
             // We have to copy Path, because nullable does not work on immutable path.
             s_config_path = Path(ODOOD_SYSTEM_CONFIG_PATH.toString).nullable;
 
-        enforce!OdoodException(
-            !s_config_path.isNull,
-            "Cannot find OdooD configuration file!");
+        if (s_config_path.isNull)
+            return Nullable!Project.init;
+        return maybeLoadProject(s_config_path.get);
+    }
 
-        return loadProject(s_config_path.get);
+    /** Try to load project from path. Automatically discover odood.yml configuration
+      * file and load it.
+      *
+      * Params:
+      *     path = is path to odood config file or path to directory
+      *         that contains odood.yml config file
+      * Returns:
+      *     Nullable!Project with value set if project loaded successfully and null otherwise.
+      **/
+    static Nullable!Project maybeLoadProject(in Path path) {
+        if (path.exists && path.isFile) {
+            Node config = dyaml.Loader.fromFile(path.toString()).load();
+            return (new Project(config, path)).nullable;
+        } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
+            auto load_path = path.join("odood.yml");
+            Node config = dyaml.Loader.fromFile(load_path.toString()).load();
+            return (new Project(config, load_path)).nullable;
+        }
+        return Nullable!Project.init;
+    }
+
+    /** Initialize with automatic config discovery
+      *
+      **/
+    static auto loadProject() {
+        auto res = maybeLoadProject;
+
+        enforce!OdoodException(
+            !res.isNull,
+            "Cannot find and load OdooD configuration file!");
+        return res.get;
     }
 
     /** Load project from path. Automatically discover odood.yml configuration
@@ -85,16 +118,12 @@ class Project {
       *         that contains odood.yml config file
       **/
     static auto loadProject(in Path path) {
-        if (path.exists && path.isFile) {
-            Node config = dyaml.Loader.fromFile(path.toString()).load();
-            return new Project(config, path);
-        } else if (path.exists && path.isDir && path.join("odood.yml").exists) {
-            auto load_path = path.join("odood.yml");
-            Node config = dyaml.Loader.fromFile(load_path.toString()).load();
-            return new Project(config, load_path);
-        }
-        throw new OdoodException(
-            "Cannot initialize project. Config not found");
+        auto res = maybeLoadProject(path);
+
+        enforce!OdoodException(
+            !res.isNull,
+            "Cannot find and load OdooD configuration file!");
+        return res.get;
     }
 
     unittest {
