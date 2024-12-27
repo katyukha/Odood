@@ -4,7 +4,7 @@ on:
     tags:
       - 'v*.*.*'
       - 'v*.*.*-*'
-      - 'v*.*.*+*'
+      - 'v*.*.*\+*'
 
 env:
   ODOOD_DLANG_COMPILER: ldc-1.39.0

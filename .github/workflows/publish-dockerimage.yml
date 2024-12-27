@@ -6,7 +6,7 @@ on:
     tags:
       - 'v*.*.*'
       - 'v*.*.*-*'
-      - 'v*.*.*+*'
+      - 'v*.*.*\+*'
 
 # Defines two custom environment variables for the workflow.
 # These are used for the Container registry domain,

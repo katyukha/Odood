@@ -58,7 +58,7 @@ version(OdoodInDocker) {
                         string key = kv.key.toLower.chompPrefix("odood_opt_");
                         config["options"].setKey(key, kv.value);
                         // Remove consumed param from environment
-                        environment.remove(kv.key)
+                        environment.remove(kv.key);
                     }
                     // In case when we running in Docker, we can just rewrite config
                     config.save(project.get.odoo.configfile.toString);
