@@ -14,6 +14,8 @@ private import theprocess: Process;
 
 // TODO: Think about using https://code.dlang.org/packages/urld
 // TODO: Add parsing of branch name from url
+// TODO: Cleanup, split Odood and CRND logic away from this file,
+//       thus making it more universal
 /// Regex for parsing git URL
 private auto immutable RE_GIT_URL = ctRegex!(
     `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\.]+)(:(?P<password>[\w\-\.]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);

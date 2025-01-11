@@ -8,6 +8,7 @@
   that is used as *entrypoint* for docker container and that is responsible for applying
   configuration from environment variables to Odoo configuration file before
   any further action.
+- Added new command `odood odoo recompute` that allows to recompute computed fields for specified model in specified database.
 
 
 ---
