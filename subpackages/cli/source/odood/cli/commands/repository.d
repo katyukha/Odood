@@ -8,7 +8,7 @@ private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.odoo.utils: fixVersionConflict, updateManifestSerie;
+private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie;
 
 
 class CommandRepositoryAdd: OdoodCommand {
@@ -67,6 +67,7 @@ class CommandRepositoryAdd: OdoodCommand {
 }
 
 
+// TODO: Move to devtools section
 class CommandRepositoryFixVersionConflict: OdoodCommand {
     this() {
         super(
@@ -88,6 +89,7 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
 }
 
 
+// TODO: Move to devtools section
 class CommandRepositoryFixSerie: OdoodCommand {
     this() {
         super(

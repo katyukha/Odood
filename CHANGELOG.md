@@ -1,5 +1,18 @@
 # Changelog
 
+## Release 0.2.1 (2025-01-23)
+
+### Changed
+
+- Added new command `entrypoint` that is available only in version for docker images,
+  that is used as *entrypoint* for docker container and that is responsible for applying
+  configuration from environment variables to Odoo configuration file before
+  any further action.
+- Added new command `odood odoo recompute` that allows to recompute computed fields for specified model in specified database.
+
+
+---
+
 ## Release 0.2.0 (2024-12-12)
 
 ### Added

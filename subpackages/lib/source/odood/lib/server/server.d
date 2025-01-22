@@ -97,7 +97,7 @@ struct OdooServer {
                     .withArgs("show", "--property=MainPID", "--value", "odoo")
                     .execute
                     .ensureOk(true)
-                    .output.to!pid_t;
+                    .output.strip.to!pid_t;
         }
     }
 

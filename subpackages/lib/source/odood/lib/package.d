@@ -1,6 +1,8 @@
 module odood.lib;
 
-public immutable string _version = "0.2.0";
+private import std.string: strip;
+
+public immutable string _version = import("ODOOD_VERSION").strip;
 
 public import odood.lib.project;
 

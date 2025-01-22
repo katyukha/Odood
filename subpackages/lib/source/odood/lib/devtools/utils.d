@@ -1,4 +1,4 @@
-module odood.lib.odoo.utils;
+module odood.lib.devtools.utils;
 
 private import std.logger;
 private import std.regex;
@@ -11,7 +11,7 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils.addons.addon_version: OdooAddonVersion;
+private import odood.utils.odoo.std_version: OdooStdVersion;
 
 
 private auto immutable RE_VERSION_CONFLICT = ctRegex!(
@@ -29,9 +29,9 @@ private auto immutable RE_MANIFEST_SERIE_VERSION = ctRegex!(
 string fixVersionConflictImpl(in string manifest_content, in OdooSerie serie) {
     // function that is responsible for replace
     string fn_replace(Captures!(string) captures) {
-        const OdooAddonVersion head_version = OdooAddonVersion(captures["headversion"])
+        const OdooStdVersion head_version = OdooStdVersion(captures["headversion"])
             .ensureIsStandard.withSerie(serie);
-        const OdooAddonVersion change_version = OdooAddonVersion(captures["changeversion"])
+        const OdooStdVersion change_version = OdooStdVersion(captures["changeversion"])
             .ensureIsStandard.withSerie(serie);
 
         auto new_ver = change_version > head_version ? change_version : head_version;
@@ -85,7 +85,7 @@ void fixVersionConflict(in Path manifest_path, in OdooSerie serie) {
 /// Update Odoo serie in manifest to specified.
 string updateManifestSerieImpl(in string manifest_content, in OdooSerie serie) {
     return manifest_content.replaceAll!((Captures!(string) captures) {
-        const OdooAddonVersion new_version  = OdooAddonVersion(captures["addonversion"])
+        const OdooStdVersion new_version  = OdooStdVersion(captures["addonversion"])
             .ensureIsStandard.withSerie(serie);
 
         // TODO: find better way. Check if head and change versions are valid

@@ -7,7 +7,7 @@ private import std.string : isNumeric;
 private import std.array: split;
 
 
-private enum VersionPart {
+enum VersionPart {
     MAJOR,
     MINOR,
     PATCH,
@@ -22,16 +22,16 @@ private enum VersionPart {
     private uint _patch=0;
     private string _prerelease;
     private string _build;
-    private bool _isValid;
+    private bool _isValid=false;
 
-    this(in uint major, in uint minor=0, in uint patch=0) nothrow {
+    this(in uint major, in uint minor=0, in uint patch=0) nothrow pure {
         _major = major;
         _minor = minor;
         _patch = patch;
         _isValid = true;
     }
 
-    this(in string v) {
+    this(in string v) pure {
         try {
             parseVersionString(v);
             _isValid = true;
@@ -42,7 +42,7 @@ private enum VersionPart {
         }
     }
 
-    private void parseVersionString(in string v) {
+    private void parseVersionString(in string v) pure {
         // TODO: Add validation
         // TODO: Add support of 'v' prefix
         if (v.length == 0) return;
@@ -140,16 +140,16 @@ private enum VersionPart {
         }
     }
 
-    nothrow uint major() const { return _major; }
-    nothrow uint minor() const { return _minor; }
-    nothrow uint patch() const { return _patch; }
-    nothrow string prerelease() const { return _prerelease; }
-    nothrow string build() const { return _build; }
+    nothrow uint major() const pure { return _major; }
+    nothrow uint minor() const pure { return _minor; }
+    nothrow uint patch() const pure { return _patch; }
+    nothrow string prerelease() const pure { return _prerelease; }
+    nothrow string build() const pure { return _build; }
 
-    nothrow bool isValid() const { return _isValid; }
-    nothrow bool isStable() const { return _prerelease.empty; }
+    nothrow bool isValid() const pure { return _isValid; }
+    nothrow bool isStable() const pure { return _prerelease.empty; }
 
-    nothrow string toString() const {
+    nothrow string toString() const pure {
         string result = _major.to!string ~ "." ~ _minor.to!string ~ "." ~
             _patch.to!string;
         if (_prerelease.length > 0)
@@ -253,7 +253,7 @@ private enum VersionPart {
         Version("2.3.4-s").isValid.should == true;
     }
 
-    int opCmp(in Version other) const {
+    int opCmp(in Version other) const pure {
         // TODO: make it nothrow
         if (this.major != other.major)
             return this.major < other.major ? -1 : 1;
@@ -303,7 +303,7 @@ private enum VersionPart {
     }
 
     /// ditto
-    int opCmp(in string other) const {
+    int opCmp(in string other) const pure {
         return this.opCmp(Version(other));
     }
 
@@ -339,7 +339,7 @@ private enum VersionPart {
         assert(Version("1.0.0-rc.2+build.5") != "1.0.0-rc.1+build.5");
     }
 
-    bool opEquals(in Version other) const nothrow {
+    bool opEquals(in Version other) const nothrow pure {
         return this.major == other.major &&
             this.minor == other.minor &&
             this.patch == other.patch &&
@@ -348,7 +348,7 @@ private enum VersionPart {
     }
 
     /// ditto
-    bool opEquals(in string other) const {
+    bool opEquals(in string other) const pure {
         return this.opEquals(Version(other));
     }
 
@@ -368,5 +368,61 @@ private enum VersionPart {
         assert(Version("1.2") == "1.2");
         assert(Version("1.0.3") == "1.0.3");
         // TODO: more tests needed
+    }
+
+    /// Return new version with increased major part
+    auto incMajor() const pure {
+        return Version(major +1 , 0, 0);
+    }
+
+    /// Test increase of major version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incMajor.should == Version("2.0.0");
+    }
+
+    /// Return new version with increased minor part
+    auto incMinor() const pure {
+        return Version(major, minor + 1, 0);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incMinor.should == Version("1.3.0");
+    }
+
+    /// Return new version with increased patch part
+    auto incPatch() const pure {
+        return Version(major, minor, patch + 1);
+    }
+
+    /// Test increase of minor version
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").incPatch.should == Version("1.2.4");
+    }
+
+    /// Determine if version differs on major, minor or patch level
+    VersionPart differAt(in Version other) const pure
+    in (this != other && this.isValid && other.isValid) {
+        if (this.major != other.major) return VersionPart.MAJOR;
+        if (this.minor != other.minor) return VersionPart.MINOR;
+        if (this.patch != other.patch) return VersionPart.PATCH;
+        if (this.prerelease != other.prerelease) return VersionPart.PRERELEASE;
+        if (this.build != other.build) return VersionPart.BUILD;
+        assert(0, "differAt cannot compare equal versions.");
+    }
+
+    /// Test differAt
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").differAt(Version(2,3,4)).should == VersionPart.MAJOR;
+        Version("1.2.3").differAt(Version(2,2,3)).should == VersionPart.MAJOR;
+
+        Version("1.2.3").differAt(Version(1,3,4)).should == VersionPart.MINOR;
+        Version("1.2.3").differAt(Version(1,3,3)).should == VersionPart.MINOR;
+
+        Version("1.2.3").differAt(Version(1,2,4)).should == VersionPart.PATCH;
     }
 }

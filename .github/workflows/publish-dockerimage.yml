@@ -6,6 +6,7 @@ on:
     tags:
       - 'v*.*.*'
       - 'v*.*.*-*'
+      - 'v*.*.*\+*'
 
 # Defines two custom environment variables for the workflow.
 # These are used for the Container registry domain,
@@ -96,6 +97,9 @@ jobs:
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/odoo/${{ matrix.odoo_version }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Prepare debian dependencies dependencies
         id: prepare_deb_deps

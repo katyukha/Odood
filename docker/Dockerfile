@@ -33,7 +33,7 @@ COPY ./bin/odood /usr/bin/odood
 
 RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr
 
-#WORKDIR /opt/odoo
+WORKDIR /opt/odoo
 
 EXPOSE 8069
 EXPOSE 8071
@@ -41,4 +41,5 @@ EXPOSE 8072
 
 VOLUME ["/opt/odoo/data", "/opt/odoo/backups"]
 
-CMD ["/usr/bin/odood", "server", "run", "--config-from-env"]
+ENTRYPOINT ["/usr/bin/odood", "entrypoint", "--config-from-env", "--"]
+CMD []

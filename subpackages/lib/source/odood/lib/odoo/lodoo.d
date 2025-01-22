@@ -18,6 +18,7 @@ private import odood.exception: OdoodException;
 
 // TODO: Do we need all this for Odoo 17+? It seems that it has built-in commands
 //       for database management
+//       Thus, may be it have sense to use Odoo standard commands when possible.
 
 /** Wrapper struct around [LOdoo](https://pypi.org/project/lodoo/)
   * python CLI util
@@ -93,6 +94,8 @@ const struct LOdoo {
         auto databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
+            // TODO: Refactor to use this.runner instead of runE.
+            //       Mark runE deprecated
             string[] args = ["db-create"];
 
             if (demo)
@@ -275,5 +278,14 @@ const struct LOdoo {
                 "Python script %s for database %s completed in %s:\nOutput: %s".format(
                     script_path, dbname, sw.peek, result.output));
             return result;
+        }
+
+        auto recomputeField(in string dbname, in string model, in string[] fields) const {
+            import std.algorithm.iteration;
+            return this.runner
+                .addArgs("odoo-recompute", dbname, model)
+                .addArgs(fields.map!(f => ["-f", f]).fold!((a, b) => a ~ b).array)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 }

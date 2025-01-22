@@ -2,6 +2,7 @@ module odood.cli.app;
 
 private import std.logger;
 private import std.format: format;
+private import std.array: empty;
 
 private import commandr: Program, ProgramArgs, Option, Flag, parse;
 private import colored;
@@ -30,6 +31,50 @@ private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
 private import odood.cli.commands.precommit: CommandPreCommit;
 
+version(OdoodInDocker) {
+    private import odood.lib.project: Project;
+    private import std.file: thisExePath;
+    private import theprocess: Process;
+
+    class CommandDockerEntrypoint: OdoodCommand {
+        this() {
+            super("entrypoint", "Entrypoint for docker container.");
+
+            this.add(new Flag(
+                null, "config-from-env", "Apply odoo configuration from envrionment"));
+        }
+
+        public override void execute(ProgramArgs args) {
+
+            if (args.flag("config-from-env")) {
+                auto project = Project.maybeLoadProject;
+                if (project.isNull) {
+                    warningf("Cannot load Odood project config. Cannot configure Odoo from env. Skipping...");
+                } else {
+                    import std.process: environment;
+                    import std.string: chompPrefix, toLower;
+                    auto config = project.get.getOdooConfig;
+                    foreach(kv; environment.toAA.byKeyValue) {
+                        string key = kv.key.toLower.chompPrefix("odood_opt_");
+                        config["options"].setKey(key, kv.value);
+                        // Remove consumed param from environment
+                        environment.remove(kv.key);
+                    }
+                    // In case when we running in Docker, we can just rewrite config
+                    config.save(project.get.odoo.configfile.toString);
+                }
+            }
+
+            if (args.argsRest.empty)
+                return Process(thisExePath).withArgs("server", "run").execv;
+            else if (args.argsRest[0] == "odood")
+                return Process(thisExePath).withArgs(args.argsRest[1 .. $]).execv;
+            else
+                // TODO: May be log what is running?
+                return Process(args.argsRest[0]).withArgs(args.argsRest[1 .. $]).execv;
+        }
+    }
+}
 
 /** Class that represents main OdoodProgram
   **/
@@ -75,6 +120,14 @@ class App: OdoodProgram {
         this.add(new CommandAddonsList("lsa"));
         this.add(new CommandAddonsUpdateList("ual"));
 
+        version(OdoodInDocker) {
+            // If this is build for docker, then add docker-specific commands here
+            this.topicGroup("Docker specific");
+            // At this point we have only entrypoint command,
+            // That is used to automatically update Odoo config from environment variables.
+            this.add(new CommandDockerEntrypoint());
+        }
+
         // Options
         this.add(new Flag(
             "v", "verbose", "Enable verbose output").repeating());
@@ -82,6 +135,13 @@ class App: OdoodProgram {
             "q", "quiet", "Hide unnecessary output").repeating());
         this.add(new Flag(
             "d", "debug", "Show additional debug information."));
+
+        version(OdoodInDocker)
+            /* Optionally, try to apply Odood configuration from environment variables.
+             * This is useful, when running inside docker container.
+             */
+            this.add(new Flag(
+                null, "config-from-env", "Apply odoo configuration from envrionment"));
     }
 
     /** Setup logging for provided verbosity

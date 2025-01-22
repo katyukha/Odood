@@ -3,12 +3,16 @@ module odood.utils.addons.addon;
 private import std.typecons: Nullable, nullable, tuple;
 private import std.algorithm.searching: startsWith;
 private import std.algorithm.comparison: cmp;
+private import std.algorithm.sorting: sort;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.file: SpanMode;
+private import std.regex: matchFirst;
+private import std.range: empty;
 
 private import thepath: Path;
 
+private import odood.utils.addons.addon_changelog;
 private import odood.utils.addons.addon_manifest;
 
 
@@ -50,12 +54,77 @@ final class OdooAddon {
         return cmp(_name, other._name);
     }
 
-    ///
+    /// Check if addons are equal
     pure nothrow bool opEquals(in OdooAddon other) const {
         return opCmp(other) == 0;
     }
+
+    /// Read changelog entries for addon
+    auto readChangelogEntries() const {
+        OdooAddonChangelogEntrie[] result;
+
+        auto changelog_path = _path.join("changelog");
+        if (!changelog_path.exists) {
+            return result;
+        }
+        foreach (p; changelog_path.walkBreadth) {
+            auto m = matchFirst(
+                p.baseName, `^changelog.(\d+\.\d+\.\d+).md$`);
+            if (!m.empty)
+                result ~= OdooAddonChangelogEntrie(m[1], p.readFileText);
+        }
+        result.sort!("a > b");  // Sort results
+        return result;
+    }
+
+    Nullable!string readChangelog() {
+        auto changelog_entries = readChangelogEntries;
+        if (changelog_entries.empty) {
+            return Nullable!(string).init;
+        }
+
+        string result = "# Changelog\n\n";
+        // Note, assume changelog entries already sorted here.
+        foreach(entrie; changelog_entries) {
+            result ~= "## Version " ~ entrie.ver.toString ~ "\n\n";
+            result ~= entrie.data ~ "\n\n";
+        }
+        return result.nullable;
+    }
 }
 
+unittest {
+    import odood.utils.versioned: Version;
+    import odood.utils.odoo.std_version: OdooStdVersion;
+
+    import unit_threaded.assertions;
+
+    auto test_addon_path = Path("test-data", "test_addon");
+    auto test_addon = new OdooAddon(test_addon_path);
+    test_addon.manifest.module_version.should == OdooStdVersion("18.0.1.2.0");
+    test_addon.manifest.name.should == "Test addon";
+    test_addon.manifest.dependencies.should == ["base", "web"];
+
+    auto changelog_entries = test_addon.readChangelogEntries;
+    changelog_entries.length.should == 3;
+    changelog_entries[0].ver.should == Version("1.2.0");
+    changelog_entries[0].data.should == "Some version description for version 1.2.0";
+    changelog_entries[1].ver.should == Version("1.1.0");
+    changelog_entries[1].data.should == "Version 1.1.0";
+    changelog_entries[2].ver.should == Version("1.0.0");
+    changelog_entries[2].data.should == "Initial release";
+
+    test_addon.readChangelog.get.should == (
+        "# Changelog\n\n" ~
+        "## Version 1.2.0\n\n" ~
+        "Some version description for version 1.2.0\n\n" ~
+        "## Version 1.1.0\n\n" ~
+        "Version 1.1.0\n\n" ~
+        "## Version 1.0.0\n\n" ~
+        "Initial release\n\n"
+    );
+
+}
 
 /// Check if provided path is odoo module
 bool isOdooAddon(in Path path) {
@@ -75,6 +144,14 @@ bool isOdooAddon(in Path path) {
     return false;
 }
 
+///
+unittest {
+    import unit_threaded.assertions;
+
+    auto test_addon_path = Path("test-data", "test_addon");
+    test_addon_path.isOdooAddon.shouldBeTrue();
+}
+
 
 /** Find path to odoo addon manifest.
   * If no manifest found, then result will be null.
@@ -85,6 +162,17 @@ Nullable!Path getAddonManifestPath(in Path path) {
     if (path.join("__openerp__.py").exists)
         return path.join("__openerp__.py").nullable;
     return Nullable!Path.init;
+}
+
+
+///
+unittest {
+    import unit_threaded.assertions;
+
+    auto test_addon_path = Path("test-data", "test_addon");
+    test_addon_path.getAddonManifestPath.get.should == test_addon_path.join("__manifest__.py");
+
+    Path("test-data").getAddonManifestPath.isNull.shouldBeTrue;
 }
 
 
