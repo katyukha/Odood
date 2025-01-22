@@ -1,0 +1,10 @@
+[book]
+authors = ["Dmytro Katyukha"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Odood - master Odoo magic with ease."
+
+[output.html]
+git-repository-url = "https://github.com/katyukha/Odood"
+git-repository-icon = "fa-github"
