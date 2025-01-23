@@ -11,6 +11,9 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04, ubuntu-24.04]
         dc: [dmd-2.109.1, ldc-1.39.0, ldc-1.40.0]
+        include:
+          - os: macOS-latest
+            dc: ldc-1.40.0
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -25,6 +28,7 @@ jobs:
         uses: lyricwulf/abc@v1
         with:
           linux: libzip-dev libpq-dev python3-dev
+          macos: libzip libpq python3
 
       - name: Run tests
         run: dub test -b unittest-cov
