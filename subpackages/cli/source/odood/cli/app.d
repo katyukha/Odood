@@ -66,6 +66,7 @@ version(OdoodInDocker) {
             }
 
             if (args.argsRest.empty)
+                // TODO: May be better would be to call some func or method, instead of running self executable again?
                 return Process(thisExePath).withArgs("server", "run").execv;
             else if (args.argsRest[0] == "odood")
                 return Process(thisExePath).withArgs(args.argsRest[1 .. $]).execv;
