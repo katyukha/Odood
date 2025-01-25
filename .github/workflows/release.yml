@@ -64,7 +64,7 @@ jobs:
           mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_amd64.deb
 
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-amd64
           path: |

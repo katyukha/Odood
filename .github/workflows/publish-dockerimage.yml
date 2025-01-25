@@ -40,7 +40,7 @@ jobs:
           dub build -b release --d-version OdoodInDocker
           
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-amd64
           path: |

@@ -33,7 +33,7 @@ jobs:
           dub build -b unittest-cov
 
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-ubuntu-20.04
           path: |
