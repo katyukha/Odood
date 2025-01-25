@@ -83,7 +83,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: 'Download artifacts for amd64'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: odood-amd64
           path: build-amd64
