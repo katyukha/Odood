@@ -14,18 +14,18 @@ private import odood.tipy.python;
 private bindbc.loader.SharedLib pylib;
 
 
-private static immutable enum supported_lib_names = mixin(bindbc.loader.makeLibPaths([
-    "libpython3.13.so",
-    "libpython3.12.so",
-    "libpython3.11.so",
-    "libpython3.10.so",
-    "libpython3.9.so",
-    "libpython3.8.so",
-    "libpython3.7.so",
-    "libpython3.6.so",
-    "libpython3.5.so",
-    "libpython3.4.so",
-    "libpython3.3.so",
+private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths([
+    "python3.13",
+    "python3.12",
+    "python3.11",
+    "python3.10",
+    "python3.9",
+    "python3.8",
+    "python3.7",
+    "python3.6",
+    "python3.5",
+    "python3.4",
+    "python3.3",
 ]));
 
 
