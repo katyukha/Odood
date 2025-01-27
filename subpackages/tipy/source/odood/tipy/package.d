@@ -7,12 +7,14 @@ private import std.range: ElementType, iota;
 
 
 private static import bindbc.loader;
-private bindbc.loader.SharedLib pylib;
-
 private import odood.tipy.python;
 
 
-private static immutable enum supported_lib_names = [
+// Loaded library
+private bindbc.loader.SharedLib pylib;
+
+
+private static immutable enum supported_lib_names = mixin(bindbc.loader.makeLibPaths([
     "libpython3.13.so",
     "libpython3.12.so",
     "libpython3.11.so",
@@ -24,7 +26,7 @@ private static immutable enum supported_lib_names = [
     "libpython3.5.so",
     "libpython3.4.so",
     "libpython3.3.so",
-];
+]));
 
 
 // Load python library

@@ -143,10 +143,18 @@ private shared bool _py_initialized = false;
 // Initialize python interpreter (import ast.literal_eval)
 shared static this() {
     // TODO: think about lazy initialization of python
-    enforce!OdoodException(
-        loadPyLib,
-        "Cannot load python as library!",
-    );
+    import bindbc.loader;
+    import std.algorithm: map;
+    import std.string: fromStringz, join;
+
+    auto err_count_start = bindbc.loader.errorCount;
+    bool load_status = loadPyLib;
+    if (!load_status) {
+        auto errors = bindbc.loader.errors[err_count_start .. bindbc.loader.errorCount]
+            .map!((e) => "%s: %s".format(e.error.fromStringz.idup, e.message.fromStringz.idup))
+            .join(",\n");
+        throw new OdoodException("Cannot load python as library! Errors: %s".format(errors));
+    }
 
     Py_Initialize();
     if (!PyEval_ThreadsInitialized())
