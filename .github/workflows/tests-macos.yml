@@ -1,0 +1,80 @@
+name: Tests (MacOS)
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  tests-simple:
+    name: Tests
+    strategy:
+      matrix:
+        dc: [ldc-1.40.0, ldc-latest]
+        os: [macOS-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: Install system dependencies
+        run: |
+          # TODO: Replace with libpq dependency?
+          brew install postgresql@14
+          brew install libzip
+          brew install python@3.11
+
+      - name: Create symlink for libpq and python in current dir, to avoid linking issues
+        run: |
+          # We use here this dark magic, because there is no other simple way to link
+          # Odood to python, except a much darker magic of listing all possible paths in executable.
+          ln -s /opt/homebrew/lib/postgresql@14/libpq.dylib ./
+          ln -s /opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/libpython3.11.dylib ./
+
+      - name: Run simple tests tests
+        run: dub test -b unittest-cov
+
+      - name: Install virtualenv
+        run: brew install virtualenv
+
+      - name: Start postgresql server
+        run: |
+          brew services start postgresql
+          echo 'Check PostgreSQL service is running'
+          i=10
+          while [ $i -gt 0 ]; do
+              echo 'Check PostgreSQL service status'
+              pg_isready && break
+              ((i--))
+              if [ $i == 0 ]; then
+                  echo 'PostgreSQL service not ready, all attempts exhausted'
+                  exit 1
+              fi
+              echo 'PostgreSQL service not ready, wait 5 more sec, attempts left: $i'
+              sleep 5
+          done
+
+      # Homebrew creates an account with the same name as the installing user, but no password
+      - name: Create postgresql user
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+        run: |
+          psql postgres -c "CREATE USER odoo WITH SUPERUSER PASSWORD 'odoo';"
+
+
+      - name: Run Odood integration tests
+        run: |
+          dub test -b unittest-cov -c unittest-integration-ut
+
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: unittests
+          name: odood-unittests
+
