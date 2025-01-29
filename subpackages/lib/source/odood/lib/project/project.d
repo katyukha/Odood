@@ -550,11 +550,7 @@ class Project {
     /** Check if database contains demo data.
       **/
     deprecated const(bool) hasDatabaseDemoData(in string dbname) const {
-        // TODO: could be removed after starting use of Peque instead of dpq
-        auto db = dbSQL(dbname);
-        scope(exit) db.close;
-
-        return db.hasDemoData();
+        return dbSQL(dbname).hasDemoData();
     }
 }
 

@@ -171,11 +171,11 @@ const struct LOdoo {
                 case BackupFormat.zip:
                     runE("db-backup", dbname, backup_path.toString,
                          "--format", "zip");
-                    return backup_path;
+                    return Path(backup_path.toString);
                 case BackupFormat.sql:
                     runE("db-backup", dbname, backup_path.toString,
                          "--format", "sql");
-                    return backup_path;
+                    return Path(backup_path.toString);
             }
         }
 
@@ -268,6 +268,7 @@ const struct LOdoo {
                 "Running python script %s for databse %s ...",
                 script_path, dbname);
             auto sw = StopWatch(AutoStart.yes);
+            // TODO: may be find some way to display script output when script is still running
             auto result = run("run-py-script", dbname, script_path.toString);
             sw.stop();
             enforce!OdoodException(

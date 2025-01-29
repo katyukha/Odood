@@ -294,10 +294,7 @@ struct AddonManager {
       *     addon = name of addon to check if it is installed
       **/
     bool isInstalled(in string database, in string addon) {
-        auto db = _project.dbSQL(database);
-        scope(exit) db.close();
-
-        return db.isAddonInstalled(addon);
+        return _project.dbSQL(database).isAddonInstalled(addon);
     }
 
     /// ditto

@@ -23,16 +23,8 @@ struct OdooAddonChangelogEntrie {
     /// Data of changelog entrie
     auto data() const => _data;
 
-    int opCmp(ref const OdooAddonChangelogEntrie other) {
-        return this._ver.opCmp(other._ver);
-    }
-
     int opCmp(in OdooAddonChangelogEntrie other) {
         return this._ver.opCmp(other._ver);
-    }
-
-    int opEquals(ref const OdooAddonChangelogEntrie other) {
-        return this._ver.opEquals(other._ver);
     }
 
     int opEquals(in OdooAddonChangelogEntrie other) {

@@ -303,14 +303,13 @@ struct OdooDatabaseManager {
       **/
     void _createEmptyDB(in string name) const {
         import std.uni;
-        import dpq.exception;
+        import peque.exception;
         import odood.lib.odoo.config: getConfVal;
         auto odoo_conf = _project.getOdooConfig();
         auto db_template = odoo_conf.getConfVal("db_template", "template0");
         auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
 
         auto pg_db = this.get("postgres").connection;
-        scope(exit) pg_db.close();
         pg_db.exec(
             "CREATE DATABASE \"%s\" ENCODING 'unicode' %s TEMPLATE %s".format(
                 name, collate, db_template));
@@ -319,9 +318,8 @@ struct OdooDatabaseManager {
         if (odoo_conf.getConfVal("unaccent").toLower == "true") {
             try {
                 auto db = this.get(name);
-                scope(exit) db.close();
                 db.runSQLQuery("CREATE EXTENSION IF NOT EXISTS unaccent");
-            } catch (DPQException e) {
+            } catch (PequeException e) {
                 // Do nothing
             }
         }

@@ -280,11 +280,8 @@ class CommandDatabaseRestore: OdoodCommand {
         );
 
         // Optionally stun database
-        if (args.flag("stun")) {
-            auto db = project.dbSQL(args.arg("name"));
-            scope(exit) db.close;
-            db.stunDb();
-        }
+        if (args.flag("stun"))
+            project.dbSQL(args.arg("name")).stunDb;
 
         if (start_server)
             project.server.start;
@@ -302,10 +299,7 @@ class CommandDatabaseStun: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        auto db = project.dbSQL(args.arg("name"));
-        scope(exit) db.close;
-
-        db.stunDb();
+        project.dbSQL(args.arg("name")).stunDb;
     }
 }
 
@@ -338,9 +332,7 @@ class CommandDatabaseListInstalledAddons: OdoodCommand {
         string[] addon_names;
         foreach(dbname; dbnames) {
             auto db = project.dbSQL(dbname);
-            scope(exit) db.close;
-
-            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].as!(string[]).get;
+            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
             addon_names ~= res;
         }
         string result = addon_names.sort.uniq.join("\n") ~ "\n";
