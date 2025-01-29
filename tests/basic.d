@@ -28,6 +28,7 @@ void createDbUser(in string user, in string password) {
         "port": environment.get("POSTGRES_PORT", "5432"),
         "user": environment.get("POSTGRES_USER", "odoo"),
         "password": environment.get("POSTGRES_PASSWORD", "odoo"),
+        "dbname": "postgres",
     ];
     infof("Connecting to postgres via: %s", connection_params);
     auto connection = Connection(connection_params);
@@ -196,10 +197,10 @@ void testRunningScripts(in Project project) {
     with (project.databases.get(dbname)) {
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 1"
-        ).get(0, 0).get!string.shouldEqual("Test SQL 72");
+        )[0][0].get!string.shouldEqual("Test SQL 72");
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 2"
-        ).get(0, 0).get!string.shouldEqual("Test SQL 75");
+        )[0][0].get!string.shouldEqual("Test SQL 75");
     }
 
     // Run Python Script
@@ -210,10 +211,10 @@ void testRunningScripts(in Project project) {
     with (project.databases.get(dbname)) {
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 1"
-        ).get(0, 0).get!string.shouldEqual("Test PY 41");
+        )[0][0].get!string.shouldEqual("Test PY 41");
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 2"
-        ).get(0, 0).get!string.shouldEqual("Test PY 42");
+        )[0][0].get!string.shouldEqual("Test PY 42");
     }
 
     infof("Testing running scripts for %s. Complete: Ok.", project);
