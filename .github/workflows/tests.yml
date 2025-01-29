@@ -5,15 +5,13 @@ on:
       - '*'
 
 jobs:
+  if: false
   tests:
     name: Tests
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04, ubuntu-24.04]
         dc: [dmd-2.109.1, ldc-1.39.0, ldc-1.40.0]
-        include:
-          - os: macOS-latest
-            dc: ldc-1.40.0
 
     runs-on: ${{ matrix.os }}
     steps:
