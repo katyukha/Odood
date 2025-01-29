@@ -17,24 +17,24 @@ import odood.lib.odoo.config: OdooConfigBuilder;
 
 import odood.cli.utils: printLogRecord;
 
+import peque;
+
 
 /// Create new database user in postgres db
 void createDbUser(in string user, in string password) {
-    import dpq.connection: Connection;
 
-    auto connection_str = "host=%s port=%s dbname=postgres user=%s password=%s".format(
-        environment.get("POSTGRES_HOST", "localhost"),
-        environment.get("POSTGRES_PORT", "5432"),
-        environment.get("POSTGRES_USER", "odoo"),
-        environment.get("POSTGRES_PASSWORD", "odoo"));
-
-    infof("Connecting to postgres via: %s", connection_str);
-    auto connection = Connection(connection_str);
-    scope(exit) connection.close();
+    string[string] connection_params = [
+        "host": environment.get("POSTGRES_HOST", "localhost"),
+        "port": environment.get("POSTGRES_PORT", "5432"),
+        "user": environment.get("POSTGRES_USER", "odoo"),
+        "password": environment.get("POSTGRES_PASSWORD", "odoo"),
+    ];
+    infof("Connecting to postgres via: %s", connection_params);
+    auto connection = Connection(connection_params);
 
     auto res_user_exists = connection.exec(
         "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='%s')".format(user));
-    if (res_user_exists[0][0].as!string != "t") {
+    if (res_user_exists[0][0].get!string != "t") {
         infof("Creating db user '%s' with password '%s' for tests", user, password);
         connection.exec(
             "CREATE USER \"%s\" WITH CREATEDB PASSWORD '%s';".format(
@@ -196,10 +196,10 @@ void testRunningScripts(in Project project) {
     with (project.databases.get(dbname)) {
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 1"
-        ).get(0, 0).as!string.get.shouldEqual("Test SQL 72");
+        ).get(0, 0).get!string.shouldEqual("Test SQL 72");
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 2"
-        ).get(0, 0).as!string.get.shouldEqual("Test SQL 75");
+        ).get(0, 0).get!string.shouldEqual("Test SQL 75");
     }
 
     // Run Python Script
@@ -210,10 +210,10 @@ void testRunningScripts(in Project project) {
     with (project.databases.get(dbname)) {
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 1"
-        ).get(0, 0).as!string.get.shouldEqual("Test PY 41");
+        ).get(0, 0).get!string.shouldEqual("Test PY 41");
         runSQLQuery(
             "SELECT name FROM res_partner WHERE id = 2"
-        ).get(0, 0).as!string.get.shouldEqual("Test PY 42");
+        ).get(0, 0).get!string.shouldEqual("Test PY 42");
     }
 
     infof("Testing running scripts for %s. Complete: Ok.", project);
