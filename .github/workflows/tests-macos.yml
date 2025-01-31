@@ -27,6 +27,7 @@ jobs:
           brew install postgresql@14
           brew install libzip
           brew install python@3.11
+          brew install pyenv
 
       - name: Create symlink for libpq and python in current dir, to avoid linking issues
         run: |
@@ -37,9 +38,6 @@ jobs:
 
       - name: Run simple tests tests
         run: dub test -b unittest-cov
-
-      - name: Install virtualenv
-        run: brew install virtualenv
 
       - name: Start postgresql server
         run: |
