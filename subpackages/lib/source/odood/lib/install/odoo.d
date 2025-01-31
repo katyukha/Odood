@@ -146,14 +146,24 @@ void installOdoo(in Project project) {
             "xlwt",
         );
     } else {
-        // Patch requirements txt to avoid using gevent 21.8.0 that requires build.
-        // See https://github.com/odoo/odoo/issues/187021
-        info("Patching Odoo requirements.txt to avoid usage of gevent 21.8.0...");
-        auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
-            .replaceAll(
-                regex(r"gevent==21\.8\.0", "g"),
-                "gevent==21.12.0");
-        project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        /* Patch requirements txt to avoid using gevent 21.8.0 that requires build.
+         * See https://github.com/odoo/odoo/issues/187021
+         *
+         * We switch to gevent 24.11.1, that is up to date, and that completely dropped
+         * support for python2, thus, much easier to compile. Also, this new version,
+         * seems to have precompiled builds for all modern systems
+         */
+        if (project.venv.py_version >= Version(3, 9, 0) && project.odoo.serie < 19) {
+            info("Patching Odoo requirements.txt to avoid usage of old gevent...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"gevent==\d+\.\d+\.\d+", "g"),
+                    "gevent~=24.11")
+                .replaceAll(
+                    regex(r"greenlet==\d+\.\d+\.\d+", "g"),
+                    "greenlet~=3.1");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
 
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
