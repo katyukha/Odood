@@ -12,7 +12,6 @@ private import odood.exception: OdoodException;
 private import odood.cli.core.logger: OdoodLogger;
 private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
-private import odood.cli.commands.deploy: CommandDeploy;
 private import odood.cli.commands.server:
     CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart,
     CommandServerBrowse, CommandServerLogView;
@@ -30,6 +29,9 @@ private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
 private import odood.cli.commands.precommit: CommandPreCommit;
+
+// Deploy is available only on Linux
+version(linux) private import odood.cli.commands.deploy: CommandDeploy;
 
 version(OdoodInDocker) {
     private import odood.lib.project: Project;
@@ -88,7 +90,7 @@ class App: OdoodProgram {
         this.summary("Easily manage odoo installations.");
         this.topicGroup("Main");
         this.add(new CommandInit());
-        this.add(new CommandDeploy());
+        version(linux) this.add(new CommandDeploy());
         this.add(new CommandServer());
         this.add(new CommandStatus());
         this.add(new CommandDatabase());
