@@ -289,6 +289,16 @@ const struct VirtualEnv {
             "--srcdir=%s".format(python_src_dir),
         ];
 
+        //version(OSX) if (!resolveProgram("brew").isNull) {
+            //python_configure_opts ~= [
+                //"--with-openssl=%s".format(
+                    //Process("brew").withArgs(
+                        //"--prefix", "openssl"
+                    //).execute.ensureOk(true).output
+                //)
+            //];
+        //}
+
         if (enable_sqlite)
             python_configure_opts ~= "--enable-loadable-sqlite-extensions";
 

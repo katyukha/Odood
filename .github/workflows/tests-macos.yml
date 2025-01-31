@@ -27,6 +27,7 @@ jobs:
           brew install postgresql@14
           brew install libzip
           brew install python@3.11
+          brew install openssl
 
       - name: Create symlink for libpq and python in current dir, to avoid linking issues
         run: |
