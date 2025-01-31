@@ -250,7 +250,8 @@ const struct VirtualEnv {
 
     /// ditto
     void buildPython(in Version build_version,
-                     in bool enable_sqlite=false) {
+                     in bool enable_sqlite=false,
+                     in bool enable_optimizations=false) {
 
         infof("Building python version %s...", build_version);
 
@@ -269,8 +270,10 @@ const struct VirtualEnv {
                     build_version, build_version);
         auto python_download_path = getCacheDir("python", tmp_dir).join(
             "python-%s.tgz".format(build_version));
-        auto python_build_dir = tmp_dir.join(
+        auto python_src_dir = tmp_dir.join(
             "Python-%s".format(build_version));
+        auto python_build_dir = tmp_dir.join(
+            "build");
         auto python_path = _path.join("python");
 
         // Ensure we can start building process
@@ -278,13 +281,19 @@ const struct VirtualEnv {
             !python_path.exists,
             "Python destination path (%s) already exists".format(python_path));
         enforce!OdoodException(
-            !python_build_dir.exists,
-            "Python build dir (%s) already exists.".format(python_build_dir));
+            !python_src_dir.exists,
+            "Python sources dir (%s) already exists.".format(python_src_dir));
 
-        string[] python_configure_opts = ["--prefix=%s".format(python_path)];
+        string[] python_configure_opts = [
+            "--prefix=%s".format(python_path),
+            "--srcdir=%s".format(python_src_dir),
+        ];
 
         if (enable_sqlite)
             python_configure_opts ~= "--enable-loadable-sqlite-extensions";
+
+        if (enable_optimizations)
+            python_configure_opts ~= "--enable-optimizations";
 
         if (!python_download_path.exists) {
             infof(
@@ -294,7 +303,7 @@ const struct VirtualEnv {
             download(python_download_link, python_download_path);
         }
 
-        if (!python_build_dir.exists) {
+        if (!python_src_dir.exists) {
             // Extract only if needed
             info("Unpacking python...");
             Process("tar")
@@ -304,9 +313,12 @@ const struct VirtualEnv {
                 .ensureStatus(true);
         }
 
+        // Ensure build dir exists
+        python_build_dir.mkdir(true);
+
         // Configure python build
         info("Running python's configure script...");
-        Process(python_build_dir.join("configure"))
+        Process(python_src_dir.join("configure"))
             .withArgs(python_configure_opts)
             .inWorkDir(python_build_dir)
             .execute()
@@ -416,6 +428,13 @@ const struct VirtualEnv {
                     break;
             }
         } else {
+            /* TODO: Think about using pyenv, when it is installed
+             *       Especially on MacOS
+             *
+             *       For example:
+             *       $ pyenv install 3.10.16
+             *       $ $(pyenv prefix 3.10.16)/bin/python -m venv ./venv
+             */
             buildPython(python_version);
 
             // Install virtualenv inside built python environment
