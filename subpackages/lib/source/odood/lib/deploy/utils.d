@@ -1,9 +1,9 @@
 module odood.lib.deploy.utils;
 
-private import std.logger: infof, tracef;
+private import std.logger: infof, tracef, errorf;
 private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
-private import std.conv: to, text;
+private import std.conv: to, text, ConvException;
 private import std.string: strip;
 
 private import core.sys.posix.unistd: geteuid, getegid;
@@ -38,6 +38,7 @@ bool checkSystemUserExists(in string username) {
 
 
 void createSystemUser(in Path home, in string name) {
+    infof("Creating system user for Odoo named '%s'", name);
     Process("adduser")
         .withArgs(
             "--system", "--no-create-home",
@@ -47,6 +48,7 @@ void createSystemUser(in Path home, in string name) {
             name)
         .execute()
         .ensureOk(true);
+    infof("User '%s' created successfully", name);
 }
 
 
@@ -63,7 +65,22 @@ bool postgresCheckUserExists(in string username) {
         .ensureOk(true)
         .output.strip;
 
-    return output.to!int != 0;
+    bool result = false;
+    try {
+        result = output.to!int != 0;
+    } catch (ConvException e) {
+        errorf(
+            "Cannot check if pg user '%s' already exists: cannot parse psql output.\n"~
+            "Error: %s\n" ~
+            "Psql output: %s\n" ~
+            "Expected psql output is int: 1 if user exists 0 if no user exists.",
+            username,
+            e.toString,
+            output);
+        throw e;
+    }
+
+    return result;
 }
 
 

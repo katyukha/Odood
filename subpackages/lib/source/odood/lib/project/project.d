@@ -341,8 +341,9 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
-        infof("Saving Odood config at %s", path);
+        infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
+        infof("Odood config saved at %s", path);
     }
 
     /** Save project configuration to default config file.
