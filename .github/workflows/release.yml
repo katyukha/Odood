@@ -29,10 +29,27 @@ jobs:
       - name: Set version from tag
         run: echo "${{ github.ref_name }}" > ./subpackages/lib/data/ODOOD_VERSION
 
-      - name: Build Odood
+      - name: Check RC/alpha Release
+        id: check-rc-release
+        run: |
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-([0-9a-zA-Z.+-]+)$ ]]; then
+              echo "is_rc_release=true" >> $GITHUB_OUTPUT
+          elif [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+(\+.*)?$ ]]; then
+              echo "is_rc_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Odood (Release)
+        if: steps.check-rc-release.outputs.is_rc_release == 'true'
         run: |
           dub build -b release -c bash-autocomplete
           dub build -b release
+
+      # We build pre-releases with debug info available.
+      - name: Build Odood (Pre-release)
+        if: steps.check-rc-release.outputs.is_rc_release == 'false'
+        run: |
+          dub build -b release-debug -c bash-autocomplete
+          dub build -b release-debug
 
       - name: Prepare dependencies for deb package
         id: prepare_deb_deps
