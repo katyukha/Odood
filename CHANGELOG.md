@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Replace [dpq](https://code.dlang.org/packages/dpq) with [Peque](https://code.dlang.org/packages/peque)
+
+
+---
+
 ## Release 0.2.1 (2025-01-23)
 
 ### Changed

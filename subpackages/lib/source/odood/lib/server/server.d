@@ -141,6 +141,9 @@ struct OdooServer {
             runner.setUser(_project.odoo.server_user);
 
         if (coverage.enable) {
+            enforce!OdoodException(
+                _project.venv.path.join("bin", "coverage").exists,
+                "Coverage not installed. Please, install it via 'odood venv install-py-packages coverage' to continue.");
             // Run server with coverage mode
             runner.addArgs(
                 _project.venv.path.join("bin", "coverage").toString,
