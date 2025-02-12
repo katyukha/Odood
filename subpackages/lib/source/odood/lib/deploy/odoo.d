@@ -28,7 +28,7 @@ private void deployInitScript(in Project project) {
 
     infof("Configuring init script for Odoo...");
 
-    // Configure systemd
+    // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
 i"#!/bin/bash
 ### BEGIN INIT INFO
@@ -105,11 +105,11 @@ esac
 exit 0
 ".text);
 
-    // Set access rights for systemd config
+    // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
     project.odoo.server_init_script_path.chown("root", "root");
 
-    // Enable systemd service for Odoo
+    // Enable init script for Odoo
     Process("update-rc.d")
         .withArgs("odoo", "defaults")
         .execute
@@ -193,8 +193,7 @@ Project deployOdoo(in DeployConfig config) {
     // Initialize project.
     project.initialize(
         odoo_config,
-        config.py_version,
-        config.node_version,
+        config.venv_options,
         config.install_type);
     project.save(ODOOD_SYSTEM_CONFIG_PATH);
 

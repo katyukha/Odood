@@ -18,6 +18,8 @@ private import odood.lib.project:
     Project, OdooInstallType;
 private import odood.lib.project.config: ProjectServerSupervisor;
 private import odood.lib.odoo.config: initOdooConfig;
+private import odood.lib.venv: PyInstallType, VenvOptions;
+private import odood.lib.odoo.python: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -30,11 +32,9 @@ class CommandDeploy: OdoodCommand {
         this.add(new Option("v", "odoo-version", "Version of Odoo to install")
             .required().defaultValue("17.0"));
         this.add(new Option(
-            null, "py-version", "Install specific python version.")
-                .defaultValue("auto"));
+            null, "py-version", "Install specific python version."));
         this.add(new Option(
-            null, "node-version", "Install specific node version.")
-                .defaultValue("lts"));
+            null, "node-version", "Install specific node version."));
 
         this.add(new Option(
             null, "db-host", "Database host").defaultValue("localhost"));
@@ -66,10 +66,16 @@ class CommandDeploy: OdoodCommand {
         DeployConfig config;
         config.odoo.serie = OdooSerie(args.option("odoo-version"));
 
-        if (args.option("py-version"))
-            config.py_version = args.option("py-version");
-        if (args.option("node-version"))
-            config.node_version = args.option("node-version");
+        VenvOptions venv_options = config.odoo.serie.guessVenvOptions;
+
+        if (args.option("py-version")) {
+            venv_options.py_version = args.option("py-version");
+            venv_options.install_type = PyInstallType.Build;
+        }
+        if (args.options("node-version")) {
+            venv_options.node_version = args.option("node-version");
+        }
+
 
         if (args.option("db-host"))
             config.database.host = args.option("db-host");

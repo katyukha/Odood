@@ -3,11 +3,14 @@ module odood.cli.commands.init;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.string: empty;
 
 private import thepath: Path;
 private import commandr: Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
+private import odood.lib.venv: VenvOptions, PyInstallType;
+private import odood.lib.odoo.python: guessVenvOptions, suggestPythonVersion;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
@@ -29,12 +32,13 @@ class CommandInit: OdoodCommand {
             null, "odoo-branch", "Branch in Odoo repo to install Odoo from."));
         this.add(new Option(
             null, "odoo-repo", "Install Odoo from specific repository."));
+        this.add(new Flag(
+            null, "pyenv",
+            "Use python from pyenv to initialize virtualenv for project. Install desired py version if needed"));
         this.add(new Option(
-            null, "py-version", "Install specific python version.")
-                .defaultValue("auto"));
+            null, "py-version", "Install specific python version. By default system python used"));
         this.add(new Option(
-            null, "node-version", "Install specific node version.")
-                .defaultValue("lts"));
+            null, "node-version", "Install specific node version."));
         this.add(new Option(
             null, "db-host", "Database host").defaultValue("localhost"));
         this.add(new Option(
@@ -107,10 +111,24 @@ class CommandInit: OdoodCommand {
 
         auto odoo_config = prepareOdooConfig(project, args);
 
+        VenvOptions venv_options = project.odoo.serie.guessVenvOptions;
+
+        if (args.option("py-version")) {
+            venv_options.py_version = args.option("py-version");
+            venv_options.install_type = PyInstallType.Build;
+        }
+        if (args.options("node-version")) {
+            venv_options.node_version = args.option("node-version");
+        }
+        if (args.flag("pyenv")) {
+            venv_options.install_type = PyInstallType.PyEnv;
+            if (venv_options.py_version.empty)
+                venv_options.py_version = odoo_version.suggestPythonVersion;
+        }
+
         project.initialize(
             odoo_config,
-            args.option("py-version", "auto"),
-            args.option("node-version", "lts"),
+            venv_options,
             install_type);
         project.save();
 

@@ -7,14 +7,15 @@ private import std.exception: enforce;
 private import std.conv: to;
 private import std.parallelism: totalCPUs;
 private import std.regex: ctRegex, matchFirst;
+private import std.string: strip;
 
 private static import std.process;
 
+private import theprocess;
 private import thepath: Path;
 private static import dyaml;
 
 private import odood.exception: OdoodException;
-private import theprocess;
 private import odood.utils;
 private import odood.utils.versioned: Version;
 
@@ -35,6 +36,42 @@ enum PySerie {
     py2=2,
     py3=3,
 }
+
+
+/// Python installation type
+enum PyInstallType {
+    System,
+    Build,
+    PyEnv,
+}
+
+
+/// Python installation options
+struct VenvOptions {
+    // TODO: Convert parameters to properties, to implement logic, that will
+    //       automatically change install type to build if version is set
+
+    // By default we use system python
+    PyInstallType install_type=PyInstallType.System;
+
+    // No version specified, if system python is in use
+    string py_version="";
+
+    // Default node version to install
+    string node_version="lts";
+}
+
+
+/// Return interpreter name for specified python serie
+@safe const(string) getPyInterpreterName(in PySerie py_serie) {
+    final switch(py_serie) {
+        case PySerie.py2:
+            return "python2";
+        case PySerie.py3:
+            return "python3";
+    }
+}
+
 
 /* TODO: move to utils package?
  *       Dyaml integration should be kept in lib
@@ -77,12 +114,7 @@ const struct VirtualEnv {
 
     /// Name of python interpreter
     @safe const(string) py_interpreter_name() const {
-        final switch(_py_serie) {
-            case PySerie.py2:
-                return "python2";
-            case PySerie.py3:
-                return "python3";
-        }
+        return getPyInterpreterName(_py_serie);
     }
 
     /// Python version for this venv
@@ -401,67 +433,102 @@ const struct VirtualEnv {
       *         specific python version to build.
       *     node_version = NodeJS version to install.
       **/
-    void initializeVirtualEnv(
-            in string python_version,
-            in string node_version) {
+    void initializeVirtualEnv(in VenvOptions opts) {
         info("Installing virtualenv...");
 
-        if (python_version == "system") {
-            final switch(_py_serie) {
-                case PySerie.py2:
-                    Process("python3")
-                        .withArgs([
-                            "-m", "virtualenv",
-                            "-p", "python2",
-                            _path.toString])
-                        .execute()
-                        .ensureStatus(true);
-                    break;
-                case PySerie.py3:
-                    Process("python3")
-                        .withArgs([
-                            "-m", "virtualenv",
-                            "-p", "python3",
-                            _path.toString])
-                        .execute()
-                        .ensureStatus(true);
-                    break;
-            }
-        } else {
-            /* TODO: Think about using pyenv, when it is installed
-             *       Especially on MacOS
-             *
-             *       For example:
-             *       $ pyenv install 3.10.16
-             *       $ $(pyenv prefix 3.10.16)/bin/python -m venv ./venv
-             */
-            buildPython(python_version);
+        final switch(opts.install_type) {
+            case PyInstallType.System:
+                final switch(_py_serie) {
+                    case PySerie.py2:
+                        Process("python3")
+                            .withArgs([
+                                "-m", "virtualenv",
+                                "-p", "python2",
+                                _path.toString])
+                            .execute()
+                            .ensureStatus(true);
+                        break;
+                    case PySerie.py3:
+                        Process("python3")
+                            .withArgs([
+                                "-m", "virtualenv",
+                                "-p", "python3",
+                                _path.toString])
+                            .execute()
+                            .ensureStatus(true);
+                        break;
+                }
+                break;
+            case PyInstallType.Build:
+                buildPython(opts.py_version);
 
-            // Install virtualenv inside built python environment
-            Process(_path.join("python", "bin", "pip"))
-                .withArgs("install", "virtualenv")
-                .execute()
-                .ensureStatus(true);
+                // Install virtualenv inside built python environment
+                Process(_path.join("python", "bin", "pip"))
+                    .withArgs("install", "virtualenv")
+                    .execute()
+                    .ensureStatus(true);
 
-            // Initialize virtualenv inside built python env
-            Process(_path.join("python", "bin", "python"))
-                .withArgs([
-                    "-m", "virtualenv",
-                    "-p", _path.join("python", "bin", "python").toString,
-                    _path.toString])
-                .execute()
-                .ensureStatus(true);
+                // Initialize virtualenv inside built python env
+                Process(_path.join("python", "bin", "python"))
+                    .withArgs([
+                        "-m", "virtualenv",
+                        "-p", _path.join("python", "bin", "python").toString,
+                        _path.toString])
+                    .execute()
+                    .ensureStatus(true);
+                break;
+            case PyInstallType.PyEnv:
+                auto pyenv = resolveProgram("pyenv");
+                enforce!OdoodException(!pyenv.isNull, "pyenv not available!");
+                auto pyenv_path = pyenv.get();
+
+                infof("Using python %s via pyenv...", opts.py_version);
+
+                // Install desired python version (if needed)
+                Process(pyenv_path)
+                    .withArgs("install", "--skip-existing", opts.py_version)
+                    .execute
+                    .ensureOk(true);
+
+                // Find the prefix of installed (or existing) python of desired version
+                Path python_prefix = Process(pyenv_path)
+                    .withArgs("prefix", opts.py_version)
+                    .execute
+                    .ensureOk(true)
+                    .output
+                    .strip;
+
+                infof("Using python %s available at prefix %s...", opts.py_version, python_prefix.toString);
+
+                // Ensure virtualenv is installed in this pyenv python version
+                Process(python_prefix.join("bin", "pip"))
+                    .withArgs("install", "virtualenv")
+                    .execute
+                    .ensureOk(true);
+
+                // Init virtualenv
+                infof(
+                    "Initializing virtualenv with python %s...",
+                    python_prefix.join("bin", "python").toString);
+                Process(python_prefix.join("bin", "python"))
+                    .withArgs([
+                        "-m", "virtualenv",
+                        "-p", python_prefix.join("bin", "python").toString,
+                        _path.toString])
+                    .execute()
+                    .ensureOk(true);
+                break;
         }
 
-        //// Add bash script to run any command in virtual env
+        // Add bash script to run any command in virtual env
         initRunInVenvScript();
 
         // Install nodeenv and node
-        infof("Installing nodejs version %s", node_version);
+        infof("Installing nodejs version %s", opts.node_version);
         installPyPackages("nodeenv");
         runE([
             "nodeenv", "--python-virtualenv", "--clean-src",
-            "--jobs", totalCPUs.to!string, "--node", node_version,
+            "--jobs", totalCPUs.to!string, "--node", opts.node_version,
         ]);
 
         info("VirtualEnv initialized successfully!");

@@ -18,6 +18,7 @@ private import odood.lib.project.config:
     ProjectConfigOdoo;
 private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.lib.deploy.utils: dpkgCheckPackageInstalled;
+private import odood.lib.venv: VenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -52,8 +53,7 @@ struct DeployConfigOdoo {
 
 struct DeployConfig {
     Path deploy_path = Path("/", "opt", "odoo");
-    string py_version="auto";
-    string node_version="lts";
+    VenvOptions venv_options;
     OdooInstallType install_type=OdooInstallType.Archive;
 
     DeployConfigDatabase database;

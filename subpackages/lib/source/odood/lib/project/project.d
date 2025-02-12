@@ -16,10 +16,10 @@ private import zipper: Zipper, ZipMode;
 private import odood.exception: OdoodException;
 
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
-private import odood.lib.odoo.python: guessPySerie;
+private import odood.lib.odoo.python: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
-private import odood.lib.venv: VirtualEnv;
+private import odood.lib.venv: VirtualEnv, VenvOptions;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
@@ -375,8 +375,7 @@ class Project {
       *     odoo_config: INI struct, that represents configuration for Odoo
       **/
     void initialize(ref Ini odoo_config,
-            in string python_version="auto",
-            in string node_version="lts",
+            in VenvOptions venv_options,
             in OdooInstallType install_type=OdooInstallType.Archive) {
         import odood.lib.install;
 
@@ -394,7 +393,7 @@ class Project {
                 this.installCloneGitOdoo();
                 break;
         }
-        this.installVirtualenv(python_version, node_version);
+        this.installVirtualenv(venv_options);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
         // TODO: Automatically save config
@@ -402,8 +401,9 @@ class Project {
 
     /// ditto
     void initialize() {
-        auto odoo_config = this.initOdooConfig();
-        initialize(odoo_config);
+        auto odoo_config = this.initOdooConfig;
+        auto venv_options = this.odoo.serie.guessVenvOptions;
+        initialize(odoo_config, venv_options);
     }
 
     /** Backup odoo sources located at this.odoo.path.
@@ -480,10 +480,10 @@ class Project {
             in OdooInstallType install_type,
             in bool backup=true,
             in bool reinstall_venv=false,
-            in string venv_py_version="auto",
-            in string venv_node_version="lts")
+            in VenvOptions venv_options=VenvOptions.init)
     in(serie.isValid)
     do {
+        // TODO: Make venv_options required
         import odood.lib.install;
 
         auto origin_serie = this.odoo.serie;
@@ -502,11 +502,8 @@ class Project {
         this._odoo.serie = serie;
         this._odoo.branch = serie.toString;
 
-        if (reinstall_venv) {
-            this.installVirtualenv(
-                venv_py_version,
-                venv_node_version);
-        }
+        if (reinstall_venv)
+            this.installVirtualenv(venv_options);
 
         with(OdooInstallType) final switch(install_type) {
             case Archive:
@@ -532,15 +529,13 @@ class Project {
             in OdooSerie serie,
             in bool backup=true,
             in bool reinstall_venv=false,
-            in string venv_py_version="auto",
-            in string venv_node_version="lts") {
+            in VenvOptions venv_options=VenvOptions.init) {
         this.reinstallOdoo(
             serie,
             this.odoo_install_type,
             backup,
             reinstall_venv,
-            venv_py_version,
-            venv_node_version);
+            venv_options);
     }
 
     /// Get configuration for Odoo
