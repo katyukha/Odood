@@ -49,6 +49,9 @@ jobs:
           - "ubuntu:20.04"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
+        py_install_type:
+          - "build"
+          - "pyenv"
     runs-on: ubuntu-22.04
     needs:
       - compile-ubuntu-20_04
@@ -56,6 +59,7 @@ jobs:
       image: ${{ matrix.image }}
     env:
       DEBIAN_FRONTEND: 'noninteractive'
+      ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     steps:
       - uses: actions/checkout@v3
 
@@ -69,10 +73,25 @@ jobs:
         run: apt-get update
 
       - name: Install system dependencies (postgresql)
-        run: apt-get install --no-install-recommends -yq postgresql sudo
+        run: apt-get install --no-install-recommends -yq postgresql sudo curl
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: PyEnv - Install
+        shell: bash
+        run: "curl -fsSL https://pyenv.run | bash"
+
+      - name: PyEnv - Update environment variables
+        shell: bash
+        run: |
+            PYENV_ROOT="$HOME/.pyenv"
+            PYENV_BIN="$PYENV_ROOT/bin"
+            echo "$PYENV_BIN" >> $GITHUB_PATH
+            echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
+
+      - name: PyEnv - Check version
+        run: pyenv --version
 
       - name: Start postgresql
         run: /etc/init.d/postgresql start

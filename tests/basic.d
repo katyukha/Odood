@@ -20,6 +20,24 @@ import odood.cli.utils: printLogRecord;
 import peque;
 
 
+/// Prepare virtualenv options for test
+auto getVenvOptions(in OdooSerie serie) {
+    import odood.lib.venv: PyInstallType;
+    import odood.lib.odoo.python: guessVenvOptions;
+
+    auto venv_options = serie.guessVenvOptions;
+
+    if (venv_options.install_type == PyInstallType.System)
+        return venv_options;
+
+    if (environment.get("ODOOD_PREFER_PY_INSTALL") == "build")
+        venv_options.install_type = PyInstallType.Build;
+    else if (environment.get("ODOOD_PREFER_PY_INSTALL") == "pyenv")
+        venv_options.install_type = PyInstallType.PyEnv;
+
+    return venv_options;
+}
+
 /// Create new database user in postgres db
 void createDbUser(in string user, in string password) {
 
@@ -265,7 +283,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "18069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -315,7 +333,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "17069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -366,7 +384,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "16069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -399,7 +417,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "15069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -432,7 +450,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "14069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -465,7 +483,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "13069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -498,7 +516,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "12069")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
@@ -531,7 +549,7 @@ unittest {
             "odoo")
         .setHttp("localhost", "14169")
         .result();
-    project.initialize(odoo_conf);
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
