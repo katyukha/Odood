@@ -178,12 +178,12 @@ void testAddonsManagementBasic(in Project project) {
         .run();
     test_result.success.shouldBeTrue();
 
-    // Try to fetch bureaucrate-knowledge from odoo apps
-    project.addons.downloadFromOdooApps("bureaucrat_knowledge");
-    project.directories.addons.join("bureaucrat_knowledge").exists.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_knowledge").isSymlink.shouldBeTrue;
-    project.directories.addons.join("bureaucrat_knowledge").readLink.shouldEqual(
-        project.directories.downloads.join("bureaucrat_knowledge"));
+    // Try to fetch web_responsive from odoo apps
+    project.addons.downloadFromOdooApps("web_responsive");
+    project.directories.addons.join("web_responsive").exists.shouldBeTrue;
+    project.directories.addons.join("web_responsive").isSymlink.shouldBeTrue;
+    project.directories.addons.join("web_responsive").readLink.shouldEqual(
+        project.directories.downloads.join("web_responsive"));
 
     // Test parsing addons-list.txt file
     auto parsed_addons = project.addons.parseAddonsList(
@@ -342,7 +342,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    //project.runBasicTests;
+    project.runBasicTests;
 
     /*
      * TODO: Currently, because some addons used in tests are not ported to 17,
@@ -351,16 +351,16 @@ unittest {
      */
 
     // Test server management
-    testServerManagement(project);
+    //testServerManagement(project);
 
     // Test LOdoo Database operations
-    testDatabaseManagement(project);
+    //testDatabaseManagement(project);
 
     // Test basic addons management
     //testAddonsManagementBasic(project);
 
     // Test running scripts
-    testRunningScripts(project);
+    //testRunningScripts(project);
 }
 
 
