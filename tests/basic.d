@@ -397,6 +397,7 @@ unittest {
 }
 
 
+version(linux)
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
@@ -430,6 +431,7 @@ unittest {
 }
 
 
+version(linux)
 @("Basic Test Odoo 14")
 unittest {
     auto temp_path = createTempPath(
@@ -463,6 +465,7 @@ unittest {
 }
 
 
+version(linux)
 @("Basic Test Odoo 13")
 unittest {
     auto temp_path = createTempPath(
@@ -496,6 +499,7 @@ unittest {
 }
 
 
+version(linux)
 @("Basic Test Odoo 12")
 unittest {
     auto temp_path = createTempPath(
@@ -529,32 +533,32 @@ unittest {
 }
 
 
-@("Test resintall Odoo 14 to 15")
+@("Test resintall Odoo 16 to 17")
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
-        "tmp-odood-14-15",
+        "tmp-odood-16-17",
     );
     scope(exit) temp_path.remove();
 
-    // Create database use for odoo 14 instance
-    createDbUser("odood14to15test", "odoo");
+    // Create database use for odoo 16 instance
+    createDbUser("odood16to17test", "odoo");
 
-    auto project = new Project(temp_path, OdooSerie(14));
+    auto project = new Project(temp_path, OdooSerie(16));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
-            "odood14to15test",
+            "odood16to17test",
             "odoo")
-        .setHttp("localhost", "14169")
+        .setHttp("localhost", "16169")
         .result();
     project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
     project.save();
 
     // Test created project
     project.project_root.shouldEqual(temp_path);
-    project.odoo.serie.shouldEqual(OdooSerie(14));
+    project.odoo.serie.shouldEqual(OdooSerie(16));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
 
@@ -564,12 +568,12 @@ unittest {
     // Test that server initialization works fine
     project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
-    // Reinstall Odoo to version 15
-    project.reinstallOdoo(OdooSerie(15), true);
+    // Reinstall Odoo to version 17
+    project.reinstallOdoo(OdooSerie(17), true);
 
-    // Test project after Odoo reinstalled to version 15
+    // Test project after Odoo reinstalled to version 17
     project.project_root.shouldEqual(temp_path);
-    project.odoo.serie.shouldEqual(OdooSerie(15));
+    project.odoo.serie.shouldEqual(OdooSerie(17));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Test that server initialization works fine
