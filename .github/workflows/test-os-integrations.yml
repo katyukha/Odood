@@ -79,16 +79,19 @@ jobs:
         run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
 
       - name: PyEnv - Install Dependencies
+        if: matrix.py_install_type == 'pyenv'
         run: |
           apt-get install --no-install-recommends -yq make build-essential libssl-dev zlib1g-dev \
             libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
             xz-utils libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
       - name: PyEnv - Install
+        if: matrix.py_install_type == 'pyenv'
         shell: bash
         run: "curl -fsSL https://pyenv.run | bash"
 
       - name: PyEnv - Update environment variables
+        if: matrix.py_install_type == 'pyenv'
         shell: bash
         run: |
             PYENV_ROOT="$HOME/.pyenv"
@@ -97,6 +100,7 @@ jobs:
             echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
 
       - name: PyEnv - Check version
+        if: matrix.py_install_type == 'pyenv'
         run: pyenv --version
 
       - name: Start postgresql
