@@ -295,9 +295,9 @@ unittest {
     //project.runBasicTests;
 
     /*
-     * TODO: Currently, because some addons used in tests are not ported to 17,
+     * TODO: Currently, because some addons used in tests are not ported to 18,
      *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 17
+     *       we have to chage this and run tests for addons management for Odoo 18
      */
 
     // Test server management
@@ -343,24 +343,6 @@ unittest {
 
     // Run basic tests
     project.runBasicTests;
-
-    /*
-     * TODO: Currently, because some addons used in tests are not ported to 17,
-     *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 17
-     */
-
-    // Test server management
-    //testServerManagement(project);
-
-    // Test LOdoo Database operations
-    //testDatabaseManagement(project);
-
-    // Test basic addons management
-    //testAddonsManagementBasic(project);
-
-    // Test running scripts
-    //testRunningScripts(project);
 }
 
 
