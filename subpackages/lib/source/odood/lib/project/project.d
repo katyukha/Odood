@@ -528,7 +528,7 @@ class Project {
         this.reinstallOdoo(
             serie,
             this.odoo_install_type,
-            this.odoo.serie.guessVenvOptions,
+            serie.guessVenvOptions,
             backup);
     }
 
@@ -536,11 +536,4 @@ class Project {
     auto getOdooConfig() const {
         return this.readOdooConfig;
     }
-
-    /** Check if database contains demo data.
-      **/
-    deprecated const(bool) hasDatabaseDemoData(in string dbname) const {
-        return dbSQL(dbname).hasDemoData();
-    }
 }
-
