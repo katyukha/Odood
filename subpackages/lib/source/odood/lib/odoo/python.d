@@ -112,11 +112,7 @@ auto guessVenvOptions(in OdooSerie serie) {
     if (isSystemPythonSuitable(serie))
         venv_options.install_type = PyInstallType.System;
     else {
-        version(OSX) {
-            venv_options.install_type = PyInstallType.PyEnv;
-        } else {
-            venv_options.install_type = PyInstallType.Build;
-        }
+        venv_options.install_type = PyInstallType.Build;
         venv_options.py_version = serie.suggestPythonVersion;
     }
     return venv_options;

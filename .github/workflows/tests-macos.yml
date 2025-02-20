@@ -11,7 +11,11 @@ jobs:
       matrix:
         dc: [ldc-1.40.0, ldc-latest]
         os: [macOS-latest]
-
+        py_install_type:
+          - "build"
+          - "pyenv"
+    env:
+      ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -23,16 +27,20 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # TODO: Replace with libpq dependency?
           brew install postgresql@14
           brew install libzip
           brew install python@3.11
+
+      - name: PyEnv - Install
+        if: matrix.py_install_type == 'pyenv'
+        run: |
           brew install pyenv
 
       - name: Create symlink for libpq and python in current dir, to avoid linking issues
         run: |
           # We use here this dark magic, because there is no other simple way to link
-          # Odood to python, except a much darker magic of listing all possible paths in executable.
+          # Odood to python and libpq, except a much darker magic of listing all possible paths in executable.
+          # At least at moment of writing this.
           ln -s /opt/homebrew/lib/postgresql@14/libpq.dylib ./
           ln -s /opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/libpython3.11.dylib ./
 
