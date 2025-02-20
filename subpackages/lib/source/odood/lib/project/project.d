@@ -478,12 +478,10 @@ class Project {
     void reinstallOdoo(
             in OdooSerie serie,
             in OdooInstallType install_type,
-            in bool backup=true,
-            in bool reinstall_venv=false,
-            in VenvOptions venv_options=VenvOptions.init)
+            in VenvOptions venv_options,
+            in bool backup=true)
     in(serie.isValid)
     do {
-        // TODO: Make venv_options required
         import odood.lib.install;
 
         auto origin_serie = this.odoo.serie;
@@ -495,15 +493,14 @@ class Project {
             this.odoo.path.remove();
         }
 
-        if (reinstall_venv && this.venv.path.exists()) {
+        if (this.venv.path.exists()) {
             this.venv.path.remove();
         }
 
         this._odoo.serie = serie;
         this._odoo.branch = serie.toString;
 
-        if (reinstall_venv)
-            this.installVirtualenv(venv_options);
+        this.installVirtualenv(venv_options);
 
         with(OdooInstallType) final switch(install_type) {
             case Archive:
@@ -527,15 +524,12 @@ class Project {
     /// ditto
     void reinstallOdoo(
             in OdooSerie serie,
-            in bool backup=true,
-            in bool reinstall_venv=false,
-            in VenvOptions venv_options=VenvOptions.init) {
+            in bool backup=true) {
         this.reinstallOdoo(
             serie,
             this.odoo_install_type,
-            backup,
-            reinstall_venv,
-            venv_options);
+            this.odoo.serie.guessVenvOptions,
+            backup);
     }
 
     /// Get configuration for Odoo

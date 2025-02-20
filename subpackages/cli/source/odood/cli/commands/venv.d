@@ -269,9 +269,8 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         project.reinstallOdoo(
             reinstall_version,
             install_type,
-            !args.flag("no-backup") || args.flag("backup"),
-            args.flag("reinstall-venv"),
             venv_options,
+            !args.flag("no-backup") || args.flag("backup"),
         );
 
         if (start_server)
