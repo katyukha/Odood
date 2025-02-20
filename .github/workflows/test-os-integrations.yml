@@ -10,7 +10,6 @@ env:
 # In this test, we build Odood on Ubuntu 20.04 and then try to run
 # produced binary on different distros and versions
 jobs:
-  if: false
   # Compile test builds on ubuntu 20.04
   compile-ubuntu-20_04:
     name: Build Ubuntu:20.04
