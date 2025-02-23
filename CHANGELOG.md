@@ -5,6 +5,8 @@
 ### Changed
 
 - Replace [dpq](https://code.dlang.org/packages/dpq) with [Peque](https://code.dlang.org/packages/peque)
+- `odood script py` command: now output of script will be redirected on stdout.
+   Thus no more need to wait while script completed to get intermediate output of script.
 
 
 ---

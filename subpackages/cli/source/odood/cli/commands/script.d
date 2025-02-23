@@ -29,10 +29,7 @@ class CommandScriptPy: OdoodCommand {
             project.databases.exists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
-        auto res = project.lodoo.runPyScript(dbname, script);
-        infof(
-            "Python script %s for database %s completed!\nOutput:\n%s",
-            script, dbname, res.output);
+        project.lodoo.runPyScript(dbname, script);
     }
 }
 
