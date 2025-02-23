@@ -5,7 +5,7 @@ copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
 
 dependency "thepath" version=">=1.2.0"
-dependency "theprocess" version=">=0.0.7"
+dependency "theprocess" version=">=0.0.9"
 
 targetPath "build"
 targetType "library"
