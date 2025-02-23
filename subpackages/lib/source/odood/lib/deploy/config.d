@@ -107,7 +107,7 @@ struct DeployConfig {
 
         if (this.database.local_postgres)
             enforce!OdoodDeployException(
-                !dpkgCheckPackageInstalled("potgresql"),
+                dpkgCheckPackageInstalled("postgresql"),
                 "Local postgres requested, but 'postgresql' package is not installed!");
     }
 
