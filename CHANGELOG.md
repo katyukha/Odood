@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Experimental support for [PyEnv](https://github.com/pyenv/pyenv) integration.
+
 ### Changed
 
 - Replace [dpq](https://code.dlang.org/packages/dpq) with [Peque](https://code.dlang.org/packages/peque)
