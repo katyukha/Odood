@@ -157,14 +157,14 @@ jobs:
 
       - name: Minimal test deployed version
         run: |
-          odood db create -r  --demo odood-test-db
-          odood addons install crm
-          odood db backup --dest /tmp/odood-db.zip odood-test-db
-          odood addons update crm
-          odood db drop odood-test-db
-          odood db restore -r odood-test-db  /tmp/odood-db.zip
-          odood addons uninstall crm
-          odood db drop odood-test-db
+          ./build/odood db create -r  --demo odood-test-db
+          ./build/odood addons install crm
+          ./build/odood db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood addons update crm
+          ./build/odood db drop odood-test-db
+          ./build/odood db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood addons uninstall crm
+          ./build/odood db drop odood-test-db
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
