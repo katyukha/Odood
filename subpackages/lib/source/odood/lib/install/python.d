@@ -25,8 +25,10 @@ void installVirtualenv(in Project project,
 
     // Use correct version of setuptools, because some versions of Odoo
     // required 'use_2to3' option, that is removed in latest versions
-    if (project.odoo.serie > OdooSerie(10))
+    if (project.odoo.serie > OdooSerie(10) && project.odoo.serie < OdooSerie(16)) {
+        infof("Enforce setuptools version between 45 and 58: because some modules in older Odoo versions may require pythons 2to3 tool, that is removed in later versions.")
         project.venv.installPyPackages("setuptools>=45,<58");
+    }
 
     // Install javascript dependecies
     project.venv.installJSPackages("rtlcss");

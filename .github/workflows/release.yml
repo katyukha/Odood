@@ -108,9 +108,6 @@ jobs:
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
 
-      - name: 'Show directory structure'
-        run: ls -R
-
       - name: Check RC/alpha Release
         id: check-rc-release
         run: |
