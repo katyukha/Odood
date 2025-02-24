@@ -94,7 +94,7 @@ void installCloneGitOdoo(in Project project) {
 void installOdoo(in Project project) {
     // Install python dependecnies
     string[] py_packages = [
-        "phonenumbers", "python-slugify", "setuptools-odoo",
+        "phonenumbers", "python-slugify",
         "cffi", "python-magic", "lodoo",
     ];
 
