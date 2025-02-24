@@ -348,12 +348,10 @@ struct OdooDatabaseManager {
         _createEmptyDB(name);
 
         auto fs_path = _project.directories.data.join("filestore", name);
-        auto files_path = _project.directories.data.join("files", name);
         scope(failure) {
             // TODO: Use pure SQL to check if db exists and for cleanup
             if (this.exists(name)) this.drop(name);
             if (fs_path.exists()) fs_path.remove();
-            if (files_path.exists()) files_path.remove();
         }
 
         // Prepare tasks
@@ -394,27 +392,16 @@ struct OdooDatabaseManager {
             tracef("Restore filestore for database %s", name);
             auto zip = Zipper(backup_path);
             fs_path.mkdir(true);
-            if (zip.hasEntry("files")) files_path.mkdir(true);
             foreach(entry; zip.entries) {
                 if (entry.name.startsWith("filestore/")) {
                     entry.unzipTo(
                         fs_path.join(
                             entry.name.chompPrefix("filestore/")));
                 }
-                // Restore MuK Dms files (if present
-                // TODO: May be remove it in future, or make optional
-                // May be this feature is not needed.
-                if (entry.name.startsWith("files/")) {
-                    entry.unzipTo(
-                        fs_path.join(
-                            entry.name.chompPrefix("files/")));
-                }
             }
             if (_project.odoo.server_user) {
                 // Set correct ownership for database's filestore
                 fs_path.chown(_project.odoo.server_user);
-                if (files_path.exists)
-                    files_path.chown(_project.odoo.server_user);
             }
             tracef("Filestore for database %s was successfully restored", name);
         });
