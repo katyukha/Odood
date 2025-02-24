@@ -39,7 +39,7 @@ jobs:
           path: |
             build/odood
 
-  # Run integration tests for different operation systems
+  # Run integration tests for different operation systems (external database)
   run-deployment-tests:
     name: Run deployment tests
     strategy:
@@ -59,6 +59,20 @@ jobs:
       - compile-ubuntu-20_04
     container:
       image: ${{ matrix.image }}
+    # Service containers to run with `container-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_USER: odoo
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DEBIAN_FRONTEND: 'noninteractive'
     steps:
@@ -83,9 +97,19 @@ jobs:
         run: chmod a+x ./build/odood
 
       - name: Deploy with init-script
-        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script
+        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
 
-      # TODO: Add test some operations with this instance
+      - name: Minimal test for deployed version
+        run: |
+          ./build/odood db create -r  --demo odood-test-db
+          ./build/odood addons install crm
+          ./build/odood db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood addons update crm
+          ./build/odood db drop odood-test-db
+          ./build/odood db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood addons uninstall crm
+          ./build/odood db drop odood-test-db
+
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
@@ -155,7 +179,7 @@ jobs:
       - name: Deploy with init-script
         run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
 
-      - name: Minimal test deployed version
+      - name: Minimal test for deployed version
         run: |
           ./build/odood db create -r  --demo odood-test-db
           ./build/odood addons install crm
