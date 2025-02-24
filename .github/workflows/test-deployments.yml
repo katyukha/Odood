@@ -92,3 +92,82 @@ jobs:
         with:
           flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
           name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+
+  run-deployment-tests-with-local-postgres:
+    name: Run deployment tests
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - "debian:bullseye"
+          - "ubuntu:20.04"
+          - "ubuntu:22.04"
+          - "ubuntu:24.04"
+        odoo_version:
+          - "18.0"
+          - "17.0"
+          - "16.0"
+    runs-on: ubuntu-22.04
+    needs:
+      - compile-ubuntu-20_04
+    container:
+      image: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: 'noninteractive'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 'Download artifacts for ubuntu 20.04'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-ubuntu-20.04
+          path: build
+
+      - name: Update apt registry
+        run: apt-get update
+
+      - name: Install system dependencies
+        run: apt-get install --no-install-recommends -yq sudo logrotate postgresql
+
+      - name: Install package dependencies
+        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: Start postgresql service
+        run: |
+          service postgresql start
+          echo 'Check PostgreSQL service is running'
+          i=10
+          while [ $i -gt 0 ]; do
+              echo 'Check PostgreSQL service status'
+              pg_isready && break
+              ((i--))
+              if [ $i == 0 ]; then
+                  echo 'PostgreSQL service not ready, all attempts exhausted'
+                  exit 1
+              fi
+              echo 'PostgreSQL service not ready, wait 5 more sec, attempts left: $i'
+              sleep 5
+          done
+
+      - name: Make test build executable
+        run: chmod a+x ./build/odood
+
+      - name: Deploy with init-script
+        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
+
+      - name: Minimal test deployed version
+        run: |
+          odood db create -r  --demo odood-test-db
+          odood addons install crm
+          odood db backup --dest /tmp/odood-db.zip odood-test-db
+          odood addons update crm
+          odood db drop odood-test-db
+          odood db restore -r odood-test-db  /tmp/odood-db.zip
+          odood addons uninstall crm
+          odood db drop odood-test-db
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
