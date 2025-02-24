@@ -401,7 +401,7 @@ struct OdooDatabaseManager {
             }
             if (_project.odoo.server_user) {
                 // Set correct ownership for database's filestore
-                fs_path.chown(_project.odoo.server_user);
+                fs_path.chown(username: _project.odoo.server_user, recursive: true);
             }
             tracef("Filestore for database %s was successfully restored", name);
         });
