@@ -11,7 +11,7 @@
 		"dshould": "1.7.2",
 		"dyaml": "0.10.0",
 		"east_asian_width": "1.1.0",
-		"peque": "0.0.1",
+		"peque": "0.0.2",
 		"prettyprint": "1.0.9",
 		"requests": "2.1.3",
 		"silly": "1.1.1",
