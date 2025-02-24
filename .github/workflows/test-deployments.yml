@@ -94,7 +94,7 @@ jobs:
           name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
 
   run-deployment-tests-with-local-postgres:
-    name: Run deployment tests
+    name: Run deployment tests (local postgres)
     strategy:
       fail-fast: false
       matrix:

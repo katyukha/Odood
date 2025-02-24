@@ -37,8 +37,3 @@ void installVirtualenv(in Project project,
     if (project.odoo.serie <= 11)
         project.venv.installJSPackages("less@3.9.0");
 }
-
-/// ditto
-void installVirtualenv(in Project project) {
-    installVirtualenv(project, project.odoo.serie.guessVenvOptions);
-}
