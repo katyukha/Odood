@@ -66,16 +66,15 @@ class CommandDeploy: OdoodCommand {
         DeployConfig config;
         config.odoo.serie = OdooSerie(args.option("odoo-version"));
 
-        VenvOptions venv_options = config.odoo.serie.guessVenvOptions;
+        config.venv_options = config.odoo.serie.guessVenvOptions;
 
         if (args.option("py-version")) {
-            venv_options.py_version = args.option("py-version");
-            venv_options.install_type = PyInstallType.Build;
+            config.venv_options.py_version = args.option("py-version");
+            config.venv_options.install_type = PyInstallType.Build;
         }
         if (args.options("node-version")) {
-            venv_options.node_version = args.option("node-version");
+            config.venv_options.node_version = args.option("node-version");
         }
-
 
         if (args.option("db-host"))
             config.database.host = args.option("db-host");
