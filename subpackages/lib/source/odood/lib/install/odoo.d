@@ -3,7 +3,7 @@ module odood.lib.install.odoo;
 private import std.logger;
 private import std.format: format;
 private import std.algorithm.searching: startsWith;
-private import std.string: split, chomp;
+private import std.string: split, chomp, join;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.regex;
@@ -95,25 +95,15 @@ void installOdoo(in Project project) {
     // Install python dependecnies
     string[] py_packages = [
         "phonenumbers", "python-slugify", "setuptools-odoo",
-        "cffi", "jinja2", "python-magic", "Python-Chart", "lodoo",
+        "cffi", "python-magic", "lodoo",
     ];
 
     // Add version-specific py packages
     if (project.odoo.serie >= 14)
         py_packages ~= "pdfminer.six";
 
-    /* On Odoo 15, there are some warnings in the logs, that ask to install
-     * flanker, but it seems to be unstable, buggy and with bad support for
-     * newer versions of Python. Thus we will not install it automatically
-     * by default.
-     * One more point to avoid installation of flanker by default,
-     * is that it requires redis server, that is not needed for most of
-     * simple Odoo installations.
-     */
-    //if (project.odoo.serie >= 15)
-        //py_packages ~= "flanker";
-
     // Install py packages
+    infof("Installing extra py packages for Odoo: %s", py_packages.join(", "));
     project.venv.installPyPackages(py_packages);
 
     if (project.odoo.serie < 8) {

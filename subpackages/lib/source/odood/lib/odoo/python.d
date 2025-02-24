@@ -80,16 +80,21 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
   *     project = instance of Odood project to get version of system python for.
   * Returns: Version version of system python interpreter
   **/
-Version getSystemPythonVersion(in OdooSerie serie) {
+Version getSystemPythonVersion(in PySerie py_serie) {
     /* If system python is not available, then return version 0.0.0.
      * In this case, system python will not be suitable, and thus
      * Odood will try to build python from sources.
      */
-    auto python_interpreter = resolveProgram(serie.guessPySerie.getPyInterpreterName);
+    auto python_interpreter = resolveProgram(py_serie.getPyInterpreterName);
     if (python_interpreter.isNull)
         return Version(0, 0, 0);
 
     return parsePythonVersion(python_interpreter.get);
+}
+
+/// ditto
+Version getSystemPythonVersion(in OdooSerie serie) {
+    return getSystemPythonVersion(serie.guessPySerie);
 }
 
 

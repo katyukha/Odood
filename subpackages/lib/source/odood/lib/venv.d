@@ -18,6 +18,7 @@ private static import dyaml;
 private import odood.exception: OdoodException;
 private import odood.utils;
 private import odood.utils.versioned: Version;
+private import odood.lib.odoo.python: getSystemPythonVersion;
 
 // TOOD: May be it have sense to move this to utils subpackage.
 
@@ -438,6 +439,7 @@ const struct VirtualEnv {
 
         final switch(opts.install_type) {
             case PyInstallType.System:
+                infof("Using system python (version: %s)", _py_serie.getSystemPythonVersion);
                 final switch(_py_serie) {
                     case PySerie.py2:
                         Process("python3")
