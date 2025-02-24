@@ -63,10 +63,11 @@ jobs:
     services:
       # Label used to access the service container
       postgres:
-        image: postgres
+        image: postgres:12
         env:
           POSTGRES_PASSWORD: odoo
           POSTGRES_USER: odoo
+          POSTGRES_DB: postgres
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
