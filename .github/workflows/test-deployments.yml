@@ -102,12 +102,13 @@ jobs:
       - name: Minimal test for deployed version
         run: |
           ./build/odood -v -d db create -r  --demo odood-test-db
-          ./build/odood -v -d addons install crm
+          ./build/odood -v -d db list
+          ./build/odood -v -d addons install --db odood-test-db crm
           ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
-          ./build/odood -v -d addons update crm
+          ./build/odood -v -d addons update --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
           ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
-          ./build/odood -v -d addons uninstall crm
+          ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
 
@@ -182,12 +183,13 @@ jobs:
       - name: Minimal test for deployed version
         run: |
           ./build/odood -v -d db create -r  --demo odood-test-db
-          ./build/odood -v -d addons install crm
+          ./build/odood -v -d db list
+          ./build/odood -v -d addons install --db odood-test-db crm
           ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
-          ./build/odood -v -d addons update crm
+          ./build/odood -v -d addons update --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
           ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
-          ./build/odood -v -d addons uninstall crm
+          ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
       - name: Upload coverage to codecov
