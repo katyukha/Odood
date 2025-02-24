@@ -97,18 +97,18 @@ jobs:
         run: chmod a+x ./build/odood
 
       - name: Deploy with init-script
-        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
+        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
 
       - name: Minimal test for deployed version
         run: |
-          ./build/odood db create -r  --demo odood-test-db
-          ./build/odood addons install crm
-          ./build/odood db backup --dest /tmp/odood-db.zip odood-test-db
-          ./build/odood addons update crm
-          ./build/odood db drop odood-test-db
-          ./build/odood db restore -r odood-test-db  /tmp/odood-db.zip
-          ./build/odood addons uninstall crm
-          ./build/odood db drop odood-test-db
+          ./build/odood -v -d db create -r  --demo odood-test-db
+          ./build/odood -v -d addons install crm
+          ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood -v -d addons update crm
+          ./build/odood -v -d db drop odood-test-db
+          ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood -v -d addons uninstall crm
+          ./build/odood -v -d db drop odood-test-db
 
 
       - name: Upload coverage to codecov
@@ -177,18 +177,18 @@ jobs:
         run: chmod a+x ./build/odood
 
       - name: Deploy with init-script
-        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
+        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
 
       - name: Minimal test for deployed version
         run: |
-          ./build/odood db create -r  --demo odood-test-db
-          ./build/odood addons install crm
-          ./build/odood db backup --dest /tmp/odood-db.zip odood-test-db
-          ./build/odood addons update crm
-          ./build/odood db drop odood-test-db
-          ./build/odood db restore -r odood-test-db  /tmp/odood-db.zip
-          ./build/odood addons uninstall crm
-          ./build/odood db drop odood-test-db
+          ./build/odood -v -d db create -r  --demo odood-test-db
+          ./build/odood -v -d addons install crm
+          ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood -v -d addons update crm
+          ./build/odood -v -d db drop odood-test-db
+          ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood -v -d addons uninstall crm
+          ./build/odood -v -d db drop odood-test-db
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
