@@ -12,8 +12,8 @@
 		"peque": "0.0.2",
 		"prettyprint": "1.0.9",
 		"requests": "2.1.3",
-		"thepath": "2.0.0",
-		"theprocess": "0.0.9",
+		"thepath": "2.1.0",
+		"theprocess": "0.0.10",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.2.1",
 		"zipper": "0.0.7"

@@ -55,12 +55,13 @@ void createSystemUser(in Path home, in string name) {
 /** Check if PostgreSQL user with provided username exists
   **/
 bool postgresCheckUserExists(in string username) {
+    // TODO: Use peque for this?
     auto output = Process("psql")
         .setArgs([
             "-t", "-A", "-c",
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
-        .withUser("postgres")
+        .withUser(username: "postgres", userWorkDir: true)
         .execute
         .ensureOk(true)
         .output.strip;
@@ -87,13 +88,14 @@ bool postgresCheckUserExists(in string username) {
 /** Create new PostgreSQL user for Odoo with provided credentials
   **/
 void postgresCreateUser(in string username, in string password) {
+    // TODO: Use peque for this?
     infof("Creating postgresql user '%s' for Odoo...", username);
     Process("psql")
         .setArgs([
             "-c",
             i"CREATE USER \"$(username)\" WITH CREATEDB PASSWORD '$(password)'".text,
         ])
-        .withUser("postgres")
+        .withUser(username: "postgres", userWorkDir: true)
         .execute
         .ensureOk(true);
     infof("Postgresql user '%s' for Odoo created successfully.", username);
