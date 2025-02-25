@@ -17,7 +17,7 @@ private import odood.lib.project.config:
     ProjectConfigDirectories,
     ProjectConfigOdoo;
 private import odood.lib.deploy.exception: OdoodDeployException;
-private import odood.lib.deploy.utils: dpkgCheckPackageInstalled, checkSystemUserExists;
+private import odood.lib.deploy.utils: checkSystemUserExists;
 private import odood.lib.venv: VenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;

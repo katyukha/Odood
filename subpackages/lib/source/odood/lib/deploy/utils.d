@@ -100,17 +100,3 @@ void postgresCreateUser(in string username, in string password) {
         .ensureOk(true);
     infof("Postgresql user '%s' for Odoo created successfully.", username);
 }
-
-
-/** Check if debian package is installed in system
-  **/
-bool dpkgCheckPackageInstalled(in string package_name) {
-    auto result = Process("dpkg-query")
-       .withArgs("--show", "--showformat='${db:Status-Status}'", package_name)
-       .execute;
-    if (result.isNotOk)
-        return false;
-    if (result.output == "installed")
-        return true;
-    return false;
-}
