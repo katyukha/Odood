@@ -13,11 +13,11 @@ Following features available:
 - Super easy installation of Odoo for development
 - Super easy installation of Odoo for production
 - Simple way to manage multiple development instances of Odoo on same developer's machine
-- Everyting (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
+- Everything (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
 - Best test runner for Odoo modules:
     - Easy run test for developed modules
     - Show errors in the end of the log, that is really useful feature for large (few megabytes size test logs)
-    - Test module migration with ease
+    - Test module migrations with ease
 - Super easy of third-party addons installation:
     - Install modules directly from Odoo Apps
     - Easily connect git repositories with Odoo modules to Odoo instance managed by Odood

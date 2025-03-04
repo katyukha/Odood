@@ -38,6 +38,7 @@ jobs:
       - name: Build Odood
         run: |
           dub build -b release --d-version OdoodInDocker
+          dub build -b release --d-version OdoodInDocker -c bash-autocomplete
           
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
@@ -45,6 +46,7 @@ jobs:
           name: odood-amd64
           path: |
             build/odood
+            build/odood.bash
             
   build-and-push-images:
     runs-on: ubuntu-latest

@@ -30,6 +30,7 @@ RUN apt-get update -qq && \
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
 COPY ./bin/odood /usr/bin/odood
+COPY ./bin/odood.bash /etc/bash_completion.d/odood.bash
 
 RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr
 
