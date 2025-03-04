@@ -44,7 +44,6 @@ enum VersionPart {
 
     private void parseVersionString(in string v) pure {
         // TODO: Add validation
-        // TODO: Add support of 'v' prefix
         if (v.length == 0) return;
 
         /* Idea of parsing is simple:
@@ -58,8 +57,12 @@ enum VersionPart {
          * via '-') and build (which separated via '+').
          */
         uint start = 0;
+        if (v[0] == 'v' || v[0] == 'V') {
+            // If version starts with 'v' or 'V' prefix, just skip it;
+            start = 1;
+        }
         VersionPart stage = VersionPart.MAJOR;
-        for(uint i=0; i < v.length; i++) {
+        for(uint i=start; i < v.length; i++) {
             if (i < start) continue;
             auto current = v[i];
             final switch(stage) {
@@ -167,6 +170,14 @@ enum VersionPart {
         Version("1.2.3").patch.should == 3;
         Version("1.2.3").toString.should == "1.2.3";
         Version("1.2.3").isValid.should == true;
+        Version("1.2.3").isValid.should == true;
+
+        Version("v1.2.3").major.should == 1;
+        Version("v1.2.3").minor.should == 2;
+        Version("v1.2.3").patch.should == 3;
+        Version("v1.2.3").toString.should == "1.2.3";
+        Version("v1.2.3").isValid.should == true;
+        Version("v1.2.3").isValid.should == true;
 
         Version("1.2").major.should == 1;
         Version("1.2").minor.should == 2;
@@ -233,6 +244,17 @@ enum VersionPart {
         Version("12.34.56-alpha.beta+build").build.should == "build";
         Version("12.34.56-alpha.beta+build").toString.should == "12.34.56-alpha.beta+build";
         Version("12.34.56-alpha.beta+build").isValid.should == true;
+
+        Version("V12.34.56").major.should == 12;
+        Version("V12.34.56").minor.should == 34;
+        Version("V12.34.56").patch.should == 56;
+        Version("V12.34.56").isValid.should == true;
+        Version("V12.34.56-alpha.beta").prerelease.should == "alpha.beta";
+        Version("V12.34.56-alpha.beta").isValid.should == true;
+        Version("V12.34.56-alpha.beta+build").prerelease.should == "alpha.beta";
+        Version("V12.34.56-alpha.beta+build").build.should == "build";
+        Version("V12.34.56-alpha.beta+build").toString.should == "12.34.56-alpha.beta+build";
+        Version("V12.34.56-alpha.beta+build").isValid.should == true;
 
         Version("12.34.56-alpha").prerelease.should == "alpha";
         Version("12.34.56-alpha-42").prerelease.should == "alpha-42";
