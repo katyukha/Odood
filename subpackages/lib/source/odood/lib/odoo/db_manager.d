@@ -258,7 +258,7 @@ struct OdooDatabaseManager {
             "Cannot restore backup: backup version %s do not match odoo version %s".format(
                 backup_serie, _project.odoo.serie));
 
-        // TODO: check PG version
+        // TODO: check PG version. Implement it in peque
 
         string[] missing_addons;
         foreach(string name, ver; manifest["modules"]) {
