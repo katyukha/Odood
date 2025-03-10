@@ -9,6 +9,7 @@
   Default command uses this option. but custom commands will need to use this option.
   Currently, this requires explicit specification of this command on Odood runs.
   This may be changed in future.
+- **Breaking** Do not use separate config file for tests on deployments (Odoo installations installed via `odood deploy` command)
 
 ---
 

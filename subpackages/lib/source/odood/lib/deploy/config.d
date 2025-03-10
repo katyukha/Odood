@@ -162,6 +162,13 @@ struct DeployConfig {
         project_odoo.server_init_script_path = this.odoo.server_init_script_path;
         project_odoo.pidfile = this.odoo.pidfile;
 
+        /* On deployment, there is only one config file.
+         * There is no need for separate config file for tests,
+         * because if it is test machine, then it will be used only for tests.
+         * separate test configfile is useful mostly for local development
+         */
+        project_odoo.testconfigfile = project_odoo.configfile;
+
         return new Project(
             this.deploy_path,
             project_directories,
