@@ -3,7 +3,7 @@ description "CLI Interface for Odood"
 authors "Dmytro Katyukha"
 copyright "Copyright © 2022-2023, Dmytro Katyukha"
 license "MPL-2.0"
-dependency "colored" version=">=0.0.31"
+dependency "colored" version="0.0.31"
 dependency "tabletool" version="~>0.5.0"
 dependency "commandr" version=">=1.1.0"
 /*dependency "commandr" path="../../../commandr"*/
