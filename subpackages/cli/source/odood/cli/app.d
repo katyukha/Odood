@@ -131,10 +131,13 @@ class App: OdoodProgram {
             warningf("Cannot load Odood project config. Cannot configure Odoo from env. Skipping...");
         } else {
             import std.process: environment;
-            import std.string: chompPrefix, toLower;
+            import std.string: chompPrefix, toLower, startsWith;
             infof("Applying configuration from env variables to Odoo config...");
             auto config = project.get.getOdooConfig;
             foreach(kv; environment.toAA.byKeyValue) {
+                if (!kv.key.toLower.startsWith("odood_opt_"))
+                    // Skip options that not related to Odood
+                    continue;
                 string key = kv.key.toLower.chompPrefix("odood_opt_");
                 config["options"].setKey(key, kv.value);
                 // Remove consumed param from environment
