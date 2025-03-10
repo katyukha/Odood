@@ -6,7 +6,7 @@ private import std.format: format;
 private import std.exception: enforce;
 
 private import thepath: Path;
-private import dpq.connection;
+private import peque: Connection;
 
 private import odood.lib.odoo.config;
 private import odood.lib.project: Project;
@@ -28,29 +28,25 @@ package(odood.lib) struct OdooDatabase {
 
         auto db_conf = _project.parseOdooDatabaseConfig;
 
-        string conn_str = "dbname='%s'".format(dbname);
+        string[string] db_params = [
+            "dbname": dbname,
+        ];
         if (db_conf.host)
-            conn_str ~= " host='%s'".format(db_conf.host);
+            db_params["host"] = db_conf.host;
         if (db_conf.port)
-            conn_str ~= " port='%s'".format(db_conf.port);
+            db_params["port"] = db_conf.port;
         if (db_conf.user)
-            conn_str ~= " user='%s'".format(db_conf.user);
+            db_params["user"] = db_conf.user;
         if (db_conf.password)
-            conn_str ~= " password='%s'".format(db_conf.password);
+            db_params["password"] = db_conf.password;
 
-        _connection = Connection(conn_str);
+        _connection = Connection(db_params);
     }
 
     /** Return dpq connection to database
       **/
     auto connection() {
         return _connection;
-    }
-
-    /** Close connection
-      **/
-    void close() {
-        _connection.close();
     }
 
     /** Run SQL script for specific database.
@@ -70,15 +66,15 @@ package(odood.lib) struct OdooDatabase {
             in string query,
             in bool no_commit,
             T params) {
-        import dpq.query;
-        import dpq.result;
-        import dpq.exception;
+
+        import peque.exception;
+        import peque: Result;
 
         _connection.begin();  // Start new transaction
         Result res;
         try {
-            res = Query(_connection, query).run(params);
-        } catch (DPQException e) {
+            res = _connection.execParams(query, params);
+        } catch (PequeException e) {
             // Rollback in case of any error
             errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
             _connection.rollback();
@@ -108,13 +104,12 @@ package(odood.lib) struct OdooDatabase {
     void runSQLScript(
             in string query,
             in bool no_commit=false) {
-        import dpq.result;
-        import dpq.exception;
+        import peque.exception;
 
         _connection.begin();  // Start new transaction
         try {
             _connection.exec(query);
-        } catch (DPQException e) {
+        } catch (PequeException e) {
             // Rollback in case of any error
             errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
             _connection.rollback();
@@ -134,9 +129,6 @@ package(odood.lib) struct OdooDatabase {
     void runSQLScript(
             in Path script_path,
             in bool no_commit=false) {
-        import dpq.query;
-        import dpq.result;
-        import dpq.exception;
         import std.datetime.stopwatch;
 
         enforce!OdoodException(
@@ -163,7 +155,7 @@ package(odood.lib) struct OdooDatabase {
             "      AND demo = True " ~
             ")",
             false);
-        return res.get(0, 0).as!bool.get;
+        return res[0][0].get!bool;
     }
 
     /** Check if specified module installed on database
@@ -177,7 +169,7 @@ package(odood.lib) struct OdooDatabase {
             ")",
             false,
             addon_name);
-        return res.get(0, 0).as!bool.get;
+        return res[0][0].get!bool;
     }
 
     /// ditto

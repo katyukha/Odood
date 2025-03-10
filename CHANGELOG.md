@@ -1,5 +1,20 @@
 # Changelog
 
+## Release 0.2.2 (2025-03-10)
+
+### Added
+
+- Experimental support for [PyEnv](https://github.com/pyenv/pyenv) integration.
+
+### Changed
+
+- Replace [dpq](https://code.dlang.org/packages/dpq) with [Peque](https://code.dlang.org/packages/peque)
+- `odood script py` command: now output of script will be redirected on stdout.
+   Thus no more need to wait while script completed to get intermediate output of script.
+
+
+---
+
 ## Release 0.2.1 (2025-01-23)
 
 ### Changed

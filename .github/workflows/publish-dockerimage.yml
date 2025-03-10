@@ -14,7 +14,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  ODOOD_DLANG_COMPILER: ldc-1.39.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.0
 
 # There is a single job in this workflow.
 # It's configured to run on the latest available version of Ubuntu.
@@ -38,13 +38,15 @@ jobs:
       - name: Build Odood
         run: |
           dub build -b release --d-version OdoodInDocker
+          dub build -b release --d-version OdoodInDocker -c bash-autocomplete
           
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-amd64
           path: |
             build/odood
+            build/odood.bash
             
   build-and-push-images:
     runs-on: ubuntu-latest
@@ -69,7 +71,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 'Download artifacts for amd64'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: odood-amd64
           path: docker/bin/

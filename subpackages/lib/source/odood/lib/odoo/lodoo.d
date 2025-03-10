@@ -171,11 +171,11 @@ const struct LOdoo {
                 case BackupFormat.zip:
                     runE("db-backup", dbname, backup_path.toString,
                          "--format", "zip");
-                    return backup_path;
+                    return Path(backup_path.toString);
                 case BackupFormat.sql:
                     runE("db-backup", dbname, backup_path.toString,
                          "--format", "sql");
-                    return backup_path;
+                    return Path(backup_path.toString);
             }
         }
 
@@ -261,6 +261,7 @@ const struct LOdoo {
           **/
         auto runPyScript(in string dbname, in Path script_path) {
             import std.datetime.stopwatch;
+            import std.process: wait;
             enforce!OdoodException(
                 script_path.exists,
                 "Python script %s does not exists!".format(script_path));
@@ -268,15 +269,20 @@ const struct LOdoo {
                 "Running python script %s for databse %s ...",
                 script_path, dbname);
             auto sw = StopWatch(AutoStart.yes);
-            auto result = run("run-py-script", dbname, script_path.toString);
+
+            // NOTE: This way, script will print on standard stderr/stdout
+            auto pid = runner.addArgs("run-py-script", dbname, script_path.toString)
+                .spawn;
+            // TODO: Find a way to capture script output. Do we need output?
+            auto result = pid.wait;
             sw.stop();
             enforce!OdoodException(
-                result.status == 0,
-                "Python script %s for database %s failed with error (exit-code)!\nOutput: %s".format(
-                    script_path, dbname, result.output));
+                result == 0,
+                "Python script %s for database %s failed with error (exit-code): %s!".format(
+                    script_path, dbname));
             infof(
-                "Python script %s for database %s completed in %s:\nOutput: %s".format(
-                    script_path, dbname, sw.peek, result.output));
+                "Python script %s for database %s completed in %s.".format(
+                    script_path, dbname, sw.peek));
             return result;
         }
 

@@ -292,20 +292,20 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     import unit_threaded.assertions;
 
     auto v = OdooStdVersion("14.0.1.2.3");
-    v.isValid.shouldBeTrue;
+    v.isStandard.shouldBeTrue;
     v.toString().should == "14.0.1.2.3";
-    v.serie_major.should == 14;
-    v.serie_minor.should == 0;
+    v.serie.major.should == 14;
+    v.serie.minor.should == 0;
     v.major.should == 1;
     v.minor.should == 2;
     v.patch.should == 3;
     v.suffix.empty.shouldBeTrue;
 
     auto v2 = OdooStdVersion("14.0.1.2.3-hotfix-1");
-    v2.isValid.shouldBeTrue;
+    v2.isStandard.shouldBeTrue;
     v2.toString().should == "14.0.1.2.3-hotfix-1";
-    v2.serie_major.should == 14;
-    v2.serie_minor.should == 0;
+    v2.serie.major.should == 14;
+    v2.serie.minor.should == 0;
     v2.major.should == 1;
     v2.minor.should == 2;
     v2.patch.should == 3;
@@ -313,10 +313,10 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
 
     // Not in semver standard thus not supported by Versioned
     //auto v3 = OdooStdVersion("14.0.1.2.3.hotfix-1");
-    //v3.isValid.shouldBeTrue;
+    //v3.isStandard.shouldBeTrue;
     //v3.toString().should == "14.0.1.2.3-hotfix-1";
-    //v3.serie_major.should == 14;
-    //v3.serie_minor.should == 0;
+    //v3.serie.major.should == 14;
+    //v3.serie.minor.should == 0;
     //v3.major.should == 1;
     //v3.minor.should == 2;
     //v3.patch.should == 3;
@@ -324,20 +324,20 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
 
     // Not in semver standard thus not supported by Versioned
     //auto v4 = OdooStdVersion("14.0.1.2.3_hotfix-1");
-    //v4.isValid.shouldBeTrue;
+    //v4.isStandard.shouldBeTrue;
     //v4.toString().should == "14.0.1.2.3-hotfix-1";
-    //v4.serie_major.should == 14;
-    //v4.serie_minor.should == 0;
+    //v4.serie.major.should == 14;
+    //v4.serie.minor.should == 0;
     //v4.major.should == 1;
     //v4.minor.should == 2;
     //v4.patch.should == 3;
     //v4.suffix.should == "hotfix-1";
 
     auto v5 = OdooStdVersion("14.0.1.2.3+hotfix-1");
-    v5.isValid.shouldBeTrue;
+    v5.isStandard.shouldBeTrue;
     v5.toString().should == "14.0.1.2.3+hotfix-1";
-    v5.serie_major.should == 14;
-    v5.serie_minor.should == 0;
+    v5.serie.major.should == 14;
+    v5.serie.minor.should == 0;
     v5.major.should == 1;
     v5.minor.should == 2;
     v5.patch.should == 3;

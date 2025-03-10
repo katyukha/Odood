@@ -652,7 +652,6 @@ class CommandAddonsIsInstalled: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import dpq.query;
         auto project = Project.loadProject;
 
         auto addon_n = project.addons.getByString(args.arg("addon"));

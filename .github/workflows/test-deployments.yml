@@ -6,7 +6,7 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.39.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.0
 
 # In this test, we build Odood on Ubuntu 20.04 and then try to run
 # produced binary on different distros and versions
@@ -33,15 +33,94 @@ jobs:
           dub build -b unittest-cov
 
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-ubuntu-20.04
           path: |
             build/odood
 
-  # Run integration tests for different operation systems
+  # Run integration tests for different operation systems (external database)
   run-deployment-tests:
     name: Run deployment tests
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - "debian:bullseye"
+          - "ubuntu:20.04"
+          - "ubuntu:22.04"
+          - "ubuntu:24.04"
+        odoo_version:
+          - "18.0"
+          - "17.0"
+          - "16.0"
+    runs-on: ubuntu-22.04
+    needs:
+      - compile-ubuntu-20_04
+    container:
+      image: ${{ matrix.image }}
+    # Service containers to run with `container-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_PASSWORD: odoo
+          POSTGRES_USER: odoo
+          POSTGRES_DB: postgres
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DEBIAN_FRONTEND: 'noninteractive'
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: 'Download artifacts for ubuntu 20.04'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-ubuntu-20.04
+          path: build
+
+      - name: Update apt registry
+        run: apt-get update
+
+      - name: Install system dependencies
+        run: apt-get install --no-install-recommends -yq sudo logrotate
+
+      - name: Install package dependencies
+        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: Make test build executable
+        run: chmod a+x ./build/odood
+
+      - name: Deploy with init-script
+        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
+
+      - name: Minimal test for deployed version
+        run: |
+          ./build/odood -v -d db create -r  --demo odood-test-db
+          ./build/odood -v -d db list
+          ./build/odood -v -d addons install --db odood-test-db crm
+          ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood -v -d addons update --db odood-test-db crm
+          ./build/odood -v -d db drop odood-test-db
+          ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood -v -d addons uninstall --db odood-test-db crm
+          ./build/odood -v -d db drop odood-test-db
+
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+
+  run-deployment-tests-with-local-postgres:
+    name: Run deployment tests (local postgres)
     strategy:
       fail-fast: false
       matrix:
@@ -65,7 +144,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: 'Download artifacts for ubuntu 20.04'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: odood-ubuntu-20.04
           path: build
@@ -74,18 +153,45 @@ jobs:
         run: apt-get update
 
       - name: Install system dependencies
-        run: apt-get install --no-install-recommends -yq sudo logrotate
+        run: apt-get install --no-install-recommends -yq sudo logrotate postgresql
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: Start postgresql service
+        run: |
+          service postgresql start
+          echo 'Check PostgreSQL service is running'
+          i=10
+          while [ $i -gt 0 ]; do
+              echo 'Check PostgreSQL service status'
+              pg_isready && break
+              ((i--))
+              if [ $i == 0 ]; then
+                  echo 'PostgreSQL service not ready, all attempts exhausted'
+                  exit 1
+              fi
+              echo 'PostgreSQL service not ready, wait 5 more sec, attempts left: $i'
+              sleep 5
+          done
 
       - name: Make test build executable
         run: chmod a+x ./build/odood
 
       - name: Deploy with init-script
-        run: ./build/odood deploy -v ${{ matrix.odoo_version }} --supervisor=init-script
+        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
 
-      # TODO: Add test some operations with this instance
+      - name: Minimal test for deployed version
+        run: |
+          ./build/odood -v -d db create -r  --demo odood-test-db
+          ./build/odood -v -d db list
+          ./build/odood -v -d addons install --db odood-test-db crm
+          ./build/odood -v -d db backup --dest /tmp/odood-db.zip odood-test-db
+          ./build/odood -v -d addons update --db odood-test-db crm
+          ./build/odood -v -d db drop odood-test-db
+          ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
+          ./build/odood -v -d addons uninstall --db odood-test-db crm
+          ./build/odood -v -d db drop odood-test-db
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3

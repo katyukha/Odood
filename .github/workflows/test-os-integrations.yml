@@ -5,7 +5,7 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.39.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.0
 
 # In this test, we build Odood on Ubuntu 20.04 and then try to run
 # produced binary on different distros and versions
@@ -32,7 +32,7 @@ jobs:
           dub build -b unittest-cov -c unittest-integration-ut
 
       - name: Upload Odood compiled assets
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: odood-ubuntu-20.04
           path: |
@@ -49,6 +49,9 @@ jobs:
           - "ubuntu:20.04"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
+        py_install_type:
+          - "build"
+          - "pyenv"
     runs-on: ubuntu-22.04
     needs:
       - compile-ubuntu-20_04
@@ -56,11 +59,12 @@ jobs:
       image: ${{ matrix.image }}
     env:
       DEBIAN_FRONTEND: 'noninteractive'
+      ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     steps:
       - uses: actions/checkout@v3
 
       - name: 'Download artifacts for ubuntu 20.04'
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: odood-ubuntu-20.04
           path: build
@@ -73,6 +77,31 @@ jobs:
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+
+      - name: PyEnv - Install Dependencies
+        if: matrix.py_install_type == 'pyenv'
+        run: |
+          apt-get install --no-install-recommends -yq make build-essential libssl-dev zlib1g-dev \
+            libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+            xz-utils libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+
+      - name: PyEnv - Install
+        if: matrix.py_install_type == 'pyenv'
+        shell: bash
+        run: "curl -fsSL https://pyenv.run | bash"
+
+      - name: PyEnv - Update environment variables
+        if: matrix.py_install_type == 'pyenv'
+        shell: bash
+        run: |
+            PYENV_ROOT="$HOME/.pyenv"
+            PYENV_BIN="$PYENV_ROOT/bin"
+            echo "$PYENV_BIN" >> $GITHUB_PATH
+            echo "PYENV_ROOT=$PYENV_ROOT" >> $GITHUB_ENV
+
+      - name: PyEnv - Check version
+        if: matrix.py_install_type == 'pyenv'
+        run: pyenv --version
 
       - name: Start postgresql
         run: /etc/init.d/postgresql start

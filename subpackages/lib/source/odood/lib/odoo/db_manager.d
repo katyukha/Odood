@@ -258,7 +258,7 @@ struct OdooDatabaseManager {
             "Cannot restore backup: backup version %s do not match odoo version %s".format(
                 backup_serie, _project.odoo.serie));
 
-        // TODO: check PG version
+        // TODO: check PG version. Implement it in peque
 
         string[] missing_addons;
         foreach(string name, ver; manifest["modules"]) {
@@ -303,14 +303,13 @@ struct OdooDatabaseManager {
       **/
     void _createEmptyDB(in string name) const {
         import std.uni;
-        import dpq.exception;
+        import peque.exception;
         import odood.lib.odoo.config: getConfVal;
         auto odoo_conf = _project.getOdooConfig();
         auto db_template = odoo_conf.getConfVal("db_template", "template0");
         auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
 
         auto pg_db = this.get("postgres").connection;
-        scope(exit) pg_db.close();
         pg_db.exec(
             "CREATE DATABASE \"%s\" ENCODING 'unicode' %s TEMPLATE %s".format(
                 name, collate, db_template));
@@ -319,9 +318,8 @@ struct OdooDatabaseManager {
         if (odoo_conf.getConfVal("unaccent").toLower == "true") {
             try {
                 auto db = this.get(name);
-                scope(exit) db.close();
                 db.runSQLQuery("CREATE EXTENSION IF NOT EXISTS unaccent");
-            } catch (DPQException e) {
+            } catch (PequeException e) {
                 // Do nothing
             }
         }
@@ -350,12 +348,10 @@ struct OdooDatabaseManager {
         _createEmptyDB(name);
 
         auto fs_path = _project.directories.data.join("filestore", name);
-        auto files_path = _project.directories.data.join("files", name);
         scope(failure) {
             // TODO: Use pure SQL to check if db exists and for cleanup
             if (this.exists(name)) this.drop(name);
             if (fs_path.exists()) fs_path.remove();
-            if (files_path.exists()) files_path.remove();
         }
 
         // Prepare tasks
@@ -396,27 +392,16 @@ struct OdooDatabaseManager {
             tracef("Restore filestore for database %s", name);
             auto zip = Zipper(backup_path);
             fs_path.mkdir(true);
-            if (zip.hasEntry("files")) files_path.mkdir(true);
             foreach(entry; zip.entries) {
                 if (entry.name.startsWith("filestore/")) {
                     entry.unzipTo(
                         fs_path.join(
                             entry.name.chompPrefix("filestore/")));
                 }
-                // Restore MuK Dms files (if present
-                // TODO: May be remove it in future, or make optional
-                // May be this feature is not needed.
-                if (entry.name.startsWith("files/")) {
-                    entry.unzipTo(
-                        fs_path.join(
-                            entry.name.chompPrefix("files/")));
-                }
             }
             if (_project.odoo.server_user) {
                 // Set correct ownership for database's filestore
-                fs_path.chown(_project.odoo.server_user);
-                if (files_path.exists)
-                    files_path.chown(_project.odoo.server_user);
+                fs_path.chown(username: _project.odoo.server_user, recursive: true);
             }
             tracef("Filestore for database %s was successfully restored", name);
         });

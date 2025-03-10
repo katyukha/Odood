@@ -6,6 +6,8 @@ private import thepath: Path;
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.install;
+private import odood.lib.venv: PyInstallType;
+private import odood.lib.odoo.python: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -148,22 +150,28 @@ class CommandVenvReinstall: OdoodCommand {
     this() {
         super("reinstall", "Reinstall virtualenv.");
         this.add(new Option(
-            null, "py-version", "Install specific python version.")
-                .defaultValue("auto"));
+            null, "py-version", "Install specific python version."));
         this.add(new Option(
-            null, "node-version", "Install specific node version.")
-                .defaultValue("lts"));
+            null, "node-version", "Install specific node version."));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
+        auto venv_options = project.odoo.serie.guessVenvOptions;
+
+        if (args.option("py-version")) {
+            venv_options.py_version = args.option("py-version");
+            venv_options.install_type = PyInstallType.Build;
+        }
+        if (args.options("node-version")) {
+            venv_options.node_version = args.option("node-version");
+        }
+
         if (project.venv.path.exists)
             project.venv.path.remove();
 
-        project.installVirtualenv(
-            args.option("py-version", "auto"),
-            args.option("node-version", "lts"));
+        project.installVirtualenv(venv_options);
         project.installOdoo();
 
         foreach(addon; project.addons.scan())
@@ -208,14 +216,10 @@ class CommandVenvReinstallOdoo: OdoodCommand {
             "b", "backup", "Backup Odoo before update."));
         this.add(new Flag(
             null, "no-backup", "Do not take backup of Odoo and venv."));
-        this.add(new Flag(
-            null, "reinstall-venv", "Reinstall virtualenv too..."));
         this.add(new Option(
-            null, "venv-py-version", "Install specific python version.")
-                .defaultValue("auto"));
+            null, "venv-py-version", "Install specific python version."));
         this.add(new Option(
-            null, "venv-node-version", "Install specific node version.")
-                .defaultValue("lts"));
+            null, "venv-node-version", "Install specific node version."));
         this.add(new Option(
             null, "install-type", "Installation type. Accept values: git, archive. Default: archive.")
                 .defaultValue("archive")
@@ -248,13 +252,21 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         auto reinstall_version = args.option("version") ?
             OdooSerie(args.option("version")) : project.odoo.serie;
 
+        auto venv_options = reinstall_version.guessVenvOptions;
+
+        if (args.option("venv-py-version")) {
+            venv_options.py_version = args.option("venv-py-version");
+            venv_options.install_type = PyInstallType.Build;
+        }
+        if (args.options("venv-node-version")) {
+            venv_options.node_version = args.option("venv-node-version");
+        }
+
         project.reinstallOdoo(
             reinstall_version,
             install_type,
+            venv_options,
             !args.flag("no-backup") || args.flag("backup"),
-            args.flag("reinstall-venv"),
-            args.option("venv-py-version", "auto"),
-            args.option("venv-node-version", "lts"),
         );
 
         if (start_server)

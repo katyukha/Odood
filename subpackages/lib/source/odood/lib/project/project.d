@@ -16,10 +16,10 @@ private import zipper: Zipper, ZipMode;
 private import odood.exception: OdoodException;
 
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
-private import odood.lib.odoo.python: guessPySerie;
+private import odood.lib.odoo.python: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
-private import odood.lib.venv: VirtualEnv;
+private import odood.lib.venv: VirtualEnv, VenvOptions;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
@@ -341,8 +341,9 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
-        infof("Saving Odood config at %s", path);
+        infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
+        infof("Odood config saved at %s", path);
     }
 
     /** Save project configuration to default config file.
@@ -374,8 +375,7 @@ class Project {
       *     odoo_config: INI struct, that represents configuration for Odoo
       **/
     void initialize(ref Ini odoo_config,
-            in string python_version="auto",
-            in string node_version="lts",
+            in VenvOptions venv_options,
             in OdooInstallType install_type=OdooInstallType.Archive) {
         import odood.lib.install;
 
@@ -393,7 +393,7 @@ class Project {
                 this.installCloneGitOdoo();
                 break;
         }
-        this.installVirtualenv(python_version, node_version);
+        this.installVirtualenv(venv_options);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
         // TODO: Automatically save config
@@ -401,8 +401,9 @@ class Project {
 
     /// ditto
     void initialize() {
-        auto odoo_config = this.initOdooConfig();
-        initialize(odoo_config);
+        auto odoo_config = this.initOdooConfig;
+        auto venv_options = this.odoo.serie.guessVenvOptions;
+        initialize(odoo_config, venv_options);
     }
 
     /** Backup odoo sources located at this.odoo.path.
@@ -477,10 +478,8 @@ class Project {
     void reinstallOdoo(
             in OdooSerie serie,
             in OdooInstallType install_type,
-            in bool backup=true,
-            in bool reinstall_venv=false,
-            in string venv_py_version="auto",
-            in string venv_node_version="lts")
+            in VenvOptions venv_options,
+            in bool backup=true)
     in(serie.isValid)
     do {
         import odood.lib.install;
@@ -494,18 +493,14 @@ class Project {
             this.odoo.path.remove();
         }
 
-        if (reinstall_venv && this.venv.path.exists()) {
+        if (this.venv.path.exists()) {
             this.venv.path.remove();
         }
 
         this._odoo.serie = serie;
         this._odoo.branch = serie.toString;
 
-        if (reinstall_venv) {
-            this.installVirtualenv(
-                venv_py_version,
-                venv_node_version);
-        }
+        this.installVirtualenv(venv_options);
 
         with(OdooInstallType) final switch(install_type) {
             case Archive:
@@ -529,32 +524,16 @@ class Project {
     /// ditto
     void reinstallOdoo(
             in OdooSerie serie,
-            in bool backup=true,
-            in bool reinstall_venv=false,
-            in string venv_py_version="auto",
-            in string venv_node_version="lts") {
+            in bool backup=true) {
         this.reinstallOdoo(
             serie,
             this.odoo_install_type,
-            backup,
-            reinstall_venv,
-            venv_py_version,
-            venv_node_version);
+            serie.guessVenvOptions,
+            backup);
     }
 
     /// Get configuration for Odoo
     auto getOdooConfig() const {
         return this.readOdooConfig;
     }
-
-    /** Check if database contains demo data.
-      **/
-    deprecated const(bool) hasDatabaseDemoData(in string dbname) const {
-        // TODO: could be removed after starting use of Peque instead of dpq
-        auto db = dbSQL(dbname);
-        scope(exit) db.close;
-
-        return db.hasDemoData();
-    }
 }
-

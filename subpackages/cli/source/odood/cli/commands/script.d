@@ -29,10 +29,7 @@ class CommandScriptPy: OdoodCommand {
             project.databases.exists(args.option("db")),
             "Database %s does not exists!".format(args.option("db")));
 
-        auto res = project.lodoo.runPyScript(dbname, script);
-        infof(
-            "Python script %s for database %s completed!\nOutput:\n%s",
-            script, dbname, res.output);
+        project.lodoo.runPyScript(dbname, script);
     }
 }
 
@@ -46,7 +43,6 @@ class CommandScriptSQL: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import dpq.query;
         auto project = Project.loadProject;
 
         auto dbname = args.option("db");
@@ -56,9 +52,7 @@ class CommandScriptSQL: OdoodCommand {
             project.databases.exists(dbname),
             "Database %s does not exists!".format(dbname));
 
-        auto db = project.dbSQL(dbname);
-        scope(exit) db.close();
-        db.runSQLScript(script, args.flag("no-commit"));
+        project.dbSQL(dbname).runSQLScript(script, args.flag("no-commit"));
     }
 }
 

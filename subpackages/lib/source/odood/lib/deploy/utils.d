@@ -1,9 +1,9 @@
 module odood.lib.deploy.utils;
 
-private import std.logger: infof, tracef;
+private import std.logger: infof, tracef, errorf;
 private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
-private import std.conv: to, text;
+private import std.conv: to, text, ConvException;
 private import std.string: strip;
 
 private import core.sys.posix.unistd: geteuid, getegid;
@@ -38,6 +38,7 @@ bool checkSystemUserExists(in string username) {
 
 
 void createSystemUser(in Path home, in string name) {
+    infof("Creating system user for Odoo named '%s'", name);
     Process("adduser")
         .withArgs(
             "--system", "--no-create-home",
@@ -47,51 +48,55 @@ void createSystemUser(in Path home, in string name) {
             name)
         .execute()
         .ensureOk(true);
+    infof("User '%s' created successfully", name);
 }
 
 
 /** Check if PostgreSQL user with provided username exists
   **/
 bool postgresCheckUserExists(in string username) {
+    // TODO: Use peque for this?
     auto output = Process("psql")
         .setArgs([
             "-t", "-A", "-c",
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
-        .withUser("postgres")
+        .withUser(username: "postgres", userWorkDir: true)
         .execute
         .ensureOk(true)
         .output.strip;
 
-    return output.to!int != 0;
+    bool result = false;
+    try {
+        result = output.to!int != 0;
+    } catch (ConvException e) {
+        errorf(
+            "Cannot check if pg user '%s' already exists: cannot parse psql output.\n"~
+            "Error: %s\n" ~
+            "Psql output: %s\n" ~
+            "Expected psql output is int: 1 if user exists 0 if no user exists.",
+            username,
+            e.toString,
+            output);
+        throw e;
+    }
+
+    return result;
 }
 
 
 /** Create new PostgreSQL user for Odoo with provided credentials
   **/
 void postgresCreateUser(in string username, in string password) {
+    // TODO: Use peque for this?
     infof("Creating postgresql user '%s' for Odoo...", username);
     Process("psql")
         .setArgs([
             "-c",
             i"CREATE USER \"$(username)\" WITH CREATEDB PASSWORD '$(password)'".text,
         ])
-        .withUser("postgres")
+        .withUser(username: "postgres", userWorkDir: true)
         .execute
         .ensureOk(true);
     infof("Postgresql user '%s' for Odoo created successfully.", username);
-}
-
-
-/** Check if debian package is installed in system
-  **/
-bool dpkgCheckPackageInstalled(in string package_name) {
-    auto result = Process("dpkg-query")
-       .withArgs("--show", "--showformat='${db:Status-Status}'", package_name)
-       .execute;
-    if (result.isNotOk)
-        return false;
-    if (result.output == "installed")
-        return true;
-    return false;
 }

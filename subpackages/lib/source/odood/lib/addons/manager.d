@@ -294,10 +294,7 @@ struct AddonManager {
       *     addon = name of addon to check if it is installed
       **/
     bool isInstalled(in string database, in string addon) {
-        auto db = _project.dbSQL(database);
-        scope(exit) db.close();
-
-        return db.isAddonInstalled(addon);
+        return _project.dbSQL(database).isAddonInstalled(addon);
     }
 
     /// ditto
@@ -329,7 +326,7 @@ struct AddonManager {
             "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
             "--logfile=%s".format(_project.odoo.logfile.toString),
         ).withEnv(env);
-        if (!_project.hasDatabaseDemoData(database))
+        if (!_project.dbSQL(database).hasDemoData)
             runner.addArgs("--without-demo=all");
 
         auto addon_names_csv = addon_names.join(",");
