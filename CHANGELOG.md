@@ -1,5 +1,17 @@
 # Changelog
 
+## Release 0.3.0 (Unreleased)
+
+### Changed
+
+- **Breaking** Changed approach to docker images. No more custom entry point.
+  Just single option (on application level), that allows to update Odoo configuration from environment variables.
+  Default command uses this option. but custom commands will need to use this option.
+  Currently, this requires explicit specification of this command on Odood runs.
+  This may be changed in future.
+
+---
+
 ## Release 0.2.2 (2025-03-10)
 
 ### Added

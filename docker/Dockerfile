@@ -42,5 +42,4 @@ EXPOSE 8072
 
 VOLUME ["/opt/odoo/data", "/opt/odoo/backups"]
 
-ENTRYPOINT ["/usr/bin/odood", "entrypoint", "--config-from-env", "--"]
-CMD []
+CMD ["/usr/bin/odood", "--config-from-env", "server", "run"]
