@@ -2,7 +2,7 @@ module odood.utils.addons.addon_changelog;
 
 private import std.string: strip;
 
-private import odood.utils.versioned: Version;
+private import versioned: Version;
 
 
 /// This struct represents single changelog entries

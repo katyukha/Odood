@@ -1,11 +1,11 @@
 module odood.lib.odoo.python;
 
 private import theprocess: resolveProgram;
+private import versioned: Version;
 
 private import odood.lib.venv;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie;
-private import odood.utils.versioned: Version;
 private import odood.utils: parsePythonVersion;
 
 

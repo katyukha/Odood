@@ -17,9 +17,9 @@ private import std.regex: ctRegex, matchFirst;
 
 private import thepath: Path;
 private import theprocess: Process;
+private import versioned: Version;
 
 private import odood.exception: OdoodException;
-private import odood.utils.versioned: Version;
 
 
 /** Parse python version
