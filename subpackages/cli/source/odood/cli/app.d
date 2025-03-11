@@ -29,6 +29,7 @@ private import odood.cli.commands.psql: CommandPSQL;
 private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
 private import odood.cli.commands.precommit: CommandPreCommit;
+private import odood.cli.commands.translations: CommandTranslations;
 
 // Deploy is available only on Linux
 version(linux) private import odood.cli.commands.deploy: CommandDeploy;
@@ -60,6 +61,7 @@ class App: OdoodProgram {
         this.add(new CommandScript());
         this.add(new CommandPSQL());
         this.add(new CommandPreCommit());
+        this.add(new CommandTranslations());
 
         // System
         this.topicGroup("System");
@@ -77,6 +79,7 @@ class App: OdoodProgram {
         this.add(new CommandDatabaseList("lsd"));
         this.add(new CommandAddonsList("lsa"));
         this.add(new CommandAddonsUpdateList("ual"));
+        this.add(new CommandTranslations("tr"));
 
         // Options
         this.add(new Flag(

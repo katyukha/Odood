@@ -2,6 +2,12 @@
 
 ## Release 0.3.0 (Unreleased)
 
+### Added
+
+- New command `odood translations regenerate` that allows to regenerate translations for modules.
+  Could be useful to automatically or semiautomatically generate `.po` and `.pot` files for modules.
+  Also, this command available as shortcut `odood tr regenerate`.
+
 ### Changed
 
 - **Breaking** Changed approach to docker images. No more custom entry point.

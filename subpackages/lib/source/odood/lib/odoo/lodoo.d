@@ -294,4 +294,17 @@ const struct LOdoo {
                 .execute
                 .ensureOk!OdoodException(true);
         }
+
+        auto generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
+            infof("Generating POT file for %s database for %s addon", dbname, addon);
+            auto runner = this.runner
+                .addArgs("tr-generate-pot-file");
+            if (remove_dates)
+                runner.addArgs("--remove-dates");
+            runner.addArgs(dbname, addon);
+            tracef("Running command %s", runner.toString);
+            return runner
+                .execute
+                .ensureOk!OdoodException(true);
+        }
 }

@@ -411,7 +411,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
                 null, "skip-errors", "Do not fail on errors during installation."));
     }
 
-    /** Find addons to test
+    /** Find addons
       **/
     protected auto findAddons(ProgramArgs args, in Project project) {
         string[] skip_addons = args.options("skip");
@@ -440,7 +440,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             if (skip_addons.canFind(addon_name)) continue;
             if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon_name)) continue;
 
-            auto addon = project.addons(true).getByString(addon_name);
+            auto addon = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
                 !addon.isNull,
                 "Cannot find addon %s!".format(addon_name));
