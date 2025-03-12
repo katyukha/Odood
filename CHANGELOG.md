@@ -7,6 +7,8 @@
 - New command `odood translations regenerate` that allows to regenerate translations for modules.
   Could be useful to automatically or semiautomatically generate `.po` and `.pot` files for modules.
   Also, this command available as shortcut `odood tr regenerate`.
+- New flag `--no-install-addons` added to `odood test`.
+  It could be used to speed up running tests on localc machine on same db.
 
 ### Changed
 

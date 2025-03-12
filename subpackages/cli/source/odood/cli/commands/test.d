@@ -63,6 +63,9 @@ class CommandTest: OdoodCommand {
             null, "additional-addon",
             "Specify additional addon to install before test. ").repeating);
 
+        this.add(new Flag(
+            null, "no-install-addons", "Do not install addons before test. Could be useful to speed up local tests."));
+
         // Search for addons options and arguments
         this.add(new Option(
             null, "dir", "Directory to search for addons to test").repeating);
@@ -161,6 +164,9 @@ class CommandTest: OdoodCommand {
 
         if (args.flag("isw"))
             testRunner.ignoreSafeWarnings();
+
+        if (args.flag("no-install-addons"))
+            testRunner.setNoNeedInstallModules();
 
         foreach(addon; findAddons(args, project)) {
             testRunner.addModule(addon);
