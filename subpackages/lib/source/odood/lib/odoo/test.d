@@ -221,6 +221,9 @@ struct OdooTestRunner {
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
 
+    // Other configuration
+    private bool _need_install_addons_before_test=true;
+
     this(in Project project) {
         _project = project;
 
@@ -242,6 +245,8 @@ struct OdooTestRunner {
     auto test_migration() const { return _test_migration; }
     auto migration_repo() const { return _test_migration_repo; }
     auto migration_start_ref() const { return _test_migration_start_ref; }
+
+    auto need_install_addons_before_test() const { return _need_install_addons_before_test; }
 
     /** Ensure test database exests, and create it if it does not exists
       **/
@@ -320,6 +325,14 @@ struct OdooTestRunner {
       **/
     auto ref setCoverage(in bool coverage) {
         _coverage = coverage;
+        return this;
+    }
+
+    /** Disable automatic installation of modules before tests.
+      * This could be usefule to speed up local tests on same database
+      **/
+    auto ref setNoNeedInstallModules() {
+        _need_install_addons_before_test = false;
         return this;
     }
 
@@ -515,44 +528,46 @@ struct OdooTestRunner {
                 "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
                 "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
 
-        infof("Installing modules before test...");
-        auto init_res =_server.pipeServerLog(
-            getCoverageOptions(),
-            [
-                "--init=%s".format(getModuleList(true)),
-                "--log-level=warn",
-                "--stop-after-init",
-                "--workers=0",
-                _project.odoo.serie < OdooSerie(16) ?
-                    "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT) :
-                    "--gevent-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
-                opt_http_port,
-                "--database=%s".format(_test_db_name),
-            ]
-        );
-        foreach(ref log_record; init_res) {
-            logToFile(log_record);
+        if (_need_install_addons_before_test) {
+            infof("Installing modules before test...");
+            auto init_res =_server.pipeServerLog(
+                getCoverageOptions(),
+                [
+                    "--init=%s".format(getModuleList(true)),
+                    "--log-level=warn",
+                    "--stop-after-init",
+                    "--workers=0",
+                    _project.odoo.serie < OdooSerie(16) ?
+                        "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT) :
+                        "--gevent-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+                    opt_http_port,
+                    "--database=%s".format(_test_db_name),
+                ]
+            );
+            foreach(ref log_record; init_res) {
+                logToFile(log_record);
 
-            if (!filterLogRecord(log_record))
-                continue;
+                if (!filterLogRecord(log_record))
+                    continue;
 
-            if (_log_handler)
-                _log_handler(log_record);
-            result.addLogRecord(log_record);
+                if (_log_handler)
+                    _log_handler(log_record);
+                result.addLogRecord(log_record);
 
-            if (signal.interrupted) {
-                warningf("Canceling test because of Keyboard Interrupt");
-                result.setCancelled("Keyboard interrupt");
+                if (signal.interrupted) {
+                    warningf("Canceling test because of Keyboard Interrupt");
+                    result.setCancelled("Keyboard interrupt");
+                    cleanUp();
+                    init_res.kill();
+                    return result;
+                }
+            }
+
+            if(init_res.wait != 0) {
+                result.setFailed();
                 cleanUp();
-                init_res.kill();
                 return result;
             }
-        }
-
-        if(init_res.wait != 0) {
-            result.setFailed();
-            cleanUp();
-            return result;
         }
 
         if (_test_migration) {

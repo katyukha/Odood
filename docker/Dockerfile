@@ -10,7 +10,7 @@ RUN apt-get update -qq && \
         ca-certificates \
         gnupg \
         lsb-release \
-        xfonts-75dpi xfonts-base libx11-6 libxcb1 libxext6 libxrender1 \
+        xfonts-75dpi xfonts-base libx11-6 libxcb1 libxext6 libxrender1 libsqlite3-dev\
         tzdata && \
     locale-gen en_US.UTF-8 && \
     locale-gen en_GB.UTF-8 && \
@@ -42,5 +42,4 @@ EXPOSE 8072
 
 VOLUME ["/opt/odoo/data", "/opt/odoo/backups"]
 
-ENTRYPOINT ["/usr/bin/odood", "entrypoint", "--config-from-env", "--"]
-CMD []
+CMD ["/usr/bin/odood", "--config-from-env", "server", "run"]

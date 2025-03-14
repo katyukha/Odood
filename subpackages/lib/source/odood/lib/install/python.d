@@ -5,13 +5,13 @@ private import std.logger;
 
 private import thepath: Path;
 private import theprocess: resolveProgram;
+private import versioned: Version;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.python;
 private import odood.lib.venv: PyInstallType, VenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: parsePythonVersion;
-private import odood.utils.versioned: Version;
 private import odood.exception: OdoodException;
 
 

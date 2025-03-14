@@ -227,6 +227,12 @@ void installOdooConfig(in Project project, in Ini odoo_config) {
      *       is to use separate config files for them.
      */
 
+    // TODO: Drop support for versions that do not support passing empty logfile as CLI opt.
+
+    if (project.odoo.configfile == project.odoo.testconfigfile)
+        // This is special case for deployments via Odood. Deployments should have only single file
+        return;
+
     // Update test config with different xmlrpc/http port to avoid conflicts
     // with running odoo server
     if (project.odoo.serie < OdooSerie(11)) {

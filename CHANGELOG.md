@@ -1,5 +1,26 @@
 # Changelog
 
+## Release 0.3.0 (2025-03-14)
+
+### Added
+
+- New command `odood translations regenerate` that allows to regenerate translations for modules.
+  Could be useful to automatically or semiautomatically generate `.po` and `.pot` files for modules.
+  Also, this command available as shortcut `odood tr regenerate`.
+- New flag `--no-install-addons` added to `odood test`.
+  It could be used to speed up running tests on localc machine on same db.
+
+### Changed
+
+- **Breaking** Changed approach to docker images. No more custom entry point.
+  Just single option (on application level), that allows to update Odoo configuration from environment variables.
+  Default command uses this option. but custom commands will need to use this option.
+  Currently, this requires explicit specification of this command on Odood runs.
+  This may be changed in future.
+- **Breaking** Do not use separate config file for tests on deployments (Odoo installations installed via `odood deploy` command)
+
+---
+
 ## Release 0.2.2 (2025-03-10)
 
 ### Added

@@ -7,8 +7,9 @@ private import std.array: array, join, empty;
 private import std.exception: enforce;
 private import std.regex;
 
+private import versioned: Version;
+
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils.versioned: Version;
 private import odood.exception;
 
 
