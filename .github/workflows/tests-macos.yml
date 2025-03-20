@@ -9,7 +9,7 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        dc: [ldc-1.40.0, ldc-latest]
+        dc: [ldc-1.40.1, ldc-latest]
         os: [macOS-latest]
         py_install_type:
           - "build"

@@ -7,7 +7,7 @@ on:
       - 'v*.*.*\+*'
 
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.40.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.1
 
 jobs:
   build-ubuntu-20_04:
