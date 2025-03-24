@@ -27,6 +27,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
+          brew update
           brew install postgresql@14
           brew install libzip
           brew install python@3.11
