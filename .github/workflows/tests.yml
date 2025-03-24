@@ -9,8 +9,13 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04, ubuntu-24.04, ubuntu-22.04-arm, ubuntu-24.04-arm]
+        os: [ubuntu-22.04, ubuntu-20.04, ubuntu-24.04]
         dc: [dmd-2.110.0, ldc-1.40.0, ldc-1.40.1]
+        include:
+          - os: ubuntu-22.04-arm
+            dc: ldc-1.40.1
+          - os: ubuntu-24.04-arm
+            dc: ldc-1.40.1
 
     runs-on: ${{ matrix.os }}
     steps:
