@@ -10,9 +10,14 @@ env:
   ODOOD_DLANG_COMPILER: ldc-1.40.1
 
 jobs:
-  build-ubuntu-20_04:
+  build-ubuntu:
     name: Build Ubuntu:20.04
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - ubuntu-22.04-arm
+    runs-on: {{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
 
@@ -72,7 +77,7 @@ jobs:
           package_root: .debpkg
           maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
           version: ${{ github.ref_name }} # v*.*.*
-          arch: 'amd64'
+          arch: ${{ RUNNER_ARCH }}
           depends: ${{ steps.prepare_deb_deps.outputs.universal_deb_deps }}
           desc: 'Odood - the easy way to handle multiple local Odoo installations.'
 
@@ -83,11 +88,11 @@ jobs:
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-amd64
+          name: odood-${{ RUNNER_ARCH }}
           path: |
             build/odood
             build/odood.bash
-            build/odood_${{ github.ref_name }}_amd64.deb
+            build/odood_${{ github.ref_name }}_${{ RUNNER_ARCH }}.deb
 
   publish_release:
     name: Publish Release
@@ -95,15 +100,21 @@ jobs:
     permissions:
       contents: write
     needs:
-      - build-ubuntu-20_04
+      - build-ubuntu
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for amd64'
+      - name: 'Download artifacts for x64'
         uses: actions/download-artifact@v4
         with:
-          name: odood-amd64
-          path: build-amd64
+          name: odood-x64
+          path: build-x64
+
+      - name: 'Download artifacts for arm64'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-arm64
+          path: build-arm64
 
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
@@ -122,7 +133,8 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'true'
         with:
           files: |
-            build-amd64/odood_${{ github.ref_name }}_amd64.deb
+            build-arm64/odood_${{ github.ref_name }}_arm64.deb
+            build-x64/odood_${{ github.ref_name }}_x64.deb
           prerelease: true
           body_path: CHANGELOG.00.md
 
@@ -131,6 +143,7 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'false'
         with:
           files: |
-            build-amd64/odood_${{ github.ref_name }}_amd64.deb
+            build-arm64/odood_${{ github.ref_name }}_arm64.deb
+            build-x64/odood_${{ github.ref_name }}_x64.deb
           prerelease: false
           body_path: CHANGELOG.00.md

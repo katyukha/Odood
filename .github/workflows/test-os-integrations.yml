@@ -11,11 +11,21 @@ env:
 # produced binary on different distros and versions
 jobs:
   # Compile test builds on ubuntu 20.04
-  compile-ubuntu-20_04:
-    name: Build Ubuntu:20.04
-    runs-on: ubuntu-20.04
+  compile-ubuntu:
+    name: Build Ubuntu
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -34,7 +44,7 @@ jobs:
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: |
             build/odood-unittest-integration-ut
 
@@ -46,15 +56,25 @@ jobs:
       matrix:
         image:
           - "debian:bullseye"
-          - "ubuntu:20.04"
+          - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
         py_install_type:
           - "build"
           - "pyenv"
-    runs-on: ubuntu-22.04
+        os:
+          - "ubuntu-22.04"
+          - "ubuntu-22.04-arm"
+        include:
+          - image: "ubuntu:20.04"
+            os: "ubuntu-20.04"
+            py_install_type: "build"
+          - image: "ubuntu:20.04"
+            os: "ubuntu-20.04"
+            py_install_type: "pyenv"
+    runs-on: ${{ matrix.os }}
     needs:
-      - compile-ubuntu-20_04
+      - compile-ubuntu
     container:
       image: ${{ matrix.image }}
     env:
@@ -63,10 +83,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+
+      - name: 'Download artifacts'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: build
 
       - name: Update apt registry
