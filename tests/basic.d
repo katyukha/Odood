@@ -379,7 +379,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
@@ -413,7 +413,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 14")
 unittest {
     auto temp_path = createTempPath(
@@ -447,7 +447,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 13")
 unittest {
     auto temp_path = createTempPath(
@@ -481,7 +481,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 12")
 unittest {
     auto temp_path = createTempPath(
