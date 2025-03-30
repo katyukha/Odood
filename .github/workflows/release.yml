@@ -16,7 +16,7 @@ jobs:
       matrix:
         os:
           - ubuntu-20.04
-          - ubuntu-22.04-arm
+          #- ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -113,11 +113,11 @@ jobs:
           name: odood-amd64
           path: build-amd64
 
-      - name: 'Download artifacts for arm64'
-        uses: actions/download-artifact@v4
-        with:
-          name: odood-aarch64
-          path: build-aarch64
+      #- name: 'Download artifacts for arm64'
+        #uses: actions/download-artifact@v4
+        #with:
+          #name: odood-aarch64
+          #path: build-aarch64
 
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
@@ -136,7 +136,7 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'true'
         with:
           files: |
-            build-aarch64/odood_${{ github.ref_name }}_aarch64.deb
+            #build-aarch64/odood_${{ github.ref_name }}_aarch64.deb
             build-amd64/odood_${{ github.ref_name }}_amd64.deb
           prerelease: true
           body_path: CHANGELOG.00.md
@@ -146,7 +146,7 @@ jobs:
         if: steps.check-rc-release.outputs.is_rc_release == 'false'
         with:
           files: |
-            build-aarch64/odood_${{ github.ref_name }}_aarch64.deb
+            #build-aarch64/odood_${{ github.ref_name }}_aarch64.deb
             build-amd64/odood_${{ github.ref_name }}_amd64.deb
           prerelease: false
           body_path: CHANGELOG.00.md
