@@ -10,7 +10,7 @@ private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
 private import std.algorithm.searching: canFind;
-private import std.string: join, startsWith, chompPrefix;
+private import std.string: join, startsWith, chompPrefix, empty;
 
 private import thepath;
 private import theprocess;
@@ -346,6 +346,12 @@ struct OdooDatabaseManager {
         infof("Restoring database %s from %s", name, backup_path);
 
         _createEmptyDB(name);
+
+        // Create and set correct access rights for "filestore" dir if needed
+        if (!_project.odoo.server_user.empty && !_project.directories.data.join("filestore").exists) {
+            _project.directories.data.join("filestore").mkdir(true);
+            _project.directories.data.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
+        }
 
         auto fs_path = _project.directories.data.join("filestore", name);
         scope(failure) {
