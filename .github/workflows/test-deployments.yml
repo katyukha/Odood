@@ -31,6 +31,7 @@ jobs:
       - name: Build Odood
         run: |
           dub build -b unittest-cov
+          .ci/print_deps.d > build/deb-dependencies.txt
 
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
@@ -38,6 +39,7 @@ jobs:
           name: odood-ubuntu-20.04
           path: |
             build/odood
+            build/deb-dependencies.txt
 
   # Run integration tests for different operation systems (external database)
   run-deployment-tests:
@@ -47,6 +49,7 @@ jobs:
       matrix:
         image:
           - "debian:bullseye"
+          - "debian:bookworm"
           - "ubuntu:20.04"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
@@ -92,7 +95,7 @@ jobs:
         run: apt-get install --no-install-recommends -yq sudo logrotate
 
       - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+        run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
 
       - name: Make test build executable
         run: chmod a+x ./build/odood
@@ -156,7 +159,7 @@ jobs:
         run: apt-get install --no-install-recommends -yq sudo logrotate postgresql
 
       - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+        run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
 
       - name: Start postgresql service
         run: |

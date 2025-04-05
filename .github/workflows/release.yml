@@ -61,34 +61,15 @@ jobs:
           dub build -b release-debug -c bash-autocomplete
           dub build -b release-debug
 
-      - name: Prepare dependencies for deb package
-        id: prepare_deb_deps
+      - name: Install nFPM
         run: |
-          echo "universal_deb_deps=$(cat .ci/deps/universal-deb.txt | tr '\n' ',' | sed 's/,$/\n/')" >> $GITHUB_OUTPUT
-
-      - name: Prepare debian build
-        run: |
-          mkdir -p .debpkg/usr/bin
-          mkdir -p .debpkg/etc/bash_completion.d
-          cp build/odood .debpkg/usr/bin/odood
-          cp build/odood.bash .debpkg/etc/bash_completion.d/odood.bash
-          chmod a+x .debpkg/usr/bin/odood
+          wget "https://github.com/goreleaser/nfpm/releases/download/v2.42.0/nfpm_2.42.0_${{ steps.check-arch.outputs.arch }}.deb" -O /tmp/nfpm.deb
+          sudo dpkg -i /tmp/nfpm.deb
 
       - name: Build debian package
-        id: build_debian_package
-        uses: jiro4989/build-deb-action@v3
-        with:
-          package: odood
-          package_root: .debpkg
-          maintainer: Dmytro Katyukha <dmytro.katyukha@gmail.com>
-          version: ${{ github.ref_name }} # v*.*.*
-          arch: ${{ steps.check-arch.outputs.arch }}
-          depends: ${{ steps.prepare_deb_deps.outputs.universal_deb_deps }}
-          desc: 'Odood - the easy way to handle multiple local Odoo installations.'
-
-      - name: Move deb package to build dir with correct name
-        run: |
-          mv ${{ steps.build_debian_package.outputs.file_name }} build/odood_${{ github.ref_name }}_amd64.deb
+        env:
+          BUILD_ODOOD_VERSION: ${{ github.ref_name }}
+        run: nfpm package -p deb -t build/odood_${{ github.ref_name }}_${{ steps.check-arch.outputs.arch }}.deb
 
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4

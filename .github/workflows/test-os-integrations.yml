@@ -40,6 +40,7 @@ jobs:
       - name: Build Odood
         run: |
           dub build -b unittest-cov -c unittest-integration-ut
+          .ci/print_deps.d > build/deb-dependencies.txt
 
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
@@ -47,6 +48,7 @@ jobs:
           name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: |
             build/odood-unittest-integration-ut
+            build/deb-dependencies.txt
 
   # Run integration tests for different operation systems
   run-integration-tests:
@@ -55,7 +57,6 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - "debian:bullseye"
           - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
@@ -70,6 +71,12 @@ jobs:
             os: "ubuntu-20.04"
             py_install_type: "build"
           - image: "ubuntu:20.04"
+            os: "ubuntu-20.04"
+            py_install_type: "pyenv"
+          - image: "debian:bullseye"
+            os: "ubuntu-20.04"
+            py_install_type: "build"
+          - image: "debian:bullseye"
             os: "ubuntu-20.04"
             py_install_type: "pyenv"
     runs-on: ${{ matrix.os }}
@@ -101,7 +108,7 @@ jobs:
         run: apt-get install --no-install-recommends -yq postgresql sudo
 
       - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+        run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
 
       - name: PyEnv - Install Dependencies
         if: matrix.py_install_type == 'pyenv'
