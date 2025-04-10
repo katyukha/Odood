@@ -66,19 +66,6 @@ jobs:
         os:
           - "ubuntu-22.04"
           - "ubuntu-22.04-arm"
-        include:
-          - image: "ubuntu:20.04"
-            os: "ubuntu-20.04"
-            py_install_type: "build"
-          - image: "ubuntu:20.04"
-            os: "ubuntu-20.04"
-            py_install_type: "pyenv"
-          - image: "debian:bullseye"
-            os: "ubuntu-20.04"
-            py_install_type: "build"
-          - image: "debian:bullseye"
-            os: "ubuntu-20.04"
-            py_install_type: "pyenv"
     runs-on: ${{ matrix.os }}
     needs:
       - compile-ubuntu
