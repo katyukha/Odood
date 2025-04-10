@@ -6,7 +6,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.algorithm.sorting: sort;
 private import std.algorithm.iteration: uniq;
-private import std.string: join;
+private import std.string: join, empty;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -74,8 +74,6 @@ class CommandDatabaseCreate: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        import std.array: empty;
-
         auto project = Project.loadProject;
         string dbname = getDatabaseName(args, project);
 
@@ -222,6 +220,13 @@ class CommandDatabaseBackup: OdoodCommand {
 
         string[] dbnames = args.flag("all") ?
             project.databases.list : args.args("name");
+
+        if (!args.option("dest").empty) {
+            auto dest = Path(args.option("dest"));
+            enforce!OdoodCLIException(
+                dbnames.length <= 1 || (dest.exists && dest.isDir),
+                "If --dest option specified and it is not directory, then only one database allowed to backup at time!");
+        }
 
         foreach(db; dbnames)
             if (args.option("dest"))
