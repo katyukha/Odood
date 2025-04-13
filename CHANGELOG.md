@@ -1,5 +1,13 @@
 # Changelog
 
+## Release 0.3.1 (unreleased)
+
+### Added
+
+- Support and release for arm64 architecture
+
+---
+
 ## Release 0.3.0 (2025-03-14)
 
 ### Added
