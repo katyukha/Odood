@@ -8,6 +8,8 @@ on:
 env:
   ODOOD_DLANG_COMPILER: ldc-1.40.1
 
+# TODO: Test for arm architecture
+
 # In this test, we build Odood on Ubuntu 20.04 and then try to run
 # produced binary on different distros and versions
 jobs:
