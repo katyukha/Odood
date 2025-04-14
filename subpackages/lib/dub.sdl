@@ -10,7 +10,7 @@ dependency "dyaml" version=">=0.9.2"
 
 dependency "peque" version=">=0.0.2"
 
-subConfiguration "peque" "libraryStatic"
+subConfiguration "peque" "libraryDynamic"
 
 targetPath "build"
 targetType "library"
