@@ -7,7 +7,7 @@ private import std.array: array, join, empty;
 private import std.exception: enforce;
 private import std.regex;
 
-private import versioned: Version;
+private import versioned: Version, VersionPart;
 
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception;
@@ -195,9 +195,23 @@ private import odood.exception;
         v.withSerie(16).should == OdooStdVersion("16.0.1.2.3");
     }
 
+    // Increment version
+    auto incVersion(in VersionPart part) const pure {
+        final switch(part) {
+            case VersionPart.MAJOR:
+                return OdooStdVersion(_serie, _version.incMajor);
+            case VersionPart.MINOR:
+                return OdooStdVersion(_serie, _version.incMinor);
+            case VersionPart.PATCH:
+                return OdooStdVersion(_serie, _version.incPatch);
+            case VersionPart.PRERELEASE, VersionPart.BUILD:
+                throw new OdoodException("Increment of prerelease and build versions not supported yet!");
+        }
+    }
+
     /// Return new version with increased major part
     auto incMajor() const pure {
-        return OdooStdVersion(_serie, _version.incMajor);
+        return incVersion(VersionPart.MAJOR);
     }
 
     /// Test increase of major version
@@ -208,7 +222,7 @@ private import odood.exception;
 
     /// Return new version with increased minor part
     auto incMinor() const pure {
-        return OdooStdVersion(_serie, _version.incMinor);
+        return incVersion(VersionPart.MINOR);
     }
 
     /// Test increase of minor version
@@ -219,13 +233,31 @@ private import odood.exception;
 
     /// Return new version with increased patch part
     auto incPatch() const pure {
-        return OdooStdVersion(_serie, _version.incPatch);
+        return incVersion(VersionPart.PATCH);
     }
 
     /// Test increase of minor version
     unittest {
         import unit_threaded.assertions;
         OdooStdVersion("18.0.1.2.3").incPatch.should == OdooStdVersion("18.0.1.2.4");
+    }
+
+    /// Determine if version differs on major, minor or patch level
+    VersionPart differAt(in OdooStdVersion other) const pure
+    in (this != other && this.isStandard && other.isStandard && this.serie == other.serie) {
+        return this._version.differAt(other._version);
+    }
+
+    /// Test differAt
+    unittest {
+        import unit_threaded.assertions;
+        Version("1.2.3").differAt(Version(2,3,4)).should == VersionPart.MAJOR;
+        Version("1.2.3").differAt(Version(2,2,3)).should == VersionPart.MAJOR;
+
+        Version("1.2.3").differAt(Version(1,3,4)).should == VersionPart.MINOR;
+        Version("1.2.3").differAt(Version(1,3,3)).should == VersionPart.MINOR;
+
+        Version("1.2.3").differAt(Version(1,2,4)).should == VersionPart.PATCH;
     }
 }
 

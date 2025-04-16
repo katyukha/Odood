@@ -1,8 +1,10 @@
 module odood.utils.addons.addon_manifest;
 
+private import std.logger: tracef;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.string: toStringz;
+private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 
@@ -133,6 +135,17 @@ auto parseOdooManifest(in string manifest_content) {
 /// ditto
 auto parseOdooManifest(in Path path) {
     return parseOdooManifest(path.readFileText);
+}
+
+auto tryParseOdooManifest(in string manifest_content) {
+    Nullable!OdooAddonManifest manifest;
+    try {
+        manifest = parseOdooManifest(manifest_content).nullable;
+    } catch (Exception e){
+        debug tracef("Cannot parse manifest!\n%s\n\n---\n\n%s", e, manifest_content);
+        manifest = Nullable!OdooAddonManifest.init;
+    }
+    return manifest;
 }
 
 // Module level link to ast module

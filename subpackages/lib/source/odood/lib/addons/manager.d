@@ -595,6 +595,8 @@ struct AddonManager {
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
 
         auto git_url = parseGitURL(url);
+
+        // TODO: Handle .git suffix here. chomp it
         auto dest = _project.directories.repositories.join(
                 git_url.toPathSegments.map!((p) => p.toLower).array);
 

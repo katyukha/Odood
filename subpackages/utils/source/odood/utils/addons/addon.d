@@ -6,6 +6,7 @@ private import std.algorithm.comparison: cmp;
 private import std.algorithm.sorting: sort;
 private import std.exception: enforce;
 private import std.conv: to;
+private import std.format: format;
 private import std.file: SpanMode;
 private import std.regex: matchFirst;
 private import std.range: empty;
@@ -57,6 +58,11 @@ final class OdooAddon {
     /// Check if addons are equal
     pure nothrow bool opEquals(in OdooAddon other) const {
         return opCmp(other) == 0;
+    }
+
+    /// Convert addon to string
+    override string toString() const {
+        return "%s [%s]".format(_name, _path);
     }
 
     /// Read changelog entries for addon
