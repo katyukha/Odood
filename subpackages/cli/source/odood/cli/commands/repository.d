@@ -153,7 +153,9 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+        bool has_changes = false;
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
+            has_changes = true;
             infof("Checking module %s if version bump needed...", addon);
             auto g_path = addon.path.relativeTo(repo.path);
             auto g_manifest_path = g_path.join("__manifest__.py");
@@ -198,6 +200,8 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
                 addon.path.join("__manifest__.py").updateManifestVersion(new_version);
             }
         }
+        if (!has_changes)
+            infof("Threre are no changes in modules");
     }
 }
 
