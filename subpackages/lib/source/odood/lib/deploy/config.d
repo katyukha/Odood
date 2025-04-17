@@ -6,6 +6,7 @@ private import std.exception: enforce;
 private import std.format: format;
 
 private import thepath: Path;
+private import theprocess: Process;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
@@ -62,6 +63,9 @@ struct DeployConfig {
     bool logrotate_enable = false;
     Path logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
 
+    bool local_nginx = false;
+    Path nginx_config_path = Path("/", "etc", "nginx", "conf.d", "odoo");
+
     /** Validate deploy config
       * Throw exception if config is not valid.
       **/
@@ -110,6 +114,14 @@ struct DeployConfig {
             enforce!OdoodDeployException(
                 checkSystemUserExists("postgres"),
                 "Local postgres requested, but 'postgresql' package seems not installed!");
+
+        if (this.local_nginx)
+            // If local nginx requested, ensure it is installed
+            Process("nginx")
+                .withArgs("-version")
+                .execute
+                .ensureOk!OdoodDeployException(
+                    "Local Nginx requested, but it seems that nginx is not installed!", true);
     }
 
     /** Prepare odoo configuration file for this deployment
@@ -141,7 +153,7 @@ struct DeployConfig {
 
         odoo_config["options"].setKey("workers", odoo.workers.to!string);
 
-        if (odoo.proxy_mode)
+        if (odoo.proxy_mode || local_nginx)
             odoo_config["options"].setKey("proxy_mode", "True");
 
         if (odoo.log_to_stderr)

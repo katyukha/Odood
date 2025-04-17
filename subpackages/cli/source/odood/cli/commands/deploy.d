@@ -51,6 +51,9 @@ class CommandDeploy: OdoodCommand {
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
 
         this.add(new Flag(
+            null, "local-nginx", "Autoconfigure local nginx"));
+
+        this.add(new Flag(
             null, "enable-logrotate", "Enable logrotate for Odoo."));
 
         this.add(new Option(
@@ -101,6 +104,12 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("enable-logrotate"))
             config.logrotate_enable = true;
+
+        if (args.flag("local-nginx")) {
+            config.local_nginx = true;
+            config.odoo.proxy_mode = true;
+            config.odoo.http_host = "127.0.0.1";
+        }
 
         if (args.option("supervisor"))
             switch(args.option("supervisor")) {
