@@ -11,11 +11,11 @@ env:
 
 jobs:
   build-ubuntu:
-    name: Build Ubuntu:20.04
+    name: Build Ubuntu
     strategy:
       matrix:
         os:
-          - ubuntu-20.04
+          - ubuntu-22.04
           - ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
     steps:

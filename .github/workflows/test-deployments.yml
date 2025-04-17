@@ -10,13 +10,13 @@ env:
 
 # TODO: Test for arm architecture
 
-# In this test, we build Odood on Ubuntu 20.04 and then try to run
+# In this test, we build Odood on Ubuntu 22.04 and then try to run
 # produced binary on different distros and versions
 jobs:
-  # Compile test builds on ubuntu 20.04
-  compile-ubuntu-20_04:
-    name: Build Ubuntu:20.04
-    runs-on: ubuntu-20.04
+  # Compile test builds on ubuntu 22.04
+  compile-ubuntu:
+    name: Build Ubuntu:22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
 
@@ -38,7 +38,7 @@ jobs:
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu
           path: |
             build/odood
             build/deb-dependencies.txt
@@ -52,7 +52,6 @@ jobs:
         image:
           - "debian:bullseye"
           - "debian:bookworm"
-          - "ubuntu:20.04"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
         odoo_version:
@@ -61,7 +60,7 @@ jobs:
           - "16.0"
     runs-on: ubuntu-22.04
     needs:
-      - compile-ubuntu-20_04
+      - compile-ubuntu
     container:
       image: ${{ matrix.image }}
     # Service containers to run with `container-job`
@@ -84,10 +83,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
+      - name: 'Download artifacts for ubuntu'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu
           path: build
 
       - name: Update apt registry
@@ -131,7 +130,7 @@ jobs:
       matrix:
         image:
           - "debian:bullseye"
-          - "ubuntu:20.04"
+          - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
         odoo_version:
@@ -140,7 +139,7 @@ jobs:
           - "16.0"
     runs-on: ubuntu-22.04
     needs:
-      - compile-ubuntu-20_04
+      - compile-ubuntu
     container:
       image: ${{ matrix.image }}
     env:
@@ -148,10 +147,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
+      - name: 'Download artifacts for ubuntu'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu
           path: build
 
       - name: Update apt registry
