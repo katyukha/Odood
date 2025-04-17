@@ -15,10 +15,20 @@ env:
 jobs:
   # Compile test builds on ubuntu 22.04
   compile-ubuntu:
-    name: Build Ubuntu:22.04
-    runs-on: ubuntu-22.04
+    name: Build Ubuntu
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -38,10 +48,11 @@ jobs:
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-ubuntu
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: |
             build/odood
             build/deb-dependencies.txt
+
 
   # Run integration tests for different operation systems (external database)
   run-deployment-tests:
@@ -57,7 +68,10 @@ jobs:
           - "18.0"
           - "17.0"
           - "16.0"
-    runs-on: ubuntu-22.04
+        os:
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
     needs:
       - compile-ubuntu
     container:
@@ -82,10 +96,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu'
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+
+      - name: 'Download artifacts'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: build
 
       - name: Update apt registry
@@ -135,7 +154,10 @@ jobs:
           - "18.0"
           - "17.0"
           - "16.0"
-    runs-on: ubuntu-22.04
+        os:
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
     needs:
       - compile-ubuntu
     container:
@@ -145,10 +167,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu'
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+
+      - name: 'Download artifacts'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: build
 
       - name: Update apt registry
