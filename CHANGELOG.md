@@ -5,6 +5,7 @@
 ### Added
 
 - Support and release for arm64 architecture
+- Added new command `repo bump-versions` to automatically bump versions of modules
 
 ---
 
