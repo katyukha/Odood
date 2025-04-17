@@ -6,7 +6,9 @@
 
 - Support and release for arm64 architecture
 - Added new command `repo bump-versions` to automatically bump versions of modules
-- Added support for `--local-nginx` to `odood deploy` command
+- Added new options for `odood deploy` command:
+    - `--local-nginx` that allows to automatically configure local nginx (requires nginx installed)
+    - `--enable-fail2ban` that allows to automatically configure fail2ban for Odoo (required fail2ban installed)
 
 ### Removed
 

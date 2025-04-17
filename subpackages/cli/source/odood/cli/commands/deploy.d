@@ -45,16 +45,19 @@ class CommandDeploy: OdoodCommand {
         this.add(new Option(
             null, "db-password", "Database password"));
         this.add(new Flag(
-            null, "local-postgres", "Configure local postgresql server"));
+            null, "local-postgres", "Configure local postgresql server (requires PostgreSQL installed)"));
 
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
 
         this.add(new Flag(
-            null, "local-nginx", "Autoconfigure local nginx"));
+            null, "local-nginx", "Autoconfigure local nginx (requires nginx installed)"));
 
         this.add(new Flag(
             null, "enable-logrotate", "Enable logrotate for Odoo."));
+
+        this.add(new Flag(
+            null, "enable-fail2ban", "Enable fail2ban for Odoo (requires fail2ban installed)."));
 
         this.add(new Option(
             null, "supervisor", "What superwisor to use for deployment.")
@@ -110,6 +113,9 @@ class CommandDeploy: OdoodCommand {
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
         }
+
+        if (args.flag("enable-fail2ban"))
+            config.fail2ban_enable = true;
 
         if (args.option("supervisor"))
             switch(args.option("supervisor")) {

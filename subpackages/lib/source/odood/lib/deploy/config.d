@@ -66,6 +66,10 @@ struct DeployConfig {
     bool local_nginx = false;
     Path nginx_config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
 
+    bool fail2ban_enable = false;
+    Path fail2ban_filter_path = Path("/", "etc", "fail2ban", "filter.d", "odoo-auth.conf");
+    Path fail2ban_jail_path = Path("/", "etc", "fail2ban", "jail.d", "odoo-auth.conf");
+
     /** Validate deploy config
       * Throw exception if config is not valid.
       **/
@@ -122,6 +126,13 @@ struct DeployConfig {
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Local Nginx requested, but it seems that nginx is not installed!", true);
+
+        if (this.fail2ban_enable)
+            Process("fail2ban-client")
+                .withArgs("--version")
+                .execute
+                .ensureOk!OdoodDeployException(
+                    "Enable fail2ban requested, but it seems that fail2ban is not available", true);
     }
 
     /** Prepare odoo configuration file for this deployment

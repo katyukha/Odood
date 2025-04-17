@@ -21,6 +21,7 @@ private import odood.lib.deploy.templates.init: generateInitDConfig;
 private import odood.lib.deploy.templates.system: generateSystemDConfig;
 private import odood.lib.deploy.templates.logrotate: generateLogrotateDConfig;
 private import odood.lib.deploy.templates.nginx: generateNginxConfig;
+private import odood.lib.deploy.templates.fail2ban: generateFail2banFilter, generateFail2banJail;
 private import odood.lib.deploy.utils:
     checkSystemUserExists,
     createSystemUser,
@@ -118,6 +119,33 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
 }
 
 
+/** Deploy fail2ban configuration for Odoo
+  **/
+private void deployFail2banConfig(in Project project, in DeployConfig config) {
+    infof("Configuring Fail2ban for Odoo...");
+
+    config.fail2ban_filter_path.writeFile(generateFail2banFilter(project));
+
+    // Set access rights for logrotate config
+    config.fail2ban_filter_path.setAttributes(octal!644);
+    config.fail2ban_filter_path.chown("root", "root");
+
+    config.fail2ban_jail_path.writeFile(generateFail2banJail(project));
+
+    // Set access rights for logrotate config
+    config.fail2ban_filter_path.setAttributes(octal!644);
+    config.fail2ban_jail_path.chown("root", "root");
+
+    // Reload nginx
+    Process("systemctl")
+        .withArgs("reload", "fail2ban.service")
+        .execute
+        .ensureOk(true);
+
+    infof("Fail2ban configured successfully.");
+}
+
+
 /** Deploy Odoo according provided DeployConfig
   **/
 Project deployOdoo(in DeployConfig config) {
@@ -194,6 +222,10 @@ Project deployOdoo(in DeployConfig config) {
     // Deploy nginx
     if (config.local_nginx)
         deployNginxConfig(project, config);
+
+    // Deploy fail2ban
+    if (config.fail2ban_enable)
+        deployFail2banConfig(project, config);
 
     infof("Odoo deployed successfully.");
     return project;
