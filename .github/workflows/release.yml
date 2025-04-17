@@ -69,6 +69,7 @@ jobs:
       - name: Build debian package
         env:
           BUILD_ODOOD_VERSION: ${{ github.ref_name }}
+          BUILD_ODOOD_ARCH: ${{ steps.check-arch.outputs.arch }}
         run: nfpm package -p deb -t build/odood_${{ github.ref_name }}_${{ steps.check-arch.outputs.arch }}.deb
 
       - name: Upload Odood compiled assets

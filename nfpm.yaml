@@ -1,6 +1,6 @@
 name: "odood"
-arch: "${GOARCH}"
-platform: "${GOOS}"
+arch: "${BUILD_ODOOD_ARCH}"
+# platform: "${GOOS}"
 version: "$BUILD_ODOOD_VERSION"
 section: "utils"
 priority: "optional"
