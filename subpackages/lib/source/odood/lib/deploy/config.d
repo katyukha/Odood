@@ -64,7 +64,7 @@ struct DeployConfig {
     Path logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
 
     bool local_nginx = false;
-    Path nginx_config_path = Path("/", "etc", "nginx", "conf.d", "odoo");
+    Path nginx_config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
 
     /** Validate deploy config
       * Throw exception if config is not valid.

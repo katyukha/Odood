@@ -25,7 +25,7 @@ map $http_upgrade $connection_upgrade {
 
 # Force SSL (HTTPS)
 #server {
-    #listen   :80;
+    #listen   80;
     #$(server_name ? "server_name %s;".format(server_name) : "")
 
     #location / {
@@ -34,8 +34,8 @@ map $http_upgrade $connection_upgrade {
 #}
 
 server {
-    listen   :80;
-    # listen   :443 ssl;
+    listen   80;
+    # listen   443 ssl;
     $(server_name ? "server_name %s;".format(server_name) : "")
 
     #-----------------------------------------------------------------------
