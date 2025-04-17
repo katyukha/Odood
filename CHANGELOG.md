@@ -6,6 +6,7 @@
 
 - Support and release for arm64 architecture
 - Added new command `repo bump-versions` to automatically bump versions of modules
+- Added support for `--local-nginx` to `odood deploy` command
 
 ### Removed
 
