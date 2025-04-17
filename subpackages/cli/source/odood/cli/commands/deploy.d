@@ -43,7 +43,7 @@ class CommandDeploy: OdoodCommand {
         this.add(new Option(
             null, "db-user", "Database port").defaultValue("odoo"));
         this.add(new Option(
-            null, "db-password", "Database password").defaultValue("odoo"));
+            null, "db-password", "Database password"));
         this.add(new Flag(
             null, "local-postgres", "Configure local postgresql server"));
 
