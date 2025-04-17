@@ -7,6 +7,11 @@
 - Support and release for arm64 architecture
 - Added new command `repo bump-versions` to automatically bump versions of modules
 
+### Removed
+
+- Dropped support for **Ubuntu: 20.04** (compile release for Ubuntu 22.04+)
+- Dropped support for **Debian: Bullseye** (compile release for Debian bookworm+)
+
 ---
 
 ## Release 0.3.0 (2025-03-14)
