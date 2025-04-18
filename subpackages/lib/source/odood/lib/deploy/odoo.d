@@ -192,6 +192,14 @@ Project deployOdoo(in DeployConfig config) {
     project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
     project.directories.log.setAttributes(octal!750);
 
+    // Existing file is required to make fail2ban work.
+    // Thus we just create empty logfile here, odoo will continue to log here
+    if (!project.odoo.logfile.exists) {
+        project.odoo.logfile.writeFile([]);
+        project.odoo.logfile.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+        project.odoo.logfile.setAttributes(octal!640);
+    }
+
     // Make Odoo owner of data directory. Do not allow others to access it.
     project.directories.data.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
     project.directories.data.setAttributes(octal!750);
