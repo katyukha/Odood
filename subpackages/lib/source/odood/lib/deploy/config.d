@@ -64,6 +64,7 @@ struct DeployConfig {
     Path logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
 
     bool local_nginx = false;
+    bool local_nginx_disable_default = true;
     Path nginx_config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
 
     bool fail2ban_enable = false;

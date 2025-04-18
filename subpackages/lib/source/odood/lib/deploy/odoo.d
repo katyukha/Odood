@@ -109,6 +109,16 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
     config.nginx_config_path.setAttributes(octal!644);
     config.nginx_config_path.chown("root", "root");
 
+    // Remove default nginx configuration, thus Odoo will work out-of-the-box
+    if (config.local_nginx_disable_default) {
+        auto nginx_default = Path("/", "etc", "nginx", "sites-enabled", "default");
+        auto nginx_default_base = Path("/", "etc", "nginx", "sites-available", "default");
+        if (nginx_default.exists &&
+                nginx_default_base.exists &&
+                nginx_default.readLink == nginx_default_base)
+            nginx_default.remove();
+    }
+
     // Reload nginx
     Process("systemctl")
         .withArgs("reload", "nginx.service")

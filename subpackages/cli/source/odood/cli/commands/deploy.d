@@ -52,6 +52,8 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "local-nginx", "Autoconfigure local nginx (requires nginx installed)"));
+        this.add(new Flag(
+            null, "local-nginx-no-disable-default", "Do not disable default nginx config."));
 
         this.add(new Flag(
             null, "enable-logrotate", "Enable logrotate for Odoo."));
@@ -113,6 +115,8 @@ class CommandDeploy: OdoodCommand {
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
         }
+        if (args.flag("local-nginx-no-disable-default"))
+            config.local_nginx_disable_default = false;
 
         if (args.flag("enable-fail2ban"))
             config.fail2ban_enable = true;
