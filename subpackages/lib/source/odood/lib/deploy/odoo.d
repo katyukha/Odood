@@ -98,26 +98,11 @@ private void deployLogrotateConfig(in Project project, in DeployConfig config) {
 private void deployNginxConfig(in Project project, in DeployConfig config) {
     infof("Configuring Nginx for Odoo...");
 
-    config.nginx_config_path.writeFile(
-        generateNginxConfig(
-            odoo_address: config.odoo.http_host.empty ? "127.0.0.1" : config.odoo.http_host,
-            odoo_port: config.odoo.http_port,
-        )
-    );
+    config.nginx.config_path.writeFile(generateNginxConfig(config));
 
     // Set access rights for logrotate config
-    config.nginx_config_path.setAttributes(octal!644);
-    config.nginx_config_path.chown("root", "root");
-
-    // Remove default nginx configuration, thus Odoo will work out-of-the-box
-    if (config.local_nginx_disable_default) {
-        auto nginx_default = Path("/", "etc", "nginx", "sites-enabled", "default");
-        auto nginx_default_base = Path("/", "etc", "nginx", "sites-available", "default");
-        if (nginx_default.exists &&
-                nginx_default_base.exists &&
-                nginx_default.readLink == nginx_default_base)
-            nginx_default.remove();
-    }
+    config.nginx.config_path.setAttributes(octal!644);
+    config.nginx.config_path.chown("root", "root");
 
     // Reload nginx
     Process("systemctl")
@@ -238,7 +223,7 @@ Project deployOdoo(in DeployConfig config) {
     }
 
     // Deploy nginx
-    if (config.local_nginx)
+    if (config.nginx.enable)
         deployNginxConfig(project, config);
 
     // Deploy fail2ban

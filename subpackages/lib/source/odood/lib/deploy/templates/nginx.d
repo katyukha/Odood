@@ -1,17 +1,20 @@
 module odood.lib.deploy.templates.nginx;
 
-import std.conv: text;
-import std.format: format;
+private import std.conv: text;
+private import std.format: format;
+private import std.string: empty;
+
+private import odood.lib.deploy.config: DeployConfig;
 
 
-string generateNginxConfig(in string odoo_address, in string odoo_port, in string server_name=null) {
+string generateNginxConfig(in DeployConfig config) {
     return i`
 upstream odoo_backend {
-        server $(odoo_address):$(odoo_port) weight=1 fail_timeout=2000s;
+        server $(config.odoo.http_host.empty ? config.odoo.http_host : "127.0.0.1"):$(config.odoo.http_port) weight=1 fail_timeout=2000s;
 }
 
 upstream odoo_websocket {
-        server $(odoo_address):$(odoo_port) weight=1 fail_timeout=300s;
+        server $(config.odoo.http_host.empty ? config.odoo.http_host : "127.0.0.1"):$(config.odoo.websocket_port) weight=1 fail_timeout=300s;
 }
 
 #------------------------------------------------------------------------------
@@ -26,7 +29,7 @@ map $http_upgrade $connection_upgrade {
 # Force SSL (HTTPS)
 #server {
     #listen   80;
-    #$(server_name ? "server_name %s;".format(server_name) : "")
+    #$(config.nginx.server_name ? "server_name %s;".format(config.nginx.server_name) : "")
 
     #location / {
         #return 301 https://$host$request_uri;
@@ -36,7 +39,7 @@ map $http_upgrade $connection_upgrade {
 server {
     listen   80;
     # listen   443 ssl;
-    $(server_name ? "server_name %s;".format(server_name) : "")
+    $(config.nginx.server_name ? "server_name %s;".format(config.nginx.server_name) : "")
 
     #-----------------------------------------------------------------------
     access_log  /var/log/nginx/odoo.access.log;
