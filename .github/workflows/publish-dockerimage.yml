@@ -37,8 +37,8 @@ jobs:
 
       - name: Build Odood
         run: |
-          dub build -b release --d-version OdoodInDocker
-          dub build -b release --d-version OdoodInDocker -c bash-autocomplete
+          dub build -b release-debug --d-version OdoodInDocker
+          dub build -b release-debug --d-version OdoodInDocker -c bash-autocomplete
           .ci/print_deps.d > build/deb-dependencies.txt
           
       - name: Upload Odood compiled assets

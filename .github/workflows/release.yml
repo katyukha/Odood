@@ -51,8 +51,8 @@ jobs:
       - name: Build Odood (Release)
         if: steps.check-rc-release.outputs.is_rc_release == 'false'
         run: |
-          dub build -b release -c bash-autocomplete
-          dub build -b release
+          dub build -b release-debug -c bash-autocomplete
+          dub build -b release-debug
 
       # We build pre-releases with debug info available.
       - name: Build Odood (Pre-release)
