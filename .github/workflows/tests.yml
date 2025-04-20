@@ -31,6 +31,11 @@ jobs:
         with:
           linux: libzip-dev libpq-dev python3-dev
 
+      - name: Configure git user (to make git tests work)
+        run: |
+          git config --global user.email "odood@odood.dev"
+          git config --global user.name "Odood"
+
       - name: Run tests
         run: dub test -b unittest-cov
 

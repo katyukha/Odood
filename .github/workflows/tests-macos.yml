@@ -45,6 +45,11 @@ jobs:
           ln -s /opt/homebrew/lib/postgresql@14/libpq.dylib ./
           ln -s /opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/libpython3.11.dylib ./
 
+      - name: Configure git user (to make git tests work)
+        run: |
+          git config --global user.email "odood@odood.dev"
+          git config --global user.name "Odood"
+
       - name: Run simple tests tests
         run: dub test -b unittest-cov
 
