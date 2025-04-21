@@ -111,7 +111,7 @@ jobs:
         run: apt-get update
 
       - name: Install system dependencies
-        run: apt-get install --no-install-recommends -yq sudo logrotate nginx
+        run: apt-get install --no-install-recommends -yq sudo logrotate
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
@@ -120,7 +120,7 @@ jobs:
         run: chmod a+x ./build/odood
 
       - name: Deploy with init-script
-        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo --local-nginx
+        run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
 
       - name: Minimal test for deployed version
         run: |
