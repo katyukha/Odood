@@ -2,6 +2,7 @@ module odood.cli.commands.repository;
 
 private import std.logger: infof, warningf;
 private import std.format: format;
+private import std.typecons: Nullable, nullable;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
@@ -12,6 +13,9 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
+private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.std_version: OdooStdVersion;
+private import odood.lib.addons.repository: AddonRepository;
 private import odood.git: GIT_REF_WORKTREE;
 
 
@@ -136,6 +140,23 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
             null, "ignore-translations", "Ignore translations."));
     }
 
+    Nullable!OdooStdVersion getAddonVersion(in AddonRepository repo, in OdooAddon addon, in string rev) {
+        auto g_path = addon.path.relativeTo(repo.path);
+        auto g_manifest_path = g_path.join("__manifest__.py");
+        if (!repo.isFileExists(g_manifest_path, rev))
+            g_manifest_path = g_path.join("__openerp__.py");
+        if (!repo.isFileExists(g_manifest_path, rev))
+            // File not exists in spefied revision
+            return Nullable!OdooStdVersion.init;
+
+        auto manifest = tryParseOdooManifest(repo.getContent(g_manifest_path, rev));
+        if (manifest.isNull)
+            // Cannot read manifest in spefied revision
+            return Nullable!OdooStdVersion.init;
+
+        return manifest.get.module_version.nullable;
+    }
+
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
@@ -157,24 +178,22 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
             has_changes = true;
             infof("Checking module %s if version bump needed...", addon);
-            auto g_path = addon.path.relativeTo(repo.path);
-            auto g_manifest_path = g_path.join("__manifest__.py");
-            auto start_manifest = tryParseOdooManifest(repo.getContent(g_manifest_path, start_ref));
-            if (start_manifest.isNull) {
-                // This is new addon. Thus, just skip it.
-                warningf("Cannot read start manifest for %s. Skipping", addon);
+            auto maybe_start_version = getAddonVersion(repo, addon, start_ref);
+            if (maybe_start_version.isNull) {
+                // It seemst that this is new addon. Thus, just skip it.
+                warningf("Cannot read start version for %s. May be it is new addon. Skipping", addon);
                 continue;
             }
 
-            auto end_manifest = tryParseOdooManifest(repo.getContent(g_manifest_path));
-            if (end_manifest.isNull) {
+            auto maybe_end_version = getAddonVersion(repo, addon, GIT_REF_WORKTREE);
+            if (maybe_end_version.isNull) {
                 // It seems that this is not addon (or it was removed). Thus, skip it.
-                warningf("Cannot read current manifest for %s. It seems to be new addon. Skipping", addon);
+                warningf("Cannot read current version for %s. It seems that this is not addon or it was removed. Skipping", addon);
                 continue;
             }
 
-            auto start_version = start_manifest.get.module_version;
-            auto end_version = end_manifest.get.module_version;
+            auto start_version = maybe_start_version.get;
+            auto end_version = maybe_end_version.get;
             if (!start_version.isStandard || !end_version.isStandard) {
                 // We cannot work with non-standard versions. thus skip them
                 warningf("Non-standard start (%s) or current (%s) version of addon %s. Skipping", start_version, end_version, addon);

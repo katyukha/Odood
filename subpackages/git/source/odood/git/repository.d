@@ -282,6 +282,23 @@ class GitRepository {
         git_repo.hasChanges.shouldBeTrue();
     }
 
+    /** Check if file specified by path exists in rev
+      **/
+    auto isFileExists(in Path path, in string rev) const {
+        if (rev == GIT_REF_WORKTREE)
+            return _path.join(_makeRelPath(path)).exists;
+        return gitCmd
+            .withArgs(
+                "cat-file", "-e", "%s:%s".format(rev,  _makeRelPath(path)))
+            .execute
+            .isOk;
+    }
+
+    /// ditto
+    auto isFileExists(in Path path) const {
+        return isFileExists(path, GIT_REF_WORKTREE);
+    }
+
     /** Get content of file for specified revision
       *
       * NOTE: This func read content as text
@@ -316,11 +333,15 @@ class GitRepository {
         auto git_repo = new GitRepository(git_root);
         git_repo.path.should == git_root;
 
+        git_repo.isFileExists(git_root.join("test_file.txt")).shouldBeFalse();
         git_root.join("test_file.txt").writeFile("Hello world!\n");
+        git_repo.isFileExists(git_root.join("test_file.txt")).shouldBeTrue();
         git_repo.add(git_root.join("test_file.txt"));
         git_repo.commit("Init");
 
         auto rev_v1 = git_repo.getCurrCommit();
+
+        git_repo.isFileExists(git_root.join("test_file.txt"), rev_v1);
 
         // Test content of V1
         git_repo.getContent(git_root.join("test_file.txt"), rev_v1).should == "Hello world!\n";
@@ -330,10 +351,29 @@ class GitRepository {
         git_repo.getContent(git_root.join("test_file.txt")).should == "Hello world!\n";
         git_repo.getContent(Path("test_file.txt")).should == "Hello world!\n";
 
+        // Update test file and add to git
         git_root.join("test_file.txt").appendFile("Some extra text.\n");
         git_repo.add(Path("test_file.txt"));
+
+        // test_file_2 create, but not added in repo
+        git_repo.isFileExists(git_root.join("test_file_2.txt")).shouldBeFalse;
+        git_repo.isFileExists(git_root.join("test_file_2.txt"), rev_v1).shouldBeFalse;
+        git_root.join("test_file_2.txt").writeFile("Some text 2.\n");
+        git_repo.isFileExists(git_root.join("test_file_2.txt")).shouldBeTrue;
+        git_repo.isFileExists(git_root.join("test_file_2.txt"), rev_v1).shouldBeFalse;
+
+        // add test_file_2 to repo
+        git_repo.add(Path("test_file_2.txt"));
+        git_repo.isFileExists(git_root.join("test_file_2.txt")).shouldBeTrue;
+        git_repo.isFileExists(git_root.join("test_file_2.txt"), rev_v1).shouldBeFalse;
+
         git_repo.commit("V2");
         auto rev_v2 = git_repo.getCurrCommit();
+
+        // Test text_file_2 exists
+        git_repo.isFileExists(git_root.join("test_file_2.txt")).shouldBeTrue;
+        git_repo.isFileExists(git_root.join("test_file_2.txt"), rev_v1).shouldBeFalse;
+        git_repo.isFileExists(git_root.join("test_file_2.txt"), rev_v2).shouldBeTrue;
 
         // Test content of V1
         git_repo.getContent(git_root.join("test_file.txt"), rev_v1).should == "Hello world!\n";
