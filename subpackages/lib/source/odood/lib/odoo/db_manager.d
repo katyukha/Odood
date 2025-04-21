@@ -255,6 +255,10 @@ struct OdooDatabaseManager {
 
         OdooSerie backup_serie = parseServerSerie(manifest["version"].get!string);
         enforce!OdoodException(
+            backup_serie.isValid,
+            "Cannot restore backup, because backup's server version is not valid (or cannot parse it): %s".format(
+                manifest["version"].get!string));
+        enforce!OdoodException(
             backup_serie == _project.odoo.serie,
             "Cannot restore backup: backup version %s do not match odoo version %s".format(
                 backup_serie, _project.odoo.serie));
