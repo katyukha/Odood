@@ -18,15 +18,29 @@ private import std.conv: to;
       * Params:
       *     ver = string representation of version
       **/
-    pure this(in string ver) {
+    pure nothrow this(in string ver) {
         auto parts = ver.split(".");
-        if (parts.length == 2) {
-            this(parts[0].to!uint, parts[1].to!uint);
-        } else if (parts.length == 1) {
-            this(parts[0].to!uint, 0);
-        } else {
-            this(0, 0);
+        if (parts.length == 2)
+            try {
+                _major = parts[0].to!uint;
+                _minor = parts[1].to!uint;
+            } catch (Exception e) {
+                _major = 0;
+                _minor = 0;
+            }
+        else if (parts.length == 1)
+            try {
+                _major = parts[0].to!uint;
+            } catch (Exception e) {
+                _major = 0;
+                _minor = 0;
+            }
+        else {
+            _major = 0;
+            _minor = 0;
         }
+
+        _isValid = (_major > 0) ? true : false;
     }
 
     /** Construct new Odoo serie instance
@@ -35,7 +49,7 @@ private import std.conv: to;
       *     major = "major" parto of odoo serie
       *     minor = "minor" part of odoo serie
       **/
-    pure this(in uint major, in uint minor=0) {
+    pure nothrow this(in uint major, in uint minor=0) {
         this._major = major;
         this._minor = minor;
         if (_major > 0) _isValid = true;
@@ -44,7 +58,7 @@ private import std.conv: to;
 
     /** Return string representation of Odoo Serie
       **/
-    pure string toString() const {
+    pure nothrow string toString() const {
         if (this._isValid)
             return this._major.to!string ~ "." ~ this._minor.to!string;
         return "<invalid odoo serie>";
@@ -84,10 +98,17 @@ private import std.conv: to;
         assert(s4.minor == 0);
         assert(!s4.isValid);
         assert(s4.toString() == "<invalid odoo serie>");
+
+        // Odoo serie must not include enterprise modifier.
+        s4 = OdooSerie("18.04+e");
+        assert(s4.major == 0);
+        assert(s4.minor == 0);
+        assert(!s4.isValid);
+        assert(s4.toString() == "<invalid odoo serie>");
     }
 
     pure nothrow int opCmp(in OdooSerie other) const
-    in (this.isValid && other.isValid)
+    in (this.isValid && other.isValid, "Only valid OdooSerie instances are comparable")
     do
     {
         if (this.major == other.major) {
@@ -108,7 +129,7 @@ private import std.conv: to;
     }
 
     pure nothrow bool opEquals(in OdooSerie other) const
-    in (this.isValid && other.isValid)
+    in (this.isValid && other.isValid, "Only valid OdooSerie instances are comparable")
     do
     {
         return this.major == other.major && this.minor == other.minor;

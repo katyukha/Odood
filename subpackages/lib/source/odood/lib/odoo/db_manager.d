@@ -19,6 +19,7 @@ private import zipper;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.utils.odoo: parseServerSerie;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.db: detectDatabaseBackupFormat, BackupFormat;
 private import odood.utils: generateRandomString;
@@ -252,7 +253,7 @@ struct OdooDatabaseManager {
             return;
         }
 
-        OdooSerie backup_serie = manifest["version"].get!string;
+        OdooSerie backup_serie = parseServerSerie(manifest["version"].get!string);
         enforce!OdoodException(
             backup_serie == _project.odoo.serie,
             "Cannot restore backup: backup version %s do not match odoo version %s".format(
