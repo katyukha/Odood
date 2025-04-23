@@ -6,6 +6,7 @@ private import std.exception: enforce;
 private import std.format: format;
 
 private import thepath: Path;
+private import theprocess: Process;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
@@ -24,6 +25,9 @@ private import odood.utils: generateRandomString;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
 
+
+/** Odoo database cofiguration to be deployed
+  **/
 struct DeployConfigDatabase {
     string host="localhost";
     string port="5432";
@@ -32,11 +36,15 @@ struct DeployConfigDatabase {
     bool local_postgres=false;
 }
 
+
+/** Odoo configuration to be deployed
+  **/
 struct DeployConfigOdoo {
     OdooSerie serie;
     bool proxy_mode=false;
     string http_host=null;
     string http_port="8069";
+    string websocket_port="8072";
     uint workers=0;
 
     string server_user="odoo";
@@ -51,6 +59,19 @@ struct DeployConfigOdoo {
     bool log_to_stderr = false;
 }
 
+
+/** Configuration for nginx deployment
+  **/
+struct DeployConfigNginx {
+    bool enable = false;
+    string server_name = null;
+
+    Path config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
+}
+
+
+/** Deploy configuration
+  **/
 struct DeployConfig {
     Path deploy_path = Path("/", "opt", "odoo");
     VenvOptions venv_options;
@@ -61,6 +82,12 @@ struct DeployConfig {
 
     bool logrotate_enable = false;
     Path logrotate_config_path = Path("/", "etc", "logrotate.d", "odoo");
+
+    DeployConfigNginx nginx;
+
+    bool fail2ban_enable = false;
+    Path fail2ban_filter_path = Path("/", "etc", "fail2ban", "filter.d", "odoo-auth.conf");
+    Path fail2ban_jail_path = Path("/", "etc", "fail2ban", "jail.d", "odoo-auth.conf");
 
     /** Validate deploy config
       * Throw exception if config is not valid.
@@ -110,6 +137,21 @@ struct DeployConfig {
             enforce!OdoodDeployException(
                 checkSystemUserExists("postgres"),
                 "Local postgres requested, but 'postgresql' package seems not installed!");
+
+        if (this.nginx.enable)
+            // If local nginx requested, ensure it is installed
+            Process("nginx")
+                .withArgs("-version")
+                .execute
+                .ensureOk!OdoodDeployException(
+                    "Local Nginx requested, but it seems that nginx is not installed!", true);
+
+        if (this.fail2ban_enable)
+            Process("fail2ban-client")
+                .withArgs("--version")
+                .execute
+                .ensureOk!OdoodDeployException(
+                    "Enable fail2ban requested, but it seems that fail2ban is not available", true);
     }
 
     /** Prepare odoo configuration file for this deployment
@@ -141,7 +183,7 @@ struct DeployConfig {
 
         odoo_config["options"].setKey("workers", odoo.workers.to!string);
 
-        if (odoo.proxy_mode)
+        if (odoo.proxy_mode || nginx.enable)
             odoo_config["options"].setKey("proxy_mode", "True");
 
         if (odoo.log_to_stderr)

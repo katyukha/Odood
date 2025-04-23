@@ -41,6 +41,8 @@ configuration "bash-autocomplete" {
 configuration "unittest" {
     /* Build subpackages as sourceLibrary to run tests of subpackages */
     subConfiguration ":lib" "sourceLibrary"
+    subConfiguration ":git" "sourceLibrary"
+    subConfiguration ":tipy" "sourceLibrary"
     subConfiguration ":utils" "sourceLibrary"
     subConfiguration ":exception" "sourceLibrary"
     subConfiguration ":cli" "sourceLibrary"

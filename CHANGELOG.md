@@ -1,5 +1,22 @@
 # Changelog
 
+## Release 0.3.1 (unreleased)
+
+### Added
+
+- Support and release for arm64 architecture
+- Added new command `repo bump-versions` to automatically bump versions of modules
+- Added new options for `odood deploy` command:
+    - `--local-nginx` that allows to automatically configure local nginx (requires nginx installed)
+    - `--enable-fail2ban` that allows to automatically configure fail2ban for Odoo (required fail2ban installed)
+
+### Removed
+
+- Dropped support for **Ubuntu: 20.04** (compile release for Ubuntu 22.04+)
+- Dropped support for **Debian: Bullseye** (compile release for Debian bookworm+)
+
+---
+
 ## Release 0.3.0 (2025-03-14)
 
 ### Added

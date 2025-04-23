@@ -1,21 +1,24 @@
 {
 	"fileVersion": 1,
 	"versions": {
+		"automem": "0.6.11",
 		"bindbc-common": "1.0.5",
 		"bindbc-loader": "1.1.5",
-		"cachetools": "0.3.1",
+		"cachetools": "0.4.2",
 		"dini": "2.0.0",
 		"dpq": "0.11.6",
 		"dshould": "1.7.2",
 		"dyaml": "0.10.0",
 		"odood": {"path":"../../"},
-		"peque": "0.0.2",
+		"peque": "0.0.3",
 		"prettyprint": "1.0.9",
 		"requests": "2.1.3",
+		"test_allocator": "0.3.4",
 		"thepath": "2.1.0",
 		"theprocess": "0.0.10",
 		"tinyendian": "0.2.0",
-		"unit-threaded": "2.2.2",
+		"unit-threaded": "2.2.3",
+		"versioned": "0.1.0",
 		"zipper": "0.0.7"
 	}
 }

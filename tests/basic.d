@@ -138,15 +138,17 @@ void testDatabaseManagement(in Project project) {
 /// Test addons manager
 void testAddonsManagementBasic(in Project project) {
     infof("Testing addons management for %s", project);
-    project.databases.create(project.genDbName("test-1"), true);
+    auto dbname = project.genDbName("test-a-1");
+    project.databases.create(dbname, true);
+    scope(exit) project.databases.drop(dbname);
 
     // Install/update/uninstall standard 'crm' addon
-    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
-    project.addons.install(project.genDbName("test-1"), "crm");
-    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeTrue();
-    project.addons.update(project.genDbName("test-1"), "crm");
-    project.addons.uninstall(project.genDbName("test-1"), "crm");
-    project.addons.isInstalled(project.genDbName("test-1"), "crm").shouldBeFalse();
+    project.addons.isInstalled(dbname, "crm").shouldBeFalse();
+    project.addons.install(dbname, "crm");
+    project.addons.isInstalled(dbname, "crm").shouldBeTrue();
+    project.addons.update(dbname, "crm");
+    project.addons.uninstall(dbname, "crm");
+    project.addons.isInstalled(dbname, "crm").shouldBeFalse();
 
     // Add repo 'generic-addons'
     project.addons.addRepo(
@@ -163,12 +165,9 @@ void testAddonsManagementBasic(in Project project) {
             "crnd-inc", "generic-addons", "generic_location"));
 
     // Try to install generic_location module
-    project.addons.isInstalled(
-            project.genDbName("test-1"), "generic_location").shouldBeFalse;
-    project.addons.install(
-            project.genDbName("test-1"), "generic_location");
-    project.addons.isInstalled(
-            project.genDbName("test-1"), "generic_location").shouldBeTrue;
+    project.addons.isInstalled(dbname, "generic_location").shouldBeFalse;
+    project.addons.install(dbname, "generic_location");
+    project.addons.isInstalled(dbname, "generic_location").shouldBeTrue;
 
     // Try to run tests for module generic_location
     auto test_result = project.testRunner()
@@ -194,8 +193,6 @@ void testAddonsManagementBasic(in Project project) {
     parsed_addons.canFind(project.addons.getByString("account")).shouldBeTrue;
     parsed_addons.canFind(project.addons.getByString("website")).shouldBeTrue;
 
-    // Drop database
-    project.databases.drop(project.genDbName("test-1"));
     infof("Testing addons management for %s. Complete: Ok.", project);
 }
 
@@ -379,7 +376,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 15")
 unittest {
     auto temp_path = createTempPath(
@@ -413,7 +410,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 14")
 unittest {
     auto temp_path = createTempPath(
@@ -447,7 +444,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 13")
 unittest {
     auto temp_path = createTempPath(
@@ -481,7 +478,7 @@ unittest {
 }
 
 
-version(linux)
+version(x86_64)
 @("Basic Test Odoo 12")
 unittest {
     auto temp_path = createTempPath(

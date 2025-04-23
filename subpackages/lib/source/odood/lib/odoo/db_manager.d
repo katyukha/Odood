@@ -10,7 +10,7 @@ private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
 private import std.algorithm.searching: canFind;
-private import std.string: join, startsWith, chompPrefix;
+private import std.string: join, startsWith, chompPrefix, empty;
 
 private import thepath;
 private import theprocess;
@@ -19,6 +19,7 @@ private import zipper;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.utils.odoo: parseServerSerie;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.db: detectDatabaseBackupFormat, BackupFormat;
 private import odood.utils: generateRandomString;
@@ -252,7 +253,11 @@ struct OdooDatabaseManager {
             return;
         }
 
-        OdooSerie backup_serie = manifest["version"].get!string;
+        OdooSerie backup_serie = parseServerSerie(manifest["version"].get!string);
+        enforce!OdoodException(
+            backup_serie.isValid,
+            "Cannot restore backup, because backup's server version is not valid (or cannot parse it): %s".format(
+                manifest["version"].get!string));
         enforce!OdoodException(
             backup_serie == _project.odoo.serie,
             "Cannot restore backup: backup version %s do not match odoo version %s".format(
@@ -346,6 +351,12 @@ struct OdooDatabaseManager {
         infof("Restoring database %s from %s", name, backup_path);
 
         _createEmptyDB(name);
+
+        // Create and set correct access rights for "filestore" dir if needed
+        if (!_project.odoo.server_user.empty && !_project.directories.data.join("filestore").exists) {
+            _project.directories.data.join("filestore").mkdir(true);
+            _project.directories.data.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
+        }
 
         auto fs_path = _project.directories.data.join("filestore", name);
         scope(failure) {

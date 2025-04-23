@@ -23,9 +23,6 @@ private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths([
     "python3.8",
     "python3.7",
     "python3.6",
-    "python3.5",
-    "python3.4",
-    "python3.3",
 ]));
 
 

@@ -13,6 +13,8 @@ private import theprocess: Process;
 public import odood.git.url: GitURL;
 public import odood.git.repository: GitRepository;
 
+immutable string GIT_REF_WORKTREE = "-working-tree-";
+
 
 /// Parse git url for further processing
 GitURL parseGitURL(in string url) {

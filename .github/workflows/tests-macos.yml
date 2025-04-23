@@ -9,7 +9,7 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        dc: [ldc-1.40.0, ldc-latest]
+        dc: [ldc-1.40.1, ldc-latest]
         os: [macOS-latest]
         py_install_type:
           - "build"
@@ -27,6 +27,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
+          brew update
           brew install postgresql@14
           brew install libzip
           brew install python@3.11
@@ -43,6 +44,11 @@ jobs:
           # At least at moment of writing this.
           ln -s /opt/homebrew/lib/postgresql@14/libpq.dylib ./
           ln -s /opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/libpython3.11.dylib ./
+
+      - name: Configure git user (to make git tests work)
+        run: |
+          git config --global user.email "odood@odood.dev"
+          git config --global user.name "Odood"
 
       - name: Run simple tests tests
         run: dub test -b unittest-cov

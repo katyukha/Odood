@@ -5,17 +5,27 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.40.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.1
 
-# In this test, we build Odood on Ubuntu 20.04 and then try to run
+# In this test, we build Odood on Ubuntu 22.04 and then try to run
 # produced binary on different distros and versions
 jobs:
-  # Compile test builds on ubuntu 20.04
-  compile-ubuntu-20_04:
-    name: Build Ubuntu:20.04
-    runs-on: ubuntu-20.04
+  # Compile test builds on ubuntu 22.04
+  compile-ubuntu:
+    name: Build Ubuntu
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -30,13 +40,15 @@ jobs:
       - name: Build Odood
         run: |
           dub build -b unittest-cov -c unittest-integration-ut
+          .ci/print_deps.d > build/deb-dependencies.txt
 
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: |
             build/odood-unittest-integration-ut
+            build/deb-dependencies.txt
 
   # Run integration tests for different operation systems
   run-integration-tests:
@@ -45,16 +57,18 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - "debian:bullseye"
-          - "ubuntu:20.04"
+          - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
         py_install_type:
           - "build"
           - "pyenv"
-    runs-on: ubuntu-22.04
+        os:
+          - "ubuntu-22.04"
+          - "ubuntu-22.04-arm"
+    runs-on: ${{ matrix.os }}
     needs:
-      - compile-ubuntu-20_04
+      - compile-ubuntu
     container:
       image: ${{ matrix.image }}
     env:
@@ -63,10 +77,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: 'Download artifacts for ubuntu 20.04'
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+
+      - name: 'Download artifacts'
         uses: actions/download-artifact@v4
         with:
-          name: odood-ubuntu-20.04
+          name: odood-ubuntu-${{ steps.check-arch.outputs.arch }}
           path: build
 
       - name: Update apt registry
@@ -76,7 +95,7 @@ jobs:
         run: apt-get install --no-install-recommends -yq postgresql sudo
 
       - name: Install package dependencies
-        run: apt-get install --no-install-recommends -yq $(cat .ci/deps/universal-deb.txt)
+        run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
 
       - name: PyEnv - Install Dependencies
         if: matrix.py_install_type == 'pyenv'

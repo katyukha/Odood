@@ -20,21 +20,21 @@ No specific user for Odoo process, no access restrictions, etc.
 Instead, it is designed to be able to work with multiple Odoo instances
 installed on same system.
 
-To install Odoo 17 for development, following command could be used:
+To install Odoo 18 for development, following command could be used:
 
 ```bash
-odood init -i odoo-17 -v 18
+odood init -i odoo-18 -v 18
 ```
 
 But, usually it is used with other options, to use separate database user and separate port for each development Odoo instance.
 For example:
 
 ```bash
-odood init -i odoo-17 -v 18 --db-user=odoo18 --http-port=18069
+odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069
 ```
 
-After this command, Odoo 17 will be installed in `odoo-18` directory.
-Next, if current working directory is inside `odoo-17`, then `odood` command could be used to manage this instance.
+After this command, Odoo 18 will be installed in `odoo-18` directory.
+Next, if current working directory is inside `odoo-18`, then `odood` command could be used to manage this instance.
 
 
 ### Production installation
@@ -47,10 +47,10 @@ Thus, it do following additional tasks:
 
 Also, production installation expectes that it is running on clean system, and no other Odoo installed on same system.
 
-To install Odoo 17 for production with local postgres, use following command on clean machine (with just Odood and [postgres](https://www.postgresql.org/) installed).
+To install Odoo 18 for production with local postgres, use following command on clean machine (with just Odood and [postgres](https://www.postgresql.org/) installed).
 
 ```bash
-sudo odood deploy -v 17 --local-postgres --supervisor=systemd
+sudo odood deploy -v 18 --local-postgres --supervisor=systemd
 ```
 
 After this command completed, there will be installed Odoo and it will be configured to use local postgresql.
@@ -148,7 +148,7 @@ After this command, module `generic_location` will be installed in database `my-
 One of the most frequent tasks related to management of Odoo servers is update of third party modules.
 In our case, we have repository `generic-addons`, and we may need to update modules from this repo.
 To do this, we have to use following algorithm:
-0. Take backup
+0. Take backup (use `odood db backup -a` for this)
 1. Pull changes from repo (use `git pull` for this)
 2. Stop Odoo server
 3. Install / update all required dependencies

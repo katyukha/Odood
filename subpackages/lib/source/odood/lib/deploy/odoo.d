@@ -7,7 +7,7 @@ private import std.logger: infof;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: to, text, octal;
 private import std.format: format;
-private import std.string: toStringz;
+private import std.string: toStringz, empty;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -17,6 +17,11 @@ private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
+private import odood.lib.deploy.templates.init: generateInitDConfig;
+private import odood.lib.deploy.templates.system: generateSystemDConfig;
+private import odood.lib.deploy.templates.logrotate: generateLogrotateDConfig;
+private import odood.lib.deploy.templates.nginx: generateNginxConfig;
+private import odood.lib.deploy.templates.fail2ban: generateFail2banFilter, generateFail2banJail;
 private import odood.lib.deploy.utils:
     checkSystemUserExists,
     createSystemUser,
@@ -30,80 +35,7 @@ private void deployInitScript(in Project project) {
 
     // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
-i"#!/bin/bash
-### BEGIN INIT INFO
-# Provides:          odoo
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Start odoo daemon at boot time
-# Description:       Enable service provided by daemon.
-# X-Interactive:     true
-### END INIT INFO
-## more info: http://wiki.debian.org/LSBInitScripts
-
-. /lib/lsb/init-functions
-
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$(project.venv.bin_path.toString)
-DAEMON=$(project.server.scriptPath.toString)
-    NAME=odoo
-    DESC=odoo
-    CONFIG=$(project.odoo.configfile.toString)
-LOGFILE=$(project.odoo.logfile.toString)
-PIDFILE=$(project.odoo.pidfile.toString).pid
-USER=$(project.odoo.server_user)
-export LOGNAME=$USER
-
-test -x $DAEMON || exit 0
-set -e
-
-function _start() {
-    start-stop-daemon --start --quiet --pidfile $PIDFILE --chuid $USER:$USER --background --make-pidfile --exec $DAEMON -- --config $CONFIG --logfile $LOGFILE
-}
-
-function _stop() {
-    start-stop-daemon --stop --quiet --pidfile $PIDFILE --oknodo --retry 3
-    rm -f $PIDFILE
-}
-
-function _status() {
-    start-stop-daemon --status --quiet --pidfile $PIDFILE
-    return $?
-}
-
-
-case \"$1\" in
-        start)
-                echo -n \"Starting $DESC: \"
-                _start
-                echo \"ok\"
-                ;;
-        stop)
-                echo -n \"Stopping $DESC: \"
-                _stop
-                echo \"ok\"
-                ;;
-        restart|force-reload)
-                echo -n \"Restarting $DESC: \"
-                _stop
-                sleep 1
-                _start
-                echo \"ok\"
-                ;;
-        status)
-                echo -n \"Status of $DESC: \"
-                _status && echo \"running\" || echo \"stopped\"
-                ;;
-        *)
-                N=/etc/init.d/$NAME
-                echo \"Usage: $N {start|stop|restart|force-reload|status}\" >&2
-                exit 1
-                ;;
-esac
-
-exit 0
-".text);
+        generateInitDConfig(project));
 
     // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
@@ -124,20 +56,7 @@ private void deploySystemdConfig(in Project project) {
 
     // Configure systemd
     project.odoo.server_systemd_service_path.writeFile(
-i"[Unit]
-Description=Odoo Open Source ERP and CRM
-After=network.target
-
-[Service]
-Type=simple
-User=$(project.odoo.server_user)
-Group=$(project.odoo.server_user)
-ExecStart=$(project.server.scriptPath) --config $(project.odoo.configfile)
-KillMode=mixed
-
-[Install]
-WantedBy=multi-user.target
-".text);
+        generateSystemDConfig(project));
 
     // Set access rights for systemd config
     project.odoo.server_systemd_service_path.setAttributes(octal!755);
@@ -163,18 +82,62 @@ WantedBy=multi-user.target
 
 private void deployLogrotateConfig(in Project project, in DeployConfig config) {
     infof("Configuring logrotate for Odoo...");
-    config.logrotate_config_path.writeFile(
-i"$(project.directories.log.toString)/*.log {
-    copytruncate
-    missingok
-    notifempty
-}".text);
+
+    config.logrotate_config_path.writeFile(generateLogrotateDConfig(project));
 
     // Set access rights for logrotate config
     config.logrotate_config_path.setAttributes(octal!755);
     config.logrotate_config_path.chown("root", "root");
 
     infof("Logrotate configured successfully.");
+}
+
+
+/** Deploy nginx configuration for Odoo
+  **/
+private void deployNginxConfig(in Project project, in DeployConfig config) {
+    infof("Configuring Nginx for Odoo...");
+
+    config.nginx.config_path.writeFile(generateNginxConfig(config));
+
+    // Set access rights for logrotate config
+    config.nginx.config_path.setAttributes(octal!644);
+    config.nginx.config_path.chown("root", "root");
+
+    // Reload nginx
+    Process("systemctl")
+        .withArgs("reload", "nginx.service")
+        .execute
+        .ensureOk(true);
+
+    infof("Nginx configured successfully.");
+}
+
+
+/** Deploy fail2ban configuration for Odoo
+  **/
+private void deployFail2banConfig(in Project project, in DeployConfig config) {
+    infof("Configuring Fail2ban for Odoo...");
+
+    config.fail2ban_filter_path.writeFile(generateFail2banFilter(project));
+
+    // Set access rights for logrotate config
+    config.fail2ban_filter_path.setAttributes(octal!644);
+    config.fail2ban_filter_path.chown("root", "root");
+
+    config.fail2ban_jail_path.writeFile(generateFail2banJail(project));
+
+    // Set access rights for logrotate config
+    config.fail2ban_filter_path.setAttributes(octal!644);
+    config.fail2ban_jail_path.chown("root", "root");
+
+    // Reload nginx
+    Process("systemctl")
+        .withArgs("reload", "fail2ban.service")
+        .execute
+        .ensureOk(true);
+
+    infof("Fail2ban configured successfully.");
 }
 
 
@@ -214,6 +177,14 @@ Project deployOdoo(in DeployConfig config) {
     project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
     project.directories.log.setAttributes(octal!750);
 
+    // Existing file is required to make fail2ban work.
+    // Thus we just create empty logfile here, odoo will continue to log here
+    if (!project.odoo.logfile.exists) {
+        project.odoo.logfile.writeFile([]);
+        project.odoo.logfile.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+        project.odoo.logfile.setAttributes(octal!640);
+    }
+
     // Make Odoo owner of data directory. Do not allow others to access it.
     project.directories.data.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
     project.directories.data.setAttributes(octal!750);
@@ -250,6 +221,14 @@ Project deployOdoo(in DeployConfig config) {
             deploySystemdConfig(project);
             break;
     }
+
+    // Deploy nginx
+    if (config.nginx.enable)
+        deployNginxConfig(project, config);
+
+    // Deploy fail2ban
+    if (config.fail2ban_enable)
+        deployFail2banConfig(project, config);
 
     infof("Odoo deployed successfully.");
     return project;

@@ -8,6 +8,7 @@ private import std.exception: enforce;
 private import std.json;
 
 private import thepath: Path;
+private import versioned: VersionPart;
 
 private import odood.exception: OdoodException;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -123,5 +124,24 @@ void updateManifestSerie(in Path manifest_path, in OdooSerie serie) {
     infof("Updating serie in manifest: %s", manifest_path);
     string manifest_content = manifest_path.readFileText()
         .updateManifestSerieImpl(serie);
+    manifest_path.writeFile(manifest_content);
+}
+
+/// Bump version number in manifest
+string updateManifestVersionImpl(in string manifest_content, in OdooStdVersion new_version) {
+    return manifest_content.replaceAll!((Captures!(string) captures) {
+        return "%s%s%s".format(
+            captures["verprefix"],
+            new_version.toString,
+            captures["versuffix"],
+        );
+    })(RE_MANIFEST_SERIE_VERSION);
+}
+
+/// Bump version of Odoo addon in manifest
+void updateManifestVersion(in Path manifest_path, in OdooStdVersion new_version) {
+    infof("Updating version in manifest %s to %s", manifest_path, new_version.toString);
+    string manifest_content = manifest_path.readFileText()
+        .updateManifestVersionImpl(new_version);
     manifest_path.writeFile(manifest_content);
 }

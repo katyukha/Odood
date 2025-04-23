@@ -1,0 +1,23 @@
+module odood.lib.deploy.templates.system;
+
+import std.conv: text;
+
+import odood.lib.project: Project;
+
+
+string generateSystemDConfig(in Project project) {
+    return i"[Unit]
+Description=Odoo Open Source ERP and CRM
+After=network.target
+
+[Service]
+Type=simple
+User=$(project.odoo.server_user)
+Group=$(project.odoo.server_user)
+ExecStart=$(project.server.scriptPath) --config $(project.odoo.configfile)
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+".text;
+}

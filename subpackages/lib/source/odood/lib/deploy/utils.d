@@ -5,6 +5,7 @@ private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: to, text, ConvException;
 private import std.string: strip;
+private static import std.process;
 
 private import core.sys.posix.unistd: geteuid, getegid;
 private import core.sys.posix.pwd: getpwnam_r, passwd;
@@ -62,6 +63,7 @@ bool postgresCheckUserExists(in string username) {
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
         .withUser(username: "postgres", userWorkDir: true)
+        .withFlag(std.process.Config.stderrPassThrough)
         .execute
         .ensureOk(true)
         .output.strip;

@@ -14,14 +14,14 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  ODOOD_DLANG_COMPILER: ldc-1.40.0
+  ODOOD_DLANG_COMPILER: ldc-1.40.1
 
 # There is a single job in this workflow.
 # It's configured to run on the latest available version of Ubuntu.
 jobs:
-  build-ubuntu-20_04:
-    name: Build Ubuntu:20.04
-    runs-on: ubuntu-20.04
+  build-ubuntu:
+    name: Build Ubuntu:22.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -37,8 +37,9 @@ jobs:
 
       - name: Build Odood
         run: |
-          dub build -b release --d-version OdoodInDocker
-          dub build -b release --d-version OdoodInDocker -c bash-autocomplete
+          dub build -b release-debug --d-version OdoodInDocker
+          dub build -b release-debug --d-version OdoodInDocker -c bash-autocomplete
+          .ci/print_deps.d > build/deb-dependencies.txt
           
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
@@ -47,6 +48,13 @@ jobs:
           path: |
             build/odood
             build/odood.bash
+
+      - name: Upload Odood dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: odood-deps-amd64
+          path: |
+            build/deb-dependencies.txt
             
   build-and-push-images:
     runs-on: ubuntu-latest
@@ -57,7 +65,7 @@ jobs:
       attestations: write
       id-token: write
     needs:
-      - build-ubuntu-20_04
+      - build-ubuntu
     strategy:
       matrix:
         # TODO: Build base image (without Odoo, only with odood itself) and then use it as base for odoo images
@@ -75,6 +83,12 @@ jobs:
         with:
           name: odood-amd64
           path: docker/bin/
+
+      - name: 'Download Odood dependencies'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-deps-amd64
+          path: deps
 
       - name: Make odood executable
         run: |
@@ -106,7 +120,7 @@ jobs:
       - name: Prepare debian dependencies dependencies
         id: prepare_deb_deps
         run: |
-          echo "universal_deb_deps=$(cat .ci/deps/universal-deb.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          echo "universal_deb_deps=$(cat deps/deb-dependencies.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
           
       # This step uses the `docker/build-push-action` action to build the image,
       # based on your repository's `Dockerfile`. If the build succeeds, it pushes the image to GitHub Packages.
