@@ -88,7 +88,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
             auto lfs = lf.split(':');
             enforce!OdoodException(
                 lfs.length == 2,
-                "Incorrect specification of lang-file option '%s'. Correct format is 'uk_UA:uk'.");
+                "Incorrect specification of lang-file option '%s'. Correct format is 'uk_UA:uk'.".format(lf));
             res ~= LangInfo(
                 lang: lfs[0],
                 file: lfs[1],
