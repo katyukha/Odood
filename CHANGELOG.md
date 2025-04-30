@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Command `odood odoo recompute` - changed parameters:
+    - use options instead of arguments
+    - allow to run for multiple databases (or for all databases)
+
+---
+
 ## Release 0.3.1 (unreleased)
 
 ### Added
