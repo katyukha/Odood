@@ -18,7 +18,7 @@ private import theprocess: Process;
 //       thus making it more universal
 /// Regex for parsing git URL
 private auto immutable RE_GIT_URL = ctRegex!(
-    `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\.]+)(:(?P<password>[\w\-\.]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
+    `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\+\.]+)(:(?P<password>[\w\-\.\+]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
 
 
 /// Struct to handle git urls
@@ -167,6 +167,16 @@ unittest {
         user.shouldEqual("git");
         password.shouldBeNull;
         toUrl.shouldEqual("ssh://git@gitlab.crnd.pro/crnd/crnd-account");
+    }
+
+    with (GitURL("https://gitlab+deploy-token-42:some+token-s@gitlab.crnd.pro/crnd/crnd-account")) {
+        scheme.shouldEqual("https");
+        host.shouldEqual("gitlab.crnd.pro");
+        path.shouldEqual("crnd/crnd-account");
+        port.shouldBeNull;
+        user.shouldEqual("gitlab+deploy-token-42");
+        password.shouldEqual("some+token-s");
+        toUrl.shouldEqual("https://gitlab+deploy-token-42:some+token-s@gitlab.crnd.pro/crnd/crnd-account");
     }
 }
 
