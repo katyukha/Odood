@@ -27,6 +27,8 @@ class CommandServerRun: OdoodCommand {
         auto project = Project.loadProject;
         auto runner = project.server.getServerRunner();
 
+        runner.addArgs(args.argsRest);
+
         if (args.flag("ignore-running")) {
             // if no --pidfile option specified, enforce no pidfile.
             // This is needed to avoid messing up pid of running app.
@@ -38,7 +40,6 @@ class CommandServerRun: OdoodCommand {
                 "Odoo server already running!");
         }
 
-        runner.addArgs(args.argsRest);
         debug tracef("Running Odoo: %s", runner);
         runner.execv;
     }
