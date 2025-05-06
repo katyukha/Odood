@@ -9,7 +9,7 @@ private import std.algorithm.iteration: uniq;
 private import std.string: join, empty;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
@@ -296,7 +296,7 @@ class CommandDatabaseRestore: OdoodCommand {
 
 class CommandDatabaseStun: OdoodCommand {
     this() {
-        super("stun", "Stun database (disable cron and main servers).");
+        super("stun", "Stun (neutralize) database (disable cron and main servers).");
         this.add(new Argument(
             "name", "Name of database to stun.").required());
     }
@@ -305,6 +305,29 @@ class CommandDatabaseStun: OdoodCommand {
         auto project = Project.loadProject;
 
         project.dbSQL(args.arg("name")).stunDb;
+    }
+}
+
+
+class CommandDatabasePopulate: OdoodCommand {
+    this() {
+        super("populate", "Populate database with test data.");
+        this.add(new Option(
+            "d", "dbname", "Name of database to populate.").required());
+        this.add(new Option(
+            "m", "model", "Name of model to populate. Could be specified multiple times.").required.repeating);
+        this.add(new Option(
+            "s", "size", "Name of database to populate."
+            ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        project.databases.populate(
+            args.option("dbname"),
+            args.options("model"),
+            args.option("size"));
     }
 }
 
@@ -361,6 +384,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseBackup());
         this.add(new CommandDatabaseRestore());
         this.add(new CommandDatabaseStun());
+        this.add(new CommandDatabasePopulate());
         this.add(new CommandDatabaseListInstalledAddons());
     }
 }

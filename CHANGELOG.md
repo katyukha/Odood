@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- New command `odood db populate` that allows to populate database with test data
+
 ### Changed
 
 - Command `odood odoo recompute` - changed parameters:
