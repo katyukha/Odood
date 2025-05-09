@@ -10,12 +10,13 @@ private import core.time;
 
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
 private import odood.exception: OdoodException;
+private static import signal = odood.lib.signal;
 
 
 /** Struct to implement iterator (range) over log records captured
   * during server ran.
   **/
-package struct OdooLogPipe {
+struct OdooLogPipe {
     // TODO: May be it have sense to merge this struct with LogProcessor
     private:
         ProcessPipes _pipes;
@@ -27,6 +28,14 @@ package struct OdooLogPipe {
             _log_processor = OdooLogProcessor(_pipes.stderr);
         }
     public:
+        /** Server result. Currently used in processLogs method
+          **/
+        enum ServerResult {
+            Interrupted,
+            Ok,
+            Failed,
+        };
+
         /** Check if log pipe is empty
           **/
         bool empty() { return _log_processor.empty; }
@@ -64,6 +73,33 @@ package struct OdooLogPipe {
           **/
         auto wait() {
             return std.process.wait(_pipes.pid);
+        }
+
+        /** Process server logs with provided delegate. optionally handle interrupts
+          *
+          **/
+        auto processLogs(bool handle_interrupt=false)(void delegate(in OdooLogRecord log_record) dg) {
+            // Set up signal handlers
+            static if(handle_interrupt) {
+                signal.initSigIntHandling();
+                scope(exit) signal.deinitSigIntHandling();
+            }
+
+            foreach(ref log_record; this) {
+                dg(log_record);
+
+                static if(handle_interrupt) {
+                    if (signal.interrupted) {
+                        warningf("Kayboard interrupt catched!");
+                        this.kill();
+                        return ServerResult.Interrupted;
+                    }
+                }
+            }
+            if(this.wait != 0) {
+                return ServerResult.Failed;
+            }
+            return ServerResult.Ok;
         }
 }
 

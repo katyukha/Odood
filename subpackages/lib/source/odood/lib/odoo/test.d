@@ -23,9 +23,9 @@ private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
+private import odood.lib.server.log_pipe: OdooLogPipe;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
-private static import signal = odood.lib.signal;
 
 // TODO: Make randomized ports
 private immutable ODOO_TEST_HTTP_PORT=8269;
@@ -424,6 +424,19 @@ struct OdooTestRunner {
         return res_addons.map!(a => a.name).join(",");
     }
 
+    /** Handle log record
+      **/
+    void handleLogRecord(ref OdooTestResult result, in OdooLogRecord log_record) {
+        logToFile(log_record);
+
+        if (!filterLogRecord(log_record))
+            return;
+
+        if (_log_handler)
+            _log_handler(log_record);
+        result.addLogRecord(log_record);
+    }
+
     /** Take clean up actions before test finished
       **/
     void cleanUp() {
@@ -518,10 +531,6 @@ struct OdooTestRunner {
         // Configure test database (create if needed)
         getOrCreateTestDb();
 
-        // Set up signal handlers
-        signal.initSigIntHandling();
-        scope(exit) signal.deinitSigIntHandling();
-
         // Precompute option for http port
         // (different on different odoo versions)
         auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
@@ -543,30 +552,21 @@ struct OdooTestRunner {
                     opt_http_port,
                     "--database=%s".format(_test_db_name),
                 ]
-            );
-            foreach(ref log_record; init_res) {
-                logToFile(log_record);
-
-                if (!filterLogRecord(log_record))
-                    continue;
-
-                if (_log_handler)
-                    _log_handler(log_record);
-                result.addLogRecord(log_record);
-
-                if (signal.interrupted) {
-                    warningf("Canceling test because of Keyboard Interrupt");
+            ).processLogs!true((log_record) {
+                handleLogRecord(result, log_record);
+            });
+            final switch(init_res) {
+                case OdooLogPipe.ServerResult.Interrupted:
                     result.setCancelled("Keyboard interrupt");
                     cleanUp();
-                    init_res.kill();
                     return result;
-                }
-            }
-
-            if(init_res.wait != 0) {
-                result.setFailed();
-                cleanUp();
-                return result;
+                case OdooLogPipe.ServerResult.Failed:
+                    result.setFailed();
+                    cleanUp();
+                    return result;
+                case OdooLogPipe.ServerResult.Ok:
+                    // Do nothing. Everything is ok.
+                    break;
             }
         }
 
@@ -598,31 +598,22 @@ struct OdooTestRunner {
                     "--stop-after-init",
                     "--workers=0",
                     "--database=%s".format(_test_db_name),
-                ]);
-            foreach(ref log_record; update_res) {
-                logToFile(log_record);
-
-                if (!filterLogRecord(log_record))
-                    continue;
-
-                if (_log_handler)
-                    _log_handler(log_record);
-
-                result.addLogRecord(log_record);
-
-                if (signal.interrupted) {
-                    warningf("Canceling test because of Keyboard Interrupt");
+                ]
+            ).processLogs!true((log_record) {
+                handleLogRecord(result, log_record);
+            });
+            final switch(update_res) {
+                case OdooLogPipe.ServerResult.Interrupted:
                     result.setCancelled("Keyboard interrupt");
                     cleanUp();
-                    update_res.kill();
                     return result;
-                }
-            }
-
-            if (update_res.wait != 0) {
-                result.setFailed();
-                cleanUp();
-                return result;
+                case OdooLogPipe.ServerResult.Failed:
+                    result.setFailed();
+                    cleanUp();
+                    return result;
+                case OdooLogPipe.ServerResult.Ok:
+                    // Do nothing. Everything is ok.
+                    break;
             }
         }
 
@@ -639,31 +630,22 @@ struct OdooTestRunner {
                 "--workers=0",
                 "--test-enable",
                 "--database=%s".format(_test_db_name),
-            ]);
-        foreach(ref log_record; update_res) {
-            logToFile(log_record);
-
-            if (!filterLogRecord(log_record))
-                continue;
-
-            if (_log_handler)
-                _log_handler(log_record);
-
-            result.addLogRecord(log_record);
-
-            if (signal.interrupted) {
-                warningf("Canceling test because of Keyboard Interrupt");
+            ],
+        ).processLogs!true((log_record) {
+            handleLogRecord(result, log_record);
+        });
+        final switch(update_res) {
+            case OdooLogPipe.ServerResult.Interrupted:
                 result.setCancelled("Keyboard interrupt");
                 cleanUp();
-                update_res.kill();
                 return result;
-            }
-        }
-
-        if (update_res.wait != 0) {
-            result.setFailed();
-            cleanUp();
-            return result;
+            case OdooLogPipe.ServerResult.Failed:
+                result.setFailed();
+                cleanUp();
+                return result;
+            case OdooLogPipe.ServerResult.Ok:
+                // Do nothing. Everything is ok.
+                break;
         }
 
         if (!result.errors.empty)
