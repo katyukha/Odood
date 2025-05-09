@@ -317,7 +317,7 @@ class CommandDatabasePopulate: OdoodCommand {
         this.add(new Option(
             "m", "model", "Name of model to populate. Could be specified multiple times.").required.repeating);
         this.add(new Option(
-            "s", "size", "Name of database to populate."
+            "s", "size", "Population size"
             ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
     }
 

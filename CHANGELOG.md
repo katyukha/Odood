@@ -5,6 +5,9 @@
 ### Added
 
 - New command `odood db populate` that allows to populate database with test data
+- New options to `odood test` command (`--populate-model` and `--populate-size`)
+  that could be used to populate database with test data before running tests.
+  Especially, this could be useful for migration tests
 
 ### Changed
 

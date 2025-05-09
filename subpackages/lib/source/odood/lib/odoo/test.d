@@ -9,7 +9,7 @@ private import std.logger;
 private import std.regex;
 private import std.string: join, empty;
 private import std.format: format;
-private import std.algorithm.iteration: map, filter;
+private import std.algorithm: map, filter, canFind;
 private import std.exception: enforce;
 
 private import thepath: Path;
@@ -221,6 +221,11 @@ struct OdooTestRunner {
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
 
+    // Populate data before test (useful for migration testing)
+    // TODO: Also handle case, when addon is not available on start ref
+    private string[] _populate_models=[];
+    private string _populate_size="small";
+
     // Other configuration
     private bool _need_install_addons_before_test=true;
 
@@ -392,6 +397,29 @@ struct OdooTestRunner {
         return addAdditionalModule(addon.get);
     }
 
+    /** Enable populate data for specified models
+      **/
+    auto ref setPopulateModels(in string[] populate_models) {
+        enforce!OdoodException(
+            _project.odoo.serie >= 14,
+            "'populate' feature is available only for Odoo 14.0+");
+        _populate_models = populate_models.dup;
+        return this;
+    }
+
+    /** Set populate size
+      **/
+    auto ref setPopulateSize(in string size) {
+        enforce!OdoodException(
+            _project.odoo.serie >= 14,
+            "'populate' feature is available only for Odoo 14.0+");
+        enforce!OdoodException(
+            ["small", "medium", "large"].canFind(size),
+            "Populate size could be one of: small, medium, large! Got: %s".format(size));
+        _populate_size = size;
+        return this;
+    }
+
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -556,6 +584,41 @@ struct OdooTestRunner {
                 handleLogRecord(result, log_record);
             });
             final switch(init_res) {
+                case OdooLogPipe.ServerResult.Interrupted:
+                    result.setCancelled("Keyboard interrupt");
+                    cleanUp();
+                    return result;
+                case OdooLogPipe.ServerResult.Failed:
+                    result.setFailed();
+                    cleanUp();
+                    return result;
+                case OdooLogPipe.ServerResult.Ok:
+                    // Do nothing. Everything is ok.
+                    break;
+            }
+        }
+
+        if (_populate_models.length > 0) {
+            // Populate database before running tests
+            infof(
+                "Running 'populate' for database %s for models (%s) with size %s...",
+                _test_db_name,
+                _populate_models.join(","),
+                _populate_size,
+            );
+            auto populate_res =_server.pipeServerLog(
+                getCoverageOptions(),
+                [
+                    "populate",
+                    "--database=%s".format(_test_db_name),
+                    "--models=%s".format(_populate_models.join(",")),
+                    "--size=%s".format(_populate_size),
+                    "--log-level=warn",
+                ]
+            ).processLogs!true((log_record) {
+                handleLogRecord(result, log_record);
+            });
+            final switch(populate_res) {
                 case OdooLogPipe.ServerResult.Interrupted:
                     result.setCancelled("Keyboard interrupt");
                     cleanUp();
