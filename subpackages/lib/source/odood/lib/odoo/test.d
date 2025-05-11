@@ -454,7 +454,7 @@ struct OdooTestRunner {
 
     /** Handle log record
       **/
-    void handleLogRecord(ref OdooTestResult result, in OdooLogRecord log_record) {
+    private void handleLogRecord(ref OdooTestResult result, in OdooLogRecord log_record) {
         logToFile(log_record);
 
         if (!filterLogRecord(log_record))
@@ -491,6 +491,30 @@ struct OdooTestRunner {
                     return false;
         }
         return true;
+    }
+
+    /** Run server command, and handle log output
+      *
+      * Returns: true if command successful, otherwise false.
+      **/
+    private bool runServerCommand(ref OdooTestResult result, in string[] options) {
+        auto res =_server.pipeServerLog(
+            getCoverageOptions(),
+            options,
+        ).processLogs!true((log_record) {
+            handleLogRecord(result, log_record);
+        });
+        final switch(res) {
+            case OdooLogPipe.ServerResult.Interrupted:
+                result.setCancelled("Keyboard interrupt");
+                return false;
+            case OdooLogPipe.ServerResult.Failed:
+                result.setFailed();
+                return false;
+            case OdooLogPipe.ServerResult.Ok:
+                // Do nothing. Everything is ok.
+                return true;
+        }
     }
 
     /** Run tests (private implementation)
@@ -554,6 +578,7 @@ struct OdooTestRunner {
                     _test_migration_repo.switchBranchTo(initial_git_ref);
                 }
             }
+            cleanUp();
         }
 
         // Configure test database (create if needed)
@@ -567,8 +592,8 @@ struct OdooTestRunner {
 
         if (_need_install_addons_before_test) {
             infof("Installing modules before test...");
-            auto init_res =_server.pipeServerLog(
-                getCoverageOptions(),
+            auto cmd_res = runServerCommand(
+                result,
                 [
                     "--init=%s".format(getModuleList(true)),
                     "--log-level=warn",
@@ -580,22 +605,8 @@ struct OdooTestRunner {
                     opt_http_port,
                     "--database=%s".format(_test_db_name),
                 ]
-            ).processLogs!true((log_record) {
-                handleLogRecord(result, log_record);
-            });
-            final switch(init_res) {
-                case OdooLogPipe.ServerResult.Interrupted:
-                    result.setCancelled("Keyboard interrupt");
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Failed:
-                    result.setFailed();
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Ok:
-                    // Do nothing. Everything is ok.
-                    break;
-            }
+            );
+            if (!cmd_res) return result;
         }
 
         if (_populate_models.length > 0) {
@@ -606,8 +617,8 @@ struct OdooTestRunner {
                 _populate_models.join(","),
                 _populate_size,
             );
-            auto populate_res =_server.pipeServerLog(
-                getCoverageOptions(),
+            auto cmd_res = runServerCommand(
+                result,
                 [
                     "populate",
                     "--database=%s".format(_test_db_name),
@@ -615,22 +626,8 @@ struct OdooTestRunner {
                     "--size=%s".format(_populate_size),
                     "--log-level=warn",
                 ]
-            ).processLogs!true((log_record) {
-                handleLogRecord(result, log_record);
-            });
-            final switch(populate_res) {
-                case OdooLogPipe.ServerResult.Interrupted:
-                    result.setCancelled("Keyboard interrupt");
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Failed:
-                    result.setFailed();
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Ok:
-                    // Do nothing. Everything is ok.
-                    break;
-            }
+            );
+            if (!cmd_res) return result;
         }
 
         if (_test_migration) {
@@ -653,8 +650,8 @@ struct OdooTestRunner {
             _project.lodoo.addonsUpdateList(_test_db_name, true);
 
             infof("Updating modules to run migrations before running tests...");
-            auto update_res =_server.pipeServerLog(
-                getCoverageOptions(),
+            auto cmd_res = runServerCommand(
+                result,
                 [
                     "--update=%s".format(getModuleList(true)),
                     "--log-level=info",
@@ -662,30 +659,16 @@ struct OdooTestRunner {
                     "--workers=0",
                     "--database=%s".format(_test_db_name),
                 ]
-            ).processLogs!true((log_record) {
-                handleLogRecord(result, log_record);
-            });
-            final switch(update_res) {
-                case OdooLogPipe.ServerResult.Interrupted:
-                    result.setCancelled("Keyboard interrupt");
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Failed:
-                    result.setFailed();
-                    cleanUp();
-                    return result;
-                case OdooLogPipe.ServerResult.Ok:
-                    // Do nothing. Everything is ok.
-                    break;
-            }
+            );
+            if (!cmd_res) return result;
         }
 
         auto watch_tests = StopWatch(AutoStart.yes);
         scope(exit) result.setDurationTests(watch_tests.peek());
 
         infof("Running tests for modules: %s", getModuleList);
-        auto update_res =_server.pipeServerLog(
-            getCoverageOptions(),
+        auto cmd_res = runServerCommand(
+            result,
             [
                 "--update=%s".format(getModuleList),
                 "--log-level=info",
@@ -694,29 +677,14 @@ struct OdooTestRunner {
                 "--test-enable",
                 "--database=%s".format(_test_db_name),
             ],
-        ).processLogs!true((log_record) {
-            handleLogRecord(result, log_record);
-        });
-        final switch(update_res) {
-            case OdooLogPipe.ServerResult.Interrupted:
-                result.setCancelled("Keyboard interrupt");
-                cleanUp();
-                return result;
-            case OdooLogPipe.ServerResult.Failed:
-                result.setFailed();
-                cleanUp();
-                return result;
-            case OdooLogPipe.ServerResult.Ok:
-                // Do nothing. Everything is ok.
-                break;
-        }
+        );
+        if (!cmd_res) return result;
 
         if (!result.errors.empty)
             result.setFailed();
         else
             result.setSuccess();
 
-        cleanUp();
         return result;
     }
 
