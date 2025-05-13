@@ -21,7 +21,9 @@ class CommandOdooShell: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto runner = Project.loadProject.server.getServerRunner("shell");
+        auto project = Project.loadProject;
+        auto runner = project.server.getServerRunner("shell");
+        runner.addArgs(project.odoo.serie > 10 ? "--no-http" : "--no-xmlrpc");
         if (args.option("db"))
             runner.addArgs("-d", args.option("db"));
         runner.execv;
