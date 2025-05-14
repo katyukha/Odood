@@ -62,13 +62,14 @@ void createDbUser(in string user, in string password) {
 }
 
 /// Generate db name for the test for specified project
-string genDbName(in Project project, in string name) {
-    return "odood%s-%s".format(project.odoo.serie.major, name);
+string genDbName(in Project project, in string name, in string ukey="n") {
+    string ci_run_id = environment.get("GITHUB_RUN_ID", "1");
+    return "odood%s-r%s-u%s-%s".format(project.odoo.serie.major, ci_run_id, ukey, name);
 }
 
 
 /// Test server management functions
-void testServerManagement(in Project project) {
+void testServerManagement(in Project project, in string ukey="n") {
     infof("Testing server management for %s", project);
     import core.thread.osthread;
     import core.time;
@@ -93,42 +94,42 @@ void testServerManagement(in Project project) {
 
 
 /// Test database management functions
-void testDatabaseManagement(in Project project) {
+void testDatabaseManagement(in Project project, in string ukey="n") {
     infof("Testing database management for %s", project);
     project.databases.list.empty.shouldBeTrue();
 
-    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
-    project.databases.create(project.genDbName("test-1"), true);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeFalse();
+    project.databases.create(project.genDbName("test-1", ukey), true);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
 
-    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
-    project.databases.rename(project.genDbName("test-1"), project.genDbName("test-2"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeFalse();
+    project.databases.rename(project.genDbName("test-1", ukey), project.genDbName("test-2", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeFalse();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
-    project.databases.copy(project.genDbName("test-2"), project.genDbName("test-1"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.copy(project.genDbName("test-2", ukey), project.genDbName("test-1", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
-    auto backup_path = project.databases.backup(project.genDbName("test-2"));
+    auto backup_path = project.databases.backup(project.genDbName("test-2", ukey));
 
-    project.databases.drop(project.genDbName("test-2"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
+    project.databases.drop(project.genDbName("test-2", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeFalse();
 
-    project.databases.restore(project.genDbName("test-2"), backup_path);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
     // Drop restored database and try to restore database by backup name
-    project.databases.drop(project.genDbName("test-2"));
-    project.databases.restore(project.genDbName("test-2"), backup_path.baseName);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.drop(project.genDbName("test-2", ukey));
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path.baseName);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
     // Drop databases
-    project.databases.drop(project.genDbName("test-1"));
-    project.databases.drop(project.genDbName("test-2"));
+    project.databases.drop(project.genDbName("test-1", ukey));
+    project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.list.empty.shouldBeTrue();
 
     infof("Testing database management for %s. Complete: Ok.", project);
@@ -136,9 +137,9 @@ void testDatabaseManagement(in Project project) {
 
 
 /// Test addons manager
-void testAddonsManagementBasic(in Project project) {
+void testAddonsManagementBasic(in Project project, in string ukey="n") {
     infof("Testing addons management for %s", project);
-    auto dbname = project.genDbName("test-a-1");
+    auto dbname = project.genDbName("test-a-1", ukey);
     project.databases.create(dbname, true);
     scope(exit) project.databases.drop(dbname);
 
@@ -198,9 +199,9 @@ void testAddonsManagementBasic(in Project project) {
 
 
 /// Test running scripts
-void testRunningScripts(in Project project) {
+void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s", project);
-    auto dbname = project.genDbName("test-1");
+    auto dbname = project.genDbName("test-1", ukey);
     project.databases.create(dbname, true);
     scope(exit) project.databases.drop(dbname);
 
@@ -236,8 +237,13 @@ void testRunningScripts(in Project project) {
 }
 
 
-/// Run basic tests for project
-void runBasicTests(in Project project) {
+/** Run basic tests for project
+  *
+  * Params:
+  *    project = project to run tests for
+  *    ukey = optional unique key to be used to split naming during parallel run
+  **/
+void runBasicTests(in Project project, in string ukey="n") {
     /* Plan:
      * - test server management
      * - test database management
@@ -246,16 +252,16 @@ void runBasicTests(in Project project) {
      */
 
     // Test server management
-    testServerManagement(project);
+    testServerManagement(project, ukey);
 
     // Test LOdoo Database operations
-    testDatabaseManagement(project);
+    testDatabaseManagement(project, ukey);
 
     // Test basic addons management
-    testAddonsManagementBasic(project);
+    testAddonsManagementBasic(project, ukey);
 
     // Test running scripts
-    testRunningScripts(project);
+    testRunningScripts(project, ukey);
 
     // TODO: Complete the test
 }
@@ -298,16 +304,16 @@ unittest {
      */
 
     // Test server management
-    testServerManagement(project);
+    testServerManagement(project, "o18");
 
     // Test LOdoo Database operations
-    testDatabaseManagement(project);
+    testDatabaseManagement(project, "o18");
 
     // Test basic addons management
-    //testAddonsManagementBasic(project);
+    //testAddonsManagementBasic(project, "o18");
 
     // Test running scripts
-    testRunningScripts(project);
+    testRunningScripts(project, "o18");
 }
 
 @("Basic Test Odoo 17")
@@ -339,7 +345,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o17");
 }
 
 
@@ -372,7 +378,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o16");
 }
 
 
@@ -406,7 +412,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o15");
 }
 
 
@@ -440,7 +446,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o14");
 }
 
 
@@ -474,7 +480,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o13");
 }
 
 
@@ -508,7 +514,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o12");
 }
 
 
@@ -559,5 +565,5 @@ unittest {
     project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("reo16t17");
 }

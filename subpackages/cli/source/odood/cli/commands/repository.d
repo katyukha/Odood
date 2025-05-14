@@ -229,6 +229,8 @@ class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
+
+        // Dev commands
         this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
