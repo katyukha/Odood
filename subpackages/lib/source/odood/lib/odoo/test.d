@@ -58,6 +58,7 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`The group [a-zA-Z0-9\\._]\+ defined in view [a-zA-Z0-9\\._]\+ [a-z]\+ does not exist!`),
     ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
+    ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
 ];
 
 
