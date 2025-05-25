@@ -131,6 +131,11 @@ jobs:
       - name: Make test build executable
         run: chmod a+x ./build/odood-unittest-integration-ut
 
+      - name: Configure git user (to make git tests work)
+        run: |
+          git config --global user.email "odood@odood.dev"
+          git config --global user.name "Odood"
+
       - name: List available tests
         run: ./build/odood-unittest-integration-ut --list
 

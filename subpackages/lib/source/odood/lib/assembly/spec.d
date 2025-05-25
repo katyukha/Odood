@@ -31,6 +31,12 @@ struct AssemblySpecAddon {
     string source_name=null;
     bool from_odoo_apps=false;
 
+    private this(in string name, in string source_name=null, in bool from_odoo_apps=false) {
+        this.name = name;
+        this.source_name = source_name;
+        this.from_odoo_apps = from_odoo_apps;
+    }
+
     /** Load addon spec from yaml node
       *
       * It could be simple string or mapping
@@ -88,6 +94,12 @@ struct AssemblySpecSource {
         return sha1Of(res).toHexString();
     }
 
+    private this(GitURL git_url, in string name=null, in string git_ref=null) {
+        this.git_url = git_url;
+        this.name = name;
+        this.git_ref = git_ref;
+    }
+
     private this(in Node yaml_node) {
         enforce!OdoodAssemblyException(
             yaml_node.containsKey("url"),
@@ -136,6 +148,14 @@ struct AssemblySpec {
 
     /// Git repositories to fetch addons from
     @property auto sources() const => _sources;
+
+    package(odood.lib.assembly) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
+        _sources ~= AssemblySpecSource(git_url: git_url, name: name, git_ref: git_ref);
+    }
+
+    package(odood.lib.assembly) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
+        _addons ~= AssemblySpecAddon(name: name, source_name: source_name, from_odoo_apps: from_odoo_apps);
+    }
 
     /// Find source by name
     Nullable!AssemblySpecSource getSource(in string name) const {

@@ -320,4 +320,15 @@ htmlcov
     void pull() {
         repo.pull();
     }
+
+    /// Add source to assembly
+    void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
+        _spec.addSource(git_url: git_url, name: name,  git_ref: git_ref);
+    }
+
+    /// Add addon to assembly
+    void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
+        _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+    }
+
 }

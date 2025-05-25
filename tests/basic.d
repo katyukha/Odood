@@ -14,6 +14,7 @@ import unit_threaded.assertions;
 import odood.lib.project;
 import odood.utils.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
+import odood.git: GitURL;
 
 import odood.cli.utils: printLogRecord;
 
@@ -141,7 +142,18 @@ void testAddonsManagementBasic(in Project project, in string ukey="n") {
     infof("Testing addons management for %s", project);
     auto dbname = project.genDbName("test-a-1", ukey);
     project.databases.create(dbname, true);
-    scope(exit) project.databases.drop(dbname);
+    scope(exit) {
+        // Remove test database
+        project.databases.drop(dbname);
+
+        // Remove clonned repositories to beable reuse this project for other tests
+        foreach(p; project.directories.repositories.walk)
+            p.remove();
+
+        // Remove symlinks from custom_addons directory
+        foreach(p; project.directories.addons.walk)
+            p.remove;
+    }
 
     // Install/update/uninstall standard 'crm' addon
     project.addons.isInstalled(dbname, "crm").shouldBeFalse();
@@ -236,6 +248,65 @@ void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
+/** Test Assembly functionality
+  *
+  * Currently this is minimal test, to ensure basic mechanics just works (not fail)
+  * In future tests have to be improved, maybe moved to separate file with detailed tests
+  **/
+void testAssembly(Project project, in string ukey="n") {
+    infof("Testing running scripts for %s", project);
+
+    scope(exit) {
+        if (project.project_root.join("assembly").exists)
+            project.project_root.join("assembly").remove();
+    }
+
+    project.assembly.isNull.shouldBeTrue;
+    project.initializeAssembly;
+    project.assembly.isNull.shouldBeFalse;
+
+    auto assembly  = project.assembly.get;
+
+    assembly.addSource(GitURL("https://github.com/crnd-inc/generic-addons"));
+    assembly.addAddon("generic_mixin");
+    assembly.save();
+
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.sync();
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+
+    project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+    assembly.link();
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+
+    assembly.addAddon("generic_tag");
+    assembly.save();
+
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.sync();
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeTrue;
+
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+    assembly.link();
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_tag").exists.shouldBeTrue;
+    project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_tag").readLink == assembly.dist_dir.join("generic_tag");
+
+    infof("Testing running scripts for %s. Complete: Ok.", project);
+}
+
 
 /** Run basic tests for project
   *
@@ -243,7 +314,7 @@ void testRunningScripts(in Project project, in string ukey="n") {
   *    project = project to run tests for
   *    ukey = optional unique key to be used to split naming during parallel run
   **/
-void runBasicTests(in Project project, in string ukey="n") {
+void runBasicTests(Project project, in string ukey="n") {
     /* Plan:
      * - test server management
      * - test database management
@@ -262,6 +333,9 @@ void runBasicTests(in Project project, in string ukey="n") {
 
     // Test running scripts
     testRunningScripts(project, ukey);
+
+    // Test assemblies
+    testAssembly(project, ukey);
 
     // TODO: Complete the test
 }
