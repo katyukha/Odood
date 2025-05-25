@@ -27,8 +27,9 @@ public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.git: isGitRepo, GitRepository;
+private import odood.git: isGitRepo, GitRepository, GitURL;
 private import odood.utils: generateRandomString;
+private import odood.lib.assembly: Assembly, AssemblySpec;
 
 
 /** Defined the way to install Odoo: from archive or from git
@@ -37,6 +38,29 @@ enum OdooInstallType {
     Archive,
     Git,
 }
+
+/* TODO: We have to implement project-type MonoRepo
+ *
+ * There could be two types of projects:
+ * - Assembly (Mono Repo)
+ * - MultiRepo
+ *
+ * Assembly is desired type for production server installations
+ * MultiRepo is usually good for development and flexibility.
+ *
+ * The only difference between these types is that assmbly take all addons from single repository,
+ * while multirepo (current behavior) take addons from all repos.
+ *
+ * For this reason: we have to add new direcotry 'assembly' inside project,
+ * that should contain assembly repostitory.
+ * When project is switched to Assembly type, then all addons that are not
+ * from assembly, must be cleaned from custom addons.
+ * Instead all addons from assembly should be linked to custom addons.
+ *
+ * Also, we have to develop some kind of spec, that will allow to automatically
+ * populate assembly with desired addons from various sources (git repos, addon market, etc).
+ *
+ */
 
 /** Define path for odood system-wide project config
   **/
@@ -57,6 +81,8 @@ class Project {
     private ProjectConfigOdoo _odoo;
 
     private VirtualEnv _venv;
+
+    private Nullable!Assembly _assembly;
 
     /** Try to load project config automaticall. Returns nullable.
       *
@@ -151,11 +177,13 @@ class Project {
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
-            in VirtualEnv venv) {
+            in VirtualEnv venv,
+            in Nullable!Assembly assembly=Nullable!Assembly.init) {
         this._project_root = project_root.toAbsolute;
         this._directories = directories;
         this._odoo = odoo;
         this._venv = venv;
+        this._assembly = cast(Nullable!Assembly) assembly;
     }
 
     /// ditto
@@ -173,15 +201,6 @@ class Project {
     }
 
     /// ditto
-    this(in Path project_root,
-            in ProjectConfigDirectories directories,
-            in ProjectConfigOdoo odoo,
-            in Path config_path) {
-        this(project_root, directories, odoo);
-        _config_path = Nullable!Path(config_path);
-    }
-
-    /// ditto
     this(in Path project_root, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
         auto root = project_root.toAbsolute;
@@ -195,24 +214,33 @@ class Project {
                 odoo_serie,
                 odoo_branch,
                 odoo_repo),
+            VirtualEnv(
+                project_root.join("venv"),
+                guessPySerie(odoo.serie))
         );
-    }
-
-    /// ditto
-    this(in Path project_root, in OdooSerie odoo_serie) {
-        this(project_root,
-             odoo_serie,
-             odoo_serie.toString,
-             DEFAULT_ODOO_REPO);
     }
 
     /// ditto
     this(in Node yaml_config) {
-        this(
-            Path(yaml_config["project_root"].as!string),
-            ProjectConfigDirectories(yaml_config["directories"]),
-            ProjectConfigOdoo(yaml_config["odoo"]),
-        );
+        if (yaml_config.containsKey("assembly-path"))
+            this(
+                Path(yaml_config["project_root"].as!string),
+                ProjectConfigDirectories(
+                    Path(yaml_config["project_root"].as!string),
+                    yaml_config["directories"]),
+                ProjectConfigOdoo(yaml_config["odoo"]),
+                VirtualEnv(yaml_config["virtualenv"]),
+                Assembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
+            );
+        else
+            this(
+                Path(yaml_config["project_root"].as!string),
+                ProjectConfigDirectories(
+                    Path(yaml_config["project_root"].as!string),
+                    yaml_config["directories"]),
+                ProjectConfigOdoo(yaml_config["odoo"]),
+                VirtualEnv(yaml_config["virtualenv"]),
+            );
     }
 
     /// ditto
@@ -243,6 +271,10 @@ class Project {
       * install packages, etc
       **/
     auto venv() const { return _venv; }
+
+    /** Assembly related to this project.
+      **/
+    Nullable!Assembly assembly() const { return cast(Nullable!Assembly)_assembly; }
 
     /** String representation of Odood project
       **/
@@ -341,6 +373,9 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
+        if (!_assembly.isNull)
+            yaml_data["assembly-path"] = _assembly.get.path.toString;
+
         infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
         infof("Odood config saved at %s", path);
@@ -404,6 +439,25 @@ class Project {
         auto odoo_config = this.initOdooConfig;
         auto venv_options = this.odoo.serie.guessVenvOptions;
         initialize(odoo_config, venv_options);
+    }
+
+    /** Initialize assembly for this project
+      **/
+    void initializeAssembly() {
+        _project_root.join("assembly").mkdir(true);
+        _assembly = Assembly.initialize(
+            project: this,
+            path: _project_root.join("assembly")).nullable;
+        save();
+    }
+
+    void initializeAssembly(in GitURL git_url) {
+        _project_root.join("assembly").mkdir(true);
+        _assembly = Assembly.initialize(
+            project: this,
+            path: _project_root.join("assembly"),
+            git_url: git_url).nullable;
+        save();
     }
 
     /** Backup odoo sources located at this.odoo.path.

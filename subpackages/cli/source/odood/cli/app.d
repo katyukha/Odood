@@ -30,6 +30,7 @@ private import odood.cli.commands.info: CommandInfo;
 private import odood.cli.commands.odoo: CommandOdoo;
 private import odood.cli.commands.precommit: CommandPreCommit;
 private import odood.cli.commands.translations: CommandTranslations;
+private import odood.cli.commands.assembly: CommandAssembly;
 
 // Deploy is available only on Linux
 version(linux) private import odood.cli.commands.deploy: CommandDeploy;
@@ -55,6 +56,7 @@ class App: OdoodProgram {
         this.add(new CommandRepository());
         this.add(new CommandVenv());
         this.add(new CommandOdoo());
+        this.add(new CommandAssembly());
 
         // Dev tools
         this.topicGroup("Dev Tools");

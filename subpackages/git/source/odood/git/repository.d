@@ -48,6 +48,18 @@ class GitRepository {
             .inWorkDir(_path);
     }
 
+    /** Initialize empty git repo
+      *
+      * Params:
+      *     path = path to directory where git repository have to be initialized.
+      *
+      * Returns: GitRepository instance
+      **/
+    static auto initialize(in Path path) {
+        Process("git").withArgs("init", path.toString).execute.ensureOk(true);
+        return new GitRepository(path);
+    }
+
     /** Find the name of current git branch for this repo.
       *
       * Returns: Nullable!string
@@ -97,12 +109,17 @@ class GitRepository {
 
     /** Switch repo to specified branch
       **/
-    void switchBranchTo(in string branch_name) {
-        gitCmd
-            .setArgs("checkout", branch_name)
-            .execute()
-            .ensureStatus(true);
-
+    void switchBranchTo(in string branch_name, in bool create=false) {
+        if (create)
+            gitCmd
+                .setArgs("checkout", "-b", branch_name)
+                .execute()
+                .ensureStatus(true);
+        else
+            gitCmd
+                .setArgs("checkout", branch_name)
+                .execute()
+                .ensureStatus(true);
     }
 
     /** Add path (files) to git repo index
@@ -112,6 +129,20 @@ class GitRepository {
             .withArgs("add", _makeRelPath(path).toString)
             .execute
             .ensureOk(true);
+    }
+
+    /** Remove path (files) from git repo index
+      **/
+    void remove(in Path path, in bool recursive=false, in bool force=false, in bool ignore_unmatch=false) {
+        auto cmd = gitCmd.withArgs("rm");
+        if (recursive)
+            cmd.addArgs("-r");
+        if (force)
+            cmd.addArgs("--force");
+        if (ignore_unmatch)
+            cmd.addArgs("--ignore-unmatch");
+        cmd.addArgs(path.toString);
+        cmd.execute.ensureOk(true);
     }
 
     /** Commit changes to git repository
@@ -213,9 +244,8 @@ class GitRepository {
         scope(exit) root.remove();
 
         auto git_root = root.join("test-repo");
-        Process("git").withArgs("init", git_root.toString).execute.ensureOk(true);
+        auto git_repo = GitRepository.initialize(git_root);
 
-        auto git_repo = new GitRepository(git_root);
         git_repo.path.should == git_root;
         git_repo.hasChanges.shouldBeTrue();
 
@@ -328,9 +358,8 @@ class GitRepository {
         scope(exit) root.remove();
 
         auto git_root = root.join("test-repo");
-        Process("git").withArgs("init", git_root.toString).execute.ensureOk(true);
+        auto git_repo = GitRepository.initialize(git_root);
 
-        auto git_repo = new GitRepository(git_root);
         git_repo.path.should == git_root;
 
         git_repo.isFileExists(git_root.join("test_file.txt")).shouldBeFalse();
