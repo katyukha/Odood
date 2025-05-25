@@ -487,10 +487,13 @@ const struct VirtualEnv {
                 infof("Using python %s via pyenv...", opts.py_version);
 
                 // Install desired python version (if needed)
-                Process(pyenv_path)
-                    .withArgs("install", "--skip-existing", opts.py_version)
-                    .execute
-                    .ensureOk(true);
+                synchronized {
+                    // We cannot run this operation in parallel, to avoid crash of pyenv in tests
+                    Process(pyenv_path)
+                        .withArgs("install", "--skip-existing", opts.py_version)
+                        .execute
+                        .ensureOk(true);
+                }
 
                 // Find the prefix of installed (or existing) python of desired version
                 Path python_prefix = Process(pyenv_path)
