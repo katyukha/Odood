@@ -332,46 +332,6 @@ class CommandDatabasePopulate: OdoodCommand {
 }
 
 
-class CommandDatabaseListInstalledAddons: OdoodCommand {
-    this() {
-        super(
-            "list-installed-addons",
-            "List addons installed in specified databases");
-        this.add(new Option(
-            "d", "db", "Name of database to to check for addons.").repeating);
-        this.add(new Option(
-            "o", "out-file", "Path to file where to store generated requirements"));
-        this.add(new Flag(
-            "a", "all", "Check all databases"));
-    }
-
-    public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-
-        Path output_path;
-        bool print_to_file = false;
-        if (args.option("out-file")) {
-            output_path = Path(args.option("out-file"));
-            print_to_file = true;
-        }
-
-        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
-
-        string[] addon_names;
-        foreach(dbname; dbnames) {
-            auto db = project.dbSQL(dbname);
-            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
-            addon_names ~= res;
-        }
-        string result = addon_names.sort.uniq.join("\n") ~ "\n";
-        if (print_to_file)
-            output_path.writeFile(result);
-        else
-            writeln(result);
-
-    }
-}
-
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
@@ -385,7 +345,6 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseRestore());
         this.add(new CommandDatabaseStun());
         this.add(new CommandDatabasePopulate());
-        this.add(new CommandDatabaseListInstalledAddons());
     }
 }
 

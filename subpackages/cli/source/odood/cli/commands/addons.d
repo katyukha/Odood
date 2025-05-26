@@ -738,6 +738,54 @@ class CommandAddonsGeneratePyRequirements: OdoodCommand {
     }
 }
 
+class CommandAddonsFindInstalled: OdoodCommand {
+    this() {
+        super(
+            "find-installed",
+            "List addons installed in specified databases");
+        this.add(new Option(
+            "d", "db", "Name of database to to check for addons.").repeating);
+        this.add(new Option(
+            "o", "out-file", "Path to file where to store generated requirements"));
+        this.add(new Flag(
+            "a", "all", "Check all databases"));
+        this.add(new Flag(
+            null, "non-system", "List only custom addons, that are not default Odoo addons."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        Path output_path;
+        bool print_to_file = false;
+        if (args.option("out-file")) {
+            output_path = Path(args.option("out-file"));
+            print_to_file = true;
+        }
+
+        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
+
+        string[] ignore_addon_names;
+        if (args.flag("non-system")) {
+            ignore_addon_names ~= project.addons.getSystemAddonsList().map!((a) => a.name).array;
+        }
+
+        string[] addon_names;
+        foreach(dbname; dbnames) {
+            auto db = project.dbSQL(dbname);
+            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
+            addon_names ~= res.filter!((aname) => !ignore_addon_names.canFind(aname)).array;
+        }
+        string result = addon_names.sort.uniq.join("\n") ~ "\n";
+        if (print_to_file)
+            output_path.writeFile(result);
+        else
+            writeln(result);
+
+    }
+}
+
+
 class CommandAddons: OdoodCommand {
     this() {
         super("addons", "Manage third-party addons.");
@@ -750,6 +798,7 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsAdd());
         this.add(new CommandAddonsIsInstalled());
         this.add(new CommandAddonsGeneratePyRequirements());
+        this.add(new CommandAddonsFindInstalled());
     }
 }
 

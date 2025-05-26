@@ -17,6 +17,9 @@
 - Command `odood odoo recompute` - changed parameters:
     - use options instead of arguments
     - allow to run for multiple databases (or for all databases)
+- Command `odood db list-installed-addons` renamed to `odood addons find-installed`.
+- Command `odood addons find-installed` got one more option:
+    - `--non-system` - output only non-system addons (that are not included in official Odoo community)
 
 ---
 
