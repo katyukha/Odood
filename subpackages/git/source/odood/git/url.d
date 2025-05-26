@@ -124,6 +124,14 @@ struct GitURL {
     string toString() const {
         return toUrl();
     }
+
+    unittest {
+        import unit_threaded.assertions;
+
+        GitURL("github.com/katyukha/thepath.git").shouldEqual(GitURL("github.com/katyukha/thepath.git"));
+        GitURL("github.com/katyukha/thepath.git").shouldEqual(GitURL("github.com/katyukha/thepath"));
+        GitURL("github.com/katyukha/thepath.git").shouldNotEqual(GitURL("github.com/katyukha/theprocess"));
+    }
 }
 
 ///

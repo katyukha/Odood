@@ -11,7 +11,7 @@ private import std.regex;
 private import std.array: array;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -21,6 +21,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.odoo.log: OdooLogProcessor;
 private import odood.lib.addons.manager: AddonsInstallUpdateException;
+private import odood.git: isGitRepo, GitRepository, GitURL;
 
 
 /** This exception could be throwed when install/update/uninstall command
@@ -747,10 +748,71 @@ class CommandAddonsFindInstalled: OdoodCommand {
             "d", "db", "Name of database to to check for addons.").repeating);
         this.add(new Option(
             "o", "out-file", "Path to file where to store generated requirements"));
+        this.add(new Option(
+            "f", "format", "Output format").defaultValue("list").acceptsValues(["list", "assembly-spec"]));
         this.add(new Flag(
             "a", "all", "Check all databases"));
         this.add(new Flag(
             null, "non-system", "List only custom addons, that are not default Odoo addons."));
+    }
+
+    auto findInstalledAddons(in Project project, ProgramArgs args) {
+        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
+
+        string[] ignore_addon_names;
+        if (args.flag("non-system")) {
+            ignore_addon_names ~= project.addons.getSystemAddonsList().map!((a) => a.name).array;
+        }
+
+        string[] addon_names;
+        foreach(dbname; dbnames) {
+            auto db = project.dbSQL(dbname);
+            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
+            addon_names ~= res.filter!(
+                (aname) => !ignore_addon_names.canFind(aname) && !addon_names.canFind(aname)
+            ).array;
+        }
+        return addon_names.sort.uniq;
+    }
+
+    string displayInstalledAddonsAsList(in Project project, in string[] addon_names) {
+        return addon_names.join("\n") ~ "\n";
+    }
+
+    string displayInstalledAddonsAsAssemblySpec(in Project project, in string[] addon_names) {
+        import std.array: appender;
+        import odood.lib.assembly.spec;
+        import dyaml;
+
+        AssemblySpec spec;
+
+        foreach(addon_name; addon_names) {
+            auto maybeAddon = project.addons.getByName(addon_name);
+            spec.addAddon(addon_name);
+
+            if (maybeAddon.isNull)
+                continue;
+
+            auto addon = maybeAddon.get;
+
+            if (!isGitRepo(addon.path))
+                continue;
+
+            auto repo = new GitRepository(addon.path);
+            auto curr_branch = repo.getCurrBranch;
+            spec.addSource(
+                git_url: repo.getRemoteUrl,
+                git_ref: curr_branch.isNull ? null : curr_branch.get,
+            );
+        }
+
+        auto dumper = dyaml.dumper.dumper();
+        dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
+
+        auto output = appender!string();
+        dumper.dump(output, spec.toYAML);
+
+        return output[];
     }
 
     public override void execute(ProgramArgs args) {
@@ -763,20 +825,16 @@ class CommandAddonsFindInstalled: OdoodCommand {
             print_to_file = true;
         }
 
-        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
+        string[] addon_names = findInstalledAddons(project, args).array;
 
-        string[] ignore_addon_names;
-        if (args.flag("non-system")) {
-            ignore_addon_names ~= project.addons.getSystemAddonsList().map!((a) => a.name).array;
-        }
+        string result;
+        if (args.option("format") == "list")
+            result = displayInstalledAddonsAsList(project, addon_names);
+        else if (args.option("format") == "assembly-spec")
+            result = displayInstalledAddonsAsAssemblySpec(project, addon_names);
+        else
+            assert(0, "Unsupported format %s".format(args.option("format")));
 
-        string[] addon_names;
-        foreach(dbname; dbnames) {
-            auto db = project.dbSQL(dbname);
-            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
-            addon_names ~= res.filter!((aname) => !ignore_addon_names.canFind(aname)).array;
-        }
-        string result = addon_names.sort.uniq.join("\n") ~ "\n";
         if (print_to_file)
             output_path.writeFile(result);
         else

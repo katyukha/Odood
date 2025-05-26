@@ -12,7 +12,7 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import theprocess;
-private import odood.git: getGitTopLevel, GIT_REF_WORKTREE;
+private import odood.git: getGitTopLevel, GIT_REF_WORKTREE, GitURL;
 
 
 /** Simple class to manage git repositories
@@ -105,6 +105,22 @@ class GitRepository {
             .setArgs("fetch", "origin", branch)
             .execute()
             .ensureStatus(true);
+    }
+
+    /** Get remote url for specified remote
+      **/
+    auto getRemoteUrl(in string name) {
+        string res = gitCmd
+            .setArgs("remote", "get-url", name)
+            .execute
+            .ensureOk(true)
+            .output.strip;
+        return GitURL(res);
+    }
+
+    /// ditto
+    auto getRemoteUrl() {
+        return getRemoteUrl("origin");
     }
 
     /** Switch repo to specified branch

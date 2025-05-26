@@ -151,6 +151,10 @@ struct AssemblySpec {
     @property auto sources() const => _sources;
 
     package(odood) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
+        foreach(source; _sources)
+            if (source.git_url == git_url && source.name == name && source.git_ref == git_ref)
+                // This source already exists
+                return;
         _sources ~= AssemblySpecSource(git_url: git_url, name: name, git_ref: git_ref);
     }
 
