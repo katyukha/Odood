@@ -8,6 +8,9 @@
 - New options to `odood test` command (`--populate-model` and `--populate-size`)
   that could be used to populate database with test data before running tests.
   Especially, this could be useful for migration tests
+- New command `odood assembly` that could be used to manage Odoo instance in assembly style,
+  when all addons used on instance are placed in single repo.
+- Added new flag `--assembly` to `odood addons list/update/install/uninstall` commands
 
 ### Changed
 

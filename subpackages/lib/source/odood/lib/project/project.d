@@ -27,8 +27,9 @@ public import odood.lib.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.git: isGitRepo, GitRepository;
+private import odood.git: isGitRepo, GitRepository, GitURL;
 private import odood.utils: generateRandomString;
+private import odood.lib.assembly: Assembly, AssemblySpec;
 
 
 /** Defined the way to install Odoo: from archive or from git
@@ -37,6 +38,7 @@ enum OdooInstallType {
     Archive,
     Git,
 }
+
 
 /** Define path for odood system-wide project config
   **/
@@ -57,6 +59,8 @@ class Project {
     private ProjectConfigOdoo _odoo;
 
     private VirtualEnv _venv;
+
+    private Nullable!Assembly _assembly;
 
     /** Try to load project config automaticall. Returns nullable.
       *
@@ -151,11 +155,13 @@ class Project {
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
-            in VirtualEnv venv) {
+            in VirtualEnv venv,
+            in Nullable!Assembly assembly=Nullable!Assembly.init) {
         this._project_root = project_root.toAbsolute;
         this._directories = directories;
         this._odoo = odoo;
         this._venv = venv;
+        this._assembly = cast(Nullable!Assembly) assembly;
     }
 
     /// ditto
@@ -173,15 +179,6 @@ class Project {
     }
 
     /// ditto
-    this(in Path project_root,
-            in ProjectConfigDirectories directories,
-            in ProjectConfigOdoo odoo,
-            in Path config_path) {
-        this(project_root, directories, odoo);
-        _config_path = Nullable!Path(config_path);
-    }
-
-    /// ditto
     this(in Path project_root, in OdooSerie odoo_serie,
             in string odoo_branch, in string odoo_repo) {
         auto root = project_root.toAbsolute;
@@ -195,11 +192,15 @@ class Project {
                 odoo_serie,
                 odoo_branch,
                 odoo_repo),
+            VirtualEnv(
+                project_root.join("venv"),
+                guessPySerie(odoo_serie))
         );
     }
 
     /// ditto
     this(in Path project_root, in OdooSerie odoo_serie) {
+        // NOTE: this constructor is used in tests
         this(project_root,
              odoo_serie,
              odoo_serie.toString,
@@ -208,11 +209,25 @@ class Project {
 
     /// ditto
     this(in Node yaml_config) {
-        this(
-            Path(yaml_config["project_root"].as!string),
-            ProjectConfigDirectories(yaml_config["directories"]),
-            ProjectConfigOdoo(yaml_config["odoo"]),
-        );
+        if (yaml_config.containsKey("assembly-path"))
+            this(
+                Path(yaml_config["project_root"].as!string),
+                ProjectConfigDirectories(
+                    Path(yaml_config["project_root"].as!string),
+                    yaml_config["directories"]),
+                ProjectConfigOdoo(yaml_config["odoo"]),
+                VirtualEnv(yaml_config["virtualenv"]),
+                Assembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
+            );
+        else
+            this(
+                Path(yaml_config["project_root"].as!string),
+                ProjectConfigDirectories(
+                    Path(yaml_config["project_root"].as!string),
+                    yaml_config["directories"]),
+                ProjectConfigOdoo(yaml_config["odoo"]),
+                VirtualEnv(yaml_config["virtualenv"]),
+            );
     }
 
     /// ditto
@@ -243,6 +258,10 @@ class Project {
       * install packages, etc
       **/
     auto venv() const { return _venv; }
+
+    /** Assembly related to this project.
+      **/
+    Nullable!Assembly assembly() const { return cast(Nullable!Assembly)_assembly; }
 
     /** String representation of Odood project
       **/
@@ -341,6 +360,9 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
+        if (!_assembly.isNull)
+            yaml_data["assembly-path"] = _assembly.get.path.toString;
+
         infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
         infof("Odood config saved at %s", path);
@@ -404,6 +426,25 @@ class Project {
         auto odoo_config = this.initOdooConfig;
         auto venv_options = this.odoo.serie.guessVenvOptions;
         initialize(odoo_config, venv_options);
+    }
+
+    /** Initialize assembly for this project
+      **/
+    void initializeAssembly() {
+        _project_root.join("assembly").mkdir(true);
+        _assembly = Assembly.initialize(
+            project: this,
+            path: _project_root.join("assembly")).nullable;
+        save();
+    }
+
+    void initializeAssembly(in GitURL git_url) {
+        _project_root.join("assembly").mkdir(true);
+        _assembly = Assembly.initialize(
+            project: this,
+            path: _project_root.join("assembly"),
+            git_url: git_url).nullable;
+        save();
     }
 
     /** Backup odoo sources located at this.odoo.path.

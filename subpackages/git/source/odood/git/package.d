@@ -25,7 +25,7 @@ GitURL parseGitURL(in string url) {
 GitRepository gitClone(
         in GitURL repo,
         in Path dest,
-        in string branch,
+        in string branch=null,
         in bool single_branch=false) {
     enforce!OdoodException(
         dest.isValid,

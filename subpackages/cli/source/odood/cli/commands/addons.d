@@ -69,6 +69,9 @@ class CommandAddonsList: OdoodCommand {
             null, "without-price",
             "Filter only addons that does not have price defined."));
         this.add(new Flag(
+            null, "assembly",
+            "Show addons available in assembly"));
+        this.add(new Flag(
             "t", "table", "Display list of addons as table"));
         this.add(new Option(
             "f", "field",
@@ -95,7 +98,10 @@ class CommandAddonsList: OdoodCommand {
 
     private auto findAddons(ProgramArgs args, in Project project) {
         auto search_path = args.arg("path") ?
-            Path(args.arg("path")) : Path.current;
+            Path(args.arg("path")) :
+            args.flag("assembly") ?
+                project.assembly.get.dist_dir :
+                Path.current;
 
         OdooAddon[] addons;
         if (args.flag("system")) {
@@ -393,6 +399,9 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
                 "f", "file",
                 "Read addons names from file (addon names must be separated by new lines)"
             ).optional().repeating());
+        this.add(new Flag(
+            null, "assembly",
+            "Search for addons available in assembly"));
         this.add(new Option(
             null, "skip", "Skip addon specified by name.").repeating);
         this.add(new Option(
@@ -448,6 +457,13 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         }
         foreach(path; args.options("file")) {
             foreach(addon; project.addons.parseAddonsList(Path(path))) {
+                if (skip_addons.canFind(addon.name)) continue;
+                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
+                addons ~= addon;
+            }
+        }
+        if (args.flag("assembly")) {
+            foreach(addon; project.addons.scan(path: project.assembly.get.dist_dir, recursive:  true)) {
                 if (skip_addons.canFind(addon.name)) continue;
                 if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
                 addons ~= addon;
