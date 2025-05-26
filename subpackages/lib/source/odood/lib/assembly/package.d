@@ -29,22 +29,19 @@ public import odood.lib.assembly.spec: AssemblySpec;
 struct Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
-    private OdooSerie _serie;
     private Project _project;
     private GitRepository _repo = null;
 
-    this(Project project, in Path path, in OdooSerie serie, AssemblySpec spec) {
+    this(Project project, in Path path, AssemblySpec spec) {
         _project = project;
         _spec = spec;
         _path = path;
-        _serie = serie;
     }
 
     this(Project project, in Path path, in Node yaml_data) {
         _project = project;
         _path = path;
-        _serie = yaml_data["serie"].as!string;
-        _spec = AssemblySpec(yaml_data["spec"]);
+        _spec = AssemblySpec(yaml_data);
     }
 
     /// Spec for this assembly
@@ -54,7 +51,7 @@ struct Assembly {
     @property path() const => _path;
 
     /// Odoo serie for this assembly
-    @property serie() const => _serie;
+    @property serie() const => _project.odoo.serie;
 
     /// Compute spec path
     @property spec_path() const => _path.join("odood-assembly.yml");
@@ -112,10 +109,7 @@ struct Assembly {
     /** Generate YAML configuration for this  assembly
       **/
     auto toYAML() const {
-        return dyaml.Node([
-            "serie": dyaml.Node(_serie.toString),
-            "spec": dyaml.Node(_spec.toYAML),
-        ]);
+        return _spec.toYAML;
     }
 
     /** Save any changes to assembly spec
@@ -136,8 +130,7 @@ struct Assembly {
       **/
     static Assembly initialize(Project project, in Path path) {
         infof("Initializing Odood Assembly at %s ...", path);
-        // TODO: Remover serie from signature, it is present in project
-        Assembly assembly = Assembly(project, path, project.odoo.serie, AssemblySpec.init);
+        Assembly assembly = Assembly(project, path, AssemblySpec.init);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -204,7 +197,7 @@ htmlcov
                 gitClone(
                     repo: source.git_url,
                     dest: repo_path,
-                    branch: source.git_ref ? source.git_ref : _serie.toString,
+                    branch: source.git_ref ? source.git_ref : serie.toString,
                     single_branch: true);
             }
             infof("Assembly: source %s synced.", source);

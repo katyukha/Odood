@@ -136,10 +136,11 @@ struct AssemblySpec {
     private AssemblySpecSource[] _sources;
 
     this(in Node yaml_node) {
-        foreach(node; yaml_node["addons-list"].sequence)
+        auto spec = yaml_node["spec"];
+        foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
-        foreach(node; yaml_node["sources-list"].sequence)
+        foreach(node; spec["sources-list"].sequence)
             _sources ~= AssemblySpecSource(node);
     }
 
@@ -149,11 +150,11 @@ struct AssemblySpec {
     /// Git repositories to fetch addons from
     @property auto sources() const => _sources;
 
-    package(odood.lib.assembly) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
+    package(odood) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
         _sources ~= AssemblySpecSource(git_url: git_url, name: name, git_ref: git_ref);
     }
 
-    package(odood.lib.assembly) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
+    package(odood) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _addons ~= AssemblySpecAddon(name: name, source_name: source_name, from_odoo_apps: from_odoo_apps);
     }
 
@@ -167,8 +168,10 @@ struct AssemblySpec {
 
     auto toYAML() const {
         return Node([
-            "addons-list": _addons.map!((n) => n.toYAML).array,
-            "sources-list": _sources.map!((s) => s.toYAML).array,
+            "spec": Node([
+                "addons-list": _addons.map!((n) => n.toYAML).array,
+                "sources-list": _sources.map!((s) => s.toYAML).array,
+            ]),
         ]);
     }
 
