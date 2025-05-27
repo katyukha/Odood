@@ -13,24 +13,22 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 
 ---
 
-
 ## Current state
 
 ![Current status](https://img.shields.io/badge/Current%20Status-Alpha-purple)
 
 The project is still *under development*.
 
-Currently, this project could be used in parallel with [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
-
 Following features currently implemented:
 - [x] Server management
 - [x] Database management
-- [x] Basic addons management (fetch/install/update/uninstall)
+- [x] Addons management (fetch/install/update/uninstall)
+- [x] Assembly support
 - [x] Running tests
 - [ ] CI utils (versions, forwardports, etc)
-- [ ] Postgres utils
-- [ ] Doc utils
+- [ ] Doc utils (print addons list to csv/md)
 - [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
+- [x] Can handle instances managed by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/)
 
 
 ## Supported Odoo versions
@@ -46,7 +44,7 @@ Following features currently implemented:
 - Odoo 15.0 (tested)
 - Odoo 16.0 (tested)
 - Odoo 17.0 (tested)
-- Odoo 18.0 (experimental)
+- Odoo 18.0 (tested)
 
 ## Prebuild docker-images with preinstalled Odoo and Odood
 

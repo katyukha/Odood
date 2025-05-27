@@ -749,7 +749,8 @@ class CommandAddonsFindInstalled: OdoodCommand {
         this.add(new Option(
             "o", "out-file", "Path to file where to store generated requirements"));
         this.add(new Option(
-            "f", "format", "Output format").defaultValue("list").acceptsValues(["list", "assembly-spec"]));
+            "f", "format", "Output format. One of: list, assembnly-spec. Default: list."
+            ).defaultValue("list").acceptsValues(["list", "assembly-spec"]));
         this.add(new Flag(
             "a", "all", "Check all databases"));
         this.add(new Flag(

@@ -26,6 +26,7 @@ Following features available:
         - Handle [`odoo_requirements.txt`](https://katyukha.gitlab.io/odoo-helper-scripts/odoo-requirements-txt/)
 - Simple database management via commandline: create, backup, drop, rename, copy database
 - Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
+- Support for assemblies: single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
 
 ## Supported OS

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## Release 0.4.0 (unreleased)
 
 ### Added
 
@@ -24,7 +24,7 @@
 
 ---
 
-## Release 0.3.1 (unreleased)
+## Release 0.3.1 (2025-04-23)
 
 ### Added
 
