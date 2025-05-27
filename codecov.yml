@@ -1,0 +1,36 @@
+codecov:
+  branch: main
+
+comment:
+  layout: "header, diff, flags, components"
+
+component_management:
+  individual_components:
+    - component_id: odood-root
+      name: Odood
+      paths:
+        - source/odood/**
+    - component_id: odood-cli
+      name: Odood CLI
+      paths:
+        - subpackages/cli/**
+    - component_id: odood-exception
+      name: Odood Exception
+      paths:
+        - subpakcages/exception/**
+    - component_id: odood-git
+      name: Odood Git
+      paths:
+        - subpakcages/git/**
+    - component_id: odood-lib
+      name: Odood Lib
+      paths:
+        - subpakcages/lib/**
+    - component_id: odood-tipy
+      name: Odood Tiny Python wrapper
+      paths:
+        - subpakcages/tipy/**
+    - component_id: odood-utils
+      name: Odood Utils
+      paths:
+        - subpakcages/utils/**
