@@ -134,6 +134,11 @@ jobs:
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
+      - name: Cleanup non-project coverage
+        run: |
+          dub fetch d-cobertura
+          dub run d-cobertura@1.0.0 -- - *.lst
+          rm -f ./*.lst
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v5
@@ -222,6 +227,12 @@ jobs:
           ./build/odood -v -d db restore -r odood-test-db  /tmp/odood-db.zip
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
+
+      - name: Cleanup non-project coverage
+        run: |
+          dub fetch d-cobertura
+          dub run d-cobertura@1.0.0 -- - *.lst
+          rm -f ./*.lst
 
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v5

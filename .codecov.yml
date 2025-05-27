@@ -1,14 +1,6 @@
 codecov:
   branch: main
 
-#fixes:
-  #- "/__w/Odood/Odood/::"
-  #- "/home/runner/work/Odood/Odood/::"
-  #- "/data-fury/projects/dlang/odood/::"
-
-#ignore:
-  #- "/home/runner/.dub/"
-
 comment:
   layout: "header, diff, flags, components"
 

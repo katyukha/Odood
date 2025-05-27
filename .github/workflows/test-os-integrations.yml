@@ -142,6 +142,12 @@ jobs:
       - name: Run tests
         run: ./build/odood-unittest-integration-ut --chrono
 
+      - name: Cleanup non-project coverage
+        run: |
+          dub fetch d-cobertura
+          dub run d-cobertura@1.0.0 -- - *.lst
+          rm -f ./*.lst
+
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v5
         with:
