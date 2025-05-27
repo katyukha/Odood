@@ -134,7 +134,12 @@ jobs:
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
-      - name: Cleanup non-project coverage
+      - name: Install D compiler (to convert test coverage to cobertura.xml)
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Convert test coverate to cobertura.xml and cleanup
         run: |
           dub fetch d-cobertura
           dub run d-cobertura@1.0.0 -- - *.lst
@@ -228,7 +233,12 @@ jobs:
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
-      - name: Cleanup non-project coverage
+      - name: Install D compiler (to convert test coverage to cobertura.xml)
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Convert test coverate to cobertura.xml and cleanup
         run: |
           dub fetch d-cobertura
           dub run d-cobertura@1.0.0 -- - *.lst
