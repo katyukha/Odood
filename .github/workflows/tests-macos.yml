@@ -85,8 +85,9 @@ jobs:
 
 
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          flags: unittests
-          name: odood-unittests
+          flags: tests-macos
+          name: tests-macos
+          token: ${{ secrets.CODECOV_TOKEN }}
 

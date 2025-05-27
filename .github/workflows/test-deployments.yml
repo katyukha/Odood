@@ -223,7 +223,8 @@ jobs:
           ./build/odood -v -d db drop odood-test-db
 
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
           name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
