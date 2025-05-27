@@ -57,6 +57,8 @@ class CommandAssemblyStatus: OdoodCommand {
 class CommandAssemblySync: OdoodCommand {
     this() {
         super("sync", "Synchronize assembly with updates from sources.");
+        this.add(new Flag(
+            null, "commit", "Commit changes."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -64,7 +66,7 @@ class CommandAssemblySync: OdoodCommand {
         enforce!OdoodCLIException(
             !project.assembly.isNull,
             "Assembly not initialized!");
-        project.assembly.get.sync;
+        project.assembly.get.sync(args.flag("commit"));
     }
 }
 

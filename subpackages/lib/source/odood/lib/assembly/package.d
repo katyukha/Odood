@@ -3,6 +3,7 @@ module odood.lib.assembly;
 /** This module containes utilities to manage assemblies.
   **/
 
+private import std.logger: tracef;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.logger: infof, errorf;
@@ -242,7 +243,8 @@ htmlcov
 
                 auto source_path = getSourceCachePath(source);
                 bool addon_found = false;
-                foreach(s_addon; _project.addons.scan(source_path)) {
+                tracef("Searching for addon %s insude %s", addon.name, source_path);
+                foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                     if (s_addon.name == addon.name) {
                         s_addon.path.copyTo(dist_dir.join(addon.name));
                         repo.add(dist_dir.join(addon.name));
@@ -255,10 +257,11 @@ htmlcov
                     missing_addon_names ~= addon.name;
                 }
             } else {
+                bool addon_found = false;
                 foreach(source; spec.sources) {
                     auto source_path = getSourceCachePath(source);
-                    bool addon_found = false;
-                    foreach(s_addon; _project.addons.scan(source_path)) {
+                    tracef("Searching for addon %s insude %s", addon.name, source_path);
+                    foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                         if (s_addon.name == addon.name) {
                             s_addon.path.copyTo(dist_dir.join(addon.name));
                             repo.add(dist_dir.join(addon.name));
@@ -266,10 +269,10 @@ htmlcov
                             break;
                         }
                     }
-                    if (!addon_found) {
-                        errorf("Assembly: Cannot find addon %s!", addon);
-                        missing_addon_names ~= addon.name;
-                    }
+                }
+                if (!addon_found) {
+                    errorf("Assembly: Cannot find addon %s!", addon);
+                    missing_addon_names ~= addon.name;
                 }
             }
             infof("Assembly: Addon %s synced.", addon);
@@ -284,11 +287,14 @@ htmlcov
       *
       * Update assembly addons from recent versiones from specified git sources
       **/
-    void sync() {
+    void sync(in bool commit=false) {
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
         syncAddons();
+
+        if (commit)
+            repo.commit("Assembly synced");
     }
 
     /** Link assembly addons.
