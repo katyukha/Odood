@@ -302,7 +302,7 @@ const struct VirtualEnv {
             "https://www.python.org/ftp/python/%s/Python-%s.tar.xz".format(
                     build_version, build_version);
         auto python_download_path = getCacheDir("python", tmp_dir).join(
-            "python-%s.tgz".format(build_version));
+            "python-%s.tar.xz".format(build_version));
         auto python_src_dir = tmp_dir.join(
             "Python-%s".format(build_version));
         auto python_build_dir = tmp_dir.join(
