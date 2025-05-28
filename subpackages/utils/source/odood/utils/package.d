@@ -178,6 +178,42 @@ Nullable!Path getCacheDir(in string name) {
     return Nullable!Path.init;
 }
 
+
+// Test getCacheDir
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+
+    auto save_env = environment.toAA;
+    scope(exit) {
+        // Restore env on exit
+        if ("ODOOD_CACHE_DIR" in save_env)
+            environment["ODOOD_CACHE_DIR"] = save_env["ODOOD_CACHE_DIR"];
+        else
+            environment.remove("ODOOD_CACHE_DIR");
+    }
+
+    // No cachedir defined in env
+    if ("ODOOD_CACHE_DIR" in environment)
+        environment.remove("ODOOD_CACHE_DIR");
+
+    getCacheDir("cache-42").isNull.shouldBeTrue;
+
+    environment["ODOOD_CACHE_DIR"] = "some-invalid:path~here";
+
+    getCacheDir("cache-42").isNull.shouldBeTrue;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    environment["ODOOD_CACHE_DIR"] = root.join("cache-root").toString;
+    getCacheDir("cache-42").isNull.shouldBeFalse;
+    getCacheDir("cache-42").get.shouldEqual(root.join("cache-root", "cache-42"));
+    getCacheDir("cache-42").get.isAbsolute.shouldBeTrue;
+}
+
+
 /** Get cache dir for specified name if cache is configured.
   * This could be used to cached downloads like python or Odoo,
   * in cases when downloading of same file is frequent operation.
@@ -192,5 +228,42 @@ Path getCacheDir(in string name, in Path defaultDir) {
     auto cache_dir = getCacheDir(name);
     if (cache_dir.isNull) return defaultDir;
     return cache_dir.get;
+}
+
+// Test getCacheDir
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+
+    auto save_env = environment.toAA;
+    scope(exit) {
+        // Restore env on exit
+        if ("ODOOD_CACHE_DIR" in save_env)
+            environment["ODOOD_CACHE_DIR"] = save_env["ODOOD_CACHE_DIR"];
+        else
+            environment.remove("ODOOD_CACHE_DIR");
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // No cachedir defined in env
+    if ("ODOOD_CACHE_DIR" in environment)
+        environment.remove("ODOOD_CACHE_DIR");
+
+    getCacheDir("cache-42", root.join("default")).shouldEqual(root.join("default"));
+    getCacheDir("cache-42", root.join("default")).isAbsolute.shouldBeTrue;
+
+    // Set cachedir to invalid path
+    environment["ODOOD_CACHE_DIR"] = "some-invalid:path~here";
+
+    getCacheDir("cache-42", root.join("default")).shouldEqual(root.join("default"));
+    getCacheDir("cache-42", root.join("default")).isAbsolute.shouldBeTrue;
+
+    // Set cachedir to valid path
+    environment["ODOOD_CACHE_DIR"] = root.join("cache-root").toString;
+    getCacheDir("cache-42", root.join("default")).shouldEqual(root.join("cache-root", "cache-42"));
+    getCacheDir("cache-42", root.join("default")).isAbsolute.shouldBeTrue;
 }
 
