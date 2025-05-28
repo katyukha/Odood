@@ -641,3 +641,58 @@ unittest {
     // Run basic tests
     project.runBasicTests("reo16t17");
 }
+
+
+// Unittests for virtualenvs.
+// Just test if it could build python with different configurations.
+@("Test virtualenv initializaton")
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import odood.lib.venv;
+    import odood.utils.versioned: Version;
+
+    auto save_env = environment.toAA;
+    scope(exit) {
+        // Restore env on exit
+        if ("ODOOD_CACHE_DIR" in save_env)
+            environment["ODOOD_CACHE_DIR"] = save_env["ODOOD_CACHE_DIR"];
+        else
+            environment.remove("ODOOD_CACHE_DIR");
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // No cachedir. Just test that venv installed and works
+    auto venv1 = VirtualEnv(root.join("venv1"), PySerie.py3);
+    venv1.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv1.py_version.shouldEqual(Version(3, 10, 16));
+
+    // Enable cachedir
+    environment["ODOOD_CACHE_DIR"] = root.join("cache").toString;
+    root.join("cache").exists.shouldBeFalse;
+
+    // Create venv 2
+    auto venv2 = VirtualEnv(root.join("venv2"), PySerie.py3);
+    venv2.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv2.py_version.shouldEqual(Version(3, 10, 16));
+
+    // Check that python 3.10.16 is placed in cache
+    root.join("cache").join("python", "python-3.10.16.tar.xz").exists.shouldBeTrue;
+
+    // Create third venv with same python version
+    auto venv3 = VirtualEnv(root.join("venv3"), PySerie.py3);
+    venv3.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv3.py_version.shouldEqual(Version(3, 10, 16));
+}
