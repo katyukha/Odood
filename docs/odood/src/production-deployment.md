@@ -29,4 +29,4 @@ This Odoo instance will be managed by `systemd` service.
 
 **Note:** on production installation each call to `odood` have to be run as `sudo` or from superuser. Odood will automatically handle switching access rights when needed.
 
-Also, it is recommended to use *assembly* functionality to manage third-party addons.
+Also, it is recommended to use [assembly](./assembly.md) functionality to manage third-party addons on production instances.

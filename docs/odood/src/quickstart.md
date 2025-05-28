@@ -180,15 +180,16 @@ odood addons update -a --ual --dir .
 
 ### Addons management commands
 
-- add - Add addons to the project
-- update-list -Update list of addons.
-- link - Link addons in specified directory.
-- generate-py-requirements  - Generate python's requirements.txt from addon's manifests. By default, it prints requirements to stdout.
-- update - Update specified addons.
-- install - Install specified addons.
-- is-installed - Print list of databases wehre specified addon is installed.
-- uninstall - Uninstall specified addons.
-- list - List addons in specified directory.
+- `add` - Add addons to the project
+- `update-list` -Update list of addons.
+- `link` - Link addons in specified directory.
+- `generate-py-requirements`  - Generate python's requirements.txt from addon's manifests. By default, it prints requirements to stdout.
+- `update` - Update specified addons.
+- `install` - Install specified addons.
+- `is-installed` - Print list of databases wehre specified addon is installed.
+- `uninstall` - Uninstall specified addons.
+- `list` - List addons in specified directory.
+- `find-installed` - Find addons installed on specified database(s).
 
 ## Running tests
 
