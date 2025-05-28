@@ -10,26 +10,36 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 [![codecov](https://codecov.io/gh/katyukha/odood/branch/master/graph/badge.svg?token=IUXBCNSHNQ)](https://codecov.io/gh/katyukha/odood)
 [![DUB](https://img.shields.io/dub/v/odood)](https://code.dlang.org/packages/odood)
 ![DUB](https://img.shields.io/dub/l/odood)
+![Current status](https://img.shields.io/badge/Current%20Status-Beta-purple)
 
 ---
 
-## Current state
+## Overview
 
-![Current status](https://img.shields.io/badge/Current%20Status-Alpha-purple)
+This project aims to simplify the process of development and maintenance
+of addons developer for Odoo.
 
-The project is still *under development*.
+This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/)
 
-Following features currently implemented:
-- [x] Server management
-- [x] Database management
-- [x] Addons management (fetch/install/update/uninstall)
-- [x] Assembly support
-- [x] Running tests
-- [ ] CI utils (versions, forwardports, etc)
-- [ ] Doc utils (print addons list to csv/md)
-- [x] Linters - use pre-commit and per-repo configurations, instead of directly running linters
-- [x] Can handle instances managed by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/)
-
+Following features available:
+- Super easy installation of Odoo for development
+- Super easy installation of Odoo for production (see [docs](./production-deployment.md))
+- Simple way to manage multiple development instances of Odoo on same developer's machine
+- Everything (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
+- Best test runner for Odoo modules:
+    - Easy run test for developed modules
+    - Show errors in the end of the log, that is really useful feature for large (few megabytes size test logs)
+    - Test module migrations with ease
+- Super easy of third-party addons installation:
+    - Install modules directly from Odoo Apps
+    - Easily connect git repositories with Odoo modules to Odoo instance managed by Odood
+    - Automatic resolution of addons dependencies:
+        - Handle `requirements.txt`
+        - Handle [`odoo_requirements.txt`](https://katyukha.gitlab.io/odoo-helper-scripts/odoo-requirements-txt/)
+- Simple database management via commandline: create, backup, drop, rename, copy database
+- Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
+- Support for [assemblies](./assembly.md): single repo with all addons for project, populated in semi-automatic way.
+- Build with docker-support in mind
 
 ## Supported Odoo versions
 
@@ -59,9 +69,13 @@ You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&rep
 
 This is the recommended way to install Odood.
 
-1. Download package for your os from [Releases](https://github.com/katyukha/Odood/releases)
+1. Download package (*.deb*) for your os from [Releases](https://github.com/katyukha/Odood/releases)
 2. Install downloaded debian package
 3. Run `odood --help` to get info about available commands
+
+Note, that usually you will need to manually install additional system packages, that include:
+- [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
+- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
 
 
 ## Installation (locally from source)
