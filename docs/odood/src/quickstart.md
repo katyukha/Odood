@@ -6,6 +6,17 @@ Odood is Command Line Interface (CLI) tool.
 Odood and each subcommand of Odood has option `--help`, thus
 if you are interested what it can do, just type `odood --help` :)
 
+## Installation
+
+In order to install Odood, you have to do following:
+1. Visit [releases](https://github.com/katyukha/Odood/releases) page
+2. Download `.deb` package for desired architecture
+3. Install downloaded `.deb` package.
+
+Usually you will need to manually install additional system packages, that include:
+- [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
+- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
+
 ## Odoo installation
 
 There are two types of Odoo installation supported by Odood:
@@ -36,27 +47,18 @@ odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069
 After this command, Odoo 18 will be installed in `odoo-18` directory.
 Next, if current working directory is inside `odoo-18`, then `odood` command could be used to manage this instance.
 
-
 ### Production installation
 
 Production installation more focuses on security, and stabiltiy.
 Thus, it do following additional tasks:
 - Creates separate user to run Odoo
 - Creates systemd service or init script to run Odoo at startup
-- Optinally configures logrotate
+- Optionally configures:
+  - logrotate
+  - nginx
+  - fail2ban
 
-Also, production installation expectes that it is running on clean system, and no other Odoo installed on same system.
-
-To install Odoo 18 for production with local postgres, use following command on clean machine (with just Odood and [postgres](https://www.postgresql.org/) installed).
-
-```bash
-sudo odood deploy -v 18 --local-postgres --supervisor=systemd
-```
-
-After this command completed, there will be installed Odoo and it will be configured to use local postgresql.
-This Odoo instance will be managed by systemd service.
-
-**Note:** on production installation each call to `odood` have to be run as `sudo` or from superuser. Odood will automatically handle switching access rights when needed.
+For more info take a look at [Production Deployment](./production-deploymnet.md) article.
 
 ## Server management
 
@@ -217,14 +219,14 @@ It will automatically find all addons in this repo, and run tests for all of the
 Additionally, sometimes it is useful to manage virtualenv of Odood project.
 For this reason, Odood has `ododo venv` subcommand, that contains various commands to manage virtual environment of this project:
 
-- install-dev-tools - Install Dev Tools
-- run - Run command in this virtual environment. The command and all arguments must be specified after '--'. For example: 'odood venv run -- ipython'
-- reinstall-odoo - Reinstall Odoo to different Odoo version.
-- npm - Run npm for this environment. All arguments after '--' will be forwarded directly to npm.
-- ipython - Run ipython in this environment. All arguments after '--' will be forwarded directly to python.
-- python - Run python for this environment. All arguments after '--' will be forwarded directly to python.
-- update-odoo - Update Odoo itself.
-- pip - Run pip for this environment. All arguments after '--' will be forwarded directly to pip.
-- reinstall - Reinstall virtualenv.
-- install-py-packages - Install Python packages
+- `install-dev-tools` - Install Dev Tools
+- `run` - Run command in this virtual environment. The command and all arguments must be specified after '--'. For example: 'odood venv run -- ipython'
+- `reinstall-odoo` - Reinstall Odoo to different Odoo version.
+- `npm` - Run npm for this environment. All arguments after '--' will be forwarded directly to npm.
+- `ipython` - Run ipython in this environment. All arguments after '--' will be forwarded directly to python.
+- `python` - Run python for this environment. All arguments after '--' will be forwarded directly to python.
+- `update-odoo` - Update Odoo itself.
+- `pip` - Run pip for this environment. All arguments after '--' will be forwarded directly to pip.
+- `reinstall` - Reinstall virtualenv.
+- `install-py-packages` - Install Python packages
 

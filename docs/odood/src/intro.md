@@ -31,8 +31,9 @@ Following features available:
 
 ## Supported OS
 
-Currently debian-based operation systems supported.
+Currently *debian-based* operation systems supported.
 Tested on Ubuntu and Debian.
+Theoretically if should work on MacOS also.
 
 
 ## Supported Odoo versions
@@ -55,8 +56,17 @@ Tested on Ubuntu and Debian.
 To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
 Thats all.
 
+Note, that usually you will need to manually install additional system packages, that include:
+- [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
+- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
+
+
 ## Docker images
 
 Odood has pre-build docker images with already installed Odoo and Odood.
 These images could be useful as base to distribute products based on Odoo as docker images.
 Take a look for base images at [github package registry](https://github.com/katyukha?tab=packages&repo_name=Odood).
+
+## License
+
+Odood is distributed under MPL-2.0 license.
