@@ -92,7 +92,8 @@ const struct VirtualEnv {
 
     /** Construct new venv wrapper for this project
       **/
-    this(in Path path, in PySerie py_serie) {
+    this(in Path path, in PySerie py_serie)
+    in (path.isAbsolute, "Virtualenv requires absolute path") {
         _path = path;
         _py_serie = py_serie;
     }
