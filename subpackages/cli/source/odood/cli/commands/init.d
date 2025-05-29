@@ -81,7 +81,7 @@ class CommandInit: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto install_dir = Path(args.option("install-dir"));
+        auto install_dir = Path(args.option("install-dir")).toAbsolute;
         auto odoo_version = OdooSerie(args.option("odoo-version"));
         auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
         auto odoo_repo = args.option(

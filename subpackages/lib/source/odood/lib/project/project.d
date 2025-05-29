@@ -173,7 +173,7 @@ class Project {
             directories,
             odoo,
             VirtualEnv(
-                project_root.join("venv"),
+                project_root.toAbsolute.join("venv"),
                 guessPySerie(odoo.serie))
         );
     }
@@ -193,7 +193,7 @@ class Project {
                 odoo_branch,
                 odoo_repo),
             VirtualEnv(
-                project_root.join("venv"),
+                root.join("venv"),
                 guessPySerie(odoo_serie))
         );
     }
