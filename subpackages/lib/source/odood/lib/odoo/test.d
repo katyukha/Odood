@@ -9,7 +9,7 @@ private import std.logger;
 private import std.regex;
 private import std.string: join, empty;
 private import std.format: format;
-private import std.algorithm.iteration: map, filter;
+private import std.algorithm: map, filter, canFind;
 private import std.exception: enforce;
 
 private import thepath: Path;
@@ -23,9 +23,9 @@ private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
+private import odood.lib.server.log_pipe: OdooLogPipe;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
-private static import signal = odood.lib.signal;
 
 // TODO: Make randomized ports
 private immutable ODOO_TEST_HTTP_PORT=8269;
@@ -58,6 +58,7 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`The group [a-zA-Z0-9\\._]\+ defined in view [a-zA-Z0-9\\._]\+ [a-z]\+ does not exist!`),
     ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
+    ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
 ];
 
 
@@ -220,6 +221,11 @@ struct OdooTestRunner {
     private bool _test_migration=false;
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
+
+    // Populate data before test (useful for migration testing)
+    // TODO: Also handle case, when addon is not available on start ref
+    private string[] _populate_models=[];
+    private string _populate_size="small";
 
     // Other configuration
     private bool _need_install_addons_before_test=true;
@@ -392,6 +398,29 @@ struct OdooTestRunner {
         return addAdditionalModule(addon.get);
     }
 
+    /** Enable populate data for specified models
+      **/
+    auto ref setPopulateModels(in string[] populate_models) {
+        enforce!OdoodException(
+            _project.odoo.serie >= 14,
+            "'populate' feature is available only for Odoo 14.0+");
+        _populate_models = populate_models.dup;
+        return this;
+    }
+
+    /** Set populate size
+      **/
+    auto ref setPopulateSize(in string size) {
+        enforce!OdoodException(
+            _project.odoo.serie >= 14,
+            "'populate' feature is available only for Odoo 14.0+");
+        enforce!OdoodException(
+            ["small", "medium", "large"].canFind(size),
+            "Populate size could be one of: small, medium, large! Got: %s".format(size));
+        _populate_size = size;
+        return this;
+    }
+
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -424,6 +453,19 @@ struct OdooTestRunner {
         return res_addons.map!(a => a.name).join(",");
     }
 
+    /** Handle log record
+      **/
+    private void handleLogRecord(ref OdooTestResult result, in OdooLogRecord log_record) {
+        logToFile(log_record);
+
+        if (!filterLogRecord(log_record))
+            return;
+
+        if (_log_handler)
+            _log_handler(log_record);
+        result.addLogRecord(log_record);
+    }
+
     /** Take clean up actions before test finished
       **/
     void cleanUp() {
@@ -450,6 +492,30 @@ struct OdooTestRunner {
                     return false;
         }
         return true;
+    }
+
+    /** Run server command, and handle log output
+      *
+      * Returns: true if command successful, otherwise false.
+      **/
+    private bool runServerCommand(ref OdooTestResult result, in string[] options) {
+        auto res =_server.pipeServerLog(
+            getCoverageOptions(),
+            options,
+        ).processLogs!true((log_record) {
+            handleLogRecord(result, log_record);
+        });
+        final switch(res) {
+            case OdooLogPipe.ServerResult.Interrupted:
+                result.setCancelled("Keyboard interrupt");
+                return false;
+            case OdooLogPipe.ServerResult.Failed:
+                result.setFailed();
+                return false;
+            case OdooLogPipe.ServerResult.Ok:
+                // Do nothing. Everything is ok.
+                return true;
+        }
     }
 
     /** Run tests (private implementation)
@@ -513,14 +579,11 @@ struct OdooTestRunner {
                     _test_migration_repo.switchBranchTo(initial_git_ref);
                 }
             }
+            cleanUp();
         }
 
         // Configure test database (create if needed)
         getOrCreateTestDb();
-
-        // Set up signal handlers
-        signal.initSigIntHandling();
-        scope(exit) signal.deinitSigIntHandling();
 
         // Precompute option for http port
         // (different on different odoo versions)
@@ -530,8 +593,8 @@ struct OdooTestRunner {
 
         if (_need_install_addons_before_test) {
             infof("Installing modules before test...");
-            auto init_res =_server.pipeServerLog(
-                getCoverageOptions(),
+            auto cmd_res = runServerCommand(
+                result,
                 [
                     "--init=%s".format(getModuleList(true)),
                     "--log-level=warn",
@@ -544,30 +607,28 @@ struct OdooTestRunner {
                     "--database=%s".format(_test_db_name),
                 ]
             );
-            foreach(ref log_record; init_res) {
-                logToFile(log_record);
+            if (!cmd_res) return result;
+        }
 
-                if (!filterLogRecord(log_record))
-                    continue;
-
-                if (_log_handler)
-                    _log_handler(log_record);
-                result.addLogRecord(log_record);
-
-                if (signal.interrupted) {
-                    warningf("Canceling test because of Keyboard Interrupt");
-                    result.setCancelled("Keyboard interrupt");
-                    cleanUp();
-                    init_res.kill();
-                    return result;
-                }
-            }
-
-            if(init_res.wait != 0) {
-                result.setFailed();
-                cleanUp();
-                return result;
-            }
+        if (_populate_models.length > 0) {
+            // Populate database before running tests
+            infof(
+                "Running 'populate' for database %s for models (%s) with size %s...",
+                _test_db_name,
+                _populate_models.join(","),
+                _populate_size,
+            );
+            auto cmd_res = runServerCommand(
+                result,
+                [
+                    "populate",
+                    "--database=%s".format(_test_db_name),
+                    "--models=%s".format(_populate_models.join(",")),
+                    "--size=%s".format(_populate_size),
+                    "--log-level=warn",
+                ]
+            );
+            if (!cmd_res) return result;
         }
 
         if (_test_migration) {
@@ -590,48 +651,25 @@ struct OdooTestRunner {
             _project.lodoo.addonsUpdateList(_test_db_name, true);
 
             infof("Updating modules to run migrations before running tests...");
-            auto update_res =_server.pipeServerLog(
-                getCoverageOptions(),
+            auto cmd_res = runServerCommand(
+                result,
                 [
                     "--update=%s".format(getModuleList(true)),
                     "--log-level=info",
                     "--stop-after-init",
                     "--workers=0",
                     "--database=%s".format(_test_db_name),
-                ]);
-            foreach(ref log_record; update_res) {
-                logToFile(log_record);
-
-                if (!filterLogRecord(log_record))
-                    continue;
-
-                if (_log_handler)
-                    _log_handler(log_record);
-
-                result.addLogRecord(log_record);
-
-                if (signal.interrupted) {
-                    warningf("Canceling test because of Keyboard Interrupt");
-                    result.setCancelled("Keyboard interrupt");
-                    cleanUp();
-                    update_res.kill();
-                    return result;
-                }
-            }
-
-            if (update_res.wait != 0) {
-                result.setFailed();
-                cleanUp();
-                return result;
-            }
+                ]
+            );
+            if (!cmd_res) return result;
         }
 
         auto watch_tests = StopWatch(AutoStart.yes);
         scope(exit) result.setDurationTests(watch_tests.peek());
 
         infof("Running tests for modules: %s", getModuleList);
-        auto update_res =_server.pipeServerLog(
-            getCoverageOptions(),
+        auto cmd_res = runServerCommand(
+            result,
             [
                 "--update=%s".format(getModuleList),
                 "--log-level=info",
@@ -639,39 +677,15 @@ struct OdooTestRunner {
                 "--workers=0",
                 "--test-enable",
                 "--database=%s".format(_test_db_name),
-            ]);
-        foreach(ref log_record; update_res) {
-            logToFile(log_record);
-
-            if (!filterLogRecord(log_record))
-                continue;
-
-            if (_log_handler)
-                _log_handler(log_record);
-
-            result.addLogRecord(log_record);
-
-            if (signal.interrupted) {
-                warningf("Canceling test because of Keyboard Interrupt");
-                result.setCancelled("Keyboard interrupt");
-                cleanUp();
-                update_res.kill();
-                return result;
-            }
-        }
-
-        if (update_res.wait != 0) {
-            result.setFailed();
-            cleanUp();
-            return result;
-        }
+            ],
+        );
+        if (!cmd_res) return result;
 
         if (!result.errors.empty)
             result.setFailed();
         else
             result.setSuccess();
 
-        cleanUp();
         return result;
     }
 

@@ -2,10 +2,11 @@
 module odood.cli.commands.odoo;
 
 private import std.logger;
+private import std.exception: enforce;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 
 
@@ -20,7 +21,9 @@ class CommandOdooShell: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto runner = Project.loadProject.server.getServerRunner("shell");
+        auto project = Project.loadProject;
+        auto runner = project.server.getServerRunner("shell");
+        runner.addArgs(project.odoo.serie > 10 ? "--no-http" : "--no-xmlrpc");
         if (args.option("db"))
             runner.addArgs("-d", args.option("db"));
         runner.execv;
@@ -36,16 +39,30 @@ class CommandOdooRecomputeField: OdoodCommand {
                 "f", "field", "Name of field to recompute."
             ).repeating);
         this.add(
-            new Argument(
-                "dbname", "Name of database to recompute fields for").required);
+            new Option(
+                "d", "db", "Name of database to recompute fields for."
+            ).repeating);
         this.add(
-            new Argument(
-                "model", "Name of model to recompute fields for").required);
+            new Flag(
+                null, "all-db", "Recompute for all databases."
+            ));
+        this.add(
+            new Option(
+                "m", "model", "Name of model to recompute fields for").required);
 
     }
 
     public override void execute(ProgramArgs args) {
-        Project.loadProject.lodoo.recomputeField(args.arg("dbname"), args.arg("model"), args.options("field"));
+        auto project = Project.loadProject;
+        string[] db_names = args.flag("all-db") ? project.databases.list() : args.options("db");
+        enforce!OdoodCLIException(
+            db_names.length > 0,
+            "At least one database must be specified to recompute field");
+
+        foreach(dbname; db_names) {
+            infof("Recomputing fields: db=%s, model=%s, fields=%s", dbname, args.option("model"), args.options("field"));
+            project.lodoo.recomputeField(dbname, args.option("model"), args.options("field"));
+        }
     }
 }
 

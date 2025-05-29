@@ -217,7 +217,7 @@ struct OdooServer {
       * Returns:
       *     Iterator over log entries produced by this call to the server.
       **/
-    auto pipeServerLog(in CoverageOptions coverage, string[] options...) const {
+    auto pipeServerLog(in CoverageOptions coverage, in string[] options...) const {
         auto runner = getServerRunner(coverage, options)
             .inWorkDir(Path.current); // Run in current directory to make coverage work.
 

@@ -9,7 +9,7 @@ private import std.algorithm.iteration: uniq;
 private import std.string: join, empty;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
@@ -296,7 +296,7 @@ class CommandDatabaseRestore: OdoodCommand {
 
 class CommandDatabaseStun: OdoodCommand {
     this() {
-        super("stun", "Stun database (disable cron and main servers).");
+        super("stun", "Stun (neutralize) database (disable cron and main servers).");
         this.add(new Argument(
             "name", "Name of database to stun.").required());
     }
@@ -309,45 +309,28 @@ class CommandDatabaseStun: OdoodCommand {
 }
 
 
-class CommandDatabaseListInstalledAddons: OdoodCommand {
+class CommandDatabasePopulate: OdoodCommand {
     this() {
-        super(
-            "list-installed-addons",
-            "List addons installed in specified databases");
+        super("populate", "Populate database with test data.");
         this.add(new Option(
-            "d", "db", "Name of database to to check for addons.").repeating);
+            "d", "dbname", "Name of database to populate.").required());
         this.add(new Option(
-            "o", "out-file", "Path to file where to store generated requirements"));
-        this.add(new Flag(
-            "a", "all", "Check all databases"));
+            "m", "model", "Name of model to populate. Could be specified multiple times.").required.repeating);
+        this.add(new Option(
+            "s", "size", "Population size"
+            ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        Path output_path;
-        bool print_to_file = false;
-        if (args.option("out-file")) {
-            output_path = Path(args.option("out-file"));
-            print_to_file = true;
-        }
-
-        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
-
-        string[] addon_names;
-        foreach(dbname; dbnames) {
-            auto db = project.dbSQL(dbname);
-            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
-            addon_names ~= res;
-        }
-        string result = addon_names.sort.uniq.join("\n") ~ "\n";
-        if (print_to_file)
-            output_path.writeFile(result);
-        else
-            writeln(result);
-
+        project.databases.populate(
+            args.option("dbname"),
+            args.options("model"),
+            args.option("size"));
     }
 }
+
 
 class CommandDatabase: OdoodCommand {
     this() {
@@ -361,7 +344,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseBackup());
         this.add(new CommandDatabaseRestore());
         this.add(new CommandDatabaseStun());
-        this.add(new CommandDatabaseListInstalledAddons());
+        this.add(new CommandDatabasePopulate());
     }
 }
 

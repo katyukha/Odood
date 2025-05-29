@@ -177,15 +177,54 @@ package(odood.lib) struct OdooDatabase {
         return isAddonInstalled(addon.name);
     }
 
+    void neutralize() {
+        infof("Neutralizing database %s...", _dbname);
+        auto installed_addons = runSQLQuery(
+                "SELECT array_agg(name) " ~
+                "FROM ir_module_module " ~
+                "WHERE state IN ('installed', 'to upgrade', 'to remove');"
+        )[0][0].get!(string[]);
+
+        _connection.begin();
+        foreach(addon_name; installed_addons) {
+            auto addon = _project.addons.getByName(addon_name);
+            if (addon.isNull)
+                continue;
+
+            auto neutralize_path = addon.get.path.join("data/neutralize.sql");
+            if (neutralize_path.exists) {
+                infof("Running neutralization script %s", neutralize_path);
+                try {
+                    _connection.exec(neutralize_path.readFileText);
+                } catch (Exception e) {
+                    errorf(
+                        "Error caught when running %s script to neutralize db %s: %s",
+                        neutralize_path,
+                        _dbname,
+                        e.toString);
+                    _connection.rollback();
+                    throw e;
+                }
+            }
+        }
+        _connection.commit();
+        infof("Neutralizing database %s. Complete.", _dbname);
+
+    }
+
     /** Stun database (disable cron jobs and mail servers)
       **/
     void stunDb() {
-        infof(
-            "Disabling cron jobs and mail servers on database %s...", _dbname);
-        runSQLScript(
-            "UPDATE fetchmail_server SET active=False;
-             UPDATE ir_mail_server SET active=False;
-             UPDATE ir_cron SET active=False;");
-        infof("Cron jobs and mail servers for database %s disabled!", _dbname);
+        if (_project.odoo.serie >= 17) {
+            neutralize();
+        } else {
+            infof(
+                "Disabling cron jobs and mail servers on database %s...", _dbname);
+            runSQLScript(
+                "UPDATE fetchmail_server SET active=False;
+                UPDATE ir_mail_server SET active=False;
+                UPDATE ir_cron SET active=False;");
+            infof("Cron jobs and mail servers for database %s disabled!", _dbname);
+        }
     }
 }

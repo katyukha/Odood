@@ -3,7 +3,7 @@ module odood.lib.odoo.config;
 private import std.algorithm;
 private import std.uni;
 private import std.typecons;
-private import std.array: join;
+private import std.array: join, array;
 
 private import thepath: Path;
 private import dini;
@@ -11,6 +11,20 @@ private import dini;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
+
+/** Get list of system addons paths.
+  *
+  * List paths where Odoo system (out-of-the-box) addons located.
+  **/
+Path[] getSystemAddonsPaths(in Project project) {
+    Path[] addons_paths = [project.odoo.path.join("addons")];
+    if (project.odoo.serie <= OdooSerie(9)) {
+        addons_paths ~= project.odoo.path.join("openerp", "addons");
+    } else {
+        addons_paths ~= project.odoo.path.join("odoo", "addons");
+    }
+    return addons_paths;
+}
 
 /** Initialize default odoo config
   *
@@ -26,12 +40,7 @@ Ini initOdooConfig(in Project project) {
     IniSection options = IniSection("options");
     odoo_conf.addSection(options);
 
-    string[] addons_path =[project.odoo.path.join("addons").toString];
-    if (project.odoo.serie <= OdooSerie(9)) {
-        addons_path ~= project.odoo.path.join("openerp", "addons").toString;
-    } else {
-        addons_path ~= project.odoo.path.join("odoo", "addons").toString;
-    }
+    string[] addons_path = project.getSystemAddonsPaths.map!((p) => p.toString).array.dup;
     addons_path ~= project.directories.addons.toString;
 
     odoo_conf["options"].setKey("addons_path", join(addons_path, ","));

@@ -1,6 +1,30 @@
 # Changelog
 
-## Release 0.3.1 (unreleased)
+## Release 0.4.0 (2025-05-29)
+
+### Added
+
+- New command `odood db populate` that allows to populate database with test data
+- New options to `odood test` command (`--populate-model` and `--populate-size`)
+  that could be used to populate database with test data before running tests.
+  Especially, this could be useful for migration tests
+- New command `odood assembly` that could be used to manage Odoo instance in assembly style,
+  when all addons used on instance are placed in single repo.
+- Added new flag `--assembly` to `odood addons list/update/install/uninstall` commands
+
+### Changed
+
+- Command `odood odoo recompute` - changed parameters:
+    - use options instead of arguments
+    - allow to run for multiple databases (or for all databases)
+- Command `odood db list-installed-addons` renamed to `odood addons find-installed`.
+- Command `odood addons find-installed` got new options:
+    - `--non-system` - output only non-system addons (that are not included in official Odoo community)
+    - `--format` - what format to use for output: list, assembly-spec
+
+---
+
+## Release 0.3.1 (2025-04-23)
 
 ### Added
 

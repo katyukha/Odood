@@ -13,7 +13,7 @@ private import thepath: Path, createTempPath;
 private import zipper: Zipper;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.config: readOdooConfig;
+private import odood.lib.odoo.config: readOdooConfig, getSystemAddonsPaths;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
 private import odood.utils.addons.odoo_requirements:
@@ -77,7 +77,11 @@ struct AddonManager {
             _addons_paths = res.nullable;
         }
         return _addons_paths.get;
+    }
 
+    /// Get list of system addons paths (with addons that come with Odoo out-of-the-box)
+    Path[] system_addons_paths() const {
+        return _project.getSystemAddonsPaths;
     }
 
     /** Get addon instance by its name
@@ -117,6 +121,16 @@ struct AddonManager {
         if (!addon.isNull)
             return addon;
         return getByName(addon_name);
+    }
+
+    /** Get list of all system addons available in this Odoo instance
+      **/
+    OdooAddon[] getSystemAddonsList() const {
+        OdooAddon[] result;
+        foreach(apath; system_addons_paths) {
+            result ~= scan(apath);
+        }
+        return result;
     }
 
     /** Parse file that contains list of addons

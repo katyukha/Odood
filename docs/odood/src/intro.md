@@ -11,7 +11,7 @@ This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/od
 
 Following features available:
 - Super easy installation of Odoo for development
-- Super easy installation of Odoo for production
+- Super easy installation of Odoo for production (see [docs](./production-deployment.md))
 - Simple way to manage multiple development instances of Odoo on same developer's machine
 - Everything (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
 - Best test runner for Odoo modules:
@@ -26,12 +26,14 @@ Following features available:
         - Handle [`odoo_requirements.txt`](https://katyukha.gitlab.io/odoo-helper-scripts/odoo-requirements-txt/)
 - Simple database management via commandline: create, backup, drop, rename, copy database
 - Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
+- Support for [assemblies](./assembly.md): single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
 
 ## Supported OS
 
-Currently debian-based operation systems supported.
+Currently *debian-based* operation systems supported.
 Tested on Ubuntu and Debian.
+Theoretically if should work on MacOS also.
 
 
 ## Supported Odoo versions
@@ -54,8 +56,17 @@ Tested on Ubuntu and Debian.
 To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
 Thats all.
 
+Note, that usually you will need to manually install additional system packages, that include:
+- [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
+- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
+
+
 ## Docker images
 
 Odood has pre-build docker images with already installed Odoo and Odood.
 These images could be useful as base to distribute products based on Odoo as docker images.
 Take a look for base images at [github package registry](https://github.com/katyukha?tab=packages&repo_name=Odood).
+
+## License
+
+Odood is distributed under MPL-2.0 license.

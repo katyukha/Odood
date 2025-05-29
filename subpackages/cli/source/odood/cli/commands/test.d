@@ -14,7 +14,7 @@ private import std.regex;
 private import std.array;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException, exitWithCode;
@@ -98,6 +98,13 @@ class CommandTest: OdoodCommand {
         this.add(new Option(
             null, "migration-repo",
             "run migration tests for repo specified by path"));
+
+        // Populate database with test data before running tests
+        this.add(new Option(
+            null, "populate-model", "Name of model to populate. Could be specified multiple times.").repeating);
+        this.add(new Option(
+            null, "populate-size", "Population size."
+            ).acceptsValues(["small", "medium", "large"]));
     }
 
     /** Find addons to test
@@ -199,6 +206,11 @@ class CommandTest: OdoodCommand {
 
         if (args.flag("no-drop-db"))
             testRunner.setNoDropDatabase();
+
+        if (!args.options("populate-models").empty)
+            testRunner.setPopulateModels(args.options("populate-models"));
+        if (!args.option("populate-size").empty)
+            testRunner.setPopulateModels(args.options("populate-size"));
 
         auto res = testRunner.run();
 

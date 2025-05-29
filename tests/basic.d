@@ -14,6 +14,7 @@ import unit_threaded.assertions;
 import odood.lib.project;
 import odood.utils.odoo.serie;
 import odood.lib.odoo.config: OdooConfigBuilder;
+import odood.git: GitURL;
 
 import odood.cli.utils: printLogRecord;
 
@@ -62,13 +63,14 @@ void createDbUser(in string user, in string password) {
 }
 
 /// Generate db name for the test for specified project
-string genDbName(in Project project, in string name) {
-    return "odood%s-%s".format(project.odoo.serie.major, name);
+string genDbName(in Project project, in string name, in string ukey="n") {
+    string ci_run_id = environment.get("GITHUB_RUN_ID", "1");
+    return "odood%s-r%s-u%s-%s".format(project.odoo.serie.major, ci_run_id, ukey, name);
 }
 
 
 /// Test server management functions
-void testServerManagement(in Project project) {
+void testServerManagement(in Project project, in string ukey="n") {
     infof("Testing server management for %s", project);
     import core.thread.osthread;
     import core.time;
@@ -93,42 +95,42 @@ void testServerManagement(in Project project) {
 
 
 /// Test database management functions
-void testDatabaseManagement(in Project project) {
+void testDatabaseManagement(in Project project, in string ukey="n") {
     infof("Testing database management for %s", project);
     project.databases.list.empty.shouldBeTrue();
 
-    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
-    project.databases.create(project.genDbName("test-1"), true);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeFalse();
+    project.databases.create(project.genDbName("test-1", ukey), true);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
 
-    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
-    project.databases.rename(project.genDbName("test-1"), project.genDbName("test-2"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeFalse();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeFalse();
+    project.databases.rename(project.genDbName("test-1", ukey), project.genDbName("test-2", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeFalse();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
-    project.databases.copy(project.genDbName("test-2"), project.genDbName("test-1"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.copy(project.genDbName("test-2", ukey), project.genDbName("test-1", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
-    auto backup_path = project.databases.backup(project.genDbName("test-2"));
+    auto backup_path = project.databases.backup(project.genDbName("test-2", ukey));
 
-    project.databases.drop(project.genDbName("test-2"));
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeFalse();
+    project.databases.drop(project.genDbName("test-2", ukey));
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeFalse();
 
-    project.databases.restore(project.genDbName("test-2"), backup_path);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
     // Drop restored database and try to restore database by backup name
-    project.databases.drop(project.genDbName("test-2"));
-    project.databases.restore(project.genDbName("test-2"), backup_path.baseName);
-    project.databases.exists(project.genDbName("test-1")).shouldBeTrue();
-    project.databases.exists(project.genDbName("test-2")).shouldBeTrue();
+    project.databases.drop(project.genDbName("test-2", ukey));
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path.baseName);
+    project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
     // Drop databases
-    project.databases.drop(project.genDbName("test-1"));
-    project.databases.drop(project.genDbName("test-2"));
+    project.databases.drop(project.genDbName("test-1", ukey));
+    project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.list.empty.shouldBeTrue();
 
     infof("Testing database management for %s. Complete: Ok.", project);
@@ -136,11 +138,22 @@ void testDatabaseManagement(in Project project) {
 
 
 /// Test addons manager
-void testAddonsManagementBasic(in Project project) {
+void testAddonsManagementBasic(in Project project, in string ukey="n") {
     infof("Testing addons management for %s", project);
-    auto dbname = project.genDbName("test-a-1");
+    auto dbname = project.genDbName("test-a-1", ukey);
     project.databases.create(dbname, true);
-    scope(exit) project.databases.drop(dbname);
+    scope(exit) {
+        // Remove test database
+        project.databases.drop(dbname);
+
+        // Remove clonned repositories to beable reuse this project for other tests
+        foreach(p; project.directories.repositories.walk)
+            p.remove();
+
+        // Remove symlinks from custom_addons directory
+        foreach(p; project.directories.addons.walk)
+            p.remove;
+    }
 
     // Install/update/uninstall standard 'crm' addon
     project.addons.isInstalled(dbname, "crm").shouldBeFalse();
@@ -198,9 +211,9 @@ void testAddonsManagementBasic(in Project project) {
 
 
 /// Test running scripts
-void testRunningScripts(in Project project) {
+void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s", project);
-    auto dbname = project.genDbName("test-1");
+    auto dbname = project.genDbName("test-1", ukey);
     project.databases.create(dbname, true);
     scope(exit) project.databases.drop(dbname);
 
@@ -235,9 +248,73 @@ void testRunningScripts(in Project project) {
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
+/** Test Assembly functionality
+  *
+  * Currently this is minimal test, to ensure basic mechanics just works (not fail)
+  * In future tests have to be improved, maybe moved to separate file with detailed tests
+  **/
+void testAssembly(Project project, in string ukey="n") {
+    infof("Testing running scripts for %s", project);
 
-/// Run basic tests for project
-void runBasicTests(in Project project) {
+    scope(exit) {
+        if (project.project_root.join("assembly").exists)
+            project.project_root.join("assembly").remove();
+    }
+
+    project.assembly.isNull.shouldBeTrue;
+    project.initializeAssembly;
+    project.assembly.isNull.shouldBeFalse;
+
+    auto assembly  = project.assembly.get;
+
+    assembly.addSource(GitURL("https://github.com/crnd-inc/generic-addons"));
+    assembly.addAddon("generic_mixin");
+    assembly.save();
+
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.sync();
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+
+    project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+    assembly.link();
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+
+    assembly.addAddon("generic_tag");
+    assembly.save();
+
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.sync();
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeTrue;
+
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_tag").exists.shouldBeFalse;
+    assembly.link();
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_tag").exists.shouldBeTrue;
+    project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_tag").readLink == assembly.dist_dir.join("generic_tag");
+
+    infof("Testing running scripts for %s. Complete: Ok.", project);
+}
+
+
+/** Run basic tests for project
+  *
+  * Params:
+  *    project = project to run tests for
+  *    ukey = optional unique key to be used to split naming during parallel run
+  **/
+void runBasicTests(Project project, in string ukey="n") {
     /* Plan:
      * - test server management
      * - test database management
@@ -246,16 +323,19 @@ void runBasicTests(in Project project) {
      */
 
     // Test server management
-    testServerManagement(project);
+    testServerManagement(project, ukey);
 
     // Test LOdoo Database operations
-    testDatabaseManagement(project);
+    testDatabaseManagement(project, ukey);
 
     // Test basic addons management
-    testAddonsManagementBasic(project);
+    testAddonsManagementBasic(project, ukey);
 
     // Test running scripts
-    testRunningScripts(project);
+    testRunningScripts(project, ukey);
+
+    // Test assemblies
+    testAssembly(project, ukey);
 
     // TODO: Complete the test
 }
@@ -298,16 +378,16 @@ unittest {
      */
 
     // Test server management
-    testServerManagement(project);
+    testServerManagement(project, "o18");
 
     // Test LOdoo Database operations
-    testDatabaseManagement(project);
+    testDatabaseManagement(project, "o18");
 
     // Test basic addons management
-    //testAddonsManagementBasic(project);
+    //testAddonsManagementBasic(project, "o18");
 
     // Test running scripts
-    testRunningScripts(project);
+    testRunningScripts(project, "o18");
 }
 
 @("Basic Test Odoo 17")
@@ -339,7 +419,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o17");
 }
 
 
@@ -372,7 +452,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o16");
 }
 
 
@@ -406,7 +486,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o15");
 }
 
 
@@ -440,7 +520,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o14");
 }
 
 
@@ -474,7 +554,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o13");
 }
 
 
@@ -508,7 +588,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("o12");
 }
 
 
@@ -559,5 +639,60 @@ unittest {
     project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Run basic tests
-    project.runBasicTests;
+    project.runBasicTests("reo16t17");
+}
+
+
+// Unittests for virtualenvs.
+// Just test if it could build python with different configurations.
+@("Test virtualenv initializaton")
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import odood.lib.venv;
+    import odood.utils.versioned: Version;
+
+    auto save_env = environment.toAA;
+    scope(exit) {
+        // Restore env on exit
+        if ("ODOOD_CACHE_DIR" in save_env)
+            environment["ODOOD_CACHE_DIR"] = save_env["ODOOD_CACHE_DIR"];
+        else
+            environment.remove("ODOOD_CACHE_DIR");
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // No cachedir. Just test that venv installed and works
+    auto venv1 = VirtualEnv(root.join("venv1"), PySerie.py3);
+    venv1.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv1.py_version.shouldEqual(Version(3, 10, 16));
+
+    // Enable cachedir
+    environment["ODOOD_CACHE_DIR"] = root.join("cache").toString;
+    root.join("cache").exists.shouldBeFalse;
+
+    // Create venv 2
+    auto venv2 = VirtualEnv(root.join("venv2"), PySerie.py3);
+    venv2.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv2.py_version.shouldEqual(Version(3, 10, 16));
+
+    // Check that python 3.10.16 is placed in cache
+    root.join("cache").join("python", "python-3.10.16.tar.xz").exists.shouldBeTrue;
+
+    // Create third venv with same python version
+    auto venv3 = VirtualEnv(root.join("venv3"), PySerie.py3);
+    venv3.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.Build,
+        py_version: "3.10.16",
+    ));
+    venv3.py_version.shouldEqual(Version(3, 10, 16));
 }

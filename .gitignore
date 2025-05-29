@@ -19,3 +19,4 @@ odood-test-*
 *.sw[npo]
 /tmp/
 /build/
+cobertura.xml

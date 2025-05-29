@@ -186,6 +186,9 @@ struct ProjectConfigOdoo {
   **/
 struct ProjectConfigDirectories {
 
+    /// Project root directory
+    Path root;
+
     /// Directory to store odoo configurations
     Path conf;
 
@@ -208,7 +211,11 @@ struct ProjectConfigDirectories {
     /// fetched git repositories
     Path repositories;
 
+    /// Directory for project-related caches
+    Path cache;
+
     this(in Path root) {
+        this.root = root;
         this.conf = root.join("conf");
         this.log = root.join("logs");
         this.downloads = root.join("downloads");
@@ -216,9 +223,11 @@ struct ProjectConfigDirectories {
         this.data = root.join("data");
         this.backups = root.join("backups");
         this.repositories = root.join("repositories");
+        this.cache = root.join("cache");
     }
 
-    this(in dyaml.Node config) {
+    this(in Path root, in dyaml.Node config) {
+        this.root = root;
         this.conf = Path(config["conf"].as!string);
         this.log = Path(config["log"].as!string);
         this.downloads = Path(config["downloads"].as!string);
@@ -226,6 +235,11 @@ struct ProjectConfigDirectories {
         this.data = Path(config["data"].as!string);
         this.backups = Path(config["backups"].as!string);
         this.repositories = Path(config["repositories"].as!string);
+
+        if (config.containsKey("cache"))
+            this.cache = Path(config["cache"].as!string);
+        else
+            this.cache = this.root.join("cache");
     }
 
     dyaml.Node toYAML() const {
@@ -238,6 +252,7 @@ struct ProjectConfigDirectories {
             "data": this.data.toString,
             "backups": this.backups.toString,
             "repositories": this.repositories.toString,
+            "cache": this.cache.toString,
         ]);
     }
 
@@ -252,6 +267,6 @@ struct ProjectConfigDirectories {
         this.data.mkdir(true);
         this.backups.mkdir(true);
         this.repositories.mkdir(true);
+        this.cache.mkdir(true);
     }
-
 }

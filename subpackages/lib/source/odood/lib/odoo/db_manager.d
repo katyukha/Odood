@@ -470,6 +470,36 @@ struct OdooDatabaseManager {
         restore(name, backup_path, validate_strict);
     }
 
+    /** Populate database with automatically generated test data.
+      * This feature is supported only for Odoo 16.0+
+      *
+      * Params:
+      *     dbname = name of database to populate
+      *     models = names of models to populate
+      *     populate_size = Population size. One of: small, medium, large
+      **/
+    void populate(in string dbname, in string[] models, in string populate_size) const {
+        enforce!OdoodException(
+            _project.odoo.serie >= 14,
+            "'populate' feature is available only for Odoo 14.0+");
+        enforce!OdoodException(
+            ["small", "medium", "large"].canFind(populate_size),
+            "Populate size could be one of: small, medium, large! Got: %s".format(populate_size));
+        infof(
+            "Running 'populate' for database %s for models (%s) with size %s...",
+            dbname, models.join(", "), populate_size);
+        _project.server(_test_mode).getServerRunner("populate")
+            .addArgs(
+                "-d", dbname,
+                "--models=%s".format(models.join(",")),
+                "--size=%s".format(populate_size),
+            ).execute
+            .ensureOk!OdoodException(true);
+        infof(
+            "Running 'populate' for database %s for models (%s) with size %s. Completed!",
+            dbname, models.join(", "), populate_size);
+    }
+
     /** Return database wrapper, that allows to interact with database
       * via plain SQL and contains some utility methods.
       *

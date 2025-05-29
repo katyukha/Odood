@@ -6,6 +6,7 @@ private import std.exception: enforce;
 private import std.string: empty;
 
 private import thepath: Path;
+private import theprocess: resolveProgram;
 private import commandr: Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -80,7 +81,7 @@ class CommandInit: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto install_dir = Path(args.option("install-dir"));
+        auto install_dir = Path(args.option("install-dir")).toAbsolute;
         auto odoo_version = OdooSerie(args.option("odoo-version"));
         auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
         auto odoo_repo = args.option(
@@ -89,7 +90,6 @@ class CommandInit: OdoodCommand {
         enforce!OdoodCLIException(
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
-
 
         OdooInstallType install_type = OdooInstallType.Archive;
         switch(args.option("install-type")) {
@@ -124,6 +124,9 @@ class CommandInit: OdoodCommand {
             venv_options.install_type = PyInstallType.PyEnv;
             if (venv_options.py_version.empty)
                 venv_options.py_version = odoo_version.suggestPythonVersion;
+
+            // Ensure that pyenv is available, when user requests installation via pyenv
+            enforce!OdoodCLIException(!resolveProgram("pyenv").isNull, "pyenv not available!");
         }
 
         project.initialize(

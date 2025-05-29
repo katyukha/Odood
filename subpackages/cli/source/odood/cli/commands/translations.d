@@ -65,17 +65,29 @@ class CommandTranslationsRegenerate: OdoodCommand {
         OdooAddon[] addons;
         foreach(search_path; args.options("addon-dir"))
             foreach(addon; project.addons.scan(Path(search_path), false))
-                addons ~= addon;
+                if (project.addons.isLinked(addon) && addon.manifest.installable)
+                    addons ~= addon;
+                else
+                    warningf("Skip addon %s because it is not linked or not installable", addon);
 
         foreach(search_path; args.options("addon-dir-r"))
             foreach(addon; project.addons.scan(Path(search_path), true))
-                addons ~= addon;
+                if (project.addons.isLinked(addon) && addon.manifest.installable)
+                    addons ~= addon;
+                else
+                    warningf("Skip addon %s because it is not linked or not installable", addon);
 
         foreach(addon_name; args.args("addon")) {
             auto addon = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
                 !addon.isNull,
                 "Cannot find addon %s!".format(addon_name));
+            enforce!OdoodCLIException(
+                project.addons.isLinked(addon.get),
+                "Addon %s is not linked!".format(addon_name));
+            enforce!OdoodCLIException(
+                addon.get.manifest.installable,
+                "Addon %s is not installable!".format(addon_name));
             addons ~= addon.get;
         }
         return addons;
@@ -88,7 +100,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
             auto lfs = lf.split(':');
             enforce!OdoodException(
                 lfs.length == 2,
-                "Incorrect specification of lang-file option '%s'. Correct format is 'uk_UA:uk'.");
+                "Incorrect specification of lang-file option '%s'. Correct format is 'uk_UA:uk'.".format(lf));
             res ~= LangInfo(
                 lang: lfs[0],
                 file: lfs[1],

@@ -6,7 +6,7 @@ private import std.exception: enforce;
 private import std.format: format;
 
 private import thepath: Path;
-private import theprocess: Process;
+private import theprocess: Process, resolveProgram;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
@@ -19,7 +19,7 @@ private import odood.lib.project.config:
     ProjectConfigOdoo;
 private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.lib.deploy.utils: checkSystemUserExists;
-private import odood.lib.venv: VenvOptions;
+private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 
@@ -106,6 +106,11 @@ struct DeployConfig {
             "Odood system-wide config already exists at %s. ".format(ODOOD_SYSTEM_CONFIG_PATH) ~
             "It seems that there was attempt to install Odoo. " ~
             "This command can install Odoo only on clean machine.");
+
+        if (this.venv_options.install_type == PyInstallType.PyEnv) {
+            // Ensure that pyenv is available, when user requests installation via pyenv
+            enforce!OdoodDeployException(!resolveProgram("pyenv").isNull, "pyenv not available!");
+        }
 
         if (this.logrotate_enable)
             enforce!OdoodDeployException(

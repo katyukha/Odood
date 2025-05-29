@@ -111,7 +111,7 @@ jobs:
         run: apt-get update
 
       - name: Install system dependencies
-        run: apt-get install --no-install-recommends -yq sudo logrotate
+        run: apt-get install --no-install-recommends -yq sudo logrotate curl
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
@@ -134,12 +134,23 @@ jobs:
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
+      - name: Install D compiler (to convert test coverage to cobertura.xml)
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Convert test coverate to cobertura.xml and cleanup
+        run: |
+          dub fetch d-cobertura
+          dub run d-cobertura@1.0.0 -- - *.lst
+          rm -f ./*.lst
 
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
-          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
-          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}-external-pg
+          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}-external-pg
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   run-deployment-tests-with-local-postgres:
     name: Run deployment tests (local postgres)
@@ -222,8 +233,20 @@ jobs:
           ./build/odood -v -d addons uninstall --db odood-test-db crm
           ./build/odood -v -d db drop odood-test-db
 
-      - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+      - name: Install D compiler (to convert test coverage to cobertura.xml)
+        uses: dlang-community/setup-dlang@v1
         with:
-          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
-          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Convert test coverate to cobertura.xml and cleanup
+        run: |
+          dub fetch d-cobertura
+          dub run d-cobertura@1.0.0 -- - *.lst
+          rm -f ./*.lst
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          flags: deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}-local-pg
+          name: odood-deployment-tests-${{ matrix.image }}-${{ matrix.odoo_version }}-local-pg
+          token: ${{ secrets.CODECOV_TOKEN }}
