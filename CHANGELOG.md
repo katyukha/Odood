@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- New option `--lang` to `odood translate regenerate` command.
+  With this option, translation file will be detected automatically.
+
 ---
 
 ## Release 0.4.0 (2025-05-29)
