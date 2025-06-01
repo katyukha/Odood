@@ -6,10 +6,12 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.algorithm.sorting: sort;
 private import std.algorithm.iteration: uniq;
-private import std.string: join, empty;
+private import std.string: join, empty, isNumeric;
+private import std.range: iota;
+private import std.conv: to;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
+private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues, validateEachWith;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
@@ -319,15 +321,25 @@ class CommandDatabasePopulate: OdoodCommand {
         this.add(new Option(
             "s", "size", "Population size"
             ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
+        this.add(
+            new Option(
+                null, "repeat", "Repeat population N times."
+            )
+            .defaultValue("1")
+            .validateEachWith(opt => opt.isNumeric, "must be a number.")
+        );
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
-        project.databases.populate(
-            args.option("dbname"),
-            args.options("model"),
-            args.option("size"));
+        foreach(i; iota(args.option("repeat").to!int)) {
+            infof("Population database... (iteration #%s of %s)", i, args.option("repeat"));
+            project.databases.populate(
+                args.option("dbname"),
+                args.options("model"),
+                args.option("size"));
+        }
     }
 }
 
