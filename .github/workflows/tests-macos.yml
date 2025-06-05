@@ -36,7 +36,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew update
+          brew update && brew upgrade
           brew install libpq
           brew install postgresql@14
           brew install libzip
