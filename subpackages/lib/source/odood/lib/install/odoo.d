@@ -155,6 +155,13 @@ void installOdoo(in Project project) {
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
 
+        version(OSX) {
+            info("Patching Odoo requirements.txt for MacOS to use psycopg2-binary instead of psycopg2 lib...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(regex(r"psycopg2==", "g"), "psycopg2==");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));
@@ -167,6 +174,13 @@ void installOdoo(in Project project) {
         auto setup_content = project.odoo.path.join("setup.py").readFileText()
             .replaceAll(regex("PIL", "g"), "Pillow")
             .replaceAll(regex("pychart"), "Python-Chart");
+        project.odoo.path.join("setup.py").writeFile(setup_content);
+    }
+
+    version(OSX) {
+        info("Patching Odoo setup.py for MacOS to use psycopg2-binary instead of psycopg2 lib...");
+        auto setup_content = project.odoo.path.join("setup.py").readFileText()
+            .replaceAll(regex("psycopg2 ", "g"), "psycopg2-binary ");
         project.odoo.path.join("setup.py").writeFile(setup_content);
     }
 
