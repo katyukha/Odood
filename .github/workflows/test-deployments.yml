@@ -6,7 +6,7 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.40.1
+  ODOOD_DLANG_COMPILER: ldc-1.41.0
 
 # TODO: Test for arm architecture
 

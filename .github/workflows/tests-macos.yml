@@ -9,20 +9,14 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        dc: [ldc-1.40.1, ldc-latest]
+        dc: [ldc-1.41.0, ldc-latest]
         os:
           - macOS-13
           - macOS-14
+          - macOS-15
         py_install_type:
           - "build"
           - "pyenv"
-        include:
-          - dc: ldc-1.41.0-beta1
-            os: macOS-15
-            py_install_type: build
-          - dc: ldc-1.41.0-beta1
-            os: macOS-15
-            py_install_type: pyenv
     env:
       ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     runs-on: ${{ matrix.os }}
@@ -36,7 +30,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew update && brew upgrade
           brew install libpq
           brew install postgresql@14
           brew install libzip
