@@ -158,7 +158,7 @@ void installOdoo(in Project project) {
         version(OSX) {
             info("Patching Odoo requirements.txt for MacOS to use psycopg2-binary instead of psycopg2 lib...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
-                .replaceAll(regex(r"psycopg2==", "g"), "psycopg2==");
+                .replaceAll(regex(r"psycopg2==", "g"), "psycopg2-binary==");
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
 
