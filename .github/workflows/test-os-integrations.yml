@@ -5,7 +5,7 @@ on:
     branches:
       - '*'
 env:
-  ODOOD_DLANG_COMPILER: ldc-1.40.1
+  ODOOD_DLANG_COMPILER: ldc-1.41.0
 
 # In this test, we build Odood on Ubuntu 22.04 and then try to run
 # produced binary on different distros and versions
