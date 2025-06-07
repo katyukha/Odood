@@ -4,6 +4,7 @@
 
 ### Added
 
+- New command `odood repo check-versions` that could be used to check if module versions updated.
 - New option `--lang` to `odood translate regenerate` command.
   With this option, translation file will be detected automatically.
 - New option `--repeat` to `odood db populate` command, that allow to repeat database population N times.
