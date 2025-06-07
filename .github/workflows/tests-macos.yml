@@ -36,11 +36,10 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew reinstall python@3.13
-          brew update && brew upgrade
           brew install libpq
           brew install postgresql@14
           brew install libzip
+          brew install python@3.13
 
       - name: PyEnv - Install
         if: matrix.py_install_type == 'pyenv'
