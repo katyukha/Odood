@@ -12,6 +12,7 @@ private import std.regex: matchFirst;
 private import std.range: empty;
 
 private import thepath: Path;
+private import versioned: Version;
 
 private import odood.utils.addons.addon_changelog;
 private import odood.utils.addons.addon_manifest;
@@ -66,7 +67,9 @@ final class OdooAddon {
     }
 
     /// Read changelog entries for addon
-    auto readChangelogEntries() const {
+    auto readChangelogEntries(
+            in Nullable!Version start_ver=Nullable!Version.init,
+            in Nullable!Version end_ver=Nullable!Version.init) const {
         OdooAddonChangelogEntrie[] result;
 
         auto changelog_path = _path.join("changelog");
@@ -76,15 +79,28 @@ final class OdooAddon {
         foreach (p; changelog_path.walkBreadth) {
             auto m = matchFirst(
                 p.baseName, `^changelog.(\d+\.\d+\.\d+).md$`);
-            if (!m.empty)
-                result ~= OdooAddonChangelogEntrie(m[1], p.readFileText);
+            if (!m.empty) {
+                auto entrie = OdooAddonChangelogEntrie(m[1], p.readFileText);
+                if (!start_ver.isNull && start_ver.get >= entrie.ver)
+                    // Start ver is defined end entrie version is less than start ver, then skip
+                    continue;
+                if (!end_ver.isNull && end_ver.get < entrie.ver)
+                    /// End ver is defined and etrie version is greater than end ver, then skip
+                    continue;
+                result ~= entrie;
+            }
         }
         result.sort!("a > b");  // Sort results
         return result;
     }
 
-    Nullable!string readChangelog() {
-        auto changelog_entries = readChangelogEntries;
+    /// Read changelog for addon
+    Nullable!string readChangelog(
+            in Nullable!Version start_ver=Nullable!Version.init,
+            in Nullable!Version end_ver=Nullable!Version.init) {
+        auto changelog_entries = readChangelogEntries(
+            start_ver: start_ver,
+            end_ver: end_ver);
         if (changelog_entries.empty) {
             return Nullable!(string).init;
         }
@@ -130,6 +146,19 @@ unittest {
         "Initial release\n\n"
     );
 
+    test_addon.readChangelog(start_ver: Version(1,0).nullable).get.should == (
+        "# Changelog\n\n" ~
+        "## Version 1.2.0\n\n" ~
+        "Some version description for version 1.2.0\n\n" ~
+        "## Version 1.1.0\n\n" ~
+        "Version 1.1.0\n\n"
+    );
+
+    test_addon.readChangelog(start_ver: Version(1,0).nullable, end_ver: Version(1,1).nullable).get.should == (
+        "# Changelog\n\n" ~
+        "## Version 1.1.0\n\n" ~
+        "Version 1.1.0\n\n"
+    );
 }
 
 /// Check if provided path is odoo module
