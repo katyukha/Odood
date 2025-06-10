@@ -305,19 +305,24 @@ htmlcov
     void link(
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+        infof("Assembly Link: Cleanup old symlinks.");
         // Remove all links in custom addons that point to this assembly
         foreach(p; _project.directories.addons.walk) {
             if (p.isSymlink && p.readLink.isInside(dist_dir))
                 p.remove();
         }
+        infof("Assembly Link: Start linking");
         _project.addons.link(
             search_path: dist_dir,
             recursive: true,
             force: true,);
+        infof("Assembly Link: Completed");
     }
 
     void pull() {
+        infof("Assembly Pull: Pulling changes for assembly.");
         repo.pull();
+        infof("Assembly Pull: Completed.");
     }
 
     /// Add source to assembly
