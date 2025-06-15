@@ -489,43 +489,16 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             start_again=true;
         }
 
-        File log_file;
-        if (project.odoo.logfile.exists)
-            // Open file only if file exists
-            log_file = project.odoo.logfile.openFile("rt");
-
         bool error = false;
-        scope(exit) log_file.close();
 
         foreach(db; dbnames) {
-            if (!log_file.isOpen && project.odoo.logfile.exists)
-                // If file is not opened but exists, open it.
-                // This is needed to correctly compute starting point
-                // for tracking log messages happened during operation (dg)
-                log_file.open(project.odoo.logfile.toString, "rt");
-
-            auto log_start = log_file.isOpen ? log_file.size() : 0;
-
-            try {
-                // Try to apply delegate
-                dg(db);
-            } catch (AddonsInstallUpdateException e) {
+            auto error_info = project.server.catchOdooErrors(() => dg(db));
+            if (error_info.has_error) {
                 error = true;
+                writeln("Following errors detected during install/update/uninstall for database %s:".format(db.yellow).red);
+                foreach(log_line; error_info.log)
+                    printLogRecordSimplified(log_line);
 
-                if (!log_file.isOpen && project.odoo.logfile.exists)
-                    // If file is not opened but exists, open it.
-                    // This is needed to be able to read log messages
-                    // happeded during execution of dg delegate
-                    log_file.open(project.odoo.logfile.toString, "rt");
-
-                // Print errors from logfile to stdout.
-                if (log_file.isOpen && log_file.size > log_start) {
-                    writeln("Following errors detected during install/update/uninstall:".red);
-                    log_file.seek(log_start);
-                    foreach(log_line; OdooLogProcessor(log_file))
-                        if (log_line.isError)
-                            printLogRecordSimplified(log_line);
-                }
                 if (!args.flag("skip-errors"))
                     throw new AddonsInstallUpdateUninstallFailed(
                         "Addon installation for database %s failed!".format(db));
