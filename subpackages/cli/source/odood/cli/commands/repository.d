@@ -158,6 +158,10 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+
+        // Fetch changes from origin
+        repo.fetchOrigin(project.odoo.serie.toString);
+
         bool has_changes = false;
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
             has_changes = true;
@@ -229,6 +233,10 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+
+        // Fetch changes from origin
+        repo.fetchOrigin(project.odoo.serie.toString);
+
         bool has_changes = false;
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
             has_changes = true;
