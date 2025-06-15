@@ -127,6 +127,8 @@ class CommandAssemblyUpgrade: OdoodCommand {
         this.add(new Flag(
             null, "backup",
             "Do backup of all databases"));
+        this.add(new Flag(
+            null, "skip-errors", "Continue upgrade next databases if upgrade of db had error."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -152,8 +154,6 @@ class CommandAssemblyUpgrade: OdoodCommand {
         bool error = false;
         OdooAddon[] addons = project.addons.scan(assembly.dist_dir, recursive: false);
         foreach(db; project.databases.list) {
-            // TODO: Add ignore error, flag, to skip databases with errors
-            // TODO: Add better error handling (like in addons update) commands
             auto error_info = project.server.catchOdooErrors(() {
                 project.lodoo.addonsUpdateList(
                     dbname: db,
@@ -167,6 +167,10 @@ class CommandAssemblyUpgrade: OdoodCommand {
                 writeln("Following errors detected during assembly addons update for database %s:".format(db.yellow).red);
                 foreach(log_line; error_info.log)
                     printLogRecordSimplified(log_line);
+
+                if (!args.flag("skip-errors"))
+                    throw new OdoodCLIException(
+                        "Assembly upgrade for database %s failed!!".format(db));
             }
         }
 
