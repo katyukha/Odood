@@ -477,9 +477,6 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     /** Apply delegate for each database
       **/
     protected auto applyForDatabases(ProgramArgs args, in Project project, void delegate (in string dbname) dg) {
-        // TODO: Move this somewhere inside project, could be useful to process logs for certain operation
-        //       Only part with log processing on errors.
-        //       For example, it will be useful during assembly upgrade
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
 

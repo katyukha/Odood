@@ -51,6 +51,7 @@ GitRepository gitClone(
 /** Check if specified path is git repository
   **/
 bool isGitRepo(in Path path) {
+    // TODO: Think about adding ability to handle unexisting directories inside git root
     if (path.join(".git").exists)
         return true;
 
@@ -64,12 +65,41 @@ bool isGitRepo(in Path path) {
     return false;
 }
 
+///
+unittest {
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // check if random dir is not git directory
+    root.join("some-other-dir").mkdir(true);
+    root.join("some-other-dir").isGitRepo.shouldBeFalse();
+
+    // Create repo
+    auto git_root = root.join("test-repo");
+    auto git_repo = GitRepository.initialize(git_root);
+
+    // Check that git_repo is git repo
+    git_root.isGitRepo.shouldBeTrue();
+
+    git_root.join("some-test-dir", "some-subdir").mkdir(true);
+    git_root.join("some-test-dir").isGitRepo.shouldBeTrue();
+    git_root.join("some-test-dir", "some-subdir").isGitRepo.shouldBeTrue();
+
+}
+
+
 /** Returns absolute path to repository root directory.
 
     Parametrs:
         path = any path inside repository
   **/
 Path getGitTopLevel(in Path path) {
+    enforce!OdoodException(
+        path.isGitRepo,
+        "Expected that %s is git repository".format(path));
     return Path(
         Process("git")
             .inWorkDir(path)
@@ -79,4 +109,28 @@ Path getGitTopLevel(in Path path) {
             .output
             .strip
     );
+}
+
+///
+unittest {
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Attempt to get git root for random directory should fail
+    root.join("some-other-dir").mkdir(true);
+    root.join("some-other-dir").getGitTopLevel.shouldThrow!OdoodException();
+
+    // Create repo
+    auto git_root = root.join("test-repo");
+    auto git_repo = GitRepository.initialize(git_root);
+
+    // Check that git_repo is git repo
+    git_root.getGitTopLevel.should == git_root;
+
+    git_root.join("some-test-dir", "some-subdir").mkdir(true);
+    git_root.join("some-test-dir").getGitTopLevel.should == git_root;
+    git_root.join("some-test-dir", "some-subdir").getGitTopLevel.should == git_root;
 }
