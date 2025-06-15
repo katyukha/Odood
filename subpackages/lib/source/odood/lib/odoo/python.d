@@ -41,14 +41,14 @@ string suggestPythonVersion(in OdooSerie serie) {
     if (serie == OdooSerie(14))
         return "3.8.20";
     if (serie == OdooSerie(15))
-        return "3.10.16";
+        return "3.10.18";
     if (serie == OdooSerie(16))
-        return "3.10.16";
+        return "3.10.18";
     if (serie == OdooSerie(17))
-        return "3.10.16";
+        return "3.10.18";
     if (serie == OdooSerie(18))
-        return "3.10.16";
-    return "3.10.16";
+        return "3.10.18";
+    return "3.10.18";
 }
 
 
