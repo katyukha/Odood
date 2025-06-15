@@ -128,9 +128,9 @@ unittest {
     auto git_repo = GitRepository.initialize(git_root);
 
     // Check that git_repo is git repo
-    git_root.getGitTopLevel.should == git_root;
+    git_root.getGitTopLevel.realPath.should == git_root.realPath;
 
     git_root.join("some-test-dir", "some-subdir").mkdir(true);
-    git_root.join("some-test-dir").getGitTopLevel.should == git_root;
-    git_root.join("some-test-dir", "some-subdir").getGitTopLevel.should == git_root;
+    git_root.join("some-test-dir").getGitTopLevel.realPath.should == git_root.realPath;
+    git_root.join("some-test-dir", "some-subdir").getGitTopLevel.realPath.should == git_root.realPath;
 }
