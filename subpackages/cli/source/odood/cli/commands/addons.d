@@ -477,6 +477,9 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     /** Apply delegate for each database
       **/
     protected auto applyForDatabases(ProgramArgs args, in Project project, void delegate (in string dbname) dg) {
+        // TODO: Move this somewhere inside project, could be useful to process logs for certain operation
+        //       Only part with log processing on errors.
+        //       For example, it will be useful during assembly upgrade
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
 
@@ -517,7 +520,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
 
                 // Print errors from logfile to stdout.
                 if (log_file.isOpen && log_file.size > log_start) {
-                    writeln("Following errors detected during install:".red);
+                    writeln("Following errors detected during install/update/uninstall:".red);
                     log_file.seek(log_start);
                     foreach(log_line; OdooLogProcessor(log_file))
                         if (log_line.isError)

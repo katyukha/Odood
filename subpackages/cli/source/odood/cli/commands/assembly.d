@@ -4,6 +4,7 @@ private import std.json;
 private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
 private import std.array: empty;
+private import std.format: format;
 
 private import colored;
 private import commandr: Option, Flag, ProgramArgs;
@@ -13,6 +14,7 @@ private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
+private import odood.cli.utils: printLogRecordSimplified;
 
 
 class CommandAssemblyInit: OdoodCommand {
@@ -141,15 +143,38 @@ class CommandAssemblyUpgrade: OdoodCommand {
         assembly.pull;
         assembly.link();
 
+        auto start_again=false;
+        if (project.server.isRunning) {
+            project.server.stop;
+            start_again=true;
+        }
+
+        bool error = false;
         OdooAddon[] addons = project.addons.scan(assembly.dist_dir, recursive: false);
         foreach(db; project.databases.list) {
             // TODO: Add ignore error, flag, to skip databases with errors
-            project.lodoo.addonsUpdateList(
-                dbname: db,
-                ignore_error: true
-            );
-            project.addons.update(db, addons);
+            // TODO: Add better error handling (like in addons update) commands
+            auto error_info = project.server.catchOdooErrors(() {
+                project.lodoo.addonsUpdateList(
+                    dbname: db,
+                    ignore_error: true
+                );
+                project.addons.update(db, addons);
+            });
+
+            if (error_info.has_error) {
+                error = true;
+                writeln("Following errors detected during assembly addons update for database %s:".format(db.yellow).red);
+                foreach(log_line; error_info.log)
+                    printLogRecordSimplified(log_line);
+            }
         }
+
+        if (start_again)
+            project.server.start;
+
+        if (error)
+            throw new OdoodCLIException("Assembly upgrade failed!");
     }
 }
 

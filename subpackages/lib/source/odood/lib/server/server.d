@@ -21,6 +21,7 @@ private import odood.exception: OdoodException;
 private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
+private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
 private import theprocess: Process;
 
 
@@ -341,5 +342,57 @@ struct OdooServer {
                     .ensureOk(true);
                 break;
         }
+    }
+
+    /** Run delegate and gather Odoo errors happened while delegate was running.
+      **/
+    auto catchOdooErrors(TE=OdoodException)(void delegate () dg) const {
+        import std.stdio: File;
+
+        struct Result {
+            bool has_error = false;
+            Exception error = null;
+            OdooLogRecord[] log;
+        }
+        Result result;
+
+        File log_file;
+        if (_project.odoo.logfile.exists)
+            // Open file only if file exists
+            log_file = _project.odoo.logfile.openFile("rt");
+
+        scope(exit) log_file.close();
+
+        if (!log_file.isOpen && _project.odoo.logfile.exists)
+            // If file is not opened but exists, open it.
+            // This is needed to correctly compute starting point
+            // for tracking log messages happened during operation (dg)
+            log_file.open(_project.odoo.logfile.toString, "rt");
+
+        auto log_start = log_file.isOpen ? log_file.size() : 0;
+
+        try {
+            // Try to apply delegate
+            dg();
+        } catch (TE e) {
+            result.error = e;
+            result.has_error = true;
+
+            if (!log_file.isOpen && _project.odoo.logfile.exists)
+                // If file is not opened but exists, open it.
+                // This is needed to be able to read log messages
+                // happeded during execution of dg delegate
+                log_file.open(_project.odoo.logfile.toString, "rt");
+
+            // Print errors from logfile to stdout.
+            if (log_file.isOpen && log_file.size > log_start) {
+                log_file.seek(log_start);
+                foreach(log_line; OdooLogProcessor(log_file))
+                    if (log_line.isError)
+                        result.log ~= log_line;
+            }
+        }
+
+        return result;
     }
 }
