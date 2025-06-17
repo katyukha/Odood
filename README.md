@@ -79,9 +79,8 @@ You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&rep
 
 ## Installation (as Debian Package)
 
-1. Download package (*.deb*) for your os from [Releases](https://github.com/katyukha/Odood/releases)
-2. Install downloaded debian package
-3. Run `odood --help` to get info about available commands
+To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
+Thats all.
 
 Note, that usually you will need to manually install additional system packages, that include:
 - [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
