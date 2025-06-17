@@ -158,7 +158,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
             if (!i18n_dir.exists)
                 i18n_dir.mkdir(true);
 
-            if (args.flag("pot")) {
+            if (args.flag("pot") || args.flag("pot-update")) {
                 project.lodoo.generatePot(
                         dbname: dbname,
                         addon: addon.name,
