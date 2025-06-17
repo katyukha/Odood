@@ -133,6 +133,9 @@ class CommandTranslationsRegenerate: OdoodCommand {
         enforce!OdoodException(
             langs.length > 0,
             "There must be specified at lease one --lang option or --lang-file option.");
+        enforce!OdoodException(
+            addons.length > 0,
+            "There must be at least 1 addon specified to regenerate translations for.");
 
         auto dbname = "odood%s-test-%s".format(
             project.odoo.serie.major, generateRandomString(8));
