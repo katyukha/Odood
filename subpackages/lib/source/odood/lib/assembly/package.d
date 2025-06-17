@@ -1,12 +1,11 @@
 module odood.lib.assembly;
 
-/** This module containes utilities to manage assemblies.
+/** This module contains utilities to manage assemblies.
   **/
 
-private import std.logger: tracef;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.logger: infof, errorf;
+private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable;
 private import std.array: empty, join;
 
@@ -293,8 +292,15 @@ htmlcov
         syncSources();
         syncAddons();
 
-        if (commit)
-            repo.commit("Assembly synced");
+        if (commit) {
+            // TODO: Check if there are some changes
+            if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
+                infof("Commiting assembly changes...");
+                repo.commit("Assembly synced");
+            } else {
+                warningf("There is no changes to be committed!");
+            }
+        }
     }
 
     /** Link assembly addons.
