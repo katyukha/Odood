@@ -293,7 +293,13 @@ htmlcov
         syncAddons();
 
         if (commit) {
-            // TODO: Check if there are some changes
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                "There are unexpected changes in assembly. Please, handle it manually.");
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
+                "There are unexpected staged changes in assembly. Please, handle it manually.");
+
             if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
                 infof("Commiting assembly changes...");
                 repo.commit("Assembly synced");
