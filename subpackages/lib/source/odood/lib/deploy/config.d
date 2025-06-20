@@ -146,7 +146,7 @@ struct DeployConfig {
         if (this.nginx.enable)
             // If local nginx requested, ensure it is installed
             Process("nginx")
-                .withArgs("-version")
+                .withArgs("-v")
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Local Nginx requested, but it seems that nginx is not installed!", true);
