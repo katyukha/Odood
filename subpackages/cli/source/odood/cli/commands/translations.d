@@ -56,7 +56,9 @@ class CommandTranslationsRegenerate: OdoodCommand {
 
         // Languages to translate
         this.add(new Option(
-            null, "lang-file", "Combination of lang and file (separated by ':') to generate translations for. For example: uk_UA:uk.").repeating.required);
+            null, "lang-file", "Combination of lang and file (separated by ':') to generate translations for. For example: uk_UA:uk.").repeating);
+        this.add(new Option(
+            "l", "lang", "Language to generate translations for. For example: uk_UA.").repeating);
     }
 
     /** Find addons to regenerate translations for
@@ -106,6 +108,16 @@ class CommandTranslationsRegenerate: OdoodCommand {
                 file: lfs[1],
             );
         }
+        foreach(lg; args.options("lang")) {
+            auto ls = lg.split('_');
+            enforce!OdoodException(
+                ls.length == 2,
+                "Incorrect specification of lang option '%s'. Correct format is 'uk_UA'.".format(lg));
+            res ~= LangInfo(
+                lang: lg,
+                file: ls[0],
+            );
+        }
         return res;
     }
 
@@ -118,6 +130,12 @@ class CommandTranslationsRegenerate: OdoodCommand {
         enforce!OdoodException(
             !resolveProgram("msgmerge").isNull,
             "This command requires 'msgmerge' program to work. Please, install 'gettext' package to get this utility.");
+        enforce!OdoodException(
+            langs.length > 0,
+            "There must be specified at lease one --lang option or --lang-file option.");
+        enforce!OdoodException(
+            addons.length > 0,
+            "There must be at least 1 addon specified to regenerate translations for.");
 
         auto dbname = "odood%s-test-%s".format(
             project.odoo.serie.major, generateRandomString(8));
@@ -140,7 +158,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
             if (!i18n_dir.exists)
                 i18n_dir.mkdir(true);
 
-            if (args.flag("pot")) {
+            if (args.flag("pot") || args.flag("pot-update")) {
                 project.lodoo.generatePot(
                         dbname: dbname,
                         addon: addon.name,

@@ -41,6 +41,18 @@ Following features available:
 - Support for [assemblies](./assembly.md): single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
 
+
+## The War in Ukraine
+
+2022-02-24 Russia invaded Ukraine...
+
+If you want to help or support Ukraine to stand against russian inavasion,
+please, visit [the official site of Ukraine](https://war.ukraine.ua/)
+and find the best way to help.
+
+Thanks.
+
+
 ## Supported Odoo versions
 
 - Odoo 7.0 (partial)
@@ -67,18 +79,36 @@ You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&rep
 
 ## Installation (as Debian Package)
 
-This is the recommended way to install Odood.
-
-1. Download package (*.deb*) for your os from [Releases](https://github.com/katyukha/Odood/releases)
-2. Install downloaded debian package
-3. Run `odood --help` to get info about available commands
+To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
+Thats all.
 
 Note, that usually you will need to manually install additional system packages, that include:
 - [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
 - [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
 
 
-## Installation (locally from source)
+## Installation (on MacOS)
+
+There is experimental support for MacOS implemented as homebrew's [tap](https://github.com/katyukha/homebrew-odood).
+Just run:
+
+```bash
+brew tap katyukha/odood
+brew install odood
+```
+
+It is recommented to use [pyenv](https://github.com/pyenv/pyenv) on MacOS to init Odood projects.
+For example, use option `--pyenv` when creating new odood project via `odood init`:
+
+```bash
+odood init -v 18 --pyenv
+```
+
+Also, take into account that you have to install missing dependencies on MacOS.
+If you know how to make MacOS support better, just create issue or pull request with your ideas or patches.
+
+
+## Build Odood from sources
 
 *Note*, that this way is mostly useful for development of Odood, and requires
 significant RAM amount to build Odood. Better, download and install it as debian package.

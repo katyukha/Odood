@@ -7,11 +7,14 @@ The main purpose of assembly is to simplify deployment process to production ser
 
 Assembly contains `odood-assembly.yml` file (that is also referenced as `assembly-spec`),
 that describes list of addons and list of git sources to populate this assembly with.
-All third-party addons will be placed into `dist` dir inside assembly during `sync` operation.
+All third-party addons will be placed into `dist` directory inside assembly during `sync` operation.
 
-The `sync` operation updates assembly with latest versions of addons according to `spec` definition.
+After `spec` is created/updated there is need to run `sync` operation as next step.
+The `sync` operation updates assembly with latest versions of addons according to the `spec` definition.
 
-In Odood project, assembly is located in `assembly` directory inside project root.
+So, after sync is completed, and changes pushed to assembly git repo,
+the servers that use this assembly could be updated in single step, by calling command
+`odood assembly upgrade` that will do all the job.
 
 
 ## Assembly Spec
@@ -33,12 +36,32 @@ spec:
 
 ## Assembly workflow
 
-Typical workflow of using assemblies is following:
-1. Init new project (dev or prod) in standard way
-2. Init assembly
-3. Update assembly spec with list of desired addons and git sources
-4. Sync assembly.
-5. Install update modules from assembly.
+Typical assembly workflow could be splitted on two parts:
+- Assembly maintenance
+- Server operations
+
+The first one includes such operations like:
+- Initialization of new assembly
+- Management of assembly spec, that describes what addons and from what sources have to be included in assembly.
+- Assembly synchronization - just pull latest versions of addons defined in spec, and update the assembly repo.
+
+The second one, includes operations to be performed on server side.
+These operations includes:
+- Configure server to use assembly
+- Upgrade server
+
+At this moment, assembly spec have to be managed manually, by editing `odood-assembly.yml` file.
+In future, some automation may be added.
+
+What assembly created, and server is configured to use assembly,
+the server management becomes pretty simple - all server updates could be done via single command:
+
+```bash
+odood assembly upgrade [--backup]
+```
+
+That will do all the job: pull assembly changes, relink modules, update addons on all databases, etc.
+
 
 ## Assembly management
 
@@ -56,6 +79,7 @@ This group contains following commands:
   - Optionally commit chages to assembly git repo
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
 - `odood assembly pull` - pull changes for assembly repo. Useful during server update
+- `odood assembly upgrade` - simple way to upgrade server that is configured to use assembly.
 - `odood addons update --assembly` - this option could be used for `odood addons install/update/uninstall` commands to install/update/uninstall addons contained in assembly.
 
 Also, command `odood addons find-installed` could be used to generate spec for assembly based on third-party addons installed in specified database(s).

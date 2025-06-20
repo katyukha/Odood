@@ -77,8 +77,6 @@ private import odood.exception;
     /// True if version is valid (X.X.Y.Y.Y format)
     auto isStandard() const { return _is_standard; }
 
-    /// True if version is valid (X.X.Y.Y.Y format)
-    deprecated("Use .isStandard instead") alias isValid = isStandard;
 
     /// Display version as string
     string toString() const { return _raw_version; }
@@ -93,18 +91,6 @@ private import odood.exception;
     auto semver() const
     in (isStandard) {
         return _version;
-    }
-
-    /// Odoo Serie major part of the version
-    deprecated("Use .serie.major instead") auto serie_major() const
-    in (isStandard) {
-        return serie.major;
-    }
-
-    /// Odoo Serie major part of the version
-    deprecated("Use .serie.minor instead") auto serie_minor() const
-    in (isStandard) {
-        return serie.minor;
     }
 
     /// Major addon version (first number after serie)
@@ -123,23 +109,6 @@ private import odood.exception;
     auto patch() const
     in (isStandard) {
         return _version.patch;
-    }
-
-    /// Suffix addon version (everything after third number after serie)
-    deprecated("Just combination of 'semver.prerelease + semver.build'")
-    auto suffix() const
-    in (isStandard) {
-        string res = "";
-        if (_version.prerelease.length)
-            res = _version.prerelease;
-        if (_version.build.length) {
-            if (res.length) {
-                res ~= "+" ~ _version.build;
-            } else {
-                res = _version.build;
-            }
-        }
-        return res;
     }
 
     // Comparison operators
@@ -261,8 +230,6 @@ private import odood.exception;
     }
 }
 
-deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersion;
-
 @safe unittest {
     import core.exception: AssertError;
     import unit_threaded.assertions;
@@ -332,7 +299,8 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     v.major.should == 1;
     v.minor.should == 2;
     v.patch.should == 3;
-    v.suffix.empty.shouldBeTrue;
+    v.semver.prerelease.empty.shouldBeTrue;
+    v.semver.build.empty.shouldBeTrue;
 
     auto v2 = OdooStdVersion("14.0.1.2.3-hotfix-1");
     v2.isStandard.shouldBeTrue;
@@ -342,7 +310,8 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     v2.major.should == 1;
     v2.minor.should == 2;
     v2.patch.should == 3;
-    v2.suffix.should == "hotfix-1";
+    v2.semver.prerelease.should == "hotfix-1";
+    v2.semver.build.empty.shouldBeTrue;
 
     // Not in semver standard thus not supported by Versioned
     //auto v3 = OdooStdVersion("14.0.1.2.3.hotfix-1");
@@ -353,7 +322,8 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     //v3.major.should == 1;
     //v3.minor.should == 2;
     //v3.patch.should == 3;
-    //v3.suffix.should == "hotfix-1";
+    //v3.semver.prerelease.should == "hotfix-1";
+    //v3.semver.build.empty.shouldBeTrue;
 
     // Not in semver standard thus not supported by Versioned
     //auto v4 = OdooStdVersion("14.0.1.2.3_hotfix-1");
@@ -364,7 +334,8 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     //v4.major.should == 1;
     //v4.minor.should == 2;
     //v4.patch.should == 3;
-    //v4.suffix.should == "hotfix-1";
+    //v4.semver.prerelease.should == "hotfix-1";
+    //v4.semver.build.empty.shouldBeTrue;
 
     auto v5 = OdooStdVersion("14.0.1.2.3+hotfix-1");
     v5.isStandard.shouldBeTrue;
@@ -374,6 +345,7 @@ deprecated("Use OdooStdVersion instead.") alias OdooAddonVersion = OdooStdVersio
     v5.major.should == 1;
     v5.minor.should == 2;
     v5.patch.should == 3;
-    v5.suffix.should == "hotfix-1";
+    v5.semver.prerelease.empty.shouldBeTrue;
+    v5.semver.build.should == "hotfix-1";
 }
 

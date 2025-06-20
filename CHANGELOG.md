@@ -1,5 +1,21 @@
 # Changelog
 
+## Release 0.4.1 (2025-06-20)
+
+### Added
+
+- New command `odood repo check-versions` that could be used to check if module versions updated.
+- New option `--lang` to `odood translate regenerate` command.
+  With this option, translation file will be detected automatically.
+- New option `--repeat` to `odood db populate` command, that allow to repeat database population N times.
+- Added new command `odood assembly upgrade`, that could be used to upgrade assembly in single command, that includes:
+   - optionally, take backup before any other step
+   - pull latest changes
+   - relink assembly addons
+   - update all assembly addons for all databases available on managed instance
+
+---
+
 ## Release 0.4.0 (2025-05-29)
 
 ### Added

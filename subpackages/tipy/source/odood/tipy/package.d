@@ -14,16 +14,30 @@ private import odood.tipy.python;
 private bindbc.loader.SharedLib pylib;
 
 
-private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths([
-    "python3.13",
-    "python3.12",
-    "python3.11",
-    "python3.10",
-    "python3.9",
-    "python3.8",
-    "python3.7",
-    "python3.6",
-]));
+private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths(
+    names: [
+        "python3.14",
+        "python3.13",
+        "python3.12",
+        "python3.11",
+        "python3.10",
+        "python3.9",
+        "python3.8",
+        "python3.7",
+        "python3.6",
+    ],
+    platformPaths: [
+        "OSX": [
+            // Search for homebrew paths for python13 on MacOS
+            "/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/",
+            "/usr/local/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/lib/",
+            "/opt/homebrew/opt/python@3.13/Frameworks/Python.framework/Versions/3.13/lib/",
+            "/usr/local/opt/python@3.13/Frameworks/Python.framework/Versions/3.13/lib/",
+            "/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib/",
+            "/usr/local/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib/",
+        ],
+    ]
+));
 
 
 // Load python library

@@ -3,11 +3,15 @@ module odood.lib.addons.repository;
 private import std.logger: warningf, infof;
 private import std.algorithm: canFind, map;
 private import std.format: format;
+private import std.typecons: Nullable, nullable;
+private import std.exception: enforce;
 
 private import thepath: Path;
 
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.std_version: OdooStdVersion;
+private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.exception: OdoodException;
 private import odood.git: GitRepository, GIT_REF_WORKTREE;
 
@@ -44,6 +48,31 @@ class AddonRepository : GitRepository{
         return project.addons.scan(path, recursive);
     }
 
+    /** Get version of addon in specified commit
+      *
+      * Params:
+      *     addon = Addon to get version for
+      *     rev = git revision to get addon version for
+      **/
+    Nullable!OdooStdVersion getAddonVersion(in OdooAddon addon, in string rev) {
+        enforce!OdoodException(
+            addon.path.isInside(this.path),
+            "Addon must be inside repo");
+        auto g_path = addon.path.relativeTo(this.path);
+        auto g_manifest_path = g_path.join("__manifest__.py");
+        if (!this.isFileExists(g_manifest_path, rev))
+            g_manifest_path = g_path.join("__openerp__.py");
+        if (!this.isFileExists(g_manifest_path, rev))
+            // File not exists in spefied revision
+            return Nullable!OdooStdVersion.init;
+
+        auto manifest = tryParseOdooManifest(this.getContent(g_manifest_path, rev));
+        if (manifest.isNull)
+            // Cannot read manifest in spefied revision
+            return Nullable!OdooStdVersion.init;
+
+        return manifest.get.module_version.nullable;
+    }
     /** Get changed addons.
         Thus method mostly used by dev utils to automate some tasks
         interacting with git.

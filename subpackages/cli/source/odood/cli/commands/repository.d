@@ -3,13 +3,14 @@ module odood.cli.commands.repository;
 private import std.logger: infof, warningf;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
+private import std.exception: enforce;
 
 private import commandr: Argument, Option, Flag, ProgramArgs;
 
 private import thepath: Path;
 private import versioned: VersionPart;
 
-private import odood.cli.core: OdoodCommand;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
@@ -140,23 +141,6 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
             null, "ignore-translations", "Ignore translations."));
     }
 
-    Nullable!OdooStdVersion getAddonVersion(in AddonRepository repo, in OdooAddon addon, in string rev) {
-        auto g_path = addon.path.relativeTo(repo.path);
-        auto g_manifest_path = g_path.join("__manifest__.py");
-        if (!repo.isFileExists(g_manifest_path, rev))
-            g_manifest_path = g_path.join("__openerp__.py");
-        if (!repo.isFileExists(g_manifest_path, rev))
-            // File not exists in spefied revision
-            return Nullable!OdooStdVersion.init;
-
-        auto manifest = tryParseOdooManifest(repo.getContent(g_manifest_path, rev));
-        if (manifest.isNull)
-            // Cannot read manifest in spefied revision
-            return Nullable!OdooStdVersion.init;
-
-        return manifest.get.module_version.nullable;
-    }
-
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
@@ -174,18 +158,22 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+
+        // Fetch changes from origin
+        repo.fetchOrigin(project.odoo.serie.toString);
+
         bool has_changes = false;
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
             has_changes = true;
             infof("Checking module %s if version bump needed...", addon);
-            auto maybe_start_version = getAddonVersion(repo, addon, start_ref);
+            auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
             if (maybe_start_version.isNull) {
                 // It seemst that this is new addon. Thus, just skip it.
                 warningf("Cannot read start version for %s. May be it is new addon. Skipping", addon);
                 continue;
             }
 
-            auto maybe_end_version = getAddonVersion(repo, addon, GIT_REF_WORKTREE);
+            auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
             if (maybe_end_version.isNull) {
                 // It seems that this is not addon (or it was removed). Thus, skip it.
                 warningf("Cannot read current version for %s. It seems that this is not addon or it was removed. Skipping", addon);
@@ -225,6 +213,72 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 }
 
 
+class CommandRepositoryCheckVersion: OdoodCommand {
+    this() {
+        super(
+            "check-versions",
+            "Check changed addons has updated versions.");
+        this.add(new Argument(
+            "path", "Path to repository to search for addons to bump versions.").optional());
+        this.add(new Flag(
+            null, "ignore-translations", "Ignore translations."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+
+        auto start_ref = "origin/%s".format(project.odoo.serie);
+        auto end_ref = GIT_REF_WORKTREE;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+
+        // Fetch changes from origin
+        repo.fetchOrigin(project.odoo.serie.toString);
+
+        bool has_changes = false;
+        foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
+            has_changes = true;
+            infof("Checking module %s if version bump needed...", addon);
+            auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
+            if (maybe_start_version.isNull) {
+                // It seemst that this is new addon. Thus, just skip it.
+                continue;
+            }
+
+            auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
+            if (maybe_end_version.isNull) {
+                // It seems that this is not addon (or it was removed). Thus, skip it.
+                continue;
+            }
+
+            auto start_version = maybe_start_version.get;
+            auto end_version = maybe_end_version.get;
+            enforce!OdoodCLIException(
+                end_version.isStandard,
+                "Non-standard current (%s) version of addon %s. Please, use standard versions for addons in format %s.X.Y.Z".format(end_version, addon.name, project.odoo.serie.toString));
+            if (!start_version.isStandard) {
+                // We cannot work with non-standard versions. thus skip if start version is not standard
+                continue;
+            }
+
+            enforce!OdoodCLIException(
+                end_version.serie == project.odoo.serie,
+                "Addon (%s) serie (%s) does not match project serie (%s)!".format(
+                    addon.name, end_version.serie, project.odoo.serie));
+
+            enforce!OdoodCLIException(
+                start_version < end_version,
+                "Addon (%s) current version (%s) must be greater then addon stable version (%s).".format(
+                    addon.name, start_version, end_version));
+        }
+        if (!has_changes)
+            infof("Threre are no changes in modules");
+    }
+}
+
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -234,6 +288,7 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
+        this.add(new CommandRepositoryCheckVersion());
     }
 }
 

@@ -1,12 +1,11 @@
 module odood.lib.assembly;
 
-/** This module containes utilities to manage assemblies.
+/** This module contains utilities to manage assemblies.
   **/
 
-private import std.logger: tracef;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.logger: infof, errorf;
+private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable;
 private import std.array: empty, join;
 
@@ -293,8 +292,21 @@ htmlcov
         syncSources();
         syncAddons();
 
-        if (commit)
-            repo.commit("Assembly synced");
+        if (commit) {
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                "There are unexpected changes in assembly. Please, handle it manually.");
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
+                "There are unexpected staged changes in assembly. Please, handle it manually.");
+
+            if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
+                infof("Commiting assembly changes...");
+                repo.commit("Assembly synced");
+            } else {
+                warningf("There is no changes to be committed!");
+            }
+        }
     }
 
     /** Link assembly addons.
@@ -305,19 +317,24 @@ htmlcov
     void link(
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+        infof("Assembly Link: Cleanup old symlinks.");
         // Remove all links in custom addons that point to this assembly
         foreach(p; _project.directories.addons.walk) {
             if (p.isSymlink && p.readLink.isInside(dist_dir))
                 p.remove();
         }
+        infof("Assembly Link: Start linking");
         _project.addons.link(
             search_path: dist_dir,
             recursive: true,
             force: true,);
+        infof("Assembly Link: Completed");
     }
 
     void pull() {
+        infof("Assembly Pull: Pulling changes for assembly.");
         repo.pull();
+        infof("Assembly Pull: Completed.");
     }
 
     /// Add source to assembly

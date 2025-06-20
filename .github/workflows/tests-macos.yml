@@ -9,8 +9,11 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        dc: [ldc-1.40.1, ldc-latest]
-        os: [macOS-latest]
+        dc: [ldc-1.41.0, ldc-latest]
+        os:
+          - macOS-13
+          - macOS-14
+          - macOS-15
         py_install_type:
           - "build"
           - "pyenv"
@@ -27,23 +30,15 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          brew update
+          brew install libpq
           brew install postgresql@14
           brew install libzip
-          brew install python@3.11
+          brew install python@3.13
 
       - name: PyEnv - Install
         if: matrix.py_install_type == 'pyenv'
         run: |
           brew install pyenv
-
-      - name: Create symlink for libpq and python in current dir, to avoid linking issues
-        run: |
-          # We use here this dark magic, because there is no other simple way to link
-          # Odood to python and libpq, except a much darker magic of listing all possible paths in executable.
-          # At least at moment of writing this.
-          ln -s /opt/homebrew/lib/postgresql@14/libpq.dylib ./
-          ln -s /opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/libpython3.11.dylib ./
 
       - name: Configure git user (to make git tests work)
         run: |
