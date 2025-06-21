@@ -1,5 +1,12 @@
 # Changelog
 
+## Release 0.4.2 (2025-06-21)
+
+### Fixes
+- Fix handling of check if nginx is installed on Ubuntu 22.04
+
+---
+
 ## Release 0.4.1 (2025-06-20)
 
 ### Added
