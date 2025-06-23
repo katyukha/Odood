@@ -279,6 +279,26 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 }
 
 
+class CommandRepositoryMigrateAddons: OdoodCommand {
+    this() {
+        super(
+            "migrate-addons",
+            "Migrate code of addons that has older odoo serie to serie of this project.");
+        this.add(new Argument(
+            "path", "Path to repository to search for addons to migrate.").optional());
+    }
+
+    public override void execute(ProgramArgs args) {
+        import odood.lib.devtools.migrate: migrateAddonsCode;
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+
+        project.migrateAddonsCode(repo.addons);
+    }
+}
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -289,6 +309,7 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
         this.add(new CommandRepositoryCheckVersion());
+        this.add(new CommandRepositoryMigrateAddons());
     }
 }
 

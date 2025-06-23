@@ -31,6 +31,7 @@ class CommandVenvInstallDevTools: OdoodCommand {
             "jingtrang");
 
         project.venv.installJSPackages("eslint");
+        project.venv.installPyPackages("git+https://github.com/OCA/odoo-module-migrator@master");
     }
 
 }

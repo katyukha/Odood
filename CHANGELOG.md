@@ -1,5 +1,12 @@
 # Changelog
 
+## Unrelease
+
+### Added
+- Addd new command `odood repo migrate-addons` that uses *under the hood* OCA's utility [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator/) to migrate source code of modules to project's serie from older odoo series.
+
+---
+
 ## Release 0.4.2 (2025-06-21)
 
 ### Fixes
