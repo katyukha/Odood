@@ -2,6 +2,7 @@ module odood.lib.devtools.migrate;
 
 private import std.logger: infof, warningf;
 private import std.format: format;
+private import std.algorithm: canFind;
 
 private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
@@ -10,7 +11,7 @@ private import odood.lib.devtools.utils: updateManifestVersion;
 private import odood.lib.addons.repository: AddonRepository;
 
 
-void migrateAddonsCode(in AddonRepository repo, in bool commit=false) {
+void migrateAddonsCode(in AddonRepository repo, in string[] addon_names=[], in bool commit=false) {
     import std.process: Config;
 
     // Install odoo-module-migrator if needed
@@ -18,13 +19,17 @@ void migrateAddonsCode(in AddonRepository repo, in bool commit=false) {
         repo.project.venv.installPyPackages("git+https://github.com/OCA/odoo-module-migrator@master");
 
     foreach(addon; repo.addons) {
+        if (addon_names.length > 0 && !addon_names.canFind(addon.name))
+            // Addon is not listed in addon_names, thus skip it
+            continue;
+
         if (addon.manifest.module_version.serie < repo.project.odoo.serie) {
             infof("Migrating module %s (%s) to serie %s", addon.name, addon.manifest.module_version, repo.project.odoo.serie);
             auto old_serie = addon.manifest.module_version.serie;
             auto cmd = repo.project.venv.runner
                 .addArgs(
                     "odoo-module-migrate",
-                    "--directory=%s".format(addon.path.realPath.parent),
+                    "--directory=%s".format(repo.path),
                     "--modules=%s".format(addon.name),
                     "--init-version-name=%s".format(addon.manifest.module_version.serie),
                     "--target-version-name=%s".format(repo.project.odoo.serie),

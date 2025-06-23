@@ -285,7 +285,9 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
             "migrate-addons",
             "Migrate code of addons that has older odoo serie to serie of this project.");
         this.add(new Argument(
-            "path", "Path to repository to search for addons to migrate.").optional());
+            "path", "Path to repository to migrate addons in.").optional);
+        this.add(new Option(
+            "m", "module", "Name of module to migrate").repeating);
         this.add(new Flag(
             null, "commit", "Commit changes."));
     }
@@ -297,7 +299,9 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
 
-        repo.migrateAddonsCode(commit: args.flag("commit"));
+        repo.migrateAddonsCode(
+            addon_names: args.options("module"),
+            commit: args.flag("commit"));
     }
 }
 
