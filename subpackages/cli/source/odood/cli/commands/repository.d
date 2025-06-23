@@ -286,6 +286,8 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
             "Migrate code of addons that has older odoo serie to serie of this project.");
         this.add(new Argument(
             "path", "Path to repository to search for addons to migrate.").optional());
+        this.add(new Flag(
+            null, "commit", "Commit changes."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -295,7 +297,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
 
-        project.migrateAddonsCode(repo.addons);
+        repo.migrateAddonsCode(commit: args.flag("commit"));
     }
 }
 
