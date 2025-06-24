@@ -527,6 +527,9 @@ struct OdooTestRunner {
         enforce!OdoodException(
             !(_test_migration && _test_migration_repo is null),
             "Migration test requested, but migration repo is not specified!");
+        enforce!OdoodException(
+            !_coverage || _project.venv.path.join("bin", "coverage").exists,
+            "Coverage not installed. Please, install it via 'odood venv install-py-packages coverage' to continue.");
 
         OdooTestResult result;
 
