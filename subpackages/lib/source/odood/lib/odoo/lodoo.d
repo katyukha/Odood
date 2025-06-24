@@ -4,7 +4,7 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable;
-private import std.array: split, array;
+private import std.array: split, array, join;
 private import std.algorithm.iteration: filter;
 private import std.process: Config;
 private static import std.process;
@@ -47,7 +47,7 @@ const struct LOdoo {
 
         /** Run lodoo with provided args
           **/
-        auto run(
+        deprecated("Use .runner instead") auto run(
                 in string[] args,
                 std.process.Config config) {
             tracef("Running LOdoo with args %s", args);
@@ -58,19 +58,19 @@ const struct LOdoo {
         }
 
         /// ditto
-        auto run(in string[] args...) {
+        deprecated("Use .runner instead") auto run(in string[] args...) {
             return run(args, std.process.Config.none);
         }
 
         /** Run lodoo with provided args, raising error
           * in case of non-zero exit status.
           **/
-        auto runE(in string[] args, std.process.Config config) {
-            return run(args, config).ensureStatus!OdoodException(true);
+        deprecated("Use .runner instead") auto runE(in string[] args, std.process.Config config) {
+            return run(args, config).ensureOk!OdoodException(true);
         }
 
         /// ditto
-        auto runE(in string[] args...) {
+        deprecated("Use .runner instead") auto runE(in string[] args...) {
             return runE(args, std.process.Config.none);
         }
 
@@ -85,67 +85,80 @@ const struct LOdoo {
         /** Return list of databases available on this odoo instance
           **/
         string[] databaseList() {
-            auto res = runE(["db-list"], Config.stderrPassThrough);
-            return res.output.split("\n").filter!(db => db && db != "").array;
+            return runner
+                .addArgs("db-list")
+                .withFlag(Config.stderrPassThrough)
+                .execute()
+                .ensureOk!OdoodException(true)
+                .output.split("\n").filter!(db => db && db != "").array;
         }
 
         /** Create new Odoo database on this odoo instance
           **/
-        auto databaseCreate(in string name, in bool demo=false,
+        void databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
             // TODO: Refactor to use this.runner instead of runE.
             //       Mark runE deprecated
-            string[] args = ["db-create"];
-
-            if (demo)
-                args ~= ["--demo"];
-            else
-                args ~= ["--no-demo"];
+            auto cmd = runner.addArgs(
+                "db-create",
+                demo ? "--demo" : "--no-demo",
+            );
 
             if (lang)
-                args ~= ["--lang", lang];
+                cmd.addArgs("--lang", lang);
 
             if (password)
-                args ~= ["--password", password];
+                cmd.addArgs("--password", password);
 
             if (country)
-                args ~= ["--country", country];
+                cmd.addArgs("--country", country);
 
-            args ~= [name];
+            cmd.addArgs(name);
 
             infof(
                 "Creating database %s (%s)",
                 name, demo ? "with demo-data" : "without demo-data");
-            return runE(args);
+            cmd.execute.ensureOk!OdoodException(true);
         }
 
         /** Drop specified database
           **/
-        auto databaseDrop(in string name) {
+        void databaseDrop(in string name) {
             infof("Deleting database %s", name);
-            return runE("db-drop", name);
+            runner
+                .addArgs("db-drop", name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Check if database exists
           **/
         bool databaseExists(in string name) {
-            auto res = run("db-exists", name);
-            return res.status == 0;
+            return runner
+                .addArgs("db-exists", name)
+                .execute()
+                .status == 0;
         }
 
         /** Rename database
           **/
-        auto databaseRename(in string old_name, in string new_name) {
+        void databaseRename(in string old_name, in string new_name) {
             infof("Renaming database %s to %s", old_name, new_name);
-            return runE("db-rename", old_name, new_name);
+            runner
+                .addArgs("db-rename", old_name, new_name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Copy database
           **/
         auto databaseCopy(in string old_name, in string new_name) {
             infof("Copying database %s to %s", old_name, new_name);
-            return runE("db-copy", old_name, new_name);
+            runner
+                .addArgs("db-copy", old_name, new_name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Backup database
@@ -167,16 +180,17 @@ const struct LOdoo {
                 in string dbname, in Path backup_path,
                 in BackupFormat backup_format = BackupFormat.zip) {
             infof("Backing up database %s to %s", dbname, backup_path);
+            auto cmd = runner.addArgs("db-backup", dbname, backup_path.toString);
             final switch (backup_format) {
                 case BackupFormat.zip:
-                    runE("db-backup", dbname, backup_path.toString,
-                         "--format", "zip");
-                    return Path(backup_path.toString);
+                    cmd.addArgs("--format", "zip");
+                    break;
                 case BackupFormat.sql:
-                    runE("db-backup", dbname, backup_path.toString,
-                         "--format", "sql");
-                    return Path(backup_path.toString);
+                    cmd.addArgs("--format", "sql");
+                    break;
             }
+            cmd.execute.ensureOk!OdoodException(true);
+            return Path(backup_path.toString);
         }
 
         /** Backup database.
@@ -226,13 +240,24 @@ const struct LOdoo {
 
         /** Restore database
           **/
-        deprecated auto databaseRestore(in string name, in Path backup_path) {
+        deprecated void databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
-            return runE("db-restore", name, backup_path.toString);
+            runner
+                .addArgs("db-restore", name, backup_path.toString)
+                .execute
+                .ensureOk!OdoodException(true);
+
         }
 
         auto databaseDumpManifext(in string name) {
-            return runE("db-dump-manifest", name).output;
+            // TODO: Rename (typo) and rewrite to use runner.
+            // TOOD: Use stderrPassThrough, to avoid capturing log messages as output
+            return runner
+                .addArgs("db-dump-manifest", name)
+                .withFlag(Config.stderrPassThrough)
+                .execute
+                .ensureOk!OdoodException(true)
+                .output;
         }
 
         /** Update list of addons
@@ -244,17 +269,21 @@ const struct LOdoo {
           *         OdoodException will be thrown if lodoo
           *         command addons-update-list failed with non-zero exit code
           **/
-        auto addonsUpdateList(in string dbname, in bool ignore_error=false) {
-            if (ignore_error)
-                return run("addons-update-list", dbname);
-            return runE("addons-update-list", dbname);
+        void addonsUpdateList(in string dbname, in bool ignore_error=false) {
+            auto res = runner
+                .addArgs("addons-update-list", dbname)
+                .execute;
+            if (!ignore_error)
+                res.ensureOk!OdoodException(true);
         }
 
         /** Uninstall addons
           **/
-        auto addonsUninstall(in string dbname, in string[] addon_names) {
-            import std.string: join;
-            return runE("addons-uninstall", dbname, addon_names.join(","));
+        void addonsUninstall(in string dbname, in string[] addon_names) {
+            runner
+                .addArgs("addons-uninstall", dbname, addon_names.join(","))
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Run python script for specific database
