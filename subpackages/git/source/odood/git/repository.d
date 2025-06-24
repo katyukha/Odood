@@ -112,6 +112,7 @@ class GitRepository {
     auto getRemoteUrl(in string name) const {
         string res = gitCmd
             .setArgs("remote", "get-url", name)
+            .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .ensureOk(true)
             .output.strip;
@@ -225,7 +226,9 @@ class GitRepository {
     /** Get changed files
       **/
     auto getChangedFiles(in string start_rev, in string end_rev, in string[] path_filters=null, in bool staged=false) const {
-        auto cmd = this.gitCmd.withArgs("diff", "--name-only");
+        auto cmd = this.gitCmd
+            .withArgs("diff", "--name-only")
+            .withFlag(std.process.Config.stderrPassThrough);
 
         if (staged)
             cmd = cmd.addArgs("--staged");
@@ -355,6 +358,7 @@ class GitRepository {
         return gitCmd
             .withArgs(
                 "show", "-q", "%s:./%s".format(rev, _makeRelPath(path)))
+            .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .ensureOk(true)
             .output;

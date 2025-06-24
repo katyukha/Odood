@@ -96,6 +96,7 @@ struct OdooServer {
             case ProjectServerSupervisor.Systemd:
                 return Process("systemctl")
                     .withArgs("show", "--property=MainPID", "--value", "odoo")
+                    .withFlag(std.process.Config.stderrPassThrough)
                     .execute
                     .ensureOk(true)
                     .output.strip.to!pid_t;

@@ -499,6 +499,7 @@ const struct VirtualEnv {
                 // Find the prefix of installed (or existing) python of desired version
                 Path python_prefix = Process(pyenv_path)
                     .withArgs("prefix", opts.py_version)
+                    .withFlag(std.process.Config.stderrPassThrough)
                     .execute
                     .ensureOk(true)
                     .output
