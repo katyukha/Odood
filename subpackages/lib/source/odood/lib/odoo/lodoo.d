@@ -68,8 +68,6 @@ const struct LOdoo {
         void databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
-            // TODO: Refactor to use this.runner instead of runE.
-            //       Mark runE deprecated
             auto cmd = runner.addArgs(
                 "db-create",
                 demo ? "--demo" : "--no-demo",
@@ -142,9 +140,7 @@ const struct LOdoo {
 
         }
 
-        auto databaseDumpManifext(in string name) {
-            // TODO: Rename (typo) and rewrite to use runner.
-            // TOOD: Use stderrPassThrough, to avoid capturing log messages as output
+        auto databaseDumpManifest(in string name) {
             return runner
                 .addArgs("db-dump-manifest", name)
                 .withFlag(Config.stderrPassThrough)
@@ -208,16 +204,16 @@ const struct LOdoo {
             return result;
         }
 
-        auto recomputeField(in string dbname, in string model, in string[] fields) const {
+        void recomputeField(in string dbname, in string model, in string[] fields) const {
             import std.algorithm.iteration;
-            return this.runner
+            this.runner
                 .addArgs("odoo-recompute", dbname, model)
                 .addArgs(fields.map!(f => ["-f", f]).fold!((a, b) => a ~ b).array)
                 .execute
                 .ensureOk!OdoodException(true);
         }
 
-        auto generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
+        void generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
             infof("Generating POT file for %s database for %s addon", dbname, addon);
             auto runner = this.runner
                 .addArgs("tr-generate-pot-file");
@@ -225,7 +221,7 @@ const struct LOdoo {
                 runner.addArgs("--remove-dates");
             runner.addArgs(dbname, addon);
             tracef("Running command %s", runner.toString);
-            return runner
+            runner
                 .execute
                 .ensureOk!OdoodException(true);
         }
