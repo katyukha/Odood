@@ -44,36 +44,6 @@ const struct LOdoo {
                 process.setUser(_project.odoo.server_user);
             return process;
         }
-
-        /** Run lodoo with provided args
-          **/
-        deprecated("Use .runner instead") auto run(
-                in string[] args,
-                std.process.Config config) {
-            tracef("Running LOdoo with args %s", args);
-            auto process = runner().addArgs(args);
-            if (config != std.process.Config.none)
-                process.setConfig(config);
-            return process.execute();
-        }
-
-        /// ditto
-        deprecated("Use .runner instead") auto run(in string[] args...) {
-            return run(args, std.process.Config.none);
-        }
-
-        /** Run lodoo with provided args, raising error
-          * in case of non-zero exit status.
-          **/
-        deprecated("Use .runner instead") auto runE(in string[] args, std.process.Config config) {
-            return run(args, config).ensureOk!OdoodException(true);
-        }
-
-        /// ditto
-        deprecated("Use .runner instead") auto runE(in string[] args...) {
-            return runE(args, std.process.Config.none);
-        }
-
     public:
         @disable this();
 
@@ -159,83 +129,6 @@ const struct LOdoo {
                 .addArgs("db-copy", old_name, new_name)
                 .execute
                 .ensureOk!OdoodException(true);
-        }
-
-        /** Backup database
-          *
-          * Params:
-          *     dbname = name of database to backup
-          *     backup_path = path to store backup
-          *     format = Backup format: zip or SQL
-          *
-          * Returns:
-          *     Path where backup was stored.
-          **/
-        deprecated(
-            "Because this method is not reliable, Odoo hides output of pgdump, " ~
-            "it is difficult to understand what happened in case of errors. " ~
-            "Thus Odood now have its own implementation of backup at " ~
-            "`project.databases.backup` method.")
-        Path databaseBackup(
-                in string dbname, in Path backup_path,
-                in BackupFormat backup_format = BackupFormat.zip) {
-            infof("Backing up database %s to %s", dbname, backup_path);
-            auto cmd = runner.addArgs("db-backup", dbname, backup_path.toString);
-            final switch (backup_format) {
-                case BackupFormat.zip:
-                    cmd.addArgs("--format", "zip");
-                    break;
-                case BackupFormat.sql:
-                    cmd.addArgs("--format", "sql");
-                    break;
-            }
-            cmd.execute.ensureOk!OdoodException(true);
-            return Path(backup_path.toString);
-        }
-
-        /** Backup database.
-          * Path to store backup will be computed automatically.
-          *
-          * By default, backup will be stored at 'backups' directory inside
-          * project root.
-          *
-          * Params:
-          *     dbname = name of database to backup
-          *     format = Backup format: zip or SQL
-          *
-          * Returns:
-          *     Path where backup was stored.
-          **/
-        deprecated(
-            "Because this method is not reliable, Odoo hides output of pgdump, " ~
-            "it is difficult to understand what happened in case of errors. " ~
-            "Thus Odood now have its own implementation of backup at " ~
-            "`project.databases.backup` method.")
-        Path databaseBackup(
-                in string dbname,
-                in BackupFormat backup_format = BackupFormat.zip) {
-            import std.datetime.systime: Clock;
-
-            string dest_name="db-backup-%s-%s.%s.%s".format(
-                dbname,
-                "%s-%s-%s".format(
-                    Clock.currTime.year,
-                    Clock.currTime.month,
-                    Clock.currTime.day),
-                generateRandomString(4),
-                (() {
-                    final switch (backup_format) {
-                        case BackupFormat.zip:
-                            return "zip";
-                        case BackupFormat.sql:
-                            return "zip";
-                    }
-                })(),
-            );
-            return databaseBackup(
-                dbname,
-                _project.directories.backups.join(dest_name),
-                backup_format);
         }
 
         /** Restore database
