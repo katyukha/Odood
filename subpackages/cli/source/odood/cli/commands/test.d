@@ -252,20 +252,27 @@ class CommandTest: OdoodCommand {
 
         // Handle coverage report
         if (coverage)
-            project.venv.runE(["coverage", "combine"]);
+            project.venv.runner
+                .addArgs("coverage", "combine")
+                .inWorkDir(Path.current)
+                .execute
+                .ensureOk!OdoodCLIException(true);
 
         if (args.flag("coverage-html")) {
-            auto coverage_html_options = [
-                "--directory=%s".format(Path.current.join("htmlcov")),
-            ];
+            auto cmd = project.venv.runner
+                .withArgs(
+                    "coverage",
+                    "html",
+                    "--directory=%s".format(Path.current.join("htmlcov")));
             if (args.flag("coverage-skip-covered") || testRunner.test_migration)
-                coverage_html_options ~= "--skip-covered";
+                cmd.addArgs("--skip-covered");
             if (args.flag("coverage-ignore-errors"))
-                coverage_html_options ~= ["--ignore-errors"];
+                cmd.addArgs("--ignore-errors");
 
-            project.venv.runE([
-                "coverage", "html",
-            ] ~ coverage_html_options);
+            cmd.inWorkDir(Path.current)
+                .execute
+                .ensureOk!OdoodCLIException(true);
+
             writefln(
                 "Coverage report saved at %s.\n" ~
                 "Just open url (%s) in your browser to view coverage report.",
@@ -275,20 +282,16 @@ class CommandTest: OdoodCommand {
         }
 
         if (args.flag("coverage-report")) {
-            string[] coverage_report_options = [];
-            if (args.flag("coverage-skip-covered"))
-                coverage_report_options ~= "--skip-covered";
-            if (!args.option("coverage-fail-under").empty)
-                coverage_report_options ~= [
-                    "--fail-under",
-                    args.option("coverage-fail-under"),
-                ];
+            auto cmd = project.venv.runner.withArgs("coverage", "report");
+            if (args.flag("coverage-skip-covered") || testRunner.test_migration)
+                cmd.addArgs("--skip-covered");
             if (args.flag("coverage-ignore-errors"))
-                coverage_report_options ~= ["--ignore-errors"];
+                cmd.addArgs("--ignore-errors");
+            if (!args.option("coverage-fail-under").empty)
+                cmd.addArgs("--fail-under", args.option("coverage-fail-under"));
 
-            auto coverage_report_res = project.venv.run(
-                ["coverage", "report",] ~ coverage_report_options
-            );
+            auto coverage_report_res = cmd.inWorkDir(Path.current)
+                .execute;
 
             writeln();
             if (coverage_report_res.status == 0) {
