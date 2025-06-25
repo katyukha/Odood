@@ -12,6 +12,7 @@ private import std.typecons: Nullable, nullable;
 private import std.algorithm;
 private import std.regex;
 private import std.array;
+private static import std.process;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
@@ -254,6 +255,7 @@ class CommandTest: OdoodCommand {
         if (coverage)
             project.venv.runner
                 .addArgs("coverage", "combine")
+                .withFlag(std.process.Config.stderrPassThrough)
                 .inWorkDir(Path.current)
                 .execute
                 .ensureOk!OdoodCLIException(true);
@@ -270,6 +272,7 @@ class CommandTest: OdoodCommand {
                 cmd.addArgs("--ignore-errors");
 
             cmd.inWorkDir(Path.current)
+                .withFlag(std.process.Config.stderrPassThrough)
                 .execute
                 .ensureOk!OdoodCLIException(true);
 
@@ -282,7 +285,9 @@ class CommandTest: OdoodCommand {
         }
 
         if (args.flag("coverage-report")) {
-            auto cmd = project.venv.runner.withArgs("coverage", "report");
+            auto cmd = project.venv.runner
+                .withArgs("coverage", "report")
+                .withFlag(std.process.Config.stderrPassThrough);
             if (args.flag("coverage-skip-covered") || testRunner.test_migration)
                 cmd.addArgs("--skip-covered");
             if (args.flag("coverage-ignore-errors"))
