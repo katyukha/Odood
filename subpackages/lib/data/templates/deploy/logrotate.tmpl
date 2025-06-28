@@ -1,0 +1,8 @@
+{{ project.directories.log }}/*.log {
+    maxsize 50M
+    rotate 5
+    compress
+    copytruncate
+    missingok
+    notifempty
+}

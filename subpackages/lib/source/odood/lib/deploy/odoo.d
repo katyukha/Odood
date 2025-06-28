@@ -11,16 +11,13 @@ private import std.string: toStringz, empty;
 
 private import thepath: Path;
 private import theprocess: Process;
+private import darktemple: renderFile;
 
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
-private import odood.lib.deploy.templates.init: generateInitDConfig;
-private import odood.lib.deploy.templates.system: generateSystemDConfig;
-private import odood.lib.deploy.templates.logrotate: generateLogrotateDConfig;
-private import odood.lib.deploy.templates.nginx: generateNginxConfig;
 private import odood.lib.deploy.templates.fail2ban: generateFail2banFilter, generateFail2banJail;
 private import odood.lib.deploy.utils:
     checkSystemUserExists,
@@ -35,7 +32,7 @@ private void deployInitScript(in Project project) {
 
     // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
-        generateInitDConfig(project));
+        renderFile!("templates/deploy/systemd.tmpl", project));
 
     // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
@@ -56,7 +53,7 @@ private void deploySystemdConfig(in Project project) {
 
     // Configure systemd
     project.odoo.server_systemd_service_path.writeFile(
-        generateSystemDConfig(project));
+        renderFile!("templates/deploy/systemd.tmpl", project));
 
     // Set access rights for systemd config
     project.odoo.server_systemd_service_path.setAttributes(octal!755);
@@ -83,7 +80,8 @@ private void deploySystemdConfig(in Project project) {
 private void deployLogrotateConfig(in Project project, in DeployConfig config) {
     infof("Configuring logrotate for Odoo...");
 
-    config.logrotate_config_path.writeFile(generateLogrotateDConfig(project));
+    config.logrotate_config_path.writeFile(
+        renderFile!("templates/deploy/logrotate.tmpl", project));
 
     // Set access rights for logrotate config
     config.logrotate_config_path.setAttributes(octal!755);
@@ -98,7 +96,8 @@ private void deployLogrotateConfig(in Project project, in DeployConfig config) {
 private void deployNginxConfig(in Project project, in DeployConfig config) {
     infof("Configuring Nginx for Odoo...");
 
-    config.nginx.config_path.writeFile(generateNginxConfig(config));
+    config.nginx.config_path.writeFile(
+        renderFile!("templates/deploy/nginx.conf.tmpl", config));
 
     // Set access rights for logrotate config
     config.nginx.config_path.setAttributes(octal!644);

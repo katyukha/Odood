@@ -308,14 +308,14 @@ class Project {
     /** OdooServer wrapper to manage server of this Odood project
       * Provides basic methods to start/stop/etc odoo server.
       **/
-    auto server(in bool test_mode=false) const {
+    auto server(in bool test_mode=false) pure const {
         return OdooServer(this, test_mode);
     }
 
     /** AddonManager related to this project
       * Allows to manage addons of this project
       **/
-    auto addons(in bool test_mode=false) const {
+    auto addons(in bool test_mode=false) pure const {
         return AddonManager(this, test_mode);
     }
 

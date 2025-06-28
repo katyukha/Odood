@@ -1,12 +1,4 @@
-module odood.lib.deploy.templates.init;
-
-import std.conv: text;
-
-import odood.lib.project: Project;
-
-
-string generateInitDConfig(in Project project) {
-    return i"#!/bin/bash
+#!/bin/bash
 ### BEGIN INIT INFO
 # Provides:          odoo
 # Required-Start:    $remote_fs $syslog
@@ -21,14 +13,14 @@ string generateInitDConfig(in Project project) {
 
 . /lib/lsb/init-functions
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:$(project.venv.bin_path.toString)
-DAEMON=$(project.server.scriptPath.toString)
-    NAME=odoo
-    DESC=odoo
-    CONFIG=$(project.odoo.configfile.toString)
-LOGFILE=$(project.odoo.logfile.toString)
-PIDFILE=$(project.odoo.pidfile.toString).pid
-USER=$(project.odoo.server_user)
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:{{ project.venv.bin_path }}
+DAEMON="{{ project.server.scriptPath }}"
+NAME=odoo
+DESC=odoo
+CONFIG="{{ project.odoo.configfile }}"
+LOGFILE="{{ project.odoo.logfile }}"
+PIDFILE="{{project.odoo.pidfile }}.pid"
+USER="{{ project.odoo.server_user }}"
 export LOGNAME=$USER
 
 test -x $DAEMON || exit 0
@@ -79,5 +71,4 @@ case \"$1\" in
 esac
 
 exit 0
-".text;
-}
+
