@@ -14,6 +14,7 @@ private import commandr: Option, Flag, ProgramArgs;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.lib.server: DEFAULT_START_TIMEOUT;
 
 
 class CommandServerRun: OdoodCommand {
@@ -50,7 +51,7 @@ class CommandServerStart: OdoodCommand {
     this() {
         super("start", "Run the server in background.");
         this.add(new Option(
-            "t", "timeout", "Timeout to wait while server starts"));
+            "t", "timeout", "Timeout to wait while server starts (in seconds).").defaultValue(DEFAULT_START_TIMEOUT.total!"seconds".to!string));
     }
 
     public override void execute(ProgramArgs args) {
@@ -98,7 +99,7 @@ class CommandServerRestart: OdoodCommand {
     this() {
         super("restart", "Restart the server running in background.");
         this.add(new Option(
-            "t", "timeout", "Timeout to wait while server starts"));
+            "t", "timeout", "Timeout to wait while server starts (in seconds).").defaultValue(DEFAULT_START_TIMEOUT.total!"seconds".to!string));
     }
 
     public override void execute(ProgramArgs args) {
