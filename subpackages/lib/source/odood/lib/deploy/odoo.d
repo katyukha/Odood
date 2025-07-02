@@ -18,7 +18,6 @@ private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
-private import odood.lib.deploy.templates.fail2ban: generateFail2banFilter, generateFail2banJail;
 private import odood.lib.deploy.utils:
     checkSystemUserExists,
     createSystemUser,
@@ -118,13 +117,15 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
 private void deployFail2banConfig(in Project project, in DeployConfig config) {
     infof("Configuring Fail2ban for Odoo...");
 
-    config.fail2ban_filter_path.writeFile(generateFail2banFilter(project));
+    config.fail2ban_filter_path.writeFile(
+        renderFile!("templates/deploy/fail2ban.filter.tmpl", project));
 
     // Set access rights for logrotate config
     config.fail2ban_filter_path.setAttributes(octal!644);
     config.fail2ban_filter_path.chown("root", "root");
 
-    config.fail2ban_jail_path.writeFile(generateFail2banJail(project));
+    config.fail2ban_jail_path.writeFile(
+        renderFile!("templates/deploy/fail2ban.jail.tmpl", project));
 
     // Set access rights for logrotate config
     config.fail2ban_filter_path.setAttributes(octal!644);

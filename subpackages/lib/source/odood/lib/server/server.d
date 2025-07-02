@@ -385,7 +385,7 @@ struct OdooServer {
                 // happeded during execution of dg delegate
                 log_file.open(_project.odoo.logfile.toString, "rt");
 
-            // Print errors from logfile to stdout.
+            // Search for errors in logfile.
             if (log_file.isOpen && log_file.size > log_start) {
                 log_file.seek(log_start);
                 foreach(log_line; OdooLogProcessor(log_file))
