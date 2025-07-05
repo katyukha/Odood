@@ -28,6 +28,7 @@ Following features available:
 - Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
 - Support for [assemblies](./assembly.md): single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
+- Basic integration with [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator). See [docs](./addon-migration.md)
 
 
 ## The War in Ukraine
