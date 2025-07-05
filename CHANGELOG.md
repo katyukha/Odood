@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Automatic check for missing dependencies of assembly addons on *assembly sync*.
+
+---
+
 ## Release 0.4.3 (2025-07-05)
 
 ### Added

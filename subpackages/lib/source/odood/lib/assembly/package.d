@@ -7,7 +7,9 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable;
-private import std.array: empty, join;
+private import std.array: empty, join, array;
+private import std.algorithm: map, canFind, uniq;
+private import std.range: chain;
 
 private import dyaml;
 
@@ -282,6 +284,20 @@ htmlcov
         infof("Assembly: All addons synced.");
     }
 
+    void validateAddonsDependencies() const {
+        auto assembly_addons = findAddons(dist_dir);
+        auto available_addons = _project.addons.getSystemAddonsList()
+            .map!((a) => a.name)
+            .chain(assembly_addons.map!((a) => a.name))
+            .uniq.array;
+
+        foreach(addon; assembly_addons)
+            foreach(dep; addon.manifest.dependencies)
+                enforce!OdoodAssemblyException(
+                    available_addons.canFind(dep),
+                    "Cannot find dependency %s for addon %s!".format(dep, addon));
+    }
+
     /** Synchronize assembly (sources and addons)
       *
       * Update assembly addons from recent versiones from specified git sources
@@ -291,6 +307,7 @@ htmlcov
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
         syncAddons();
+        validateAddonsDependencies();
 
         if (commit) {
             enforce!OdoodAssemblyException(
