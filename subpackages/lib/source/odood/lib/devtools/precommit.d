@@ -6,18 +6,7 @@ private import std.exception: enforce;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.exception: OdoodException;
 
-
-// Configuration files for pre-commit for Odoo version 17
-immutable string ODOO_PRE_COMMIT_17_PRECOMMIT = import(
-    "pre-commit/17.0/pre-commit-config.yaml");
-immutable string ODOO_PRE_COMMIT_17_ESLINT = import(
-    "pre-commit/17.0/eslintrc.yml");
-immutable string ODOO_PRE_COMMIT_17_FLAKE8 = import(
-    "pre-commit/17.0/flake8");
-immutable string ODOO_PRE_COMMIT_17_ISORT = import(
-    "pre-commit/17.0/isort.cfg");
-immutable string ODOO_PRE_COMMIT_17_PYLINT = import(
-    "pre-commit/17.0/pylintrc");
+private import darktemple: renderFile;
 
 
 /** Check if repository has precommit configuration file
@@ -41,23 +30,22 @@ bool hasPreCommitConfig(in AddonRepository repo) {
   *     setup = if set to true, then automatically set up pre-commit according to new configuration.
   **/
 void initPreCommit(in AddonRepository repo, in bool force=false, in bool setup=true) {
+    auto project = repo.project;
+
     enforce!OdoodException(
         force || !repo.hasPreCommitConfig,
         "Cannot init pre-commit. Configuration already exists");
-    enforce!OdoodException(
-        repo.project.odoo.serie == 17,
-        "This feature is available only for Odoo 17 at the moment!");
     infof("Initializing pre-commit for %s repo!", repo.path);
     repo.path.join(".pre-commit-config.yaml").writeFile(
-        ODOO_PRE_COMMIT_17_PRECOMMIT);
+        renderFile!("pre-commit/pre-commit-config.yaml", project, repo));
     repo.path.join(".eslintrc.yml").writeFile(
-        ODOO_PRE_COMMIT_17_ESLINT);
+        renderFile!("pre-commit/eslintrc.yml", project, repo));
     repo.path.join(".flake8").writeFile(
-        ODOO_PRE_COMMIT_17_FLAKE8);
+        renderFile!("pre-commit/flake8", project, repo));
     repo.path.join(".isort.cfg").writeFile(
-        ODOO_PRE_COMMIT_17_ISORT);
+        renderFile!("pre-commit/isort.cfg", project, repo));
     repo.path.join(".pylintrc").writeFile(
-        ODOO_PRE_COMMIT_17_PYLINT);
+        renderFile!("pre-commit/pylintrc", project, repo));
 
     if (setup)
         setUpPreCommit(repo);

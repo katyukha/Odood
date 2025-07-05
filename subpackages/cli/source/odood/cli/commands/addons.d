@@ -492,7 +492,8 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             auto error_info = project.server.catchOdooErrors(() => dg(db));
             if (error_info.has_error) {
                 error = true;
-                writeln("Following errors detected during install/update/uninstall for database %s:".format(db.yellow).red);
+                if (error_info.log.length > 0)
+                    writeln("Following errors detected during install/update/uninstall for database %s:".format(db.yellow).red);
                 foreach(log_line; error_info.log)
                     printLogRecordSimplified(log_line);
 

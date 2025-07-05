@@ -28,6 +28,10 @@ void installVirtualenv(in Project project,
     if (project.odoo.serie > OdooSerie(10) && project.odoo.serie < OdooSerie(16)) {
         infof("Enforce setuptools version between 45 and 58: because some modules in older Odoo versions may require pythons 2to3 tool, that is removed in later versions.");
         project.venv.installPyPackages("setuptools>=45,<58");
+    } else if (project.odoo.serie >= OdooSerie(16) && project.odoo.serie < OdooSerie(19)) {
+        // This is fix, for recent update of python package zope.index (5.1), that is used by gevent and that breaks odoo startup.
+        infof("Enforce setuptools version between 76 and 81 to correctly handle pkg_resources (that is deprecated but still used)");
+        project.venv.installPyPackages("setuptools>=76,<81");
     }
 
     // Install javascript dependecies

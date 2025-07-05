@@ -57,7 +57,7 @@ struct AddonManager {
 
     @disable this();
 
-    this(in Project project, in bool test_mode=false) {
+    this(in Project project, in bool test_mode=false) pure {
         _project = project;
         _test_mode = test_mode;
     }

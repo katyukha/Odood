@@ -113,7 +113,7 @@ struct OdooDatabaseManager {
     /** Prepare dump manifest for the database
       **/
     string dumpManifest(in string dbname) const {
-        return _project.lodoo(_test_mode).databaseDumpManifext(dbname);
+        return _project.lodoo(_test_mode).databaseDumpManifest(dbname);
     }
 
     /** Backup database
@@ -290,7 +290,7 @@ struct OdooDatabaseManager {
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
       **/
-    auto _restoreSQL(
+    void _restoreSQL(
             in string name,
             in Path backup_path,
             in bool validate_strict=true) const {
@@ -298,7 +298,7 @@ struct OdooDatabaseManager {
         // TODO: Detect format, it may be plain SQL or custom SQL format
 
         // Use lodoo to restore backup for now
-        return _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+        _project.lodoo(_test_mode).databaseRestore(name, backup_path);
     }
 
     /** Create empty database before restoration

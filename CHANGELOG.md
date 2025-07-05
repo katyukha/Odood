@@ -1,5 +1,15 @@
 # Changelog
 
+## Release 0.4.3 (2025-07-05)
+
+### Added
+- Addd new command `odood repo migrate-addons` that uses *under the hood* OCA's utility [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator/) to migrate source code of modules to project's serie from older odoo series.
+
+### Fixes
+- Fix installation of odoo on Ubuntu 22.04 because of non-recent setuptools and recent update of zope.event.
+
+---
+
 ## Release 0.4.2 (2025-06-21)
 
 ### Fixes

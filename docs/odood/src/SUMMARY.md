@@ -7,3 +7,4 @@
 - [Odood Directory Structure](./directory-structure.md)
 - [Frequently Used Commands](./frequently-used-commands.md)
 - [odoo-requirements.txt format](./odoo-requirements-txt.md)
+- [Migrate addons code to next Odoo serie](./addon-migration.md)

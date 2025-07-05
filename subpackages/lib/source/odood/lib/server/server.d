@@ -24,6 +24,8 @@ private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
 private import theprocess: Process;
 
+immutable auto DEFAULT_START_TIMEOUT = 5.seconds;
+
 
 package(odood) struct CoverageOptions {
     Path[] include;
@@ -48,7 +50,7 @@ struct OdooServer {
 
     /** Construct new server wrapper for this project
       **/
-    this(in Project project, in bool test_mode=false) {
+    this(in Project project, in bool test_mode=false) pure {
         _project = project;
         _test_mode = test_mode;
     }
@@ -96,6 +98,7 @@ struct OdooServer {
             case ProjectServerSupervisor.Systemd:
                 return Process("systemctl")
                     .withArgs("show", "--property=MainPID", "--value", "odoo")
+                    .withFlag(std.process.Config.stderrPassThrough)
                     .execute
                     .ensureOk(true)
                     .output.strip.to!pid_t;
@@ -135,7 +138,7 @@ struct OdooServer {
             in CoverageOptions coverage,
             in string[] options...) const {
         auto runner = _project.venv.runner()
-            .inWorkDir(_project.project_root.toString)
+            .inWorkDir(_project.project_root)
             .withEnv(getServerEnv);
 
         if (_project.odoo.server_user)
@@ -214,7 +217,7 @@ struct OdooServer {
         return pid.osHandle;
     }
 
-    /** Run the odoo server with provided options, and pip log output
+    /** Run the odoo server with provided options, and pipe log output
       * Returns:
       *     Iterator over log entries produced by this call to the server.
       **/
@@ -256,7 +259,7 @@ struct OdooServer {
       *        Also, if wait_timeout is specified, but system will not start
       *        during that time, then error will be raised.
       **/
-    void start(in Duration wait_timeout=Duration.zero) const {
+    void start(in Duration wait_timeout=DEFAULT_START_TIMEOUT) const {
         final switch(_project.odoo.server_supervisor) {
             case ProjectServerSupervisor.Odood:
                 this.spawn(true);
@@ -384,7 +387,7 @@ struct OdooServer {
                 // happeded during execution of dg delegate
                 log_file.open(_project.odoo.logfile.toString, "rt");
 
-            // Print errors from logfile to stdout.
+            // Search for errors in logfile.
             if (log_file.isOpen && log_file.size > log_start) {
                 log_file.seek(log_start);
                 foreach(log_line; OdooLogProcessor(log_file))

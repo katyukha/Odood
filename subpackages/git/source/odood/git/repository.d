@@ -66,7 +66,7 @@ class GitRepository {
       *     If current branch is detected, result is non-null.
       *     If result is null, then git repository is in detached-head mode.
       **/
-    Nullable!string getCurrBranch() {
+    Nullable!string getCurrBranch() const {
         auto result = gitCmd
             .withArgs(["symbolic-ref", "-q", "HEAD"])
             .setFlag(std.process.Config.Flags.stderrPassThrough)
@@ -81,7 +81,7 @@ class GitRepository {
       * Returns:
       *     SHA1 hash of current commit
       **/
-    string getCurrCommit() {
+    string getCurrCommit() const {
         return gitCmd
             .withArgs(["rev-parse", "-q", "HEAD"])
             .setFlag(std.process.Config.stderrPassThrough)
@@ -92,7 +92,7 @@ class GitRepository {
 
     /** Fetch remote 'origin'
       **/
-    void fetchOrigin() {
+    void fetchOrigin() const {
         gitCmd
             .withArgs("fetch", "origin")
             .execute()
@@ -100,7 +100,7 @@ class GitRepository {
     }
 
     /// ditto
-    void fetchOrigin(in string branch) {
+    void fetchOrigin(in string branch) const {
         gitCmd
             .setArgs("fetch", "origin", branch)
             .execute()
@@ -109,9 +109,10 @@ class GitRepository {
 
     /** Get remote url for specified remote
       **/
-    auto getRemoteUrl(in string name) {
+    auto getRemoteUrl(in string name) const {
         string res = gitCmd
             .setArgs("remote", "get-url", name)
+            .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .ensureOk(true)
             .output.strip;
@@ -119,13 +120,13 @@ class GitRepository {
     }
 
     /// ditto
-    auto getRemoteUrl() {
+    auto getRemoteUrl() const {
         return getRemoteUrl("origin");
     }
 
     /** Switch repo to specified branch
       **/
-    void switchBranchTo(in string branch_name, in bool create=false) {
+    void switchBranchTo(in string branch_name, in bool create=false) const {
         if (create)
             gitCmd
                 .setArgs("checkout", "-b", branch_name)
@@ -140,7 +141,7 @@ class GitRepository {
 
     /** Add path (files) to git repo index
       **/
-    void add(in Path path) {
+    void add(in Path path) const {
         gitCmd
             .withArgs("add", _makeRelPath(path).toString)
             .execute
@@ -149,7 +150,7 @@ class GitRepository {
 
     /** Remove path (files) from git repo index
       **/
-    void remove(in Path path, in bool recursive=false, in bool force=false, in bool ignore_unmatch=false) {
+    void remove(in Path path, in bool recursive=false, in bool force=false, in bool ignore_unmatch=false) const {
         auto cmd = gitCmd.withArgs("rm");
         if (recursive)
             cmd.addArgs("-r");
@@ -163,7 +164,7 @@ class GitRepository {
 
     /** Commit changes to git repository
       **/
-    void commit(in string message, in string username=null, in string useremail=null) {
+    void commit(in string message, in string username=null, in string useremail=null) const {
         auto cmd = gitCmd;
         if (!username.empty)
             cmd.addArgs("-c", "user.name='%s'".format(username));
@@ -176,7 +177,7 @@ class GitRepository {
 
     /** Set annotation tag on current commit in repo
       **/
-    void setTag(in string tag_name, in string message = null) 
+    void setTag(in string tag_name, in string message = null)  const
     in (tag_name.length > 0) {
         // TODO: add ability to set tag on specific commit
         gitCmd
@@ -216,7 +217,7 @@ class GitRepository {
 
     /** Check if repo has changes since last commit
       **/
-    bool hasChanges() {
+    bool hasChanges() const {
         return gitCmd.withArgs("diff-index", "--quiet", "HEAD", "--")
             .execute
             .status != 0;
@@ -225,7 +226,9 @@ class GitRepository {
     /** Get changed files
       **/
     auto getChangedFiles(in string start_rev, in string end_rev, in string[] path_filters=null, in bool staged=false) const {
-        auto cmd = this.gitCmd.withArgs("diff", "--name-only");
+        auto cmd = this.gitCmd
+            .withArgs("diff", "--name-only")
+            .withFlag(std.process.Config.stderrPassThrough);
 
         if (staged)
             cmd = cmd.addArgs("--staged");
@@ -355,6 +358,7 @@ class GitRepository {
         return gitCmd
             .withArgs(
                 "show", "-q", "%s:./%s".format(rev, _makeRelPath(path)))
+            .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .ensureOk(true)
             .output;

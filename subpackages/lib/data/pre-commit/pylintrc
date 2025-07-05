@@ -4,7 +4,7 @@ score=n
 
 [ODOOLINT]
 manifest-deprecated-keys=description,active
-valid-odoo-versions=17.0
+valid-odoo-versions={{ project.odoo.serie }}
 
 [MESSAGES CONTROL]
 disable=all

@@ -23,7 +23,7 @@ This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/od
 
 Following features available:
 - Super easy installation of Odoo for development
-- Super easy installation of Odoo for production (see [docs](./production-deployment.md))
+- Super easy installation of Odoo for production (see [docs](https://katyukha.github.io/Odood/production-deployment.html))
 - Simple way to manage multiple development instances of Odoo on same developer's machine
 - Everything (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
 - Best test runner for Odoo modules:
@@ -38,8 +38,9 @@ Following features available:
         - Handle [`odoo_requirements.txt`](https://katyukha.gitlab.io/odoo-helper-scripts/odoo-requirements-txt/)
 - Simple database management via commandline: create, backup, drop, rename, copy database
 - Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
-- Support for [assemblies](./assembly.md): single repo with all addons for project, populated in semi-automatic way.
+- Support for [assemblies](https://katyukha.github.io/Odood/assembly.html): single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
+- Basic integration with [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator). See [docs](https://katyukha.github.io/Odood/addon-migration.html)
 
 
 ## The War in Ukraine

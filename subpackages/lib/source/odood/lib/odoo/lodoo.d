@@ -4,7 +4,7 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.typecons: Nullable;
-private import std.array: split, array;
+private import std.array: split, array, join;
 private import std.algorithm.iteration: filter;
 private import std.process: Config;
 private static import std.process;
@@ -44,36 +44,6 @@ const struct LOdoo {
                 process.setUser(_project.odoo.server_user);
             return process;
         }
-
-        /** Run lodoo with provided args
-          **/
-        auto run(
-                in string[] args,
-                std.process.Config config) {
-            tracef("Running LOdoo with args %s", args);
-            auto process = runner().addArgs(args);
-            if (config != std.process.Config.none)
-                process.setConfig(config);
-            return process.execute();
-        }
-
-        /// ditto
-        auto run(in string[] args...) {
-            return run(args, std.process.Config.none);
-        }
-
-        /** Run lodoo with provided args, raising error
-          * in case of non-zero exit status.
-          **/
-        auto runE(in string[] args, std.process.Config config) {
-            return run(args, config).ensureStatus!OdoodException(true);
-        }
-
-        /// ditto
-        auto runE(in string[] args...) {
-            return runE(args, std.process.Config.none);
-        }
-
     public:
         @disable this();
 
@@ -85,154 +55,98 @@ const struct LOdoo {
         /** Return list of databases available on this odoo instance
           **/
         string[] databaseList() {
-            auto res = runE(["db-list"], Config.stderrPassThrough);
-            return res.output.split("\n").filter!(db => db && db != "").array;
+            return runner
+                .addArgs("db-list")
+                .withFlag(Config.stderrPassThrough)
+                .execute()
+                .ensureOk!OdoodException(true)
+                .output.split("\n").filter!(db => db && db != "").array;
         }
 
         /** Create new Odoo database on this odoo instance
           **/
-        auto databaseCreate(in string name, in bool demo=false,
+        void databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
-            // TODO: Refactor to use this.runner instead of runE.
-            //       Mark runE deprecated
-            string[] args = ["db-create"];
-
-            if (demo)
-                args ~= ["--demo"];
-            else
-                args ~= ["--no-demo"];
+            auto cmd = runner.addArgs(
+                "db-create",
+                demo ? "--demo" : "--no-demo",
+            );
 
             if (lang)
-                args ~= ["--lang", lang];
+                cmd.addArgs("--lang", lang);
 
             if (password)
-                args ~= ["--password", password];
+                cmd.addArgs("--password", password);
 
             if (country)
-                args ~= ["--country", country];
+                cmd.addArgs("--country", country);
 
-            args ~= [name];
+            cmd.addArgs(name);
 
             infof(
                 "Creating database %s (%s)",
                 name, demo ? "with demo-data" : "without demo-data");
-            return runE(args);
+            cmd.execute.ensureOk!OdoodException(true);
         }
 
         /** Drop specified database
           **/
-        auto databaseDrop(in string name) {
+        void databaseDrop(in string name) {
             infof("Deleting database %s", name);
-            return runE("db-drop", name);
+            runner
+                .addArgs("db-drop", name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Check if database exists
           **/
         bool databaseExists(in string name) {
-            auto res = run("db-exists", name);
-            return res.status == 0;
+            return runner
+                .addArgs("db-exists", name)
+                .execute()
+                .status == 0;
         }
 
         /** Rename database
           **/
-        auto databaseRename(in string old_name, in string new_name) {
+        void databaseRename(in string old_name, in string new_name) {
             infof("Renaming database %s to %s", old_name, new_name);
-            return runE("db-rename", old_name, new_name);
+            runner
+                .addArgs("db-rename", old_name, new_name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Copy database
           **/
         auto databaseCopy(in string old_name, in string new_name) {
             infof("Copying database %s to %s", old_name, new_name);
-            return runE("db-copy", old_name, new_name);
-        }
-
-        /** Backup database
-          *
-          * Params:
-          *     dbname = name of database to backup
-          *     backup_path = path to store backup
-          *     format = Backup format: zip or SQL
-          *
-          * Returns:
-          *     Path where backup was stored.
-          **/
-        deprecated(
-            "Because this method is not reliable, Odoo hides output of pgdump, " ~
-            "it is difficult to understand what happened in case of errors. " ~
-            "Thus Odood now have its own implementation of backup at " ~
-            "`project.databases.backup` method.")
-        Path databaseBackup(
-                in string dbname, in Path backup_path,
-                in BackupFormat backup_format = BackupFormat.zip) {
-            infof("Backing up database %s to %s", dbname, backup_path);
-            final switch (backup_format) {
-                case BackupFormat.zip:
-                    runE("db-backup", dbname, backup_path.toString,
-                         "--format", "zip");
-                    return Path(backup_path.toString);
-                case BackupFormat.sql:
-                    runE("db-backup", dbname, backup_path.toString,
-                         "--format", "sql");
-                    return Path(backup_path.toString);
-            }
-        }
-
-        /** Backup database.
-          * Path to store backup will be computed automatically.
-          *
-          * By default, backup will be stored at 'backups' directory inside
-          * project root.
-          *
-          * Params:
-          *     dbname = name of database to backup
-          *     format = Backup format: zip or SQL
-          *
-          * Returns:
-          *     Path where backup was stored.
-          **/
-        deprecated(
-            "Because this method is not reliable, Odoo hides output of pgdump, " ~
-            "it is difficult to understand what happened in case of errors. " ~
-            "Thus Odood now have its own implementation of backup at " ~
-            "`project.databases.backup` method.")
-        Path databaseBackup(
-                in string dbname,
-                in BackupFormat backup_format = BackupFormat.zip) {
-            import std.datetime.systime: Clock;
-
-            string dest_name="db-backup-%s-%s.%s.%s".format(
-                dbname,
-                "%s-%s-%s".format(
-                    Clock.currTime.year,
-                    Clock.currTime.month,
-                    Clock.currTime.day),
-                generateRandomString(4),
-                (() {
-                    final switch (backup_format) {
-                        case BackupFormat.zip:
-                            return "zip";
-                        case BackupFormat.sql:
-                            return "zip";
-                    }
-                })(),
-            );
-            return databaseBackup(
-                dbname,
-                _project.directories.backups.join(dest_name),
-                backup_format);
+            runner
+                .addArgs("db-copy", old_name, new_name)
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Restore database
           **/
-        deprecated auto databaseRestore(in string name, in Path backup_path) {
+        deprecated void databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
-            return runE("db-restore", name, backup_path.toString);
+            runner
+                .addArgs("db-restore", name, backup_path.toString)
+                .execute
+                .ensureOk!OdoodException(true);
+
         }
 
-        auto databaseDumpManifext(in string name) {
-            return runE("db-dump-manifest", name).output;
+        auto databaseDumpManifest(in string name) {
+            return runner
+                .addArgs("db-dump-manifest", name)
+                .withFlag(Config.stderrPassThrough)
+                .execute
+                .ensureOk!OdoodException(true)
+                .output;
         }
 
         /** Update list of addons
@@ -244,17 +158,21 @@ const struct LOdoo {
           *         OdoodException will be thrown if lodoo
           *         command addons-update-list failed with non-zero exit code
           **/
-        auto addonsUpdateList(in string dbname, in bool ignore_error=false) {
-            if (ignore_error)
-                return run("addons-update-list", dbname);
-            return runE("addons-update-list", dbname);
+        void addonsUpdateList(in string dbname, in bool ignore_error=false) {
+            auto res = runner
+                .addArgs("addons-update-list", dbname)
+                .execute;
+            if (!ignore_error)
+                res.ensureOk!OdoodException(true);
         }
 
         /** Uninstall addons
           **/
-        auto addonsUninstall(in string dbname, in string[] addon_names) {
-            import std.string: join;
-            return runE("addons-uninstall", dbname, addon_names.join(","));
+        void addonsUninstall(in string dbname, in string[] addon_names) {
+            runner
+                .addArgs("addons-uninstall", dbname, addon_names.join(","))
+                .execute
+                .ensureOk!OdoodException(true);
         }
 
         /** Run python script for specific database
@@ -286,16 +204,16 @@ const struct LOdoo {
             return result;
         }
 
-        auto recomputeField(in string dbname, in string model, in string[] fields) const {
+        void recomputeField(in string dbname, in string model, in string[] fields) const {
             import std.algorithm.iteration;
-            return this.runner
+            this.runner
                 .addArgs("odoo-recompute", dbname, model)
                 .addArgs(fields.map!(f => ["-f", f]).fold!((a, b) => a ~ b).array)
                 .execute
                 .ensureOk!OdoodException(true);
         }
 
-        auto generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
+        void generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
             infof("Generating POT file for %s database for %s addon", dbname, addon);
             auto runner = this.runner
                 .addArgs("tr-generate-pot-file");
@@ -303,7 +221,7 @@ const struct LOdoo {
                 runner.addArgs("--remove-dates");
             runner.addArgs(dbname, addon);
             tracef("Running command %s", runner.toString);
-            return runner
+            runner
                 .execute
                 .ensureOk!OdoodException(true);
         }
