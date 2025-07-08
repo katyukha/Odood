@@ -5,6 +5,9 @@
 ### Added
 - Automatic check for missing dependencies of assembly addons on *assembly sync*.
 
+### Changed
+- `odood log` now will automatically show the end of logfile
+
 ---
 
 ## Release 0.4.3 (2025-07-05)

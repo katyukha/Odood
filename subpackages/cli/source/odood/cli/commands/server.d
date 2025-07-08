@@ -168,7 +168,11 @@ class CommandServerLogView: OdoodCommand {
         import std.process;
         auto project = Project.loadProject;
         tracef("Viewing logfile: %s", project.odoo.logfile.toString);
-        Process("less").withArgs(project.odoo.logfile.toString).execv;
+        Process("less").withArgs(
+            "+G",
+            "--",
+            project.odoo.logfile.toString
+        ).execv;
     }
 }
 
