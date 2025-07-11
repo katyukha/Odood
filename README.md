@@ -6,8 +6,8 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 
 ---
 
-[![Github Actions](https://github.com/katyukha/odood/actions/workflows/tests.yml/badge.svg)](https://github.com/katyukha/odood/actions/workflows/tests.yml?branch=master)
-[![codecov](https://codecov.io/gh/katyukha/odood/branch/master/graph/badge.svg?token=IUXBCNSHNQ)](https://codecov.io/gh/katyukha/odood)
+[![Github Actions](https://github.com/katyukha/odood/actions/workflows/tests.yml/badge.svg)](https://github.com/katyukha/odood/actions/workflows/tests.yml?branch=main)
+[![codecov](https://codecov.io/gh/katyukha/odood/branch/main/graph/badge.svg?token=IUXBCNSHNQ)](https://codecov.io/gh/katyukha/odood)
 [![DUB](https://img.shields.io/dub/v/odood)](https://code.dlang.org/packages/odood)
 ![DUB](https://img.shields.io/dub/l/odood)
 ![Current status](https://img.shields.io/badge/Current%20Status-Beta-purple)
