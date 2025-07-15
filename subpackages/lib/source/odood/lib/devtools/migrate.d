@@ -29,7 +29,7 @@ void migrateAddonsCode(in AddonRepository repo, in string[] addon_names=[], in b
             auto cmd = repo.project.venv.runner
                 .addArgs(
                     "odoo-module-migrate",
-                    "--directory=%s".format(repo.path),
+                    "--directory=%s".format(addon.path.parent),
                     "--modules=%s".format(addon.name),
                     "--init-version-name=%s".format(addon.manifest.module_version.serie),
                     "--target-version-name=%s".format(repo.project.odoo.serie),
