@@ -80,6 +80,12 @@ class CommandAssemblySync: OdoodCommand {
         super("sync", "Synchronize assembly with updates from sources.");
         this.add(new Flag(
             null, "commit", "Commit changes."));
+        this.add(new Option(
+            null, "commit-message", "Commit message"));
+        this.add(new Option(
+            null, "commit-user", "Name of user to use for commit"));
+        this.add(new Option(
+            null, "commit-email", "Email of user to use for commit"));
     }
 
     public override void execute(ProgramArgs args) {
@@ -87,7 +93,12 @@ class CommandAssemblySync: OdoodCommand {
         enforce!OdoodCLIException(
             !project.assembly.isNull,
             "Assembly not initialized!");
-        project.assembly.get.sync(args.flag("commit"));
+        project.assembly.get.sync(
+            commit: args.flag("commit"),
+            commit_message: args.option("commit-message"),
+            commit_username: args.option("commit-user"),
+            commit_useremail: args.option("commit-user"),
+        );
     }
 }
 

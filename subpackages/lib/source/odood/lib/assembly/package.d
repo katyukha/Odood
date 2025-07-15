@@ -302,7 +302,10 @@ htmlcov
       *
       * Update assembly addons from recent versiones from specified git sources
       **/
-    void sync(in bool commit=false) {
+    void sync(in bool commit=false,
+              in string commit_message=null,
+              in string commit_username=null,
+              in string commit_useremail=null) {
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
@@ -319,7 +322,10 @@ htmlcov
 
             if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
                 infof("Commiting assembly changes...");
-                repo.commit("Assembly synced");
+                repo.commit(
+                    message: commit_message ? commit_message : "[SYNC] Assembly synced",
+                    username: commit_username,
+                    useremail: commit_useremail);
             } else {
                 warningf("There is no changes to be committed!");
             }
