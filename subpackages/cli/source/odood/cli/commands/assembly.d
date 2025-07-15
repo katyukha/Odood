@@ -46,11 +46,12 @@ class CommandAssemblyUse: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
+        auto path = Path(args.arg("path")).toAbsolute;
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
             project.assembly.isNull,
             "Project already has configured assembly!");
-        project.useAssembly(Path(args.arg("path")));
+        project.useAssembly(path);
     }
 }
 

@@ -24,7 +24,7 @@ class GitRepository {
 
     this(in Path path) {
         if (path.join(".git").exists)
-            _path = path;
+            _path = path.toAbsolute;
         else
             _path = getGitTopLevel(path);
     }
