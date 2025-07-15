@@ -7,7 +7,8 @@ private import std.array: empty;
 private import std.format: format;
 
 private import colored;
-private import commandr: Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs;
+private import thepath: Path;
 
 private import odood.lib.assembly: Assembly;
 private import odood.lib.project: Project;
@@ -36,6 +37,22 @@ class CommandAssemblyInit: OdoodCommand {
     }
 }
 
+
+class CommandAssemblyUse: OdoodCommand {
+    this() {
+        super("use", "Use (attach) assembly located at specified path. Mostly useful in CI flows.");
+        this.add(new Argument(
+            "path", "Path to already existing assembly."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        enforce!OdoodCLIException(
+            project.assembly.isNull,
+            "Project already has configured assembly!");
+        project.useAssembly(Path(args.arg("path")));
+    }
+}
 
 class CommandAssemblyStatus: OdoodCommand {
     this() {
@@ -187,6 +204,7 @@ class CommandAssembly: OdoodCommand {
     this() {
         super("assembly", "Manage assembly of this project");
         this.add(new CommandAssemblyInit());
+        this.add(new CommandAssemblyUse());
         this.add(new CommandAssemblyStatus());
         this.add(new CommandAssemblySync());
         this.add(new CommandAssemblyLink());

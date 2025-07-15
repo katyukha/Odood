@@ -438,12 +438,19 @@ class Project {
         save();
     }
 
+    /// ditto
     void initializeAssembly(in GitURL git_url) {
         _project_root.join("assembly").mkdir(true);
         _assembly = Assembly.initialize(
             project: this,
             path: _project_root.join("assembly"),
             git_url: git_url).nullable;
+        save();
+    }
+
+    /// Use already existing assembly located at some path
+    void useAssembly(in Path path) {
+        _assembly = Assembly.load(project: this, path: path);
         save();
     }
 
