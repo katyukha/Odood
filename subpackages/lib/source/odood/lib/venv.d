@@ -13,6 +13,7 @@ private static import std.process;
 
 private import theprocess;
 private import thepath: Path;
+private import darktemple: renderFile;
 private static import dyaml;
 
 private import odood.exception: OdoodException;
@@ -21,16 +22,6 @@ private import odood.utils.versioned: Version;
 private import odood.lib.odoo.python: getSystemPythonVersion;
 
 // TOOD: May be it have sense to move this to utils subpackage.
-
-// Define template for simple script that allows to run any command in
-// python's virtualenv
-private immutable string SCRIPT_RUN_IN_ENV="#!/usr/bin/env bash
-source \"%s\";
-exec \"$@\"; res=$?;
-deactivate;
-exit $res;
-";
-
 
 /// Python major version
 enum PySerie {
@@ -106,13 +97,16 @@ const struct VirtualEnv {
     }
 
     /// Path where virtualenv isntalled
-    @safe pure nothrow const(Path) path() const { return _path; }
+    @safe pure nothrow const(Path) path() const => _path;
 
     /// Bin path inside this virtualenv
-    @safe pure nothrow const(Path) bin_path() const {return _path.join("bin"); }
+    @safe pure nothrow const(Path) bin_path() const => _path.join("bin");
+
+    /// Path to activate script for this virtual env
+    @safe pure nothrow const(Path) activate_path() const => _path.join("bin", "activate");
 
     /// Serie of python used for this virtualenv (py2 or py3)
-    @safe const(PySerie) py_serie() const { return _py_serie; }
+    @safe pure nothrow const(PySerie) py_serie() const => _py_serie;
 
     /// Name of python interpreter
     @safe const(string) py_interpreter_name() const {
@@ -136,9 +130,9 @@ const struct VirtualEnv {
         // Add bash script to run any command in virtual env
         import std.file: setAttributes;
         import std.conv : octal;
+        auto activate_path = this.activate_path;
         _path.join("bin", "run-in-venv").writeFile(
-            SCRIPT_RUN_IN_ENV.format(
-                _path.join("bin", "activate")));
+            renderFile!("templates/venv/run-in-venv.tmpl", activate_path));
         _path.join("bin", "run-in-venv").setAttributes(octal!755);
     }
 

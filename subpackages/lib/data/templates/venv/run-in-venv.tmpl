@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+source "{{ activate_path }}";
+exec "$@";
+res=$?;
+deactivate;
+
+exit $res;
