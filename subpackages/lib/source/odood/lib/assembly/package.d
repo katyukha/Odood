@@ -12,8 +12,8 @@ private import std.algorithm: map, canFind, uniq;
 private import std.range: chain;
 
 private import dyaml;
-
 private import thepath: Path;
+private import darktemple: renderFile;
 
 private import odood.lib.assembly.exception: OdoodAssemblyException;
 private import odood.lib.assembly.spec;
@@ -136,15 +136,8 @@ struct Assembly {
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
-        assembly.path.join(".gitignore").writeFile("
-*.py[cow]
-*.sw[pno]
-*.idea/
-*~
-.ropeproject/
-.coverage
-htmlcov
-");
+        assembly.path.join(".gitignore").writeFile(
+            renderFile!("templates/assembly/gitignore.tmpl", assembly));
         assembly.initializeRepo();
         assembly.repo.switchBranchTo(
             branch_name: assembly.serie.toString,
