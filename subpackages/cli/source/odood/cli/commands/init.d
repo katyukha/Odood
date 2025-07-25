@@ -16,6 +16,7 @@ private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: checkSystemUserExists;
 
 
 class CommandInit: OdoodCommand {
@@ -90,6 +91,13 @@ class CommandInit: OdoodCommand {
         enforce!OdoodCLIException(
             odoo_version.isValid,
             "Odoo version %s is not valid".format(args.option("odoo-version")));
+
+        if (args.flag("create-db-user"))
+            // Check if we can create pg user if requested, before initialization started.
+            enforce!OdoodCLIException(
+                checkSystemUserExists("postgres"),
+                "Local 'postgresql' package seems not installed, thus cannot create pg user for Odoo!");
+
 
         OdooInstallType install_type = OdooInstallType.Archive;
         switch(args.option("install-type")) {

@@ -2,47 +2,23 @@ module odood.lib.deploy.utils;
 
 private import std.logger: infof, tracef, errorf;
 private import std.format: format;
-private import std.exception: enforce, errnoEnforce;
+private import std.exception: enforce;
 private import std.conv: to, text, ConvException;
 private import std.string: strip;
 private static import std.process;
 
 private import core.sys.posix.unistd: geteuid, getegid;
-private import core.sys.posix.pwd: getpwnam_r, passwd;
 
 private import theprocess: Process;
 private import thepath: Path;
-
-
-bool checkSystemUserExists(in string username) {
-    import std.string: toStringz;
-    import core.stdc.errno: ENOENT, ESRCH, EBADF, EPERM;
-    passwd pwd;
-    passwd* result;
-    long bufsize = 16384;
-    char[] buf = new char[bufsize];
-
-    int s = getpwnam_r(username.toStringz, &pwd, &buf[0], bufsize, &result);
-    if (s == ENOENT || s == ESRCH || s == EBADF || s == EPERM)
-        // Such user does not exists
-        return false;
-
-    errnoEnforce(
-        s == 0,
-        "Got error on attempt to check if user %s exists".format(username));
-
-    if (result)
-        return true;
-
-    return false;
-}
 
 
 void createSystemUser(in Path home, in string name) {
     infof("Creating system user for Odoo named '%s'", name);
     Process("adduser")
         .withArgs(
-            "--system", "--no-create-home",
+            "--system",
+            "--no-create-home",
             "--home", home.toString,
             "--quiet",
             "--group",

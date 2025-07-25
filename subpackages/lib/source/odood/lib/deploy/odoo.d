@@ -14,12 +14,12 @@ private import theprocess: Process;
 private import darktemple: renderFile;
 
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils: checkSystemUserExists;
 private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
 private import odood.lib.deploy.config: DeployConfig;
 private import odood.lib.deploy.utils:
-    checkSystemUserExists,
     createSystemUser,
     postgresCheckUserExists,
     postgresCreateUser;

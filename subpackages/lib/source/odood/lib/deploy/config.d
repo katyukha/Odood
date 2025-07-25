@@ -18,10 +18,9 @@ private import odood.lib.project.config:
     ProjectConfigDirectories,
     ProjectConfigOdoo;
 private import odood.lib.deploy.exception: OdoodDeployException;
-private import odood.lib.deploy.utils: checkSystemUserExists;
 private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: generateRandomString;
+private import odood.utils: generateRandomString, checkSystemUserExists;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
 
