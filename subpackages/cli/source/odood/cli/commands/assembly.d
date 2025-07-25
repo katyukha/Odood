@@ -123,8 +123,10 @@ class CommandAssemblySync: OdoodCommand {
             } else {
                 if (args.flag("fail-nothing-to-commit"))
                     throw new OdoodCLIExitException(1, "Assembly Sync: There is no changes to be committed!");
-                else
+                else {
                     warningf("Assembly Sync: There is no changes to be committed!");
+                    return;  // Nothing to commit, so no further processing needed
+                }
             }
         }
 
