@@ -121,12 +121,11 @@ class CommandAssemblySync: OdoodCommand {
                     username: args.option("commit-user"),
                     useremail: args.option("commit-email"));
             } else {
+                warningf("Assembly Sync: There is no changes to be committed!");
                 if (args.flag("fail-nothing-to-commit"))
-                    throw new OdoodCLIExitException(1, "Assembly Sync: There is no changes to be committed!");
-                else {
-                    warningf("Assembly Sync: There is no changes to be committed!");
+                    throw new OdoodCLIExitException(1);
+                else
                     return;  // Nothing to commit, so no further processing needed
-                }
             }
         }
 
