@@ -11,4 +11,7 @@ class OdoodAssemblyException : OdoodException
 }
 
 
-
+class OdoodAssemblyNothingToCommitException : OdoodAssemblyException
+{
+    mixin basicExceptionCtors;
+}

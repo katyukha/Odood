@@ -15,7 +15,9 @@ private import dyaml;
 private import thepath: Path;
 private import darktemple: renderFile;
 
-private import odood.lib.assembly.exception: OdoodAssemblyException;
+private import odood.lib.assembly.exception:
+    OdoodAssemblyException,
+    OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
 private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
@@ -295,34 +297,12 @@ struct Assembly {
       *
       * Update assembly addons from recent versiones from specified git sources
       **/
-    void sync(in bool commit=false,
-              in string commit_message=null,
-              in string commit_username=null,
-              in string commit_useremail=null) {
+    void sync() {
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
         syncAddons();
         validateAddonsDependencies();
-
-        if (commit) {
-            enforce!OdoodAssemblyException(
-                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
-                "There are unexpected changes in assembly. Please, handle it manually.");
-            enforce!OdoodAssemblyException(
-                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
-                "There are unexpected staged changes in assembly. Please, handle it manually.");
-
-            if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
-                infof("Commiting assembly changes...");
-                repo.commit(
-                    message: commit_message ? commit_message : "[SYNC] Assembly synced",
-                    username: commit_username,
-                    useremail: commit_useremail);
-            } else {
-                warningf("There is no changes to be committed!");
-            }
-        }
     }
 
     /** Link assembly addons.
@@ -351,6 +331,14 @@ struct Assembly {
         infof("Assembly Pull: Pulling changes for assembly.");
         repo.pull();
         infof("Assembly Pull: Completed.");
+    }
+
+    void push(in string branch_name=null) {
+        if (branch_name) infof("Assembly Push: Pushing assembly changes to %s.", branch_name);
+        else infof("Assembly Push: Pushing assembly changes.");
+
+        repo.push(branch_name: branch_name);
+        infof("Assembly Push: Completed.");
     }
 
     /// Add source to assembly

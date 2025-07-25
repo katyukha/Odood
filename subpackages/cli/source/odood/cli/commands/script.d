@@ -13,6 +13,7 @@ private import odood.lib.project: Project;
 
 
 class CommandScriptPy: OdoodCommand {
+    // TODO: Add ability to pass extra arguments to script
     this() {
         super("py", "Run Python script in this environment.");
         this.add(new Option("d", "db", "Database to run script for").required);
