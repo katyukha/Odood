@@ -449,13 +449,13 @@ class GitRepository {
                 .withArgs(
                     "push", "origin", "%s:%s".format(current_branch.get, branch_name))
                 .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name));
+                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
         else
             gitCmd
                 .withArgs(
                     "push", "origin", current_branch.get)
                 .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name));
+                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
 }
 
