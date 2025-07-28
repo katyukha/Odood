@@ -305,6 +305,63 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
     }
 }
 
+
+class CommandRepositoryDoForwardPort: OdoodCommand {
+    this() {
+        super(
+            "do-forward-port",
+            "[Experimental] Do forwardport changes from older branch.");
+        this.add(new Argument(
+            "path", "Path to repository to migrate addons in.").optional);
+        this.add(new Option(
+            "s", "source", "Source branch to forwarport changes from").required);
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+        auto source_branch = args.option("source");
+
+        // TODO: Ensure that git repo is clean
+
+        // Fetch source branch changes
+        repo.fetchOrigin(source_branch);
+
+        // Prepare merge
+        if (!repo.gitCmd
+                .addArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source_branch))
+                .execute.isOk)
+            warningf("Merge failed, there are conflicts. Please, resolve them manually");
+
+        // Revert translation changes
+        repo.gitCmd
+            .addArgs("reset", "-q", "--", "*.po", "*.pot")
+            .execute
+            .ensureOk(true);
+
+        repo.gitCmd
+            .addArgs("clean", "-fdx", " --", "*.po", "*.pot")
+            .execute
+            .ensureOk(true);
+        repo.gitCmd
+            .addArgs("checkout", "--ours", "--", "*.po", "*.pot")
+            .execute;
+        repo.gitCmd
+            .addArgs("add", "*.po", "*.pot")
+            .execute;
+
+        // Fix version conflicts
+        foreach(addon; repo.addons)
+            addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);
+
+        // TODO: Forward migrations
+        // TODO: Check if repo is clean (nothing was changed)
+
+    }
+}
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -316,6 +373,7 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryBumpAddonVersion());
         this.add(new CommandRepositoryCheckVersion());
         this.add(new CommandRepositoryMigrateAddons());
+        this.add(new CommandRepositoryDoForwardPort());
     }
 }
 

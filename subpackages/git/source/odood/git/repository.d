@@ -43,7 +43,7 @@ class GitRepository {
     }
 
     /// Preconfigured runner for git CLI
-    protected auto gitCmd() const {
+    auto gitCmd() const {
         return Process("git")
             .inWorkDir(_path);
     }

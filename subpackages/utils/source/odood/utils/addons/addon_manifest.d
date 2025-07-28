@@ -137,6 +137,8 @@ auto parseOdooManifest(in Path path) {
     return parseOdooManifest(path.readFileText);
 }
 
+/** Try parse manifest specified by path
+  **/
 auto tryParseOdooManifest(in string manifest_content) {
     Nullable!OdooAddonManifest manifest;
     try {
@@ -146,6 +148,11 @@ auto tryParseOdooManifest(in string manifest_content) {
         manifest = Nullable!OdooAddonManifest.init;
     }
     return manifest;
+}
+
+/// ditto
+auto tryParseOdooManifest(in Path path) {
+    return tryParseOdooManifest(path.readFileText);
 }
 
 // Module level link to ast module

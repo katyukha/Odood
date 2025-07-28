@@ -27,7 +27,7 @@ final class OdooAddon {
     private immutable string _name;
     private immutable Path _path;
     private immutable Path _manifest_path;
-    private OdooAddonManifest _manifest;
+    private Nullable!OdooAddonManifest _manifest;
 
     @disable this();
 
@@ -41,7 +41,7 @@ final class OdooAddon {
         _path = path.toAbsolute;
         _name = _path.baseName;
         _manifest_path = getAddonManifestPath(_path).get;
-        _manifest = parseOdooManifest(_manifest_path);
+        _manifest = tryParseOdooManifest(_manifest_path);
     }
 
     /// name of the addon
@@ -54,7 +54,7 @@ final class OdooAddon {
     auto manifest_path() const => _manifest_path;
 
     /// module manifest
-    auto manifest() const => _manifest;
+    auto manifest() const => _manifest.get;
 
     /// Addons are comparable by name
     pure nothrow int opCmp(in OdooAddon other) const {
