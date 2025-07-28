@@ -133,6 +133,7 @@ Run `odood assembly --help` to get more info about available commands.
 
 This group contains following commands:
 - `odood assembly init` - allows to initalize assembly (new assembly or clone existing assembly from git)
+- `odood assembly use` - allows to configure server to use assembly from specified path. Useful in CI flows.
 - `odood assembly status` - show current status of assembly
 - `odood assembly sync` - this command synchronizes assembly to actual state. This operation includes following steps done automatically:
   - Clone or update (pull) all git sources listed in spec

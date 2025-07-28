@@ -24,8 +24,6 @@ private import odood.utils.odoo.serie: OdooSerie;
   *
   **/
 
-// TODO: May be move Odoo serie to spec instead of assembly
-
 struct AssemblySpecAddon {
     string name;
     string source_name=null;
