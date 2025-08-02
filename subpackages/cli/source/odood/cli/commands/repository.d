@@ -1,6 +1,6 @@
 module odood.cli.commands.repository;
 
-private import std.logger: infof, warningf;
+private import std.logger: infof, warningf, tracef;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
@@ -353,10 +353,31 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
             .execute;
 
         // Fix version conflicts
-        foreach(addon; repo.addons)
+        foreach(addon; repo.addons) {
             addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);
 
-        // TODO: Forward migrations
+            if (!addon.path.join("migrations").exists)
+                continue;
+
+            foreach(migration_path; addon.path.join("migrations").walk) {
+                auto migration_version = OdooStdVersion(migration_path.baseName);
+                if (!migration_version.isStandard) {
+                    // We cannot migrate migration that is not standard
+                    warningf(
+                        "Cannot migratate migration script that is not in standard format. Skipping migration of %s:%s migration...",
+                        addon.name, migration_version.rawVersion);
+                    continue;
+                }
+                if (migration_version.serie != project.odoo.serie) {
+                    auto new_migration_version = migration_version.withSerie(project.odoo.serie);
+                    infof("Migrating migration scripts %s:%s -> %s:%s...", addon.name, migration_version, addon.name, new_migration_version);
+                    migration_path.rename(migration_path.parent.join(new_migration_version.toString));
+                } else {
+                    tracef("Migration of migration scripts %s:%s is not required, skipping...", addon.name, migration_version);
+                }
+            }
+        }
+
         // TODO: Check if repo is clean (nothing was changed)
 
     }
