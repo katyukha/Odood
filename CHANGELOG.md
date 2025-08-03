@@ -1,5 +1,19 @@
 # Changelog
 
+## Release 0.4.4 (2025-08-03)
+
+### Added
+- Automatic check for missing dependencies of assembly addons on *assembly sync*.
+- Ability to use existing assembly for project via `odood assembly use` command.
+  This could be useful in CI to automate assembly sync process.
+- Added new options to specify commit params for `odood assembly sync` command.
+- Added experimental `odood repo do-forward-port` command
+
+### Changed
+- `odood log` now will automatically show the end of logfile
+
+---
+
 ## Release 0.4.3 (2025-07-05)
 
 ### Added

@@ -62,7 +62,7 @@ class CommandDeploy: OdoodCommand {
             null, "enable-fail2ban", "Enable fail2ban for Odoo (requires fail2ban installed)."));
 
         this.add(new Option(
-            null, "supervisor", "What superwisor to use for deployment.")
+            null, "supervisor", "What superwisor to use for deployment. One of: odood, init-script, systemd. Default: systemd.")
                 .defaultValue("systemd")
                 .acceptsValues(["odood", "init-script", "systemd"]));
 

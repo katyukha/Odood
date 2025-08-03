@@ -24,7 +24,7 @@ class GitRepository {
 
     this(in Path path) {
         if (path.join(".git").exists)
-            _path = path;
+            _path = path.toAbsolute;
         else
             _path = getGitTopLevel(path);
     }
@@ -43,7 +43,7 @@ class GitRepository {
     }
 
     /// Preconfigured runner for git CLI
-    protected auto gitCmd() const {
+    auto gitCmd() const {
         return Process("git")
             .inWorkDir(_path);
     }
@@ -435,6 +435,27 @@ class GitRepository {
         // Test content of version in working tree
         git_repo.getContent(git_root.join("test_file.txt")).should == "Hello world!\nSome extra text.\n";
         git_repo.getContent(Path("test_file.txt")).should == "Hello world!\nSome extra text.\n";
+    }
+
+    /// Push changes optionally to specific branch
+    void push(in string branch_name=null) const {
+        auto current_branch = getCurrBranch();
+        enforce!OdoodException(
+            !current_branch.isNull,
+            "Repository push operation is not allowed in detached tree mode");
+
+        if (branch_name)
+            gitCmd
+                .withArgs(
+                    "push", "origin", "%s:%s".format(current_branch.get, branch_name))
+                .execute
+                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
+        else
+            gitCmd
+                .withArgs(
+                    "push", "origin", current_branch.get)
+                .execute
+                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
 }
 

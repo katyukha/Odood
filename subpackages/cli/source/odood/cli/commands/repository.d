@@ -1,6 +1,6 @@
 module odood.cli.commands.repository;
 
-private import std.logger: infof, warningf;
+private import std.logger: infof, warningf, tracef;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
@@ -305,6 +305,84 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
     }
 }
 
+
+class CommandRepositoryDoForwardPort: OdoodCommand {
+    this() {
+        super(
+            "do-forward-port",
+            "[Experimental] Do forwardport changes from older branch.");
+        this.add(new Argument(
+            "path", "Path to repository to migrate addons in.").optional);
+        this.add(new Option(
+            "s", "source", "Source branch to forwarport changes from").required);
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+        auto source_branch = args.option("source");
+
+        // TODO: Ensure that git repo is clean
+
+        // Fetch source branch changes
+        repo.fetchOrigin(source_branch);
+
+        // Prepare merge
+        if (!repo.gitCmd
+                .addArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source_branch))
+                .execute.isOk)
+            warningf("Merge failed, there are conflicts. Please, resolve them manually");
+
+        // Revert translation changes
+        repo.gitCmd
+            .addArgs("reset", "-q", "--", "*.po", "*.pot")
+            .execute
+            .ensureOk(true);
+
+        repo.gitCmd
+            .addArgs("clean", "-fdx", " --", "*.po", "*.pot")
+            .execute
+            .ensureOk(true);
+        repo.gitCmd
+            .addArgs("checkout", "--ours", "--", "*.po", "*.pot")
+            .execute;
+        repo.gitCmd
+            .addArgs("add", "*.po", "*.pot")
+            .execute;
+
+        // Fix version conflicts
+        foreach(addon; repo.addons) {
+            addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);
+
+            if (!addon.path.join("migrations").exists)
+                continue;
+
+            foreach(migration_path; addon.path.join("migrations").walk) {
+                auto migration_version = OdooStdVersion(migration_path.baseName);
+                if (!migration_version.isStandard) {
+                    // We cannot migrate migration that is not standard
+                    warningf(
+                        "Cannot migratate migration script that is not in standard format. Skipping migration of %s:%s migration...",
+                        addon.name, migration_version.rawVersion);
+                    continue;
+                }
+                if (migration_version.serie != project.odoo.serie) {
+                    auto new_migration_version = migration_version.withSerie(project.odoo.serie);
+                    infof("Migrating migration scripts %s:%s -> %s:%s...", addon.name, migration_version, addon.name, new_migration_version);
+                    migration_path.rename(migration_path.parent.join(new_migration_version.toString));
+                } else {
+                    tracef("Migration of migration scripts %s:%s is not required, skipping...", addon.name, migration_version);
+                }
+            }
+        }
+
+        // TODO: Check if repo is clean (nothing was changed)
+
+    }
+}
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -316,6 +394,7 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryBumpAddonVersion());
         this.add(new CommandRepositoryCheckVersion());
         this.add(new CommandRepositoryMigrateAddons());
+        this.add(new CommandRepositoryDoForwardPort());
     }
 }
 

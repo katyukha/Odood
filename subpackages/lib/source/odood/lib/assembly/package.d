@@ -7,13 +7,17 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable;
-private import std.array: empty, join;
+private import std.array: empty, join, array;
+private import std.algorithm: map, canFind, uniq;
+private import std.range: chain;
 
 private import dyaml;
-
 private import thepath: Path;
+private import darktemple: renderFile;
 
-private import odood.lib.assembly.exception: OdoodAssemblyException;
+private import odood.lib.assembly.exception:
+    OdoodAssemblyException,
+    OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
 private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
@@ -134,15 +138,8 @@ struct Assembly {
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
-        assembly.path.join(".gitignore").writeFile("
-*.py[cow]
-*.sw[pno]
-*.idea/
-*~
-.ropeproject/
-.coverage
-htmlcov
-");
+        assembly.path.join(".gitignore").writeFile(
+            renderFile!("templates/assembly/gitignore.tmpl", assembly));
         assembly.initializeRepo();
         assembly.repo.switchBranchTo(
             branch_name: assembly.serie.toString,
@@ -282,31 +279,30 @@ htmlcov
         infof("Assembly: All addons synced.");
     }
 
+    void validateAddonsDependencies() const {
+        auto assembly_addons = findAddons(dist_dir);
+        auto available_addons = _project.addons.getSystemAddonsList()
+            .map!((a) => a.name)
+            .chain(assembly_addons.map!((a) => a.name))
+            .uniq.array;
+
+        foreach(addon; assembly_addons)
+            foreach(dep; addon.manifest.dependencies)
+                enforce!OdoodAssemblyException(
+                    available_addons.canFind(dep),
+                    "Cannot find dependency %s for addon %s!".format(dep, addon));
+    }
+
     /** Synchronize assembly (sources and addons)
       *
       * Update assembly addons from recent versiones from specified git sources
       **/
-    void sync(in bool commit=false) {
+    void sync() {
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
         syncAddons();
-
-        if (commit) {
-            enforce!OdoodAssemblyException(
-                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
-                "There are unexpected changes in assembly. Please, handle it manually.");
-            enforce!OdoodAssemblyException(
-                repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
-                "There are unexpected staged changes in assembly. Please, handle it manually.");
-
-            if (repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
-                infof("Commiting assembly changes...");
-                repo.commit("Assembly synced");
-            } else {
-                warningf("There is no changes to be committed!");
-            }
-        }
+        validateAddonsDependencies();
     }
 
     /** Link assembly addons.
@@ -335,6 +331,14 @@ htmlcov
         infof("Assembly Pull: Pulling changes for assembly.");
         repo.pull();
         infof("Assembly Pull: Completed.");
+    }
+
+    void push(in string branch_name=null) {
+        if (branch_name) infof("Assembly Push: Pushing assembly changes to %s.", branch_name);
+        else infof("Assembly Push: Pushing assembly changes.");
+
+        repo.push(branch_name: branch_name);
+        infof("Assembly Push: Completed.");
     }
 
     /// Add source to assembly

@@ -1,5 +1,6 @@
 module odood.cli.commands.assembly;
 
+private import std.logger: infof, warningf;
 private import std.json;
 private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
@@ -7,13 +8,15 @@ private import std.array: empty;
 private import std.format: format;
 
 private import colored;
-private import commandr: Option, Flag, ProgramArgs;
+private import commandr: Argument, Option, Flag, ProgramArgs;
+private import thepath: Path;
 
 private import odood.lib.assembly: Assembly;
+private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL;
-private import odood.cli.core: OdoodCommand, OdoodCLIException;
+private import odood.cli.core: OdoodCommand, OdoodCLIException, OdoodCLIExitException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
@@ -36,6 +39,23 @@ class CommandAssemblyInit: OdoodCommand {
     }
 }
 
+
+class CommandAssemblyUse: OdoodCommand {
+    this() {
+        super("use", "Use (attach) assembly located at specified path. Mostly useful in CI flows.");
+        this.add(new Argument(
+            "path", "Path to already existing assembly."));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto path = Path(args.arg("path")).toAbsolute;
+        auto project = Project.loadProject;
+        enforce!OdoodCLIException(
+            project.assembly.isNull,
+            "Project already has configured assembly!");
+        project.useAssembly(path);
+    }
+}
 
 class CommandAssemblyStatus: OdoodCommand {
     this() {
@@ -62,6 +82,18 @@ class CommandAssemblySync: OdoodCommand {
         super("sync", "Synchronize assembly with updates from sources.");
         this.add(new Flag(
             null, "commit", "Commit changes."));
+        this.add(new Option(
+            null, "commit-message", "Commit message"));
+        this.add(new Option(
+            null, "commit-user", "Name of user to use for commit"));
+        this.add(new Option(
+            null, "commit-email", "Email of user to use for commit"));
+        this.add(new Flag(
+            null, "fail-nothing-to-commit", "Fail (set exit code = 1) if there is nothing to commit"));
+        this.add(new Flag(
+            null, "push", "Automatically push changes if needed."));
+        this.add(new Option(
+            null, "push-to", "Name of branch to push changes to."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -69,7 +101,37 @@ class CommandAssemblySync: OdoodCommand {
         enforce!OdoodCLIException(
             !project.assembly.isNull,
             "Assembly not initialized!");
-        project.assembly.get.sync(args.flag("commit"));
+
+        // Do the sync
+        project.assembly.get.sync();
+
+        // Commit changes if requested (usually useful in CI flows)
+        if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
+            enforce!OdoodCLIException(
+                project.assembly.get.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
+            enforce!OdoodCLIException(
+                project.assembly.get.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
+                "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
+
+            if (project.assembly.get.repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
+                infof("Assembly Sync: Commiting assembly changes...");
+                project.assembly.get.repo.commit(
+                    message: args.option("commit-message") ? args.option("commit-message") : "[SYNC] Assembly synced",
+                    username: args.option("commit-user"),
+                    useremail: args.option("commit-email"));
+            } else {
+                warningf("Assembly Sync: There is no changes to be committed!");
+                if (args.flag("fail-nothing-to-commit"))
+                    throw new OdoodCLIExitException(1);
+                else
+                    return;  // Nothing to commit, so no further processing needed
+            }
+        }
+
+        // Push changes back
+        if (args.flag("push") || args.option("push-to"))
+            project.assembly.get.push(branch_name: args.option("push-to").empty ? null : args.option("push-to"));
     }
 }
 
@@ -187,6 +249,7 @@ class CommandAssembly: OdoodCommand {
     this() {
         super("assembly", "Manage assembly of this project");
         this.add(new CommandAssemblyInit());
+        this.add(new CommandAssemblyUse());
         this.add(new CommandAssemblyStatus());
         this.add(new CommandAssemblySync());
         this.add(new CommandAssemblyLink());
