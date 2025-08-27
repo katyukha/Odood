@@ -41,6 +41,8 @@ class AddonsUpdateException : AddonsInstallUpdateException {
     mixin basicExceptionCtors;
 }
 
+// TODO: Think, may be it have sense to keep OCA modules database in the code,
+//       to be able to automatically resolve dependencies.
 
 /// Struct that provide API to manage odoo addons for the project
 struct AddonManager {

@@ -59,6 +59,9 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
     ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
+    /* TODO: Handle messages:
+     *       - 2025-08-12 13:11:25,120 362 INFO odood18-test-vWm1bNkq odoo.modules.graph: module flights_analysis: Unmet dependencies: tau_core
+     */
 ];
 
 

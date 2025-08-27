@@ -52,6 +52,7 @@ class CommandDatabaseCreate: OdoodCommand {
             "l", "lang",
             "Language of database, specified as ISO code of language."
         ).defaultValue("en_US"));
+        // TODO: Add ability to ask for password interactively
         this.add(new Option(
             null, "password", "Admin password for this database."));
         this.add(new Option(
