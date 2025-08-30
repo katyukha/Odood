@@ -59,10 +59,27 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
     ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
-    /* TODO: Handle messages:
-     *       - 2025-08-12 13:11:25,120 362 INFO odood18-test-vWm1bNkq odoo.modules.graph: module flights_analysis: Unmet dependencies: tau_core
-     */
+    ctRegex!(`odoo.modules.graph: module [a-zA-Z0-9\\._]+: Unmet dependencies: [a-zA-Z0-9\\._,\s]+`),
 ];
+
+unittest {
+    import unit_threaded.assertions;
+
+    bool is_re_error(in string msg) {
+        foreach(check; RE_ERROR_CHECKS)
+           if (msg.matchFirst(check))
+               return true;
+        return false;
+    }
+
+    is_re_error("Field my_field with unknown comodel_name 'my.model'").shouldBeTrue;
+    is_re_error(
+        "2025-08-26 14:56:11,130 501772 INFO odoo18-test odoo.modules.graph: module my_module: Unmet dependencies: other_module"
+    ).shouldBeTrue;
+    is_re_error(
+        "2025-08-26 14:56:11,130 501772 INFO odoo18-test odoo.modules.graph: module my_module: Unmet dependencies: other_module, another_mod"
+    ).shouldBeTrue;
+}
 
 
 /* Regular expression, that could be used to list "safe" warnings,
