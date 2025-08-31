@@ -248,7 +248,9 @@ struct Assembly {
                         break;
                     }
                 }
-                if (!addon_found) {
+                if (addon_found) {
+                    infof("Assembly: Addon %s synced.", addon);
+                } else {
                     errorf("Assembly: Cannot find addon %s!", addon);
                     missing_addon_names ~= addon.name;
                 }
@@ -266,12 +268,13 @@ struct Assembly {
                         }
                     }
                 }
-                if (!addon_found) {
+                if (addon_found) {
+                    infof("Assembly: Addon %s synced.", addon);
+                } else {
                     errorf("Assembly: Cannot find addon %s!", addon);
                     missing_addon_names ~= addon.name;
                 }
             }
-            infof("Assembly: Addon %s synced.", addon);
         }
         enforce!OdoodAssemblyException(
             missing_addon_names.empty,

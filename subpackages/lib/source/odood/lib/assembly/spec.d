@@ -100,9 +100,18 @@ struct AssemblySpecSource {
 
     private this(in Node yaml_node) {
         enforce!OdoodAssemblyException(
-            yaml_node.containsKey("url"),
-            "Invalid spec! Source url not specified");
-        git_url = yaml_node["url"].as!string;
+            yaml_node.containsKey("url") || yaml_node.containsKey("github") || yaml_node.containsKey("oca"),
+            "Invalid spec! Cannot determine url for git source: no 'url' nor 'github' neither 'oca' property specified.");
+        if (yaml_node.containsKey("url"))
+            git_url = yaml_node["url"].as!string;
+        else if (yaml_node.containsKey("github"))
+            git_url = "https://github.com/" ~ yaml_node["github"].as!string;
+        else if (yaml_node.containsKey("oca"))
+            git_url = "https://github.com/oca/" ~ yaml_node["oca"].as!string;
+        else
+            // Should be unreachable, because check at the start of constructor.
+            assert(0, "Invalid spec");
+
         if (yaml_node.containsKey("name"))
             name = yaml_node["name"].as!string;
         if (yaml_node.containsKey("ref"))

@@ -22,6 +22,11 @@ class GitRepository {
 
     @disable this();
 
+    /** Git repository constructor
+      *
+      * Parametrs:
+      *     path = path to git repository
+      **/
     this(in Path path) {
         if (path.join(".git").exists)
             _path = path.toAbsolute;
