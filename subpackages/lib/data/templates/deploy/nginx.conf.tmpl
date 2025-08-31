@@ -16,20 +16,24 @@ map $http_upgrade $connection_upgrade {
   ''      close;
 }
 
-
+{% if config.nginx.ssl_on %}
 # Force SSL (HTTPS)
-#server {
-    #listen   80;
-    #{{ config.nginx.server_name ? "server_name %s;".format(config.nginx.server_name) : ""}}
-
-    #location / {
-        #return 301 https://$host$request_uri;
-    #}
-#}
-
 server {
     listen   80;
-    # listen   443 ssl;
+    {{ config.nginx.server_name ? "server_name %s;".format(config.nginx.server_name) : ""}}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+{% endif %}
+
+server {
+    {% if config.nginx.ssl_on %}
+    listen   443 ssl;
+    {% else %}
+    listen   80;
+    {% endif %}
     {{ config.nginx.server_name ? "server_name %s;".format(config.nginx.server_name) : ""}}
 
     #-----------------------------------------------------------------------
@@ -37,12 +41,13 @@ server {
     error_log   /var/log/nginx/odoo.error.log;
     #-----------------------------------------------------------------------
 
+    {% if config.nginx.ssl_on %}
     #-----------------------------------------------------------------------
     # SSL config
-    #ssl on;
-    #ssl_certificate  /etc/nginx/ssl/server.crt;
-    #ssl_certificate_key /etc/nginx/ssl/server.key;
+    ssl_certificate     {{ config.nginx.ssl_cert }};
+    ssl_certificate_key {{ config.nginx.ssl_key }};
     #-----------------------------------------------------------------------
+    {% endif %}
 
     #-----------------------------------------------------------------------
     # global params for Odoo backend server section
@@ -84,7 +89,9 @@ server {
 
     # Chat and IM related features support
     location ~* ^/(websocket|bus) {
-	    # add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
         proxy_pass http://odoo_websocket;
 
         # Upgrade connection
@@ -107,7 +114,9 @@ server {
         #    allow trusted_network;
         #    allow trusted_ip;
         #    deny all;
-        # add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
         # deny all;
         proxy_pass http://odoo_backend;
     }
@@ -116,7 +125,9 @@ server {
         #    allow trusted_network;
         #    allow trusted_ip;
         #    deny all;
-        # add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
         deny all;
         # proxy_pass http://odoo_backend;
     }
@@ -125,7 +136,9 @@ server {
         #    allow trusted_network;
         #    allow trusted_ip;
         #    deny all;
-	    # add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
         deny all;
         # proxy_pass http://odoo_backend;
     }
@@ -136,7 +149,9 @@ server {
         proxy_cache_valid 200 60m;
         proxy_buffering    on;
         expires 864000;
-        # add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
         proxy_pass         http://odoo_backend;
     }
 }

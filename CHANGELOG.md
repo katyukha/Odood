@@ -1,5 +1,16 @@
 # Changelog
 
+## Release 0.5.0 (Unreleased)
+
+### Added
+
+- New options to `odood deploy` command:
+  - `local-nginx-ssl` to enable SSL configuration for local nginx
+  - `local-nginx-ssl-key` choose path to ssl key for the server
+  - `local-nginx-ssl-cert` choose paht to ssl certificate for the server
+
+---
+
 ## Release 0.4.4 (2025-08-03)
 
 ### Added

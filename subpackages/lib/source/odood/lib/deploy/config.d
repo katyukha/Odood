@@ -65,6 +65,11 @@ struct DeployConfigNginx {
     bool enable = false;
     string server_name = null;
 
+
+    bool ssl_on = false;
+    Path ssl_cert = Path("/", "etc", "nginx", "ssl", "server.crt");
+    Path ssl_key = Path("/", "etc", "nginx", "ssl", "server.key");
+
     Path config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
 }
 
@@ -156,6 +161,14 @@ struct DeployConfig {
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Enable fail2ban requested, but it seems that fail2ban is not available", true);
+        if (this.nginx.ssl_on) {
+            enforce!OdoodDeployException(
+                this.nginx.ssl_key.exists(),
+                "SSL enabled, but provided SSL key (%s) does not exists!".format(this.nginx.ssl_key));
+            enforce!OdoodDeployException(
+                this.nginx.ssl_cert.exists(),
+                "SSL enabled, but provided SSL certificate (%s) does not exists!".format(this.nginx.ssl_cert));
+        }
     }
 
     /** Prepare odoo configuration file for this deployment
