@@ -7,9 +7,10 @@ private import std.exception: enforce;
 private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable;
-private import std.array: empty, join, array;
+private import std.array: empty, join, array, split;
 private import std.algorithm: map, canFind, uniq;
 private import std.range: chain;
+private import std.process: environment;
 
 private import dyaml;
 private import thepath: Path;
@@ -171,6 +172,34 @@ struct Assembly {
         return getSourceCachePath(source.get);
     }
 
+    private auto getSourceExtraEnv(in AssemblySpecSource source) const {
+        string[string] result;
+        if (source.name.empty)
+            // Ignore unnamed sources
+            return result;
+        if ("ODOOD_ASSEMBLY_%s_CRED".format(source.name) in environment) {
+            string[] creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.name)].split(":");
+            enforce!OdoodAssemblyException(
+                creds.length == 2,
+                "Cannot parse creds from environment for source %s".format(source.name));
+            enforce!OdoodAssemblyException(
+                "GIT_CONFIG_COUNT" !in environment,
+                "Assembly source creds via environment not supported, when GIT_CONFIG_COUNT is present in environment.");
+            enforce!OdoodAssemblyException(
+                source.git_url.scheme == "https",
+                "Assembly source creds via environment not supported for non-https sources.");
+            string user = creds[0];
+            string pass = creds[1];
+            result["ODOOD__INT__ASSEMBLY_SOURCE_PASS"] = pass;
+            result["GIT_CONFIG_COUNT"] = "2";
+            result["GIT_CONFIG_KEY_0"] = "credential.username";
+            result["GIT_CONFIG_VALUE_0"] = user;
+            result["GIT_CONFIG_KEY_1"] = "credential.helper";
+            result["GIT_CONFIG_VALUE_1"] = "!f() { test \"$1\" = get && echo \"password=${ODOOD__INT__ASSEMBLY_SOURCE_PASS}\"; }; f";
+        }
+        return result;
+    }
+
     /** Sync sources for assembly
       *
       * This method will clone sources related to this assembly to the cache
@@ -183,7 +212,7 @@ struct Assembly {
             if (repo_path.exists && !repo_path.isGitRepo)
                 repo_path.remove();
             if (repo_path.exists) {
-                auto repo = new GitRepository(repo_path);
+                auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
                 if (source.git_ref) {
                     repo.fetchOrigin(source.git_ref);
                     repo.switchBranchTo("origin/%s".format(source.git_ref));
@@ -195,7 +224,8 @@ struct Assembly {
                     repo: source.git_url,
                     dest: repo_path,
                     branch: source.git_ref ? source.git_ref : serie.toString,
-                    single_branch: true);
+                    single_branch: true,
+                    env: getSourceExtraEnv(source));
             }
             infof("Assembly: source %s synced.", source);
         }
@@ -239,7 +269,7 @@ struct Assembly {
 
                 auto source_path = getSourceCachePath(source);
                 bool addon_found = false;
-                tracef("Searching for addon %s insude %s", addon.name, source_path);
+                tracef("Searching for addon %s inside %s", addon.name, source_path);
                 foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                     if (s_addon.name == addon.name) {
                         s_addon.path.copyTo(dist_dir.join(addon.name));
@@ -258,7 +288,7 @@ struct Assembly {
                 bool addon_found = false;
                 foreach(source; spec.sources) {
                     auto source_path = getSourceCachePath(source);
-                    tracef("Searching for addon %s insude %s", addon.name, source_path);
+                    tracef("Searching for addon %s inside %s", addon.name, source_path);
                     foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                         if (s_addon.name == addon.name) {
                             s_addon.path.copyTo(dist_dir.join(addon.name));

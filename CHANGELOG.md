@@ -9,6 +9,8 @@
   - `local-nginx-ssl-key` choose path to ssl key for the server
   - `local-nginx-ssl-cert` choose paht to ssl certificate for the server
 - Git sources in assembly spec now supports shortucts `github` and `oca` that allows to simplify configuration of git sources
+- During assembly sync, Odood can automatically apply acccess credentials from env variable: ODOOD_ASSEMBLY_repo_name_CRED
+  The format of this variable is `username:password`
 
 ---
 
