@@ -174,14 +174,18 @@ struct Assembly {
 
     private auto getSourceExtraEnv(in AssemblySpecSource source) const {
         string[string] result;
-        if (source.name.empty)
-            // Ignore unnamed sources
-            return result;
-        if ("ODOOD_ASSEMBLY_%s_CRED".format(source.name) in environment) {
-            string[] creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.name)].split(":");
+
+        // Try to find creds in environment
+        string[] creds;
+        if (!source.name.empty && "ODOOD_ASSEMBLY_%s_CRED".format(source.name) in environment)
+            creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.name)].split(":");
+        else if (!source.access_group.empty && "ODOOD_ASSEMBLY_%s_CRED".format(source.access_group) in environment)
+            creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.access_group)].split(":");
+
+        if (creds.length > 0) {
             enforce!OdoodAssemblyException(
                 creds.length == 2,
-                "Cannot parse creds from environment for source %s".format(source.name));
+                "Cannot parse creds from environment for %s".format(source.name.empty ? source.access_group : source.name));
             enforce!OdoodAssemblyException(
                 "GIT_CONFIG_COUNT" !in environment,
                 "Assembly source creds via environment not supported, when GIT_CONFIG_COUNT is present in environment.");

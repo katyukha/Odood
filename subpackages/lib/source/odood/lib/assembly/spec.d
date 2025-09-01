@@ -79,10 +79,18 @@ struct AssemblySpecAddon {
 
 struct AssemblySpecSource {
 
-    // Name could be used to reffer to this 
+    /// Name could be used to reffer to this
     string name=null;
+
+    /// URL of git repository
     GitURL git_url;
+
+    /// Reference to fetch (usually branch name)
     string git_ref;
+
+    /// Access group: name of access credential to apply to this repo
+    /// Credentials usually provided via environment variablse
+    string access_group=null;
 
     /// Hash
     @property hashString() const {
@@ -92,10 +100,11 @@ struct AssemblySpecSource {
         return sha1Of(res).toHexString();
     }
 
-    private this(GitURL git_url, in string name=null, in string git_ref=null) {
+    private this(GitURL git_url, in string name=null, in string git_ref=null, in string access_group=null) {
         this.git_url = git_url;
         this.name = name;
         this.git_ref = git_ref;
+        this.access_group = access_group;
     }
 
     private this(in Node yaml_node) {
@@ -116,6 +125,8 @@ struct AssemblySpecSource {
             name = yaml_node["name"].as!string;
         if (yaml_node.containsKey("ref"))
             git_ref = yaml_node["ref"].as!string;
+        if (yaml_node.containsKey("access-group"))
+            access_group = yaml_node["access-group"].as!string;
     }
 
     private Node toYAML() const {
