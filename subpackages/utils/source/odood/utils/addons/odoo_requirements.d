@@ -46,7 +46,7 @@ OdooRequirementsLine[] parseOdooRequirements(in string content) {
             args.popFront;
 
             switch (arg) {
-                case "--repo":
+                case "--repo", "-r":
                     rline.type = OdooRequirementsLineType.repo;
                     rline.repo_url = args.front;
                     args.popFront;
