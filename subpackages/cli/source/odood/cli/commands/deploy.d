@@ -75,6 +75,9 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+
+        // TODO: Add option to automatically install extra dependencies (including wktmltopdf)
+        //       Ensure that Odood can do it automatically
     }
 
     DeployConfig parseDeployOptions(ProgramArgs args) {

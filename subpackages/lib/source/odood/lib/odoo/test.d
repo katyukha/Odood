@@ -244,6 +244,8 @@ struct OdooTestRunner {
 
     // Populate data before test (useful for migration testing)
     // TODO: Also handle case, when addon is not available on start ref
+    // TODO: This works only for Odoo 17 and below.
+    // Odoo 18 changed the way population work and it does not have sense now.
     private string[] _populate_models=[];
     private string _populate_size="small";
 
