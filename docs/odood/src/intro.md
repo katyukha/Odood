@@ -1,11 +1,12 @@
 # Introduction
 
-![The Rust Logo](images/odood-logo.128.png)
+![The Odood Logo](images/odood-logo.128.png)
 
 ## Overview
 
-This project aims to simplify the process of development and maintenance
-of addons developer for Odoo.
+This project aims to simplify following processes:
+- development and maintenance of addons for Odoo
+- deployment and maintenance of Odoo servers.
 
 This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/)
 
@@ -51,7 +52,7 @@ Theoretically if should work on MacOS also.
 
 ## Supported Odoo versions
 
-- Odoo 18.0 (experimental)
+- Odoo 18.0 (tested)
 - Odoo 17.0 (tested)
 - Odoo 16.0 (tested)
 - Odoo 15.0 (tested)
