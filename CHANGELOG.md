@@ -14,6 +14,7 @@
   - Added support for access groups (`access-group` for sources in `odood-assembly.yml`), this way it is possible to use same token for multiple repos.
     The name is `ODOOD_ASSEMBLY_access_group_CRED`
   - The format of `ODOOD_ASSEMBLY_<group/repo>_CRED` variable is `username:password`
+- During assembly upgrade, check for unfinished install/upgrade and print waring if there are any unfinished install/upgrade/uninstall
 
 ---
 

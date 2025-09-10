@@ -509,5 +509,11 @@ struct OdooDatabaseManager {
     auto get(in string dbname) const {
         return OdooDatabase(_project, dbname);
     }
+
+    /** Get database by name (as index operation)
+      **/
+    auto opIndex(in string dbname) const {
+        return this.get(dbname);
+    }
 }
 

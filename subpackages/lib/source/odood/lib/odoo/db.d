@@ -177,6 +177,41 @@ package(odood.lib) struct OdooDatabase {
         return isAddonInstalled(addon.name);
     }
 
+    /** Get information about unfinished (install/update/uninstall) of modules.
+      *
+      * Returns:
+      *     List of structs, where each contains following keys
+      *     - addon_name - name of addon
+      *     - addon_state - state of addon in database
+      *     - is_available - True if addon is available in system
+      **/
+    auto getUnfinishedUpdates() {
+        import std.string: join;
+        auto res_m = runSQLQuery(
+            "SELECT name, state
+             FROM ir_module_module
+             WHERE state ILIKE 'to %'
+             ORDER BY name ASC;");
+
+        struct Result {
+            string addon_name;
+            string addon_state;
+            bool is_available;
+        }
+
+        Result[] result;
+
+        foreach(row; res_m) {
+            string addon_name = row["name"].as!string;
+            result ~= Result(
+                addon_name: addon_name,
+                addon_state: row["state"].as!string,
+                is_available: _project.addons.getByName(addon_name).isNull,
+            );
+        }
+        return result;
+    }
+
     void neutralize() {
         infof("Neutralizing database %s...", _dbname);
         auto installed_addons = runSQLQuery(
