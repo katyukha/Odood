@@ -15,6 +15,7 @@
     The name is `ODOOD_ASSEMBLY_access_group_CRED`
   - The format of `ODOOD_ASSEMBLY_<group/repo>_CRED` variable is `username:password`
 - During assembly upgrade, check for unfinished install/upgrade and print waring if there are any unfinished install/upgrade/uninstall
+- Added new option `assembly-repo` for `odood deploy` command, that allows to automatically configure deployed instance to use specified assembly.
 
 ---
 

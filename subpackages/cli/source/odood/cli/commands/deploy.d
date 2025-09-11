@@ -7,6 +7,7 @@ private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: octal;
 private import std.range: empty;
+private import std.typecons: nullable;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -22,6 +23,7 @@ private import odood.lib.venv: PyInstallType, VenvOptions;
 private import odood.lib.odoo.python: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
+private import odood.git: GitURL;
 
 private import odood.lib.deploy;
 
@@ -75,6 +77,10 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+
+        this.add(new Option(
+            null, "assembly-repo",
+            "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine."));
 
         // TODO: Add option to automatically install extra dependencies (including wktmltopdf)
         //       Ensure that Odood can do it automatically
@@ -155,6 +161,9 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("log-to-stderr"))
             config.odoo.log_to_stderr = true;
+
+        if (!args.option("assembly-repo").empty)
+            config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;
 
         return config;
     }

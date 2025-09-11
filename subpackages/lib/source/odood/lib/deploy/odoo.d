@@ -196,6 +196,12 @@ Project deployOdoo(in DeployConfig config) {
     // but will not be allowed to change existing files.
     project.project_root.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
 
+    // Initialize assembly if specified
+    if (!config.assembly_repo.isNull) {
+        project.initializeAssembly(config.assembly_repo.get);
+        project.assembly.get.link();
+    }
+
     // Create postgresql user if "local-postgres" is selected and no user exists
     if (config.database.local_postgres)
         /* In this case we need to create postgres user
