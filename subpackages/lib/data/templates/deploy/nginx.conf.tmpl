@@ -88,6 +88,7 @@ server {
     }
 
     # Chat and IM related features support
+    {% if config.odoo.serie >= 16 %}
     location ~* ^/(websocket|bus) {
         {% if config.nginx.ssl_on %}
 	    add_header Content-Security-Policy "upgrade-insecure-requests";
@@ -107,6 +108,23 @@ server {
         # Disable proxy buffering
         proxy_buffering off;
     }
+    {% else %}
+    location /longpolling {
+        {% if config.nginx.ssl_on %}
+	    add_header Content-Security-Policy "upgrade-insecure-requests";
+        {% endif %}
+        proxy_pass http://odoo_websocket;
+
+        # Increase timeouts for websockets
+        proxy_connect_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_read_timeout 3600s;
+
+        # Disable proxy buffering
+        proxy_buffering off;
+    }
+    {% endif %}
+
 
     # Restrict access
     location ~* ^/(web/database/) {
