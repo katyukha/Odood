@@ -4,6 +4,7 @@ private import std.conv: to;
 private import std.range: empty;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.typecons: Nullable;
 
 private import thepath: Path;
 private import theprocess: Process, resolveProgram;
@@ -21,6 +22,7 @@ private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString, checkSystemUserExists;
+private import odood.git: GitURL;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
 
@@ -65,6 +67,11 @@ struct DeployConfigNginx {
     bool enable = false;
     string server_name = null;
 
+
+    bool ssl_on = false;
+    Path ssl_cert = Path("/", "etc", "nginx", "ssl", "server.crt");
+    Path ssl_key = Path("/", "etc", "nginx", "ssl", "server.key");
+
     Path config_path = Path("/", "etc", "nginx", "conf.d", "odoo.conf");
 }
 
@@ -87,6 +94,8 @@ struct DeployConfig {
     bool fail2ban_enable = false;
     Path fail2ban_filter_path = Path("/", "etc", "fail2ban", "filter.d", "odoo-auth.conf");
     Path fail2ban_jail_path = Path("/", "etc", "fail2ban", "jail.d", "odoo-auth.conf");
+
+    Nullable!GitURL assembly_repo;
 
     /** Validate deploy config
       * Throw exception if config is not valid.
@@ -156,6 +165,14 @@ struct DeployConfig {
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Enable fail2ban requested, but it seems that fail2ban is not available", true);
+        if (this.nginx.ssl_on) {
+            enforce!OdoodDeployException(
+                this.nginx.ssl_key.exists(),
+                "SSL enabled, but provided SSL key (%s) does not exists!".format(this.nginx.ssl_key));
+            enforce!OdoodDeployException(
+                this.nginx.ssl_cert.exists(),
+                "SSL enabled, but provided SSL certificate (%s) does not exists!".format(this.nginx.ssl_cert));
+        }
     }
 
     /** Prepare odoo configuration file for this deployment
@@ -185,6 +202,7 @@ struct DeployConfig {
             odoo_config["options"].setKey("http_port", odoo.http_port);
         }
 
+        // TODO: Configure automatically, set memory limits based on available RAM and CPU
         odoo_config["options"].setKey("workers", odoo.workers.to!string);
 
         if (odoo.proxy_mode || nginx.enable)

@@ -19,14 +19,28 @@ private import odood.git: getGitTopLevel, GIT_REF_WORKTREE, GitURL;
   **/
 class GitRepository {
     private const Path _path;
+    private const string[string] _env;
 
     @disable this();
 
-    this(in Path path) {
+    /** Git repository constructor
+      *
+      * Parametrs:
+      *     path = path to git repository
+      *     env = optional dict with additional environment variables to be applied for each git operation.
+      *           This could be used to pass access tokens for example.
+      **/
+    this(in Path path, in string[string] env=null) {
         if (path.join(".git").exists)
             _path = path.toAbsolute;
         else
             _path = getGitTopLevel(path);
+
+        // Copy env
+        string[string] tmp_env;
+        foreach(i; env.byKeyValue)
+            tmp_env[i.key] = i.value;
+        _env = tmp_env;
     }
 
     /// Return path for this repo
@@ -45,6 +59,7 @@ class GitRepository {
     /// Preconfigured runner for git CLI
     auto gitCmd() const {
         return Process("git")
+            .withEnv(_env)
             .inWorkDir(_path);
     }
 

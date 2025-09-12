@@ -34,6 +34,17 @@ spec:
     ref: '17.0'
 ```
 
+Following shortcuts available for sources, to make spec more readable:
+
+```yaml
+spec:
+  addons-list:
+  - name: generic_mixin
+  sources-list:
+  - github: crnd-inc/generic-addons  # converted to https://github.com/crnd-inc/generic-addons
+  - oca: web  # converted to https://github.com/OCA/web
+```
+
 ## Assembly workflow
 
 Typical assembly workflow could be splitted on two parts:
@@ -80,7 +91,7 @@ spec:
     - name: my_addon
   sources-list:
     - url: https://github.com/my/repo
-      ref: 17.0url: https://github.com/my/repo
+      ref: 17.0
 ```
 
 As next step, we have to *sync* the assembly, to make Odood pull latest versions of selected modules from specified sources.
@@ -148,3 +159,25 @@ This group contains following commands:
 
 Also, command `odood addons find-installed` could be used to generate spec for assembly based on third-party addons installed in specified database(s).
 This is useful to migrate already existing Odood project to use assembly instead of multiple repositories.
+
+## Private git sources
+
+Assemblies can clone private git repostitories via access tokens.
+For each source in spec, it is possible to specify `name` or `access-group`,
+that could be used to check environment variables for access credentials to clone specified sources.
+
+For example, if following source defined:
+
+```yaml
+spec:
+  addons-list:
+    - name: my_addon
+  sources-list:
+    - github: my/private-repo
+      ref: 17.0
+      access-group: my_repos
+```
+
+Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
+The format for this variable is: `user:token`
+

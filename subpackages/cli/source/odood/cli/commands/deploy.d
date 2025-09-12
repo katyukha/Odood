@@ -7,6 +7,7 @@ private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: octal;
 private import std.range: empty;
+private import std.typecons: nullable;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -22,6 +23,7 @@ private import odood.lib.venv: PyInstallType, VenvOptions;
 private import odood.lib.odoo.python: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
+private import odood.git: GitURL;
 
 private import odood.lib.deploy;
 
@@ -50,10 +52,17 @@ class CommandDeploy: OdoodCommand {
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
 
+        // TODO: Add support for automatic integration with certbot
         this.add(new Flag(
             null, "local-nginx", "Autoconfigure local nginx (requires nginx installed)"));
         this.add(new Option(
             null, "local-nginx-server-name", "Servername for nginx config."));
+        this.add(new Flag(
+            null, "local-nginx-ssl", "Enable SSL for local nginx"));
+        this.add(new Option(
+            null, "local-nginx-ssl-cert", "Path to SSL certificate for local nginx."));
+        this.add(new Option(
+            null, "local-nginx-ssl-key", "Path to SSL key for local nginx."));
 
         this.add(new Flag(
             null, "enable-logrotate", "Enable logrotate for Odoo."));
@@ -68,6 +77,13 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+
+        this.add(new Option(
+            null, "assembly-repo",
+            "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine."));
+
+        // TODO: Add option to automatically install extra dependencies (including wktmltopdf)
+        //       Ensure that Odood can do it automatically
     }
 
     DeployConfig parseDeployOptions(ProgramArgs args) {
@@ -113,6 +129,14 @@ class CommandDeploy: OdoodCommand {
         if (args.flag("local-nginx")) {
             config.nginx.enable = true;
             config.nginx.server_name = args.option("local-nginx-server-name");
+            config.nginx.ssl_on = args.flag("local-nginx-ssl");
+
+            if (config.nginx.ssl_on && !args.option("local-nginx-ssl-cert").empty)
+                config.nginx.ssl_cert = Path(args.option("local-nginx-ssl-cert"));
+
+            if (config.nginx.ssl_on && !args.option("local-nginx-ssl-key").empty)
+                config.nginx.ssl_key = Path(args.option("local-nginx-ssl-key"));
+
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
         }
@@ -138,6 +162,9 @@ class CommandDeploy: OdoodCommand {
         if (args.flag("log-to-stderr"))
             config.odoo.log_to_stderr = true;
 
+        if (!args.option("assembly-repo").empty)
+            config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;
+
         return config;
     }
 
@@ -150,7 +177,6 @@ class CommandDeploy: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        // TODO: run only as root
         /* Plan:
          * 0. Update locales
          * 1. Deploy Odoo in /opt/odoo

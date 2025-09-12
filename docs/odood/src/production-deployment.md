@@ -30,3 +30,14 @@ This Odoo instance will be managed by `systemd` service.
 **Note:** on production installation each call to `odood` have to be run as `sudo` or from superuser. Odood will automatically handle switching access rights when needed.
 
 Also, it is recommended to use [assembly](./assembly.md) functionality to manage third-party addons on production instances.
+This way, it is possible to deploy server in following way:
+
+```bash
+sudo odood deploy -v 18 \
+    --local-postgres \
+    --supervisor=systemd \
+    --assembly-repo=htpps://github.com/my/assembly
+```
+
+This way, server will be automatically configured to use assembly `htpps://github.com/my/assembly`
+

@@ -96,6 +96,7 @@ void installOdoo(in Project project) {
     string[] py_packages = [
         "phonenumbers", "python-slugify",
         "cffi", "python-magic", "lodoo",
+        "packaging",
     ];
 
     // Add version-specific py packages

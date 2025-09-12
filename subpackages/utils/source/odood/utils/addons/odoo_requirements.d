@@ -46,7 +46,7 @@ OdooRequirementsLine[] parseOdooRequirements(in string content) {
             args.popFront;
 
             switch (arg) {
-                case "--repo":
+                case "--repo", "-r":
                     rline.type = OdooRequirementsLineType.repo;
                     rline.repo_url = args.front;
                     args.popFront;
@@ -126,6 +126,50 @@ unittest {
     }
 
     with (res[2]) {
+        type.shouldEqual(OdooRequirementsLineType.odoo_apps);
+        repo_url.shouldBeNull;
+        branch.shouldBeNull;
+        addon.shouldEqual("generic_request");
+    }
+}
+
+//
+unittest {
+    import unit_threaded.assertions;
+
+    auto res = parseOdooRequirements("
+# Some comment
+--github crnd-inc/crnd-web
+# Some other comment for line with incorret ident
+-r https://github.com/crnd-inc/generic-addons.git
+--oca web
+
+--odoo-apps generic_request # Some comment
+");
+
+    res.length.shouldEqual(4);
+
+    with (res[0]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/crnd-inc/crnd-web");
+        branch.shouldBeNull;
+        addon.shouldBeNull;
+    }
+
+    with (res[1]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/crnd-inc/generic-addons.git");
+        branch.shouldBeNull;
+        addon.shouldBeNull;
+    }
+
+    with (res[2]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/OCA/web");
+        branch.shouldBeNull;
+        addon.shouldBeNull;
+    }
+    with (res[3]) {
         type.shouldEqual(OdooRequirementsLineType.odoo_apps);
         repo_url.shouldBeNull;
         branch.shouldBeNull;

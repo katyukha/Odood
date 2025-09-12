@@ -4,8 +4,9 @@ private import std.logger: infof, warningf;
 private import std.json;
 private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
-private import std.array: empty;
+private import std.array: empty, join;
 private import std.format: format;
+private import std.algorithm: map;
 
 private import colored;
 private import commandr: Argument, Option, Flag, ProgramArgs;
@@ -223,6 +224,18 @@ class CommandAssemblyUpgrade: OdoodCommand {
                 );
                 project.addons.update(db, addons);
             });
+
+            auto unfinished_updates = project.databases[db].getUnfinishedUpdates();
+            if (unfinished_updates.length > 0) {
+                warningf(
+                    "db (%s) - there are unfinished install/update/uninstall of " ~
+                    "following addons: %s",
+                    db, unfinished_updates.map!((line) {
+                        return "%s (state=%s, is_available=%s)".format(
+                            line.addon_name, line.addon_state, line.is_available
+                        );
+                    }).join(", "));
+            }
 
             if (error_info.has_error) {
                 error = true;

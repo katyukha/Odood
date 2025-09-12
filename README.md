@@ -1,6 +1,6 @@
 # Odood
 
-The easy way to install and manage odoo for local development.
+The easy way to install and manage odoo for local development and production.
 This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/) and is compatible with
 odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/).
 
@@ -16,8 +16,9 @@ odoo installations made by [odoo-helper-scripts](https://katyukha.gitlab.io/odoo
 
 ## Overview
 
-This project aims to simplify the process of development and maintenance
-of addons developer for Odoo.
+This project aims to simplify following processes:
+- development and maintenance of addons for Odoo
+- deployment and maintenance of Odoo servers.
 
 This project is successor of [odoo-helper-scripts](https://katyukha.gitlab.io/odoo-helper-scripts/)
 
@@ -56,18 +57,18 @@ Thanks.
 
 ## Supported Odoo versions
 
-- Odoo 7.0 (partial)
-- Odoo 8.0 (best efforts)
-- Odoo 9.0 (best efforts)
-- Odoo 10.0 (best efforts)
-- Odoo 11.0 (best efforts)
-- Odoo 12.0 (tested)
-- Odoo 13.0 (tested)
-- Odoo 14.0 (tested)
-- Odoo 15.0 (tested)
-- Odoo 16.0 (tested)
-- Odoo 17.0 (tested)
 - Odoo 18.0 (tested)
+- Odoo 17.0 (tested)
+- Odoo 16.0 (tested)
+- Odoo 15.0 (tested)
+- Odoo 14.0 (tested)
+- Odoo 13.0 (tested)
+- Odoo 12.0 (tested)
+- Odoo 11.0 (best efforts)
+- Odoo 10.0 (best efforts)
+- Odoo 9.0 (best efforts)
+- Odoo 8.0 (best efforts)
+- Odoo 7.0 (partial)
 
 ## Prebuild docker-images with preinstalled Odoo and Odood
 

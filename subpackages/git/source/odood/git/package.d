@@ -26,7 +26,8 @@ GitRepository gitClone(
         in GitURL repo,
         in Path dest,
         in string branch=null,
-        in bool single_branch=false) {
+        in bool single_branch=false,
+        in string[string] env=null) {
     enforce!OdoodException(
         dest.isValid,
         "Cannot clone repo %s! Destination path %s is invalid!".format(
@@ -37,6 +38,7 @@ GitRepository gitClone(
     infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
     auto proc = Process("git")
+        .withEnv(env)
         .withArgs("clone");
     if (branch)
         proc.addArgs("-b", branch);

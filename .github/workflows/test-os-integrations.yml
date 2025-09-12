@@ -153,6 +153,9 @@ jobs:
           dub run d-cobertura@1.0.0 -- - *.lst
           rm -f ./*.lst
 
+      - name: Install coverage dependencies
+        run: apt-get install --no-install-recommends -yq curl gpg
+
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v5
         with:

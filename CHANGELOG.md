@@ -1,5 +1,24 @@
 # Changelog
 
+## Release 0.5.0 (2025-09-12)
+
+### Added
+
+- New options to `odood deploy` command:
+  - `local-nginx-ssl` to enable SSL configuration for local nginx
+  - `local-nginx-ssl-key` choose path to ssl key for the server
+  - `local-nginx-ssl-cert` choose paht to ssl certificate for the server
+- Git sources in assembly spec now supports shortucts `github` and `oca` that allows to simplify configuration of git sources
+- During assembly sync, Odood can automatically apply acccess credentials from env variables:
+  - For named sources `ODOOD_ASSEMBLY_repo_name_CRED`
+  - Added support for access groups (`access-group` for sources in `odood-assembly.yml`), this way it is possible to use same token for multiple repos.
+    The name is `ODOOD_ASSEMBLY_access_group_CRED`
+  - The format of `ODOOD_ASSEMBLY_<group/repo>_CRED` variable is `username:password`
+- During assembly upgrade, check for unfinished install/upgrade and print waring if there are any unfinished install/upgrade/uninstall
+- Added new option `assembly-repo` for `odood deploy` command, that allows to automatically configure deployed instance to use specified assembly.
+
+---
+
 ## Release 0.4.4 (2025-08-03)
 
 ### Added

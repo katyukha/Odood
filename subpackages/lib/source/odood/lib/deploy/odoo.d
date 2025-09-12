@@ -42,7 +42,7 @@ private void deployInitScript(in Project project) {
         .withArgs("odoo", "defaults")
         .execute
         .ensureOk(true);
-    infof("Init script configred successfully. Odoo will be started at startup.");
+    infof("Init script (%s) configred successfully. Odoo will be started at startup.", project.odoo.server_init_script_path);
 }
 
 
@@ -72,7 +72,7 @@ private void deploySystemdConfig(in Project project) {
         .execute
         .ensureOk(true);
 
-    infof("Systemd configred successfully. Odoo will be started at startup.");
+    infof("Systemd (%s) configred successfully. Odoo will be started at startup.", project.odoo.server_systemd_service_path);
 }
 
 
@@ -86,7 +86,7 @@ private void deployLogrotateConfig(in Project project, in DeployConfig config) {
     config.logrotate_config_path.setAttributes(octal!755);
     config.logrotate_config_path.chown("root", "root");
 
-    infof("Logrotate configured successfully.");
+    infof("Logrotate configured successfully. Config: %s", config.logrotate_config_path);
 }
 
 
@@ -108,7 +108,7 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
         .execute
         .ensureOk(true);
 
-    infof("Nginx configured successfully.");
+    infof("Nginx configured successfully. Config: %s", config.nginx.config_path);
 }
 
 
@@ -137,7 +137,9 @@ private void deployFail2banConfig(in Project project, in DeployConfig config) {
         .execute
         .ensureOk(true);
 
-    infof("Fail2ban configured successfully.");
+    infof(
+        "Fail2ban configured successfully. Filter config: %s, jail config: %s",
+        config.fail2ban_filter_path, config.fail2ban_jail_path);
 }
 
 
@@ -194,6 +196,12 @@ Project deployOdoo(in DeployConfig config) {
     // but will not be allowed to change existing files.
     project.project_root.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
 
+    // Initialize assembly if specified
+    if (!config.assembly_repo.isNull) {
+        project.initializeAssembly(config.assembly_repo.get);
+        project.assembly.get.link();
+    }
+
     // Create postgresql user if "local-postgres" is selected and no user exists
     if (config.database.local_postgres)
         /* In this case we need to create postgres user
@@ -233,6 +241,3 @@ Project deployOdoo(in DeployConfig config) {
     infof("Odoo deployed successfully.");
     return project;
 }
-
-
-
