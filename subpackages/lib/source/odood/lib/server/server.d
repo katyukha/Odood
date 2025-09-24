@@ -24,7 +24,7 @@ private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
 private import theprocess: Process;
 
-immutable auto DEFAULT_START_TIMEOUT = 5.seconds;
+immutable auto DEFAULT_START_TIMEOUT = 8.seconds;
 
 
 package(odood) struct CoverageOptions {
