@@ -277,10 +277,18 @@ struct OdooServer {
                     .ensureOk(true);
                 break;
         }
+        // Here we check if server was really started, by checking server PID
         if (wait_timeout != Duration.zero) {
             for(long i=0; i < wait_timeout.total!"seconds"; i++)
-                if (!isRunning)
+                if (isRunning)
+                    // If server is running, there is no need to wait more time
+                    return;
+                else
+                    // If server is not running yet, sleep for one second.
                     Thread.sleep(1.seconds);
+            // Ensure server was started. We reached wait limit,
+            // and expect that server was started.
+            // If it is not started yet, then it is error.
             enforce!OdoodException(
                 isRunning,
                 "Cannot start Odoo!");
