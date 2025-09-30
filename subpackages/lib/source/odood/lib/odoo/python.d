@@ -48,6 +48,8 @@ string suggestPythonVersion(in OdooSerie serie) {
         return "3.10.18";
     if (serie == OdooSerie(18))
         return "3.10.18";
+    if (serie == OdooSerie(18))
+        return "3.12.11";
     return "3.10.18";
 }
 
@@ -67,6 +69,8 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
     if (serie <= OdooSerie(18))
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
+    if (serie <= OdooSerie(19))
+        return (py_version >= Version(3, 10) && py_version < Version(3, 13));
 
     /// Unknown odoo version
     return false;
