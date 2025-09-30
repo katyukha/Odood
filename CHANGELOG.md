@@ -1,5 +1,13 @@
 # Changelog
 
+## Release 0.5.1
+
+### Added
+
+- Experimental support for Odoo 19
+
+---
+
 ## Release 0.5.0 (2025-09-12)
 
 ### Added
