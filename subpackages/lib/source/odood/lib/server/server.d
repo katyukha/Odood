@@ -115,13 +115,12 @@ struct OdooServer {
         if (env)
             foreach(k, v; env) res[k] = v;
 
-        if (_test_mode) {
-            res["OPENERP_SERVER"] = _project.odoo.testconfigfile.toString;
-            res["ODOO_RC"] = _project.odoo.testconfigfile.toString;
-        } else {
-            res["OPENERP_SERVER"] = _project.odoo.configfile.toString;
-            res["ODOO_RC"] = _project.odoo.configfile.toString;
-        }
+        string odoo_rc_env_var = _project.odoo.serie > 10 ? "ODOO_RC" : "OPENERP_SERVER";
+        if (_test_mode)
+            res[odoo_rc_env_var] = _project.odoo.testconfigfile.toString;
+        else
+            res[odoo_rc_env_var] = _project.odoo.configfile.toString;
+
         // TODO: Add ability to parse .env files and forward environment variables to Odoo process
         //       This will allow to run Odoo in docker containers and locally in similar way.
         return res;
