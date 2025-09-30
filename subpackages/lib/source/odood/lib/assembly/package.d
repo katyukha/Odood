@@ -210,6 +210,8 @@ struct Assembly {
       **/
     package(odood) void syncSources() const {
         infof("Assembly: syncing sources...");
+        // TODO: make it parallel and depth=1
+        // TODO: add timing to understand time consumed by sync of specific repo
         foreach(source; _spec.sources) {
             infof("Assembly: syncing source %s ...", source);
             auto repo_path = getSourceCachePath(source);
@@ -243,6 +245,7 @@ struct Assembly {
     package(odood) void syncAddons() {
         // Cleanup old addons
         infof("Assembly: Clenaning addons before syncing...");
+        // TODO: try to make it parallel
         foreach(p; dist_dir.walk) {
             repo.remove(
                 path: p,
