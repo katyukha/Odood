@@ -351,7 +351,7 @@ unittest {
     // Create database use for odoo 19 instance
     createDbUser("odood19test", "odoo");
 
-    auto project = new Project(temp_path, OdooSerie(18));
+    auto project = new Project(temp_path, OdooSerie(19));
     auto odoo_conf = OdooConfigBuilder(project)
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
