@@ -49,6 +49,7 @@ struct DeployConfigOdoo {
     uint workers=0;
 
     string server_user="odoo";
+    // TODO: Add configuration to automatically patch system config to use system ssl certificates for requests
     ProjectServerSupervisor server_supervisor=ProjectServerSupervisor.Systemd;
     Path server_init_script_path = Path(
         "/", "etc", "init.d", "odoo");

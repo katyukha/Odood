@@ -276,12 +276,13 @@ struct Assembly {
 
                 auto source_path = getSourceCachePath(source);
                 bool addon_found = false;
-                tracef("Searching for addon %s inside %s", addon.name, source_path);
+                tracef("Searching for addon %s inside %s", addon.name, source);
                 foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                     if (s_addon.name == addon.name) {
                         s_addon.path.copyTo(dist_dir.join(addon.name));
                         repo.add(dist_dir.join(addon.name));
                         addon_found = true;
+                        tracef("Addon %s from %s source added.", addon.name, source);
                         break;
                     }
                 }
@@ -295,15 +296,18 @@ struct Assembly {
                 bool addon_found = false;
                 foreach(source; spec.sources) {
                     auto source_path = getSourceCachePath(source);
-                    tracef("Searching for addon %s inside %s", addon.name, source_path);
+                    tracef("Searching for addon %s inside %s", addon.name, source);
                     foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                         if (s_addon.name == addon.name) {
                             s_addon.path.copyTo(dist_dir.join(addon.name));
                             repo.add(dist_dir.join(addon.name));
                             addon_found = true;
+                            tracef("Addon %s from %s source added.", addon.name, source);
                             break;
                         }
                     }
+                    if (addon_found)
+                        break;
                 }
                 if (addon_found) {
                     infof("Assembly: Addon %s synced.", addon);
