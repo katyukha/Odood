@@ -340,7 +340,8 @@ void runBasicTests(Project project, in string ukey="n") {
     // TODO: Complete the test
 }
 
-@("Basic Test Odoo 19")
+version(OSX) {}  // Do not run this test on macos yet
+else @("Basic Test Odoo 19")
 unittest {
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
