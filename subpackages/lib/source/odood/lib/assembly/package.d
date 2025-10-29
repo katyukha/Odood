@@ -295,6 +295,10 @@ struct Assembly {
             } else {
                 bool addon_found = false;
                 foreach(source; spec.sources) {
+                    if (source.no_search)
+                        // Skip source, that should not be used to search for addons.
+                        continue;
+
                     auto source_path = getSourceCachePath(source);
                     tracef("Searching for addon %s inside %s", addon.name, source);
                     foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
