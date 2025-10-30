@@ -109,6 +109,23 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
         .ensureOk(true);
 
     infof("Nginx configured successfully. Config: %s", config.nginx.config_path);
+
+    if (config.letsencrypt_enable) {
+        infof("Let's Encrypt configuration requested. Requesting certs....");
+        config.letsencrypt_webroot.mkdir(true);
+        Process("certbot")
+            .withArgs(
+                "certonly",
+                "--non-interactive",
+                "--agree-tos",
+                "--preferred-challenges=http-01",
+                "--rsa-key-size=%s".format(config.letsencrypt_rsa_key_size),
+                "--webroot",
+                "-w", config.letsencrypt_webroot.toString,
+                "-d", config.nginx.server_name,
+            ).execute.ensureOk(true);
+        infof("Let's Encrypt certificates generated.");
+    }
 }
 
 

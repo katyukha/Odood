@@ -65,6 +65,11 @@ class CommandDeploy: OdoodCommand {
             null, "local-nginx-ssl-key", "Path to SSL key for local nginx."));
 
         this.add(new Flag(
+            null, "letsencrypt", "Enable Let's Encrypt configuration."));
+        this.add(new Option(
+            null, "letsencrypt-email", "Email for Let's Encrypt account."));
+
+        this.add(new Flag(
             null, "enable-logrotate", "Enable logrotate for Odoo."));
 
         this.add(new Flag(
@@ -139,6 +144,13 @@ class CommandDeploy: OdoodCommand {
 
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
+        }
+        if (args.flag("letsencrypt")) {
+            config.letsencrypt_enable = true;
+            config.letsencrypt_email = args.option("letsencrypt-email");
+            config.nginx.ssl_on = true;
+            config.nginx.ssl_key = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "privkey.pem");
+            config.nginx.ssl_cert = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "fullchain.pem");
         }
 
         if (args.flag("enable-fail2ban"))

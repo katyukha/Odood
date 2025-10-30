@@ -5,6 +5,7 @@
 ### Added
 
 - Experimental support for Odoo 19
+- Experimental support for deployment with let's encrypt certs.
 
 ---
 

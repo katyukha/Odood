@@ -172,5 +172,11 @@ server {
         {% endif %}
         proxy_pass         http://odoo_backend;
     }
+
+    {% if config.letsencrypt_enable %}
+    location /.well-known/acme-challenge {
+        root {{ config.letsencrypt_webroot.toString }};
+    }
+    {% endif %}
 }
 
