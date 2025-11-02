@@ -92,6 +92,9 @@ struct AssemblySpecSource {
     /// Credentials usually provided via environment variablse
     string access_group=null;
 
+    /// Do not search for addons in this repo, unless it is mentioned as source in addon definition.
+    bool no_search=false;
+
     /// Hash
     @property hashString() const {
         string res = git_url.toString();
@@ -127,6 +130,8 @@ struct AssemblySpecSource {
             git_ref = yaml_node["ref"].as!string;
         if (yaml_node.containsKey("access-group"))
             access_group = yaml_node["access-group"].as!string;
+        if (yaml_node.containsKey("no-search"))
+            no_search = yaml_node["no-search"].as!bool;
     }
 
     private Node toYAML() const {
@@ -135,6 +140,13 @@ struct AssemblySpecSource {
             result["name"] = name;
         if (!git_ref.empty)
             result["ref"] = git_ref;
+        if (!access_group.empty)
+            result["access-group"] = access_group;
+
+        if (no_search)
+            // no_search is bool and is set to false by default,
+            // thus, output it into yaml only if it is set
+            result["no-search"] = no_search;
         return result;
     }
 

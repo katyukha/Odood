@@ -95,8 +95,13 @@ private void deployLogrotateConfig(in Project project, in DeployConfig config) {
 private void deployNginxConfig(in Project project, in DeployConfig config) {
     infof("Configuring Nginx for Odoo...");
 
+    // We compute ssl_on flag separately, because in case of let's encrypt configuration,
+    // at first stage we need to generate config without ssl (because at this stage there is no generated certs)
+    // and after cert generation completed, we will update nginx config with ssl_on
+    bool ssl_on = config.letsencrypt_enable ? false : config.nginx.ssl_on;
+
     config.nginx.config_path.writeFile(
-        renderFile!("templates/deploy/nginx.conf.tmpl", config));
+        renderFile!("templates/deploy/nginx.conf.tmpl", config, ssl_on));
 
     // Set access rights for logrotate config
     config.nginx.config_path.setAttributes(octal!644);
@@ -109,6 +114,37 @@ private void deployNginxConfig(in Project project, in DeployConfig config) {
         .ensureOk(true);
 
     infof("Nginx configured successfully. Config: %s", config.nginx.config_path);
+
+    if (config.letsencrypt_enable) {
+        infof("Let's Encrypt configuration requested. Requesting certs....");
+        config.letsencrypt_webroot.mkdir(true);
+        Process("certbot")
+            .withArgs(
+                "certonly",
+                "--non-interactive",
+                "--agree-tos",
+                "--email=%s".format(config.letsencrypt_email),
+                "--preferred-challenges=http-01",
+                "--rsa-key-size=%s".format(config.letsencrypt_rsa_key_size),
+                "--webroot",
+                "-w", config.letsencrypt_webroot.toString,
+                "-d", config.nginx.server_name,
+            ).execute.ensureOk(true);
+        infof("Let's Encrypt certificates generated.");
+
+        // Update nginx config with ssl_on
+        ssl_on = true;
+        config.nginx.config_path.writeFile(
+            renderFile!("templates/deploy/nginx.conf.tmpl", config, ssl_on));
+
+        // Reload nginx
+        Process("systemctl")
+            .withArgs("reload", "nginx.service")
+            .execute
+            .ensureOk(true);
+
+        infof("Nginx configuration updated to use let's encrypt generated certificates.");
+    }
 }
 
 

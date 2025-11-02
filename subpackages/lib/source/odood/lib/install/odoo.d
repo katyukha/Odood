@@ -144,7 +144,7 @@ void installOdoo(in Project project) {
          * support for python2, thus, much easier to compile. Also, this new version,
          * seems to have precompiled builds for all modern systems
          */
-        if (project.venv.py_version >= Version(3, 9, 0) && project.odoo.serie < 19) {
+        if (project.venv.py_version >= Version(3, 9, 0) && project.odoo.serie <= 19) {
             info("Patching Odoo requirements.txt to avoid usage of old gevent...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
                 .replaceAll(

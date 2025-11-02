@@ -340,6 +340,57 @@ void runBasicTests(Project project, in string ukey="n") {
     // TODO: Complete the test
 }
 
+version(OSX) {}  // Do not run this test on macos yet
+else @("Basic Test Odoo 19")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-19",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 19 instance
+    createDbUser("odood19test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(19));
+    auto odoo_conf = OdooConfigBuilder(project)
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood19test",
+            "odoo")
+        .setHttp("localhost", "19069")
+        .result();
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(19));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    //project.runBasicTests("o19");
+
+    /*
+     * TODO: Currently, because some addons used in tests are not ported to 19,
+     *       we do not test addons management. But later, when that addons ported
+     *       we have to chage this and run tests for addons management for Odoo 18
+     */
+
+    // Test server management
+    testServerManagement(project, "o19");
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project, "o19");
+
+    // Test basic addons management
+    //testAddonsManagementBasic(project, "o19");
+
+    // Test running scripts
+    testRunningScripts(project, "o19");
+}
+
 @("Basic Test Odoo 18")
 unittest {
     auto temp_path = createTempPath(
@@ -348,7 +399,7 @@ unittest {
     );
     scope(exit) temp_path.remove();
 
-    // Create database use for odoo 17 instance
+    // Create database use for odoo 18 instance
     createDbUser("odood18test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(18));
@@ -369,25 +420,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    //project.runBasicTests;
-
-    /*
-     * TODO: Currently, because some addons used in tests are not ported to 18,
-     *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 18
-     */
-
-    // Test server management
-    testServerManagement(project, "o18");
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project, "o18");
-
-    // Test basic addons management
-    //testAddonsManagementBasic(project, "o18");
-
-    // Test running scripts
-    testRunningScripts(project, "o18");
+    project.runBasicTests("o18");
 }
 
 @("Basic Test Odoo 17")

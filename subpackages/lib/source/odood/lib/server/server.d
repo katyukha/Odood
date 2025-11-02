@@ -24,7 +24,7 @@ private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
 private import theprocess: Process;
 
-immutable auto DEFAULT_START_TIMEOUT = 5.seconds;
+immutable auto DEFAULT_START_TIMEOUT = 8.seconds;
 
 
 package(odood) struct CoverageOptions {
@@ -115,13 +115,12 @@ struct OdooServer {
         if (env)
             foreach(k, v; env) res[k] = v;
 
-        if (_test_mode) {
-            res["OPENERP_SERVER"] = _project.odoo.testconfigfile.toString;
-            res["ODOO_RC"] = _project.odoo.testconfigfile.toString;
-        } else {
-            res["OPENERP_SERVER"] = _project.odoo.configfile.toString;
-            res["ODOO_RC"] = _project.odoo.configfile.toString;
-        }
+        string odoo_rc_env_var = _project.odoo.serie > 10 ? "ODOO_RC" : "OPENERP_SERVER";
+        if (_test_mode)
+            res[odoo_rc_env_var] = _project.odoo.testconfigfile.toString;
+        else
+            res[odoo_rc_env_var] = _project.odoo.configfile.toString;
+
         // TODO: Add ability to parse .env files and forward environment variables to Odoo process
         //       This will allow to run Odoo in docker containers and locally in similar way.
         return res;
@@ -277,10 +276,18 @@ struct OdooServer {
                     .ensureOk(true);
                 break;
         }
+        // Here we check if server was really started, by checking server PID
         if (wait_timeout != Duration.zero) {
             for(long i=0; i < wait_timeout.total!"seconds"; i++)
-                if (!isRunning)
+                if (isRunning)
+                    // If server is running, there is no need to wait more time
+                    return;
+                else
+                    // If server is not running yet, sleep for one second.
                     Thread.sleep(1.seconds);
+            // Ensure server was started. We reached wait limit,
+            // and expect that server was started.
+            // If it is not started yet, then it is error.
             enforce!OdoodException(
                 isRunning,
                 "Cannot start Odoo!");

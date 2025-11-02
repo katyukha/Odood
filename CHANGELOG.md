@@ -1,5 +1,14 @@
 # Changelog
 
+## Release 0.5.1 (2025-11-02)
+
+### Added
+
+- Experimental support for Odoo 19
+- Experimental support for deployment with let's encrypt certs.
+
+---
+
 ## Release 0.5.0 (2025-09-12)
 
 ### Added

@@ -49,6 +49,7 @@ struct DeployConfigOdoo {
     uint workers=0;
 
     string server_user="odoo";
+    // TODO: Add configuration to automatically patch system config to use system ssl certificates for requests
     ProjectServerSupervisor server_supervisor=ProjectServerSupervisor.Systemd;
     Path server_init_script_path = Path(
         "/", "etc", "init.d", "odoo");
@@ -94,6 +95,11 @@ struct DeployConfig {
     bool fail2ban_enable = false;
     Path fail2ban_filter_path = Path("/", "etc", "fail2ban", "filter.d", "odoo-auth.conf");
     Path fail2ban_jail_path = Path("/", "etc", "fail2ban", "jail.d", "odoo-auth.conf");
+
+    bool letsencrypt_enable = false;
+    string letsencrypt_email = null;
+    Path letsencrypt_webroot = Path("/", "var", "/var/acme_challenge_webroot");
+    uint letsencrypt_rsa_key_size = 4096;
 
     Nullable!GitURL assembly_repo;
 
@@ -165,13 +171,35 @@ struct DeployConfig {
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Enable fail2ban requested, but it seems that fail2ban is not available", true);
-        if (this.nginx.ssl_on) {
+        if (this.nginx.ssl_on && !this.letsencrypt_enable) {
+            // Check SSL keys only if let's encrypt not enabled.
+            // In case of let's encrypt, we expect that SSL will be generated after installation.
             enforce!OdoodDeployException(
                 this.nginx.ssl_key.exists(),
                 "SSL enabled, but provided SSL key (%s) does not exists!".format(this.nginx.ssl_key));
             enforce!OdoodDeployException(
                 this.nginx.ssl_cert.exists(),
                 "SSL enabled, but provided SSL certificate (%s) does not exists!".format(this.nginx.ssl_cert));
+        }
+
+        if (this.letsencrypt_enable) {
+            enforce!OdoodDeployException(
+                !this.letsencrypt_email.empty,
+                "Let's Encrypt enabled, but lets encrypt email is not specified.");
+            enforce!OdoodDeployException(
+                this.nginx.enable,
+                "Let's Encrypt enabled, but local nginx is not enabled.");
+            enforce!OdoodDeployException(
+                this.nginx.ssl_on,
+                "Let's Encrypt enabled, but local nginx ssl is not enabled.");
+            enforce!OdoodDeployException(
+                !this.nginx.server_name.empty,
+                "Let's Encrypt enabled, server-name not specified.");
+            Process("certbot")
+                .withArgs("--version")
+                .execute
+                .ensureOk!OdoodDeployException(
+                    "Let's Encrypt enabled, but certbot is not installed.");
         }
     }
 

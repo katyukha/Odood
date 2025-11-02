@@ -418,6 +418,10 @@ class Project {
         this.installVirtualenv(venv_options);
         this.installOdoo();
         this.installOdooConfig(odoo_config);
+
+        if (odoo.serie >= 19)
+            this.directories.addons.join("__init__.py").writeFile("");
+
         // TODO: Automatically save config
     }
 

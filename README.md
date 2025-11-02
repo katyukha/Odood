@@ -57,6 +57,7 @@ Thanks.
 
 ## Supported Odoo versions
 
+- Odoo 19.0 (experimental)
 - Odoo 18.0 (tested)
 - Odoo 17.0 (tested)
 - Odoo 16.0 (tested)

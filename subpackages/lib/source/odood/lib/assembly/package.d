@@ -210,6 +210,8 @@ struct Assembly {
       **/
     package(odood) void syncSources() const {
         infof("Assembly: syncing sources...");
+        // TODO: make it parallel and depth=1
+        // TODO: add timing to understand time consumed by sync of specific repo
         foreach(source; _spec.sources) {
             infof("Assembly: syncing source %s ...", source);
             auto repo_path = getSourceCachePath(source);
@@ -243,6 +245,7 @@ struct Assembly {
     package(odood) void syncAddons() {
         // Cleanup old addons
         infof("Assembly: Clenaning addons before syncing...");
+        // TODO: try to make it parallel
         foreach(p; dist_dir.walk) {
             repo.remove(
                 path: p,
@@ -273,12 +276,13 @@ struct Assembly {
 
                 auto source_path = getSourceCachePath(source);
                 bool addon_found = false;
-                tracef("Searching for addon %s inside %s", addon.name, source_path);
+                tracef("Searching for addon %s inside %s", addon.name, source);
                 foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                     if (s_addon.name == addon.name) {
                         s_addon.path.copyTo(dist_dir.join(addon.name));
                         repo.add(dist_dir.join(addon.name));
                         addon_found = true;
+                        tracef("Addon %s from %s source added.", addon.name, source);
                         break;
                     }
                 }
@@ -291,16 +295,23 @@ struct Assembly {
             } else {
                 bool addon_found = false;
                 foreach(source; spec.sources) {
+                    if (source.no_search)
+                        // Skip source, that should not be used to search for addons.
+                        continue;
+
                     auto source_path = getSourceCachePath(source);
-                    tracef("Searching for addon %s inside %s", addon.name, source_path);
+                    tracef("Searching for addon %s inside %s", addon.name, source);
                     foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
                         if (s_addon.name == addon.name) {
                             s_addon.path.copyTo(dist_dir.join(addon.name));
                             repo.add(dist_dir.join(addon.name));
                             addon_found = true;
+                            tracef("Addon %s from %s source added.", addon.name, source);
                             break;
                         }
                     }
+                    if (addon_found)
+                        break;
                 }
                 if (addon_found) {
                     infof("Assembly: Addon %s synced.", addon);
