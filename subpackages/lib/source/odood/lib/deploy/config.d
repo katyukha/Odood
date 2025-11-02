@@ -171,7 +171,9 @@ struct DeployConfig {
                 .execute
                 .ensureOk!OdoodDeployException(
                     "Enable fail2ban requested, but it seems that fail2ban is not available", true);
-        if (this.nginx.ssl_on) {
+        if (this.nginx.ssl_on && !this.letsencrypt_enable) {
+            // Check SSL keys only if let's encrypt not enabled.
+            // In case of let's encrypt, we expect that SSL will be generated after installation.
             enforce!OdoodDeployException(
                 this.nginx.ssl_key.exists(),
                 "SSL enabled, but provided SSL key (%s) does not exists!".format(this.nginx.ssl_key));

@@ -131,7 +131,7 @@ class CommandDeploy: OdoodCommand {
         if (args.flag("enable-logrotate"))
             config.logrotate_enable = true;
 
-        if (args.flag("local-nginx")) {
+        if (args.flag("local-nginx") || !args.option("local-nginx-server-name").empty) {
             config.nginx.enable = true;
             config.nginx.server_name = args.option("local-nginx-server-name");
             config.nginx.ssl_on = args.flag("local-nginx-ssl");
@@ -145,9 +145,10 @@ class CommandDeploy: OdoodCommand {
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
         }
-        if (args.flag("letsencrypt")) {
+        if (args.flag("letsencrypt") || !args.option("letsencrypt-email").empty) {
             config.letsencrypt_enable = true;
             config.letsencrypt_email = args.option("letsencrypt-email");
+            config.nginx.enable = true;
             config.nginx.ssl_on = true;
             config.nginx.ssl_key = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "privkey.pem");
             config.nginx.ssl_cert = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "fullchain.pem");
