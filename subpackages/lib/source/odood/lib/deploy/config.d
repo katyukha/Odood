@@ -187,13 +187,13 @@ struct DeployConfig {
                 !this.letsencrypt_email.empty,
                 "Let's Encrypt enabled, but lets encrypt email is not specified.");
             enforce!OdoodDeployException(
-                !this.nginx.enable,
+                this.nginx.enable,
                 "Let's Encrypt enabled, but local nginx is not enabled.");
             enforce!OdoodDeployException(
-                !this.nginx.ssl_on,
+                this.nginx.ssl_on,
                 "Let's Encrypt enabled, but local nginx ssl is not enabled.");
             enforce!OdoodDeployException(
-                !this.nginx.server_name,
+                !this.nginx.server_name.empty,
                 "Let's Encrypt enabled, server-name not specified.");
             Process("certbot")
                 .withArgs("--version")
