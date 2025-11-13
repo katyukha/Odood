@@ -419,6 +419,11 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         this.add(
             new Flag(
                 null, "skip-errors", "Do not fail on errors during installation."));
+
+        // Start server after update (if everythign is ok)
+        this.add(
+            new Flag(
+                null, "start", "Start server after update (if everything is ok)"));
     }
 
     /** Find addons
@@ -480,7 +485,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         string[] dbnames = args.options("db") ?
             args.options("db") : project.databases.list();
 
-        auto start_again=false;
+        auto start_again=args.flag("start");
         if (project.server.isRunning) {
             project.server.stop;
             start_again=true;

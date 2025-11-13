@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added option `--start` to `addons install/update/uninstall` command to automatically start server if it was stopped.
+
+---
+
 ## Release 0.5.1 (2025-11-02)
 
 ### Added
