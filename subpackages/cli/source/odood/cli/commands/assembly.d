@@ -37,6 +37,7 @@ class CommandAssemblyInit: OdoodCommand {
             project.initializeAssembly();
         else
             project.initializeAssembly(parseGitURL(args.option("repo")));
+            project.assembly.get.link();
     }
 }
 
