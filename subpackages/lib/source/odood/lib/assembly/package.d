@@ -377,8 +377,13 @@ struct Assembly {
 
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
+        auto old_commit = repo.getCurrCommit;
         repo.pull();
-        infof("Assembly Pull: Completed.");
+        auto curr_commit = repo.getCurrCommit;
+        if (old_commit == curr_commit)
+            infof("Assembly Pull: Completed.");
+        else
+            infof("Assembly Pull: Completed: %s..%s", old_commit, curr_commit);
     }
 
     void push(in string branch_name=null) {
