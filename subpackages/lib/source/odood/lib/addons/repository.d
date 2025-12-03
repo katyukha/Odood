@@ -73,6 +73,7 @@ class AddonRepository : GitRepository{
 
         return manifest.get.module_version.nullable;
     }
+
     /** Get changed addons.
         Thus method mostly used by dev utils to automate some tasks
         interacting with git.
