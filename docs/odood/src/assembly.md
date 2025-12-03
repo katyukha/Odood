@@ -134,7 +134,11 @@ When server is configured to use assembly, then server management becomes pretty
 odood assembly upgrade [--backup]
 ```
 
-That will do all the job: pull assembly changes, relink modules, update addons on all databases, etc.
+That will do all the job:
+0. Optionally backup all databases
+1. pull assembly changes,
+2. relink modules,
+3. update addons on all databases.
 
 
 ## Assembly management
