@@ -154,6 +154,24 @@ class GitRepository {
                 .ensureStatus(true);
     }
 
+    /** Checkout specific files to specific version
+      **/
+    void checkoutFile(in string branch_name, in bool force, in Path[] paths...) const
+    in (paths.length > 0, "At least one path must be specified") {
+        auto cmd = gitCmd.withArgs("checkout");
+        if (force)
+            cmd.addArgs("-f");
+        cmd.addArgs(branch_name, "--");
+        foreach(path; paths)
+            cmd.addArgs(path.toString);
+        cmd.execute.ensureOk(true);
+    }
+
+    /// ditto
+    void checkoutFile(in string branch_name, in Path[] paths...) const {
+        checkoutFile(branch_name, false, paths);
+    }
+
     /** Add path (files) to git repo index
       **/
     void add(in Path path) const {
@@ -473,4 +491,3 @@ class GitRepository {
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
 }
-

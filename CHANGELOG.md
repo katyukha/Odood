@@ -5,6 +5,7 @@
 ### Added
 
 - Added option `--start` to `addons install/update/uninstall` command to automatically start server if it was stopped.
+- Added automatic generation of changelogs on `assembly sync` if option `--changelog` specified.
 
 ### Changed
 

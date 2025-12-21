@@ -54,11 +54,11 @@ class AddonRepository : GitRepository{
       *     addon = Addon to get version for
       *     rev = git revision to get addon version for
       **/
-    Nullable!OdooStdVersion getAddonVersion(in OdooAddon addon, in string rev) {
+    Nullable!OdooStdVersion getAddonVersion(in Path addon_path, in string rev) const {
         enforce!OdoodException(
-            addon.path.isInside(this.path),
+            addon_path.isInside(this.path),
             "Addon must be inside repo");
-        auto g_path = addon.path.relativeTo(this.path);
+        auto g_path = addon_path.relativeTo(this.path);
         auto g_manifest_path = g_path.join("__manifest__.py");
         if (!this.isFileExists(g_manifest_path, rev))
             g_manifest_path = g_path.join("__openerp__.py");
@@ -72,6 +72,21 @@ class AddonRepository : GitRepository{
             return Nullable!OdooStdVersion.init;
 
         return manifest.get.module_version.nullable;
+    }
+
+    /// ditto
+    Nullable!OdooStdVersion getAddonVersion(in OdooAddon addon, in string rev) const {
+        return getAddonVersion(addon.path, rev);
+    }
+
+    /// ditto
+    Nullable!OdooStdVersion getAddonVersion(in Path addon_path) const {
+        return getAddonVersion(addon_path, GIT_REF_WORKTREE);
+    }
+
+    /// ditto
+    Nullable!OdooStdVersion getAddonVersion(in OdooAddon addon) const {
+        return getAddonVersion(addon, GIT_REF_WORKTREE);
     }
 
     /** Get changed addons.

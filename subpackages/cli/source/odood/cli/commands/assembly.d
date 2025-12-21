@@ -96,6 +96,8 @@ class CommandAssemblySync: OdoodCommand {
             null, "push", "Automatically push changes if needed."));
         this.add(new Option(
             null, "push-to", "Name of branch to push changes to."));
+        this.add(new Flag(
+            null, "changelog", "Generate changelog for assembly."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -106,6 +108,9 @@ class CommandAssemblySync: OdoodCommand {
 
         // Do the sync
         project.assembly.get.sync();
+
+        if (args.flag("changelog"))
+            project.assembly.get.generateChangelog();
 
         // Commit changes if requested (usually useful in CI flows)
         if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
