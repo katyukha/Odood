@@ -12,7 +12,7 @@ private import colored;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly;
+private import odood.lib.assembly: Assembly, ASSEMBLY_VERSION_PATH;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
@@ -118,7 +118,10 @@ class CommandAssemblySync: OdoodCommand {
                 project.assembly.get.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
-                project.assembly.get.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: true).length == 0,
+                project.assembly.get.repo.getChangedFiles(
+                    path_filters: [":(exclude)dist", ":(exclude)%s".format(ASSEMBLY_VERSION_PATH)],
+                    staged: true
+                ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (project.assembly.get.repo.getChangedFiles(path_filters: ["dist"], staged: true)) {

@@ -27,16 +27,18 @@ private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
 private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUREMENTS;
 private import odood.lib.addons.repository: AddonRepository;
-private import odood.utils.addons.addon_changelog;
 private import odood.lib.assembly.changes: AssemblyChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec;
 
+// Path to version file in assembly repo
+package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
 
 
 struct Assembly {
@@ -77,6 +79,9 @@ struct Assembly {
 
     /// Changelog path
     @property changelog_latest_path() const => _path.join("CHANGELOG.latest.md");
+
+    /// Path to repo version file
+    @property version_path() const => _path.join(ASSEMBLY_VERSION_PATH);
 
     /// Cache directory
     @property cache_dir() const => _project.directories.cache.join("assembly");
@@ -358,7 +363,14 @@ struct Assembly {
     /** Get info about changes between current version and series version
       **/
     auto getChanges() {
-        AssemblyChanges changes = new AssemblyChanges();
+        auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
+        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: project.odoo.serie.toString))
+            // If assembly uses version, then we have to update assembly version from serie branch,
+            // and it will be automatically updated after change analysis completed.
+            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: project.odoo.serie.toString))
+                .withSerie(project.odoo.serie);
+
+        AssemblyChanges changes = new AssemblyChanges(assembly_version);
 
         // Here we expect, that all addons are placed in `dist` folder inside assembly,
         // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
@@ -407,6 +419,7 @@ struct Assembly {
                 );
             }
         }
+        changes.postProcess();
         return changes;
     }
 
@@ -438,6 +451,10 @@ struct Assembly {
             changelog_path.writeFile(new_changes_description);
 
         repo.add(changelog_path);
+
+        // Update assembly version
+        version_path.writeFile(changes.assembly_version.toString ~ "\n");
+        repo.add(version_path);
 
         infof("Assembly: Changelog generated");
     }

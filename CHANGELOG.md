@@ -6,6 +6,7 @@
 
 - Added option `--start` to `addons install/update/uninstall` command to automatically start server if it was stopped.
 - Added automatic generation of changelogs on `assembly sync` if option `--changelog` specified.
+  If enabled, then Odood will automatically generate VERSION file for assembly repo. It could be used later to track versions of assemblies.
 
 ### Changed
 

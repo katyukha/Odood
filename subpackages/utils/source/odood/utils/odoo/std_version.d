@@ -33,11 +33,11 @@ private import odood.exception;
         _raw_version = _serie.toString ~ "." ~ _version.toString;
     }
 
-    this(in OdooSerie serie, in uint major, in uint minor, in uint patch) pure {
+    this(in OdooSerie serie, in uint major, in uint minor=0, in uint patch=0) pure {
         this(serie, Version(major, minor, patch));
     }
 
-    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor, in uint patch) pure {
+    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor=0, in uint patch=0) pure {
         this(OdooSerie(serie_major, serie_minor), major, minor, patch);
     }
 
