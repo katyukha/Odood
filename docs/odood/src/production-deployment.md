@@ -23,7 +23,7 @@ Also, production installation expectes that it is running on clean system, and n
 - [certbot](https://certbot.eff.org/) - if you want to automatically generate [Let's Encrypt](https://letsencrypt.org/) certificates.
 - [fail2ban](https://github.com/fail2ban/fail2ban) [Optional] - if you want to automatically block incorrect logins by IP. In this case Odood will automatically generate configs for `fail2ban`.
 
-In case of Ubuntu:24.04 system required dependencies could be installed via command:
+In case of *Ubuntu:24.04* system required dependencies could be installed via command:
 
 ```bash
 sudo apt install postgresql nginx certbot
@@ -31,6 +31,8 @@ sudo apt install postgresql nginx certbot
 wget -O /tmp/wkhtmltopdf-0.12.6.1-3.deb https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_amd64.deb
 sudo apt install /tmp/wkhtmltopdf-0.12.6.1-3.deb
 ```
+
+**Note**: choose right release for your operation sysmte, when installing [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases)
 
 ## Deployment
 
@@ -68,7 +70,7 @@ This sample, assumes, that you have control over your domain, and already point 
 **Note**, you have to update command below with your correct architecture.
 
 So,
-Let 's run following commands to get complete  production ready Odoo installation on Ubuntu 24.04 on amd64 architecture:
+Let 's run following commands to get complete production ready Odoo installation on **Ubuntu 24.04** on **amd64** architecture:
 
 ```bash
 sudo apt-get update -yq    # update list of packages
@@ -107,7 +109,7 @@ This sample, assumes, that you have already generate self-signed certificates.
 **Note**, you have to update command below with your correct architecture.
 
 So,
-Let 's run following commands to get complete  production ready Odoo installation on Ubuntu 24.04 on amd64 architecture:
+Let 's run following commands to get complete  production ready Odoo installation on **Ubuntu 24.04** on **amd64** architecture:
 
 ```bash
 sudo apt-get update -yq    # update list of packages
