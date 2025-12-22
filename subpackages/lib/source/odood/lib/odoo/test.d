@@ -464,14 +464,19 @@ struct OdooTestRunner {
       * Params:
       *     additional = If set, then include additional addons to the
       *         module list.
+      *     existing_only = If set to True, then only existing modules will be listed.
+      *         modules, that are specified, but does not exists will be skipped.
+      *         this is needed for migration tests, when new modules added to avoid false-positives.
       *
       * Returns: string, that include coma-separated list of addons
       **/
-    string getModuleList(in bool additional=false) {
+    string getModuleList(in bool additional=false, in bool existing_only=false) {
         const(OdooAddon)[] res_addons = _addons;
         if (additional)
             res_addons ~= _additional_addons;
 
+        if (existing_only)
+            return res_addons.filter!(a => a.path.exists).map!(a => a.name).join(",");
         return res_addons.map!(a => a.name).join(",");
     }
 
@@ -621,7 +626,10 @@ struct OdooTestRunner {
             auto cmd_res = runServerCommand(
                 result,
                 [
-                    "--init=%s".format(getModuleList(true)),
+                    // Note, that in case of migration tests, we install only addons,
+                    // that exists at the moment, thus available for installation.
+                    // This is needed to avoid false-positives on adddons that were added in recent version.
+                    "--init=%s".format(getModuleList(additional:true, existing_only: _test_migration)),
                     "--log-level=warn",
                     "--stop-after-init",
                     "--workers=0",
@@ -643,6 +651,7 @@ struct OdooTestRunner {
                 _populate_models.join(","),
                 _populate_size,
             );
+            warningf("This feature is deprecated, because in Odoo 18 changed the way of population.");
             auto cmd_res = runServerCommand(
                 result,
                 [
