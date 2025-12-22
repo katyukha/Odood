@@ -33,6 +33,30 @@ version(OdoodUnittestIntegrationUT) {
 
         write(program.createBashCompletionScript());
         return 0;
+    } else version(odood_docs_command_ref_generator) {
+        import commandr.program;
+        import commandr.help;
+        import std.stdio: write, writeln, writefln;
+        import std.array: join;
+
+        void generateDocsCommandRef(Command command) {
+            if (cast(Program)command)
+                writefln("## `%s`\n", command.name);
+            else
+                writefln("### `%s`\n", command.chain.join(" "));
+
+            writeln("```");
+            printHelp(command);
+            writeln("```");
+
+            foreach(cmd; command.commands) {
+                generateDocsCommandRef(cmd);
+            }
+        }
+        writeln("# Odood Command Reference\n");
+        writeln("This page lists all commands available in Odood and their help messages.");
+        generateDocsCommandRef(program);
+        return 0;
     } else {
         // Just run the program
         return program.run(args);
