@@ -37,6 +37,14 @@ configuration "bash-autocomplete" {
     postBuildCommands "$DUB_TARGET_PATH/$DUB_TARGET_NAME > $DUB_TARGET_PATH/odood.bash";
 }
 
+configuration "generate-command-ref" {
+    targetType "executable"
+    mainSourceFile "source/odood/app.d"
+    targetName "odood-docs-command-ref"
+    versions "odood_docs_command_ref_generator"
+    postBuildCommands "$DUB_TARGET_PATH/$DUB_TARGET_NAME > $DUB_TARGET_PATH/odood-docs-command-ref.md";
+}
+
 /* Simple and fast unittests */
 configuration "unittest" {
     /* Build subpackages as sourceLibrary to run tests of subpackages */

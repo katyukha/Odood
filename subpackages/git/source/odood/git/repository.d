@@ -122,6 +122,16 @@ class GitRepository {
             .ensureStatus(true);
     }
 
+    /** Check if repo has configured remote url with specified name
+      **/
+    auto hasRemoteUrl(in string name) const {
+        return gitCmd
+            .setArgs("remote", "get-url", name)
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
     /** Get remote url for specified remote
       **/
     auto getRemoteUrl(in string name) const {
@@ -152,6 +162,24 @@ class GitRepository {
                 .setArgs("checkout", branch_name)
                 .execute()
                 .ensureStatus(true);
+    }
+
+    /** Checkout specific files to specific version
+      **/
+    void checkoutFile(in string branch_name, in bool force, in Path[] paths...) const
+    in (paths.length > 0, "At least one path must be specified") {
+        auto cmd = gitCmd.withArgs("checkout");
+        if (force)
+            cmd.addArgs("-f");
+        cmd.addArgs(branch_name, "--");
+        foreach(path; paths)
+            cmd.addArgs(path.toString);
+        cmd.execute.ensureOk(true);
+    }
+
+    /// ditto
+    void checkoutFile(in string branch_name, in Path[] paths...) const {
+        checkoutFile(branch_name, false, paths);
     }
 
     /** Add path (files) to git repo index
@@ -473,4 +501,3 @@ class GitRepository {
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
 }
-

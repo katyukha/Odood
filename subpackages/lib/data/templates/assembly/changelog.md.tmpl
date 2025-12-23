@@ -1,0 +1,42 @@
+# Changelog
+
+## Release {{ changes.assembly_version }} ({{ release_date }})
+
+{% if changes.addons_added.length > 0 %}
+### Added addons
+
+{% for addon; changes.addons_added %}
+- `{{ addon.name }}` ({{ addon.new_version }})
+{% endfor %}
+
+{% endif %}
+{% if changes.addons_removed.length > 0 %}
+### Removed addons
+
+{% for addon_name; changes.addons_removed %}
+- `{{ addon_name }}`
+{% endfor %}
+
+{% endif %}
+{% if changes.addons_updated.length > 0 %}
+### Updated addons
+
+{% for addon; changes.addons_updated %}
+- `{{ addon.name }}` ({{ addon.old_version }} -> {{ addon.new_version }})
+{% endfor %}
+
+{% endif %}
+{% if changes.notable_changes.length > 0 %}
+### Notable changes
+
+{% for addon; changes.notable_changes %}
+#### Addon `{{ addon.name }}`
+
+{% for entrie; addon.changelog %}
+##### Version {{ entrie.ver }}
+{{ entrie.data }}
+
+{% endfor %}
+
+{% endfor %}
+{% endif %}

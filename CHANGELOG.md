@@ -1,5 +1,24 @@
 # Changelog
 
+## Release 0.5.2 (2025-12-23)
+
+### Added
+
+- Added option `--start` to `addons install/update/uninstall` command to automatically start server if it was stopped.
+- Added automatic generation of changelogs on `assembly sync` if option `--changelog` specified.
+  If enabled, then Odood will automatically generate VERSION file for assembly repo. It could be used later to track versions of assemblies.
+
+### Changed
+
+- Database populatation now works only for Odoo version 14-17, because starting from Odoo 18 population means duplication instead of generation.
+- After backup of database completed, log message about backup completed and duration of operation.
+
+### Fixed
+
+- Fixed bug with false-positives in when running migration tests on new addons.
+
+---
+
 ## Release 0.5.1 (2025-11-02)
 
 ### Added

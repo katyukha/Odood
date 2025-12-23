@@ -33,11 +33,11 @@ private import odood.exception;
         _raw_version = _serie.toString ~ "." ~ _version.toString;
     }
 
-    this(in OdooSerie serie, in uint major, in uint minor, in uint patch) pure {
+    this(in OdooSerie serie, in uint major, in uint minor=0, in uint patch=0) pure {
         this(serie, Version(major, minor, patch));
     }
 
-    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor, in uint patch) pure {
+    this(in uint serie_major, in uint serie_minor,  in uint major, in uint minor=0, in uint patch=0) pure {
         this(OdooSerie(serie_major, serie_minor), major, minor, patch);
     }
 
@@ -72,41 +72,41 @@ private import odood.exception;
     }
 
     /// Full (unparsed) version of module
-    auto rawVersion() const { return _raw_version; }
+    auto rawVersion() const pure { return _raw_version; }
 
     /// True if version is valid (X.X.Y.Y.Y format)
-    auto isStandard() const { return _is_standard; }
+    auto isStandard() const pure { return _is_standard; }
 
 
     /// Display version as string
-    string toString() const { return _raw_version; }
+    string toString() const pure { return _raw_version; }
 
     /// Odoo Serie extracted from addon's version
-    auto serie() const 
+    auto serie() const pure
     in (isStandard) {
         return _serie;
     }
 
     /// semver part of version
-    auto semver() const
+    auto semver() const pure
     in (isStandard) {
         return _version;
     }
 
     /// Major addon version (first number after serie)
-    auto major() const
+    auto major() const pure
     in (isStandard) {
         return _version.major;
     }
 
     /// Minor addon version (second number after serie)
-    auto minor() const
+    auto minor() const pure
     in (isStandard) {
         return _version.minor;
     }
 
     /// Patch addon version (third number after serie)
-    auto patch() const
+    auto patch() const pure
     in (isStandard) {
         return _version.patch;
     }

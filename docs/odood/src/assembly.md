@@ -134,7 +134,11 @@ When server is configured to use assembly, then server management becomes pretty
 odood assembly upgrade [--backup]
 ```
 
-That will do all the job: pull assembly changes, relink modules, update addons on all databases, etc.
+That will do all the job:
+0. Optionally backup all databases
+1. pull assembly changes,
+2. relink modules,
+3. update addons on all databases.
 
 
 ## Assembly management
@@ -181,3 +185,93 @@ spec:
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
 The format for this variable is: `user:token`
 
+## Sample CI configuration to build/update assemblies automatically
+
+Usually assembiles require CI to update modules automatically or semi-automatically.
+
+### Build assembly on GitHub CI
+
+Sample GitHub Actions workflow configuration, that will build assembly automatically:
+
+```yaml
+name: Sync assembly
+on:
+  push:
+    branches:
+      - '18.0-*'
+  workflow_dispatch:
+
+jobs:
+  sync-assembly:
+    name: Sync assembly
+    if: "!contains(github.event.head_commit.message, '[SYNC] Assembly synced')"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+    permissions:
+      contents: write
+      pull-requests: write
+    container:
+      image: ghcr.io/katyukha/odood/odoo/18.0:0.5.2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add current directory as safe directory for git
+        run: git config --global --add safe.directory "$(pwd)"
+
+      - name: Use current repo as assembly
+        run: odood --config-from-env assembly use .
+
+      - name: Sync assembly
+        run: |
+          odood --config-from-env -v -d assembly sync \
+            --changelog \
+            --commit \
+            --commit-user='Github Action' \
+            --commit-email='github-action@odood.dev' \
+            --push
+```
+
+This will run assembly build job for all branches starting from `18.0-` prefix.
+Thus, usual flow looks like:
+1. create new branch `18.0-update`
+2. wait while job started
+3. When job completed, create pull request
+4. Review and merge pull request
+5. Delete `18.0-update` branch (or configure to delete stale head branches automatically)
+
+### Build assembly on GitLab CI
+
+Sample GitLab CI configuration, that will build assembly automatically:
+
+```yaml
+build_assembly_on_commit:
+    image: ghcr.io/katyukha/odood/odoo/18.0:0.5.2
+    before_script:
+        # Add current directory as safe, thus allowing git operations in this dir.
+        - git config --global --add safe.directory "$(pwd)"
+
+        # Configure odood container to use this repo as assembly
+        - odood --config-from-env assembly use .
+    script:
+        # Create temporary branch to allow push work from Odood
+        - git checkout -b 18.0-tmp-assembly
+        # Do assembly sync
+        - odood --config-from-env assembly sync --commit --commit-user="GitLab Bot" --commit-email="gitlab-bot@odood.dev" --push --push-to "$CI_COMMIT_BRANCH"
+
+    except:
+        variables:
+            # Do not run package on commits created by packager itself
+            - $CI_COMMIT_MESSAGE =~ /\[SYNC\] Assembly synced/
+        refs:
+            # Do not run job for stable branches
+            - "18.0"
+    only:
+        refs:
+            - branches
+```
+
+Note, that it is required to allow gitlab-ci-token to push changes back to project.
+This have to be configured in repository settings (CI/CD Settings -> Job token permissions)
+
+Usually, it is required to create new branch to run build job.

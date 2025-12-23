@@ -20,8 +20,8 @@ env:
 # It's configured to run on the latest available version of Ubuntu.
 jobs:
   build-ubuntu:
-    name: Build Ubuntu:22.04
-    runs-on: ubuntu-22.04
+    name: Build Ubuntu:24.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -74,6 +74,7 @@ jobs:
           - "16.0"
           - "17.0"
           - "18.0"
+          - "19.0"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

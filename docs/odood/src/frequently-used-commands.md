@@ -1,6 +1,10 @@
 # Frequently used commands
 
-Short list of frequently used Odood commands
+Short list of frequently used Odood commands.
+Each command in this list supports `-h` or `--help` option, that will
+print actual documentation on the command.
+Thus, if you want to get most complete and actual documentation on particular command,
+just call if with `-h` option.
 
 ### Server management
 - `odood start` - start odoo server
@@ -49,10 +53,18 @@ Thus following commands are used to deal with it:
 - `odood db backup -d my_db` - backup *my\_db*
 - `odood db backup -a` - backup all databases on the server
 - `odood db drop my_db` - drop database
+- `odood db restore my_db path/to/backup` - restore database from backup
 
 ### Translation management
 - `odood tr regenerate --lang uk_UA <addon1> [addon2]...` - regenerate translations for specified language for specified addons
 - `odood tr regenerate --lang uk_UA --addon-dir <path>` - regenerate translations for specified language for all installable addon in specified path
+
+### Assembly management
+- `odood assembly init` - initialize new empty assembly for this instance
+- `odood assembly init --repo=git@github.com:my/assembly.git` - initialize this instance with assembly from specified repo
+- `odood assembly upgrade` - pull latest changes from assembly and upgrade server
+- `odood assembly sync` - synchronize assembly according to spec: fetch latest versions of modules from spcified sources and update assembly repo
+- `odood assembly link` - relink all addons that are in assembly
 
 ### Virtualenv management
 - `odood venv run -- <command and args>` - Run some command inside virtualenv of this instance.

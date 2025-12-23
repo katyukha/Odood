@@ -20,14 +20,50 @@ concurrency:
   group: "pages"
   cancel-in-progress: false
 
+env:
+  ODOOD_DLANG_COMPILER: ldc-1.41.0
+
 jobs:
+  build-docs-command-ref:
+    name: Build Ubuntu:24.04
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Build Odood
+        run: |
+          dub build -c generate-command-ref
+
+      - name: Upload Odood Docs Command Ref
+        uses: actions/upload-artifact@v4
+        with:
+          name: odood-docs-command-ref
+          path: |
+            build/odood-docs-command-ref.md
+
   # Build job
-  build:
+  build-docs:
     runs-on: ubuntu-latest
+    needs: build-docs-command-ref
     env:
       MDBOOK_VERSION: 0.4.43
     steps:
       - uses: actions/checkout@v4
+      - name: 'Download command ref doc'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-docs-command-ref
+          path: docs/odood/src/
       - name: Install mdBook
         run: |
           curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
@@ -49,7 +85,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-docs
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

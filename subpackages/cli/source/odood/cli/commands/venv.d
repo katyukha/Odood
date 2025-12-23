@@ -28,7 +28,8 @@ class CommandVenvInstallDevTools: OdoodCommand {
             "pylint-odoo<8.0",
             "flake8",
             "websocket-client",
-            "jingtrang");
+            "jingtrang",
+            "pre-commit");
 
         project.venv.installJSPackages("eslint");
         project.venv.installPyPackages("git+https://github.com/OCA/odoo-module-migrator@master");

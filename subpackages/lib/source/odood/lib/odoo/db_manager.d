@@ -134,13 +134,15 @@ struct OdooDatabaseManager {
             in string prefix = DEFAULT_BACKUP_PREFIX) const {
         import std.stdio;
         import std.process;
+        import std.datetime.stopwatch;
         Path dest = backup_path.exists && backup_path.isDir ?
             backup_path.join(
                 generateBackupName(dbname, prefix, backup_format)) :
             backup_path;
 
-        infof("Backing up database %s to %s", dbname, dest);
+        infof("Backing up database %s into %s", dbname, dest);
 
+        auto sw = StopWatch(AutoStart.yes);
         auto db_config = _project.parseOdooDatabaseConfig;
 
         // TODO: Use resolveProgramPath here
@@ -190,7 +192,7 @@ struct OdooDatabaseManager {
                     .add(tmp_dir.join("filestore"), "filestore")
                     .add(tmp_dir.join("manifest.json"))
                     .add(tmp_dir.join("dump.sql"));
-                return dest;
+                break;
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
                 pg_dump
@@ -199,8 +201,11 @@ struct OdooDatabaseManager {
                         "--file=" ~ dest.toString)
                     .execute
                     .ensureOk(true);
-                return dest;
+                break;
         }
+        sw.stop();
+        infof("Back up of database %s into %s completed in %s", dbname, dest, sw.peek);
+        return dest;
     }
 
     /** Backup database.
@@ -482,6 +487,10 @@ struct OdooDatabaseManager {
         enforce!OdoodException(
             _project.odoo.serie >= 14,
             "'populate' feature is available only for Odoo 14.0+");
+        enforce!OdoodException(
+            _project.odoo.serie < 18,
+            "'populate' feature is not available for Odoo 18.0+, " ~
+            "because at this version Odoo switched from generation to duplication of data during population.");
         enforce!OdoodException(
             ["small", "medium", "large"].canFind(populate_size),
             "Populate size could be one of: small, medium, large! Got: %s".format(populate_size));

@@ -58,7 +58,7 @@ Thus, it do following additional tasks:
   - nginx
   - fail2ban
 
-For more info take a look at [Production Deployment](./production-deploymnet.md) article.
+For more info take a look at [Production Deployment](./production-deployment.md) article.
 
 ## Server management
 

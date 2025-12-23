@@ -234,6 +234,7 @@ Project deployOdoo(in DeployConfig config) {
 
     // Initialize assembly if specified
     if (!config.assembly_repo.isNull) {
+        // TODO: Wrap it in try/catch
         project.initializeAssembly(config.assembly_repo.get);
         project.assembly.get.link();
     }

@@ -10,11 +10,15 @@ private import std.typecons: Nullable, nullable;
 private import std.array: empty, join, array, split;
 private import std.algorithm: map, canFind, uniq;
 private import std.range: chain;
+private import std.regex: replaceFirst, regex;
 private import std.process: environment;
+private import std.datetime.date: DateTime;
+private import std.datetime.systime: Clock;
 
 private import dyaml;
 private import thepath: Path;
 private import darktemple: renderFile;
+private import versioned: Version;
 
 private import odood.lib.assembly.exception:
     OdoodAssemblyException,
@@ -23,19 +27,25 @@ private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
 private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUREMENTS;
+private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.assembly.changes: AssemblyChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec;
+
+// Path to version file in assembly repo
+package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
 
 
 struct Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
     private Project _project;
-    private GitRepository _repo = null;
+    private AddonRepository _repo = null;
 
     this(Project project, in Path path, AssemblySpec spec) {
         _project = project;
@@ -64,6 +74,15 @@ struct Assembly {
     /// Dist path (where assembly addons located)
     @property dist_dir() const => _path.join("dist");
 
+    /// Changelog path
+    @property changelog_path() const => _path.join("CHANGELOG.md");
+
+    /// Changelog path
+    @property changelog_latest_path() const => _path.join("CHANGELOG.latest.md");
+
+    /// Path to repo version file
+    @property version_path() const => _path.join(ASSEMBLY_VERSION_PATH);
+
     /// Cache directory
     @property cache_dir() const => _project.directories.cache.join("assembly");
 
@@ -76,7 +95,7 @@ struct Assembly {
             enforce!OdoodAssemblyException(
                 isGitRepo(_path),
                 "This assembly does not have initialized git repo!");
-            _repo = new GitRepository(_path);
+            _repo = new AddonRepository(_project, _path);
         }
         return _repo;
     }
@@ -84,7 +103,7 @@ struct Assembly {
     /** Initialize git repository for this assembly
       **/
     private void initializeRepo() {
-        _repo = GitRepository.initialize(_path);
+        _repo = new AddonRepository(project, GitRepository.initialize(_path));
     }
 
     /** Try to load asembly spec from specified location
@@ -341,11 +360,114 @@ struct Assembly {
                     "Cannot find dependency %s for addon %s!".format(dep, addon));
     }
 
+    /** Get info about changes between current version and series version
+      **/
+    auto getChanges() {
+        auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
+        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: "origin/"~project.odoo.serie.toString))
+            // If assembly uses version, then we have to update assembly version from serie branch,
+            // and it will be automatically updated after change analysis completed.
+            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: "origin/"~project.odoo.serie.toString))
+                .withSerie(project.odoo.serie);
+
+        AssemblyChanges changes = new AssemblyChanges(assembly_version);
+
+        // Here we expect, that all addons are placed in `dist` folder inside assembly,
+        // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
+        string[] addon_names;
+        foreach(addon_path; repo.getChangedFiles(start_rev: "origin/"~project.odoo.serie.toString, path_filters: ["dist/*"])) {
+            auto apath_segments = addon_path.segments;
+            if (apath_segments.front != "dist")
+                // Skip things that are not related to addons.
+                continue;
+            apath_segments.popFront;
+            auto addon_name = apath_segments.front;
+            if (!addon_names.canFind(addon_name))
+                addon_names ~= addon_name;
+        }
+
+        // Iterate over changed addons, and determine changes for changelog
+        foreach(addon_name; addon_names) {
+            auto addon_path = dist_dir.join(addon_name);
+            auto manifest_path = addon_path.join("__manifest__.py");
+            if (repo.isFileExists(manifest_path, rev: "origin/"~project.odoo.serie.toString)
+                   && !repo.isFileExists(manifest_path))
+                // When addon was removed, then we track only its name,
+                // because there is no addon in directory.
+                changes.logAddonRemoved(addon_name);
+            else if (!repo.isFileExists(manifest_path, rev: "origin/"~project.odoo.serie.toString)
+                   && repo.isFileExists(manifest_path)) {
+                // Addon exists in current version, thus we can work with it as with normal addon
+                auto addon = new OdooAddon(addon_path);
+                auto version_new = addon.manifest.module_version;
+                changes.logAddonAdded(
+                    addon_name,
+                    version_new,
+                );
+            } else {
+                auto addon = new OdooAddon(addon_path);
+                auto version_old = repo.getAddonVersion(addon, rev: "origin/"~project.odoo.serie.toString).get;
+                auto version_new = addon.manifest.module_version;
+                auto changelog = addon.readChangelogEntries(
+                    start_ver: cast(Nullable!Version)version_old.semver.nullable,
+                );
+                changes.logAddonUpdated(
+                    addon_name,
+                    version_old,
+                    version_new,
+                    changelog,
+                );
+            }
+        }
+        changes.postProcess();
+        return changes;
+    }
+
+    /** Generate changelog for assembly
+      **/
+    void generateChangelog() {
+        infof("Assembly: Generiating changelog.");
+        // TODO: We have also handle cases, when no origin repo connected to assembly
+        auto changes = getChanges();
+        auto release_date = cast(DateTime)Clock.currTime();
+        auto new_changes_description = renderFile!("templates/assembly/changelog.md.tmpl", changes, release_date);
+
+        // Write latest changelog
+        changelog_latest_path.writeFile(new_changes_description);
+        repo.add(changelog_latest_path);
+
+        // Update main changelog. At first, we have to switch CHANGELOG.md
+        // to original version from series branch
+        if (repo.isFileExists(changelog_path, "origin/"~serie.toString))
+            repo.checkoutFile("origin/"~serie.toString, true, changelog_path);
+        else
+            repo.remove(changelog_path, force: true, ignore_unmatch: true);
+
+        if (changelog_path.exists) {
+            string changelog_content = changelog_path
+                .readFileText
+                .replaceFirst(regex("# Changelog\n"), new_changes_description);
+            changelog_path.writeFile(changelog_content);
+        } else
+            changelog_path.writeFile(new_changes_description);
+
+        repo.add(changelog_path);
+
+        // Update assembly version
+        version_path.writeFile(changes.assembly_version.toString ~ "\n");
+        repo.add(version_path);
+
+        infof("Assembly: Changelog generated");
+    }
+
     /** Synchronize assembly (sources and addons)
       *
       * Update assembly addons from recent versiones from specified git sources
       **/
     void sync() {
+        if (repo.hasRemoteUrl("origin"))
+            // Fetch origin/serie branch if origin repo is configured
+            repo.fetchOrigin(project.odoo.serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
@@ -377,8 +499,13 @@ struct Assembly {
 
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
+        auto old_commit = repo.getCurrCommit;
         repo.pull();
-        infof("Assembly Pull: Completed.");
+        auto curr_commit = repo.getCurrCommit;
+        if (old_commit == curr_commit)
+            infof("Assembly Pull: Completed.");
+        else
+            infof("Assembly Pull: Completed: %s..%s", old_commit, curr_commit);
     }
 
     void push(in string branch_name=null) {
