@@ -122,6 +122,16 @@ class GitRepository {
             .ensureStatus(true);
     }
 
+    /** Check if repo has configured remote url with specified name
+      **/
+    auto hasRemoteUrl(in string name) const {
+        return gitCmd
+            .setArgs("remote", "get-url", name)
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
     /** Get remote url for specified remote
       **/
     auto getRemoteUrl(in string name) const {

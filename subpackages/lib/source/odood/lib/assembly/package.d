@@ -427,6 +427,7 @@ struct Assembly {
       **/
     void generateChangelog() {
         infof("Assembly: Generiating changelog.");
+        // TODO: We have also handle cases, when no origin repo connected to assembly
         auto changes = getChanges();
         auto release_date = cast(DateTime)Clock.currTime();
         auto new_changes_description = renderFile!("templates/assembly/changelog.md.tmpl", changes, release_date);
@@ -464,6 +465,9 @@ struct Assembly {
       * Update assembly addons from recent versiones from specified git sources
       **/
     void sync() {
+        if (repo.hasRemoteUrl("origin"))
+            // Fetch origin/serie branch if origin repo is configured
+            repo.fetchOrigin(project.odoo.serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
