@@ -364,10 +364,10 @@ struct Assembly {
       **/
     auto getChanges() {
         auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
-        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: project.odoo.serie.toString))
+        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: "origin/"~project.odoo.serie.toString))
             // If assembly uses version, then we have to update assembly version from serie branch,
             // and it will be automatically updated after change analysis completed.
-            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: project.odoo.serie.toString))
+            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: "origin/"~project.odoo.serie.toString))
                 .withSerie(project.odoo.serie);
 
         AssemblyChanges changes = new AssemblyChanges(assembly_version);
@@ -375,7 +375,7 @@ struct Assembly {
         // Here we expect, that all addons are placed in `dist` folder inside assembly,
         // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
         string[] addon_names;
-        foreach(addon_path; repo.getChangedFiles(start_rev: project.odoo.serie.toString, path_filters: ["dist/*"])) {
+        foreach(addon_path; repo.getChangedFiles(start_rev: "origin/"~project.odoo.serie.toString, path_filters: ["dist/*"])) {
             auto apath_segments = addon_path.segments;
             if (apath_segments.front != "dist")
                 // Skip things that are not related to addons.
@@ -390,12 +390,12 @@ struct Assembly {
         foreach(addon_name; addon_names) {
             auto addon_path = dist_dir.join(addon_name);
             auto manifest_path = addon_path.join("__manifest__.py");
-            if (repo.isFileExists(manifest_path, rev: project.odoo.serie.toString)
+            if (repo.isFileExists(manifest_path, rev: "origin/"~project.odoo.serie.toString)
                    && !repo.isFileExists(manifest_path))
                 // When addon was removed, then we track only its name,
                 // because there is no addon in directory.
                 changes.logAddonRemoved(addon_name);
-            else if (!repo.isFileExists(manifest_path, rev: project.odoo.serie.toString)
+            else if (!repo.isFileExists(manifest_path, rev: "origin/"~project.odoo.serie.toString)
                    && repo.isFileExists(manifest_path)) {
                 // Addon exists in current version, thus we can work with it as with normal addon
                 auto addon = new OdooAddon(addon_path);
@@ -406,7 +406,7 @@ struct Assembly {
                 );
             } else {
                 auto addon = new OdooAddon(addon_path);
-                auto version_old = repo.getAddonVersion(addon, rev: project.odoo.serie.toString).get;
+                auto version_old = repo.getAddonVersion(addon, rev: "origin/"~project.odoo.serie.toString).get;
                 auto version_new = addon.manifest.module_version;
                 auto changelog = addon.readChangelogEntries(
                     start_ver: cast(Nullable!Version)version_old.semver.nullable,
@@ -437,8 +437,8 @@ struct Assembly {
 
         // Update main changelog. At first, we have to switch CHANGELOG.md
         // to original version from series branch
-        if (repo.isFileExists(changelog_path, serie.toString))
-            repo.checkoutFile(serie.toString, true, changelog_path);
+        if (repo.isFileExists(changelog_path, "origin/"~serie.toString))
+            repo.checkoutFile("origin/"~serie.toString, true, changelog_path);
         else
             repo.remove(changelog_path, force: true, ignore_unmatch: true);
 
