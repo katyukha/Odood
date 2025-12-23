@@ -119,7 +119,12 @@ class CommandAssemblySync: OdoodCommand {
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
                 project.assembly.get.repo.getChangedFiles(
-                    path_filters: [":(exclude)dist", ":(exclude)%s".format(ASSEMBLY_VERSION_PATH)],
+                    path_filters: [
+                        ":(exclude)dist",
+                        ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
+                        ":(exclude)CHANGELOG.md",
+                        ":(exclude)CHANGELOG.latest.md",
+                    ],
                     staged: true
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
