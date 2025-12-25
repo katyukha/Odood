@@ -129,11 +129,18 @@ jobs:
       # For more information, see "[Usage](https://github.com/docker/build-push-action#usage)"
       # in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./docker
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             ODOO_VERSION=${{ matrix.odoo_version }}
