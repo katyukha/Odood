@@ -30,17 +30,8 @@ RUN apt-get update -qq && \
 # Set corect locale-related environment variables
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
-COPY ./bin/binaries/ /binaries/
-
-# Select and install the correct one based on target platform
-RUN case ${TARGETARCH} in \
-      "amd64")  cp /binaries/amd64/odood /usr/bin/odood && \
-    cp /binaries/amd64/odood.bash /etc/bash_completion.d/odood.bash ;; \
-      "arm64")  cp /binaries/arm64/odood  /usr/bin/odood && \
-    cp /binaries/arm64/odood.bash /etc/bash_completion.d/odood.bash ;; \
-      *)        echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
-    esac && \
-    chmod +x /usr/bin/odood
+COPY ./bin/${TARGETARCH}/odood /usr/bin/odood
+COPY ./bin/${TARGETARCH}/odood.bash /etc/bash_completion.d/odood.bash
 
 RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo
 

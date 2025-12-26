@@ -93,13 +93,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: odood-amd64
-          path: docker/bin/binaries/amd64
+          path: docker/bin/amd64
 
       - name: 'Download artifacts for arm64'
         uses: actions/download-artifact@v4
         with:
           name: odood-arm64
-          path: docker/bin/binaries/arm64
+          path: docker/bin/arm64
 
       - name: 'Download Odood dependencies'
         uses: actions/download-artifact@v4
@@ -109,8 +109,8 @@ jobs:
 
       - name: Make odood executable
         run: |
-          chmod a+x docker/bin/binaries/arm64/odood
-          chmod a+x docker/bin/binaries/amd64/odood
+          chmod a+x docker/bin/arm64/odood
+          chmod a+x docker/bin/amd64/odood
 
       # Uses the `docker/login-action` action to log in to the Container registry
       # using the account and password that will publish the packages.
