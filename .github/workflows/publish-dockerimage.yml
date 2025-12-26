@@ -21,9 +21,19 @@ env:
 jobs:
   build-ubuntu:
     name: Build Ubuntu:24.04
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check arch
+        id: check-arch
+        run: |
+          echo "arch=$(dpkg --print-architecture)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
         uses: dlang-community/setup-dlang@v1
@@ -40,11 +50,11 @@ jobs:
           dub build -b release-debug --d-version OdoodInDocker
           dub build -b release-debug --d-version OdoodInDocker -c bash-autocomplete
           .ci/print_deps.d > build/deb-dependencies.txt
-          
+
       - name: Upload Odood compiled assets
         uses: actions/upload-artifact@v4
         with:
-          name: odood-amd64
+          name: odood-${{ steps.check-arch.outputs.arch }}
           path: |
             build/odood
             build/odood.bash
@@ -52,7 +62,7 @@ jobs:
       - name: Upload Odood dependencies
         uses: actions/upload-artifact@v4
         with:
-          name: odood-deps-amd64
+          name: odood-deps-${{ steps.check-arch.outputs.arch }}
           path: |
             build/deb-dependencies.txt
             
@@ -70,7 +80,7 @@ jobs:
       matrix:
         # TODO: Build base image (without Odoo, only with odood itself) and then use it as base for odoo images
         odoo_version:
-          - "15.0"
+#          - "15.0"
           - "16.0"
           - "17.0"
           - "18.0"
@@ -83,7 +93,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: odood-amd64
-          path: docker/bin/
+          path: docker/bin/binaries/amd64
+
+      - name: 'Download artifacts for arm64'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-arm64
+          path: docker/bin/binaries/arm64
 
       - name: 'Download Odood dependencies'
         uses: actions/download-artifact@v4
@@ -93,7 +109,8 @@ jobs:
 
       - name: Make odood executable
         run: |
-          chmod a+x docker/bin/odood
+          chmod a+x docker/bin/binaries/arm64/odood
+          chmod a+x docker/bin/binaries/amd64/odood
 
       # Uses the `docker/login-action` action to log in to the Container registry
       # using the account and password that will publish the packages.
@@ -129,11 +146,18 @@ jobs:
       # For more information, see "[Usage](https://github.com/docker/build-push-action#usage)"
       # in the README of the `docker/build-push-action` repository.
       # It uses the `tags` and `labels` parameters to tag and label the image with the output from the "meta" step.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./docker
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             ODOO_VERSION=${{ matrix.odoo_version }}
