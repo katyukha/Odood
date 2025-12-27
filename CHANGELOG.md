@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Build docker images for ARM64 architecture
+
+---
+
 ## Release 0.5.2 (2025-12-23)
 
 ### Added

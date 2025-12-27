@@ -191,6 +191,8 @@ void installOdoo(in Project project) {
         ).writeFile(common_content);
     }
 
+    //TODO: review psycopg if it uses sytem libpq
+
     if (project.venv.py_version < Version(3, 10))
         project.venv.python(
             ["setup.py", "develop"],

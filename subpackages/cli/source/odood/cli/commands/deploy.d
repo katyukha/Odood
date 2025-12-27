@@ -52,7 +52,6 @@ class CommandDeploy: OdoodCommand {
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
 
-        // TODO: Add support for automatic integration with certbot
         this.add(new Flag(
             null, "local-nginx", "Autoconfigure local nginx (requires nginx installed)"));
         this.add(new Option(
@@ -89,6 +88,8 @@ class CommandDeploy: OdoodCommand {
 
         // TODO: Add option to automatically install extra dependencies (including wktmltopdf)
         //       Ensure that Odood can do it automatically
+        // TODO: Think about adding option that will define place for configuration file
+        //       may be implement only for docker builds.
     }
 
     DeployConfig parseDeployOptions(ProgramArgs args) {
