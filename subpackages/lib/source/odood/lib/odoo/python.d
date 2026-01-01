@@ -41,16 +41,16 @@ string suggestPythonVersion(in OdooSerie serie) {
     if (serie == OdooSerie(14))
         return "3.8.20";
     if (serie == OdooSerie(15))
-        return "3.10.18";
+        return "3.10.19";
     if (serie == OdooSerie(16))
-        return "3.10.18";
+        return "3.10.19";
     if (serie == OdooSerie(17))
-        return "3.10.18";
+        return "3.10.19";
     if (serie == OdooSerie(18))
-        return "3.10.18";
+        return "3.12.12";
     if (serie == OdooSerie(19))
-        return "3.12.11";
-    return "3.10.18";
+        return "3.12.12";
+    return "3.12.12";
 }
 
 
@@ -66,8 +66,6 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
     if (serie <= OdooSerie(16))
         return (py_version >= Version(3, 7) && py_version < Version(3, 11));
     if (serie <= OdooSerie(17))
-        return (py_version >= Version(3, 10) && py_version < Version(3, 12));
-    if (serie <= OdooSerie(18))
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
     if (serie <= OdooSerie(19))
         return (py_version >= Version(3, 10) && py_version < Version(3, 13));
