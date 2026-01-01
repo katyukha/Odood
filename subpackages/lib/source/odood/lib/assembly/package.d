@@ -493,7 +493,13 @@ struct Assembly {
         _project.addons.link(
             search_path: dist_dir,
             recursive: true,
-            force: true,);
+            force: true,
+            py_requirements: py_requirements,
+            manifest_requirements: manifest_requirements);
+        if (_path.join("requirements.txt").exists) {
+            infof("Installing python requirements from '%s'", _path.join("requirements.txt"));
+            _project.venv.installPyRequirements(_path.join("requirements.txt"));
+        }
         infof("Assembly Link: Completed");
     }
 

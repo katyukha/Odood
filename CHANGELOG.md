@@ -6,6 +6,10 @@
 
 - Build docker images for ARM64 architecture
 
+### Changed
+
+- Now, when assembly contains `requirements.txt` file, it will be processed automatically on assembly link operation.
+
 ---
 
 ## Release 0.5.2 (2025-12-23)
