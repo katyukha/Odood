@@ -8,7 +8,7 @@
 
 ### Changed
 
-- Now, when assembly contains `requirements.txt` file, it will be processed automatically on assembly link operation.
+- Now, when assembly contains `requirements.txt` file, it will be processed automatically before assembly link operation.
 
 ---
 

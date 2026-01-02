@@ -484,6 +484,10 @@ struct Assembly {
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
         infof("Assembly Link: Cleanup old symlinks.");
+        if (_path.join("requirements.txt").exists) {
+            infof("Installing python requirements from '%s'", _path.join("requirements.txt"));
+            _project.venv.installPyRequirements(_path.join("requirements.txt"));
+        }
         // Remove all links in custom addons that point to this assembly
         foreach(p; _project.directories.addons.walk) {
             if (p.isSymlink && p.readLink.isInside(dist_dir))
@@ -496,10 +500,6 @@ struct Assembly {
             force: true,
             py_requirements: py_requirements,
             manifest_requirements: manifest_requirements);
-        if (_path.join("requirements.txt").exists) {
-            infof("Installing python requirements from '%s'", _path.join("requirements.txt"));
-            _project.venv.installPyRequirements(_path.join("requirements.txt"));
-        }
         infof("Assembly Link: Completed");
     }
 
