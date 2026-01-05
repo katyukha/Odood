@@ -254,7 +254,7 @@ void testRunningScripts(in Project project, in string ukey="n") {
   * In future tests have to be improved, maybe moved to separate file with detailed tests
   **/
 void testAssembly(Project project, in string ukey="n") {
-    infof("Testing running scripts for %s", project);
+    infof("Testing assembly for %s", project);
 
     scope(exit) {
         if (project.project_root.join("assembly").exists)
@@ -273,9 +273,18 @@ void testAssembly(Project project, in string ukey="n") {
 
     assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.changelog_path.exists.shouldBeFalse;
+    assembly.changelog_latest_path.shouldBeFalse;
     assembly.sync();
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.changelog_path.exists.shouldBeFalse;
+    assembly.changelog_latest_path.shouldBeFalse;
+
+    // Generate changelog, end ensure that changelog was written
+    assembly.generateChangelog();
+    assembly.changelog_path.exists.shouldBeTrue;
+    assembly.changelog_latest_path.shouldBeTrue;
 
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
@@ -304,7 +313,7 @@ void testAssembly(Project project, in string ukey="n") {
     project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
     project.directories.addons.join("generic_tag").readLink == assembly.dist_dir.join("generic_tag");
 
-    infof("Testing running scripts for %s. Complete: Ok.", project);
+    infof("Testing assembly for %s. Complete: Ok.", project);
 }
 
 
