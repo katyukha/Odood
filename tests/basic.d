@@ -274,17 +274,17 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
     assembly.changelog_path.exists.shouldBeFalse;
-    assembly.changelog_latest_path.shouldBeFalse;
+    assembly.changelog_latest_path.exists.shouldBeFalse;
     assembly.sync();
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
     assembly.changelog_path.exists.shouldBeFalse;
-    assembly.changelog_latest_path.shouldBeFalse;
+    assembly.changelog_latest_path.exists.shouldBeFalse;
 
     // Generate changelog, end ensure that changelog was written
     assembly.generateChangelog();
     assembly.changelog_path.exists.shouldBeTrue;
-    assembly.changelog_latest_path.shouldBeTrue;
+    assembly.changelog_latest_path.exists.shouldBeTrue;
 
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
