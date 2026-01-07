@@ -292,7 +292,7 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.changelog_path.exists.shouldBeTrue;
     assembly.changelog_latest_path.exists.shouldBeTrue;
     assembly.version_path.exists.shouldBeTrue;
-    assembly.version_path.readFileText.shouldEqual("%s.1.0.0".format(project.odoo.serie));
+    assembly.version_path.readFileText.shouldEqual("%s.1.0.0\n".format(project.odoo.serie));
 
     // Link assembly and change that symlinks were created in custom_addons dir
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
@@ -323,7 +323,7 @@ void testAssembly(Project project, in string ukey="n") {
 
     // Generate (update) changelog and check that assembly version updated.
     assembly.generateChangelog(base_commit);
-    assembly.version_path.readFileText.shouldEqual("%s.2.0.0".format(project.odoo.serie));
+    assembly.version_path.readFileText.shouldEqual("%s.2.0.0\n".format(project.odoo.serie));
 
     // Link assembly and check that correct symlinks created
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
