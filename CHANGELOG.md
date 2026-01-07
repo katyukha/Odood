@@ -5,6 +5,8 @@
 ### Added
 
 - Build docker images for ARM64 architecture
+- New option to `assembly upgrade` command:
+   - `--start` - automatically start server if upgrade is successful and server was not running before upgrade.
 
 ### Changed
 

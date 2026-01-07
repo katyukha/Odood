@@ -206,6 +206,8 @@ class CommandAssemblyUpgrade: OdoodCommand {
             "Do backup of all databases"));
         this.add(new Flag(
             null, "skip-errors", "Continue upgrade next databases if upgrade of db had error."));
+        this.add(new Flag(
+            null, "start", "Start the server if upgrade completed successfully and server was not running before upgrade."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -222,7 +224,7 @@ class CommandAssemblyUpgrade: OdoodCommand {
         assembly.pull;
         assembly.link();
 
-        auto start_again=false;
+        auto start_again = args.flag("start");
         if (project.server.isRunning) {
             project.server.stop;
             start_again=true;
