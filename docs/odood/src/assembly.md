@@ -312,12 +312,10 @@ jobs:
       - name: Add current directory as safe directory for git
         run: git config --global --add safe.directory "$(pwd)"
 
-      - name: Use current repo as assembly
-        run: odood --config-from-env assembly use .
 
       - name: Sync assembly
         run: |
-          odood --config-from-env -v -d assembly sync \
+          odood --config-from-env -v -d assembly -p . sync \
             --changelog \
             --commit \
             --commit-user='Github Action' \
@@ -344,13 +342,11 @@ build_assembly_on_commit:
         # Add current directory as safe, thus allowing git operations in this dir.
         - git config --global --add safe.directory "$(pwd)"
 
-        # Configure odood container to use this repo as assembly
-        - odood --config-from-env assembly use .
     script:
         # Create temporary branch to allow push work from Odood
         - git checkout -b 18.0-tmp-assembly
         # Do assembly sync
-        - odood --config-from-env assembly sync --commit --commit-user="GitLab Bot" --commit-email="gitlab-bot@odood.dev" --push --push-to "$CI_COMMIT_BRANCH"
+        - odood --config-from-env assembly -p . sync --commit --commit-user="GitLab Bot" --commit-email="gitlab-bot@odood.dev" --push --push-to "$CI_COMMIT_BRANCH"
 
     except:
         variables:
