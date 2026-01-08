@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+---
+
 ## Release 0.5.3 (2026-01-08)
 
 ### Added
