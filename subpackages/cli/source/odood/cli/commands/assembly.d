@@ -59,6 +59,7 @@ class CommandAssemblyUse: OdoodCommand {
     }
 }
 
+
 class CommandAssemblyStatus: OdoodCommand {
     this() {
         super("status", "Project assembly status");
@@ -66,6 +67,10 @@ class CommandAssemblyStatus: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+        if (args.parent.option("assembly-path")) {
+            auto assembly_path = Path(args.parent.option("assembly-path"));
+            project.useAssembly(assembly_path, save_config: false);
+        }
         if (project.assembly.isNull)
             writeln("There is no assembly configured for this project!");
         else {
@@ -79,7 +84,30 @@ class CommandAssemblyStatus: OdoodCommand {
     }
 }
 
-class CommandAssemblySync: OdoodCommand {
+// Base class for assembly command, that could be used to load project
+// And optionally handle --assembly-path option in parent command
+class AssemblyCommandBase: OdoodCommand {
+
+    this(T...)(auto ref T args) {
+        super(args);
+    }
+
+    auto loadProject(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        if (args.parent.option("assembly-path")) {
+            auto assembly_path = Path(args.parent.option("assembly-path"));
+            project.useAssembly(assembly_path, save_config: false);
+        }
+        enforce!OdoodCLIException(
+            !project.assembly.isNull,
+            "Assembly not initialized!");
+        return project;
+    }
+}
+
+
+class CommandAssemblySync: AssemblyCommandBase {
     this() {
         super("sync", "Synchronize assembly with updates from sources.");
         this.add(new Flag(
@@ -101,10 +129,7 @@ class CommandAssemblySync: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        enforce!OdoodCLIException(
-            !project.assembly.isNull,
-            "Assembly not initialized!");
+        auto project = loadProject(args);
 
         // Do the sync
         project.assembly.get.sync();
@@ -150,7 +175,7 @@ class CommandAssemblySync: OdoodCommand {
     }
 }
 
-class CommandAssemblyLink: OdoodCommand {
+class CommandAssemblyLink: AssemblyCommandBase {
     this() {
         super("link", "Link addons from this assembly to custom addons");
         this.add(new Flag(
@@ -161,10 +186,7 @@ class CommandAssemblyLink: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        enforce!OdoodCLIException(
-            !project.assembly.isNull,
-            "Assembly not initialized!");
+        auto project = loadProject(args);
         project.assembly.get.link(
             manifest_requirements: args.flag("manifest-requirements"),
         );
@@ -175,7 +197,7 @@ class CommandAssemblyLink: OdoodCommand {
 }
 
 
-class CommandAssemblyPull: OdoodCommand {
+class CommandAssemblyPull: AssemblyCommandBase {
     this() {
         super("pull", "Pull updates for this assembly.");
         this.add(new Flag(
@@ -184,10 +206,7 @@ class CommandAssemblyPull: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        enforce!OdoodCLIException(
-            !project.assembly.isNull,
-            "Assembly not initialized!");
+        auto project = loadProject(args);
         auto assembly = project.assembly.get;
 
         assembly.pull;
@@ -198,7 +217,7 @@ class CommandAssemblyPull: OdoodCommand {
 }
 
 
-class CommandAssemblyUpgrade: OdoodCommand {
+class CommandAssemblyUpgrade: AssemblyCommandBase {
     this() {
         super("upgrade", "Upgrade assembly (optionally do backup, pull changes, update addons).");
         this.add(new Flag(
@@ -206,13 +225,12 @@ class CommandAssemblyUpgrade: OdoodCommand {
             "Do backup of all databases"));
         this.add(new Flag(
             null, "skip-errors", "Continue upgrade next databases if upgrade of db had error."));
+        this.add(new Flag(
+            null, "start", "Start the server if upgrade completed successfully and server was not running before upgrade."));
     }
 
     public override void execute(ProgramArgs args) {
-        auto project = Project.loadProject;
-        enforce!OdoodCLIException(
-            !project.assembly.isNull,
-            "Assembly not initialized!");
+        auto project = loadProject(args);
         auto assembly = project.assembly.get;
 
         if (args.flag("backup"))
@@ -222,7 +240,7 @@ class CommandAssemblyUpgrade: OdoodCommand {
         assembly.pull;
         assembly.link();
 
-        auto start_again=false;
+        auto start_again = args.flag("start");
         if (project.server.isRunning) {
             project.server.stop;
             start_again=true;
@@ -275,6 +293,9 @@ class CommandAssemblyUpgrade: OdoodCommand {
 class CommandAssembly: OdoodCommand {
     this() {
         super("assembly", "Manage assembly of this project");
+        this.add(new Option(
+            "p", "assembly-path", "Path to assembly directory."));
+
         this.add(new CommandAssemblyInit());
         this.add(new CommandAssemblyUse());
         this.add(new CommandAssemblyStatus());

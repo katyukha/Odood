@@ -20,3 +20,4 @@ odood-test-*
 /tmp/
 /build/
 cobertura.xml
+/.vscode/

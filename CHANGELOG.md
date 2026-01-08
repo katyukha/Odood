@@ -1,5 +1,21 @@
 # Changelog
 
+## Release 0.5.3 (2026-01-08)
+
+### Added
+
+- Build docker images for ARM64 architecture
+- New option to `assembly upgrade` command:
+   - `--start` - automatically start server if upgrade is successful and server was not running before upgrade.
+- Added new option `odood assembly --assembly-path` that could be used to specify different assembly path for assembly commands.
+  Mostly, this option could be useful for CI
+
+### Changed
+
+- Now, when assembly contains `requirements.txt` file, it will be processed automatically before assembly link operation.
+
+---
+
 ## Release 0.5.2 (2025-12-23)
 
 ### Added

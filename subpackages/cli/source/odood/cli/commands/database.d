@@ -66,6 +66,7 @@ class CommandDatabaseCreate: OdoodCommand {
             null, "install-file",
             "Install all modules listed in specified file.").repeating);
         this.add(new Argument("name", "Name of database").optional);
+        // TODO: Think about adding flag to create database only if it does not exists yet
     }
 
     string getDatabaseName(ProgramArgs args, in Project project) {

@@ -254,7 +254,7 @@ void testRunningScripts(in Project project, in string ukey="n") {
   * In future tests have to be improved, maybe moved to separate file with detailed tests
   **/
 void testAssembly(Project project, in string ukey="n") {
-    infof("Testing running scripts for %s", project);
+    infof("Testing assembly for %s", project);
 
     scope(exit) {
         if (project.project_root.join("assembly").exists)
@@ -266,17 +266,35 @@ void testAssembly(Project project, in string ukey="n") {
     project.assembly.isNull.shouldBeFalse;
 
     auto assembly  = project.assembly.get;
+    auto base_commit = assembly.repo.getCurrCommit;
 
+    // Add generic_mixin to assembly
     assembly.addSource(GitURL("https://github.com/crnd-inc/generic-addons"));
     assembly.addAddon("generic_mixin");
     assembly.save();
 
+    // Sync assembly and check that only generic_mixin addon added to assembly
+    // (no changelog generated on sync)
     assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.changelog_path.exists.shouldBeFalse;
+    assembly.changelog_latest_path.exists.shouldBeFalse;
+    assembly.version_path.exists.shouldBeFalse;
     assembly.sync();
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.changelog_path.exists.shouldBeFalse;
+    assembly.changelog_latest_path.exists.shouldBeFalse;
+    assembly.version_path.exists.shouldBeFalse;
 
+    // Generate changelog, end ensure that changelog was written
+    assembly.generateChangelog(base_commit);
+    assembly.changelog_path.exists.shouldBeTrue;
+    assembly.changelog_latest_path.exists.shouldBeTrue;
+    assembly.version_path.exists.shouldBeTrue;
+    assembly.version_path.readFileText.shouldEqual("%s.1.0.0\n".format(project.odoo.serie));
+
+    // Link assembly and change that symlinks were created in custom_addons dir
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
     assembly.link();
@@ -285,15 +303,29 @@ void testAssembly(Project project, in string ukey="n") {
     project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
 
+    // Commit changes
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Added generic_tag");
+
+    // Set new base for changelog generation
+    base_commit = assembly.repo.getCurrCommit;
+
+    // Add generic_tag addon
     assembly.addAddon("generic_tag");
     assembly.save();
 
+    // Sync and check that addon added to assembly
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
     assembly.sync();
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeTrue;
 
+    // Generate (update) changelog and check that assembly version updated.
+    assembly.generateChangelog(base_commit);
+    assembly.version_path.readFileText.shouldEqual("%s.2.0.0\n".format(project.odoo.serie));
+
+    // Link assembly and check that correct symlinks created
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
     assembly.link();
@@ -304,7 +336,7 @@ void testAssembly(Project project, in string ukey="n") {
     project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
     project.directories.addons.join("generic_tag").readLink == assembly.dist_dir.join("generic_tag");
 
-    infof("Testing running scripts for %s. Complete: Ok.", project);
+    infof("Testing assembly for %s. Complete: Ok.", project);
 }
 
 

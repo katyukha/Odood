@@ -453,9 +453,10 @@ class Project {
     }
 
     /// Use already existing assembly located at some path
-    void useAssembly(in Path path) {
+    void useAssembly(in Path path, in bool save_config=true) {
         _assembly = Assembly.load(project: this, path: path);
-        save();
+        if (save_config)
+            save();
     }
 
     /** Backup odoo sources located at this.odoo.path.
