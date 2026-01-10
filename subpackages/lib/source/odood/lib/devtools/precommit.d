@@ -4,6 +4,7 @@ private import std.logger: warningf, infof;
 private import std.exception: enforce;
 
 private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.project: Project;
 private import odood.exception: OdoodException;
 
 private import darktemple: renderFile;
@@ -29,9 +30,7 @@ bool hasPreCommitConfig(in AddonRepository repo) {
   *     force = if set to true, rewrite already existing pre-commit config.
   *     setup = if set to true, then automatically set up pre-commit according to new configuration.
   **/
-void initPreCommit(in AddonRepository repo, in bool force=false, in bool setup=true) {
-    auto project = repo.project;
-
+void initPreCommit(in Project project, in AddonRepository repo, in bool force=false, in bool setup=true) {
     enforce!OdoodException(
         force || !repo.hasPreCommitConfig,
         "Cannot init pre-commit. Configuration already exists");
@@ -48,7 +47,7 @@ void initPreCommit(in AddonRepository repo, in bool force=false, in bool setup=t
         renderFile!("pre-commit/pylintrc", project, repo));
 
     if (setup)
-        setUpPreCommit(repo);
+        project.setUpPreCommit(repo);
 }
 
 
@@ -59,11 +58,11 @@ void initPreCommit(in AddonRepository repo, in bool force=false, in bool setup=t
   * Params:
   *     repo = repository to initialize pre-commit for.
   **/
-void setUpPreCommit(in AddonRepository repo) {
+void setUpPreCommit(in Project project, in AddonRepository repo) {
     if (repo.hasPreCommitConfig) {
         infof("Setting up pre-commit for %s repo!", repo.path);
-        repo.project.venv.installPyPackages("pre-commit");
-        repo.project.venv.runE(["pre-commit", "install"]);
+        project.venv.installPyPackages("pre-commit");
+        project.venv.runE(["pre-commit", "install"]);
     } else {
         warningf(
             "Cannot set up pre-commit for repository %s, " ~

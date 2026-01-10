@@ -16,7 +16,6 @@ private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.utils.odoo.std_version: OdooStdVersion;
-private import odood.lib.addons.repository: AddonRepository;
 private import odood.git: GIT_REF_WORKTREE;
 
 
@@ -299,7 +298,8 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
 
-        repo.migrateAddonsCode(
+        project.migrateAddonsCode(
+            repo: repo,
             addon_names: args.options("module"),
             commit: args.flag("commit"));
     }

@@ -95,7 +95,7 @@ struct Assembly {
             enforce!OdoodAssemblyException(
                 isGitRepo(_path),
                 "This assembly does not have initialized git repo!");
-            _repo = new AddonRepository(_project, _path);
+            _repo = new AddonRepository(_path);
         }
         return _repo;
     }
@@ -103,7 +103,7 @@ struct Assembly {
     /** Initialize git repository for this assembly
       **/
     private void initializeRepo() {
-        _repo = new AddonRepository(project, GitRepository.initialize(_path));
+        _repo = new AddonRepository(GitRepository.initialize(_path));
     }
 
     /** Try to load asembly spec from specified location

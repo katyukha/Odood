@@ -32,7 +32,7 @@ class CommandPreCommitInit: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")) : Path.current);
 
-        repo.initPreCommit(args.flag("force"), !args.flag("no-setup"));
+        project.initPreCommit(repo, args.flag("force"), !args.flag("no-setup"));
     }
 
 }
@@ -50,7 +50,7 @@ class CommandPreCommitSetUp: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")) : Path.current);
 
-        repo.setUpPreCommit();
+        project.setUpPreCommit(repo);
     }
 
 }

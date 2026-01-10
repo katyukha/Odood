@@ -665,6 +665,6 @@ struct AddonManager {
         enforce!OdoodException(
             path.join(".git").exists,
             "Is not a git root directory.");
-        return new AddonRepository(_project, path);
+        return new AddonRepository(path);
     }
 }
