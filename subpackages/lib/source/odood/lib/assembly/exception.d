@@ -11,6 +11,12 @@ class OdoodAssemblyException : OdoodException
 }
 
 
+class OdoodAssemblyInvalidSpecException : OdoodAssemblyException
+{
+    mixin basicExceptionCtors;
+}
+
+
 class OdoodAssemblyNothingToCommitException : OdoodAssemblyException
 {
     mixin basicExceptionCtors;

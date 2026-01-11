@@ -72,7 +72,14 @@ struct Assembly {
     @property spec_path() const => _path.join("odood-assembly.yml");
 
     /// Dist path (where assembly addons located)
-    @property dist_dir() const => _path.join("dist");
+    @property dist_dir() const {
+        final switch(_spec.layout) {
+            case AssemblyLayout.STANDARD:
+                return _path.join("dist");
+            case AssemblyLayout.FLAT:
+                return _path;
+        }
+    }
 
     /// Changelog path
     @property changelog_path() const => _path.join("CHANGELOG.md");
@@ -266,16 +273,18 @@ struct Assembly {
         infof("Assembly: Clenaning addons before syncing...");
         // TODO: try to make it parallel
         foreach(p; dist_dir.walk) {
-            repo.remove(
-                path: p,
-                recursive: true,
-                force: true,
-                ignore_unmatch: true,
-            );
-            // path still exists (for example it was not in git index,
-            // remove it to ensure clean state.
-            if (p.exists)
-                p.remove();
+            if (p.isOdooAddon) {
+                repo.remove(
+                    path: p,
+                    recursive: true,
+                    force: true,
+                    ignore_unmatch: true,
+                );
+                // path still exists (for example it was not in git index,
+                // remove it to ensure clean state.
+                if (p.exists)
+                    p.remove();
+            }
         }
         infof("Assembly: addons cleanded successfully.");
 
@@ -377,18 +386,37 @@ struct Assembly {
 
         AssemblyChanges changes = new AssemblyChanges(assembly_version);
 
+        /** Get name of addon, based on path
+          *
+          **/
+        Nullable!string getAddonName(in Path path) {
+            Path ipath = path;
+            if (ipath.baseName == "__manifest__")
+                return ipath.parent.baseName.nullable;
+
+            while(ipath.parent(false).toString != ".") {
+                ipath = ipath.parent;
+
+                if (repo.isFileExists(ipath.join("__manifest__.py")))
+                    return ipath.baseName.nullable;
+
+                if (repo.isFileExists(ipath.join("__manifest__.py"), rev: base_rev))
+                    return ipath.baseName.nullable;
+            }
+            return Nullable!string.init;
+        }
+
         // Here we expect, that all addons are placed in `dist` folder inside assembly,
         // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
         string[] addon_names;
-        foreach(addon_path; repo.getChangedFiles(start_rev: base_rev, path_filters: ["dist/*"])) {
-            auto apath_segments = addon_path.segments;
-            if (apath_segments.front != "dist")
+        foreach(addon_path; repo.getChangedFiles(start_rev: base_rev)) {
+            auto addon_name = getAddonName(addon_path);
+            if (addon_name.isNull)
                 // Skip things that are not related to addons.
                 continue;
-            apath_segments.popFront;
-            auto addon_name = apath_segments.front;
-            if (!addon_names.canFind(addon_name))
-                addon_names ~= addon_name;
+
+            if (!addon_names.canFind(addon_name.get))
+                addon_names ~= addon_name.get;
         }
 
         // Iterate over changed addons, and determine changes for changelog

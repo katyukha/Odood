@@ -4,7 +4,9 @@
 
 ### Added
 
-- Assemblies: added support for `known-addons` key in spec
+- Assemblies:
+    - added support for `known-addons` key in spec
+    - added support for assembly layout config (standard and flat)
 
 ---
 

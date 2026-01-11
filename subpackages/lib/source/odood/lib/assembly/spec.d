@@ -9,7 +9,7 @@ private import std.digest.sha;
 
 private import dyaml: Node;
 
-private import odood.lib.assembly.exception: OdoodAssemblyException;
+private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
 private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -24,6 +24,24 @@ private import odood.utils.odoo.serie: OdooSerie;
   *
   **/
 
+
+/** Type of assembly layout.
+  * - STANDARD - All addons will be placed to `dist` folder.
+  * - FLAT - All addons will be placed in root folder of repo.
+  **/
+enum AssemblyLayout {
+    STANDARD = 1,
+    FLAT = 2,
+}
+
+
+/// Default layout
+alias AssemblyDefaultLayout = AssemblyLayout.STANDARD;
+
+
+/** Representation of addon in assembly specification
+  *
+  **/
 struct AssemblySpecAddon {
     string name;
     string source_name=null;
@@ -161,9 +179,13 @@ struct AssemblySpecSource {
     }
 }
 
+
+/** Assembly Specification representation.
+  **/
 struct AssemblySpec {
     private AssemblySpecAddon[] _addons;
     private AssemblySpecSource[] _sources;
+    private AssemblyLayout _layout = AssemblyDefaultLayout;
     private string[] _known_addons;
 
     this(in Node yaml_node) {
@@ -176,6 +198,21 @@ struct AssemblySpec {
 
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
+
+        if (spec.containsKey("layout")) {
+            switch (spec["layout"].as!string) {
+                case "standard":
+                    _layout = AssemblyLayout.STANDARD;
+                    break;
+                case "flat":
+                    _layout = AssemblyLayout.FLAT;
+                    break;
+                default:
+                    throw new OdoodAssemblyInvalidSpecException(
+                        "Invalid layout type '%s'".format(spec["layout"].as!string)
+                    );
+            }
+        }
     }
 
     /// Addons that have to be present in this assembly
@@ -183,6 +220,9 @@ struct AssemblySpec {
 
     /// Git repositories to fetch addons from
     @property auto sources() const => _sources;
+
+    /// Assembly layout
+    @property auto layout() const => _layout;
 
     /// List of known addons, that supposed to be present on destination server.
     /// These addons will be ignored during dependency validation
@@ -217,6 +257,15 @@ struct AssemblySpec {
         ]);
         if (!_known_addons.empty)
             res["known-addons"] = _known_addons;
+        if (_layout != AssemblyDefaultLayout)
+            final switch(_layout) {
+                case AssemblyLayout.STANDARD:
+                    res["layout"] = "standard";
+                    break;
+                case AssemblyLayout.FLAT:
+                    res["layout"] = "flat";
+                    break;
+            }
         return res;
     }
 
