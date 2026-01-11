@@ -130,22 +130,29 @@ struct AssemblySpecSource {
 
     private this(in Node yaml_node) {
         enforce!OdoodAssemblyException(
-            yaml_node.containsKey("url") || yaml_node.containsKey("github") || yaml_node.containsKey("oca"),
-            "Invalid spec! Cannot determine url for git source: no 'url' nor 'github' neither 'oca' property specified.");
+            yaml_node.containsKey("url") || yaml_node.containsKey("github") || yaml_node.containsKey("oca") || yaml_node.containsKey("crnd"),
+            "Invalid spec! Cannot determine url for git source: no 'url' nor 'github' neither 'oca' neither 'crnd' property specified.");
         if (yaml_node.containsKey("url"))
             git_url = yaml_node["url"].as!string;
         else if (yaml_node.containsKey("github"))
             git_url = "https://github.com/" ~ yaml_node["github"].as!string;
         else if (yaml_node.containsKey("oca"))
             git_url = "https://github.com/oca/" ~ yaml_node["oca"].as!string;
+        else if (yaml_node.containsKey("crnd"))
+            git_url = "ssh://git@gitlab.crnd.pro/" ~ yaml_node["crnd"].as!string;
         else
             // Should be unreachable, because check at the start of constructor.
             assert(0, "Invalid spec");
 
         if (yaml_node.containsKey("name"))
             name = yaml_node["name"].as!string;
+
         if (yaml_node.containsKey("ref"))
             git_ref = yaml_node["ref"].as!string;
+        else if (yaml_node.containsKey("branch"))
+            // CRND odoo-packager compatibility
+            git_ref = yaml_node["branch"].as!string;
+
         if (yaml_node.containsKey("access-group"))
             access_group = yaml_node["access-group"].as!string;
         if (yaml_node.containsKey("no-search"))
@@ -190,9 +197,16 @@ struct AssemblySpec {
 
     this(in Node yaml_node) {
         auto spec = yaml_node["spec"];
+
+        enforce!OdoodAssemblyInvalidSpecException(
+            spec.containsKey("addons-list"),
+            "Invalid assembly spec: 'addons-list' key missing!");
         foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
+        enforce!OdoodAssemblyInvalidSpecException(
+            spec.containsKey("sources-list"),
+            "Invalid assembly spec: 'sources-list' key missing!");
         foreach(node; spec["sources-list"].sequence)
             _sources ~= AssemblySpecSource(node);
 
@@ -224,6 +238,11 @@ struct AssemblySpec {
     /// Assembly layout
     @property auto layout() const => _layout;
 
+    /// ditto
+    @property void layout(in AssemblyLayout layout) {
+        _layout = layout;
+    }
+
     /// List of known addons, that supposed to be present on destination server.
     /// These addons will be ignored during dependency validation
     @property auto known_addons() const => _known_addons;
@@ -238,6 +257,10 @@ struct AssemblySpec {
 
     package(odood) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _addons ~= AssemblySpecAddon(name: name, source_name: source_name, from_odoo_apps: from_odoo_apps);
+    }
+
+    package(odood) void addKnownAddon(in string name) {
+        _known_addons ~= name;
     }
 
     /// Find source by name
