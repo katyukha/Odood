@@ -164,6 +164,7 @@ struct AssemblySpecSource {
 struct AssemblySpec {
     private AssemblySpecAddon[] _addons;
     private AssemblySpecSource[] _sources;
+    private string[] _known_addons;
 
     this(in Node yaml_node) {
         auto spec = yaml_node["spec"];
@@ -172,6 +173,9 @@ struct AssemblySpec {
 
         foreach(node; spec["sources-list"].sequence)
             _sources ~= AssemblySpecSource(node);
+
+        if (spec.containsKey("known-addons"))
+            _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
     }
 
     /// Addons that have to be present in this assembly
@@ -179,6 +183,10 @@ struct AssemblySpec {
 
     /// Git repositories to fetch addons from
     @property auto sources() const => _sources;
+
+    /// List of known addons, that supposed to be present on destination server.
+    /// These addons will be ignored during dependency validation
+    @property auto known_addons() const => _known_addons;
 
     package(odood) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
         foreach(source; _sources)
@@ -201,12 +209,15 @@ struct AssemblySpec {
     }
 
     auto toYAML() const {
-        return Node([
+        auto res = Node([
             "spec": Node([
                 "addons-list": _addons.map!((n) => n.toYAML).array,
                 "sources-list": _sources.map!((s) => s.toYAML).array,
             ]),
         ]);
+        if (!_known_addons.empty)
+            res["known-addons"] = _known_addons;
+        return res;
     }
 
     /* TODO:

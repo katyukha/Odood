@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Assemblies: added support for `known-addons` key in spec
+
 ---
 
 ## Release 0.5.3 (2026-01-08)

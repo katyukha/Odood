@@ -351,6 +351,7 @@ struct Assembly {
         auto available_addons = _project.addons.getSystemAddonsList()
             .map!((a) => a.name)
             .chain(assembly_addons.map!((a) => a.name))
+            .chain(spec.known_addons)
             .uniq.array;
 
         foreach(addon; assembly_addons)
