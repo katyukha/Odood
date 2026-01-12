@@ -455,7 +455,7 @@ struct Assembly {
                 return ipath.parent.baseName.nullable;
 
             while(ipath.parent(false).toString != ".") {
-                ipath = ipath.parent;
+                ipath = ipath.parent(false);
 
                 if (repo.isFileExists(ipath.join("__manifest__.py")))
                     return ipath.baseName.nullable;
