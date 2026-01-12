@@ -196,19 +196,23 @@ struct AssemblySpec {
     private string[] _known_addons;
 
     this(in Node yaml_node) {
+        enforce!OdoodAssemblyInvalidSpecException(
+            yaml_node.containsKey("spec"),
+            "Invalid assembly spec: 'spec' key missing!");
         auto spec = yaml_node["spec"];
 
         enforce!OdoodAssemblyInvalidSpecException(
             spec.containsKey("addons-list"),
-            "Invalid assembly spec: 'addons-list' key missing!");
+            "Invalid assembly spec: 'spec.addons-list' key missing!");
         foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
-        enforce!OdoodAssemblyInvalidSpecException(
-            spec.containsKey("sources-list"),
-            "Invalid assembly spec: 'sources-list' key missing!");
-        foreach(node; spec["sources-list"].sequence)
-            _sources ~= AssemblySpecSource(node);
+        if (spec.containsKey("sources-list"))
+            foreach(node; spec["sources-list"].sequence)
+                _sources ~= AssemblySpecSource(node);
+        else if (spec.containsKey("git-sources"))
+            foreach(node; spec["git-sources"].sequence)
+                _sources ~= AssemblySpecSource(node);
 
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;

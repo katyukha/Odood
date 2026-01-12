@@ -14,9 +14,11 @@ private import std.regex: replaceFirst, regex;
 private import std.process: environment;
 private import std.datetime.date: DateTime;
 private import std.datetime.systime: Clock;
+private import std.parallelism: taskPool;
 
 private import dyaml;
-private import thepath: Path;
+private import zipper: Zipper;
+private import thepath: Path, createTempPath;
 private import darktemple: renderFile;
 private import versioned: Version;
 
@@ -29,6 +31,7 @@ private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
+private import odood.utils: download;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUREMENTS;
@@ -192,10 +195,28 @@ struct Assembly {
     }
 
     private Path getSourceCachePath(in AssemblySpecSource source) const {
-        return cache_dir.join(source.hashString);
+        cache_dir.join("sources").mkdir(true);
+        return cache_dir.join("sources", source.hashString);
     }
     private Path getSourceCachePath(in Nullable!AssemblySpecSource source) const {
         return getSourceCachePath(source.get);
+    }
+
+    /** Get cache path for addon
+      **/
+    private Path getAddonCachePath(in string addon_name) const {
+        cache_dir.join("addons").mkdir(true);
+        return cache_dir.join("addons", addon_name);
+    }
+
+    /// ditto
+    private Path getAddonCachePath(in AssemblySpecAddon addon) const {
+        return getAddonCachePath(addon.name);
+    }
+
+    /// ditto
+    private Path getAddonCachePath(in Nullable!AssemblySpecAddon addon) const {
+        return getAddonCachePath(addon.get);
     }
 
     private auto getSourceExtraEnv(in AssemblySpecSource source) const {
@@ -238,7 +259,7 @@ struct Assembly {
         infof("Assembly: syncing sources...");
         // TODO: make it parallel and depth=1
         // TODO: add timing to understand time consumed by sync of specific repo
-        foreach(source; _spec.sources) {
+        foreach(source; taskPool.parallel(_spec.sources)) {
             infof("Assembly: syncing source %s ...", source);
             auto repo_path = getSourceCachePath(source);
             if (repo_path.exists && !repo_path.isGitRepo)
@@ -262,6 +283,40 @@ struct Assembly {
             infof("Assembly: source %s synced.", source);
         }
         infof("Assembly: all sources synced.");
+    }
+
+    package(odood) auto ensureOdooAppsAddonDownloaded(in string addon_name) {
+        auto cache_path = getAddonCachePath(addon_name);
+        if (cache_path.exists)
+            return cache_path;
+
+        auto temp_dir = createTempPath();
+        scope(exit) temp_dir.remove();
+
+        auto download_path = temp_dir.join("%s.zip".format(addon_name));
+        infof("Downloading addon %s from odoo apps...", addon_name);
+        download(
+            "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
+                addon_name, _project.odoo.serie, addon_name),
+            download_path);
+        infof("Unpacking addon %s from odoo apps...", addon_name);
+        Zipper(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
+
+
+        enforce!OdoodAssemblyException(
+            isOdooAddon(temp_dir.join("apps", addon_name)),
+            "Downloaded archive does not contain requested odoo app!");
+
+        foreach(addon; findAddons(temp_dir.join("apps"))) {
+            auto addon_cache_path = getAddonCachePath(addon.name);
+            if (!addon_cache_path.exists)
+                addon.path.copyTo(addon_cache_path);
+        }
+
+        enforce!OdoodAssemblyException(
+            cache_path.exists,
+            "Addon %s download failed!".format(addon_name));
+        return cache_path;
     }
 
     /** Sync addons for assembly
@@ -293,10 +348,15 @@ struct Assembly {
         string[] missing_addon_names = [];
         foreach(addon; spec.addons) {
             infof("Assembly: Syncing addon %s ...", addon);
-            enforce!OdoodAssemblyException(
-                !addon.from_odoo_apps,
-                "odoo_apps source for assembly not supported yet!");
-            if (addon.source_name) {
+            // enforce!OdoodAssemblyException(
+            //     !addon.from_odoo_apps,
+            //     "odoo_apps source for assembly not supported yet!");
+            if (addon.from_odoo_apps) {
+                auto addon_path = ensureOdooAppsAddonDownloaded(addon.name);
+                addon_path.copyTo(dist_dir.join(addon.name));
+                repo.add(dist_dir.join(addon.name));
+                infof("Assembly: Addon %s synced from Odoo Apps.", addon);
+            } else if (addon.source_name) {
                 auto source = spec.getSource(addon.source_name);
                 enforce!OdoodAssemblyException(
                     !source.isNull,
@@ -576,4 +636,3 @@ struct Assembly {
     }
 
 }
-
