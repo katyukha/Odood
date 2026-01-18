@@ -7,6 +7,8 @@
 - Assemblies:
     - added support for `known-addons` key in spec
     - added support for assembly layout config (standard and flat)
+- Added ability to pull all repositories via command `odood repo pull-all`.
+  This could be helpfull during development to pull all repos on instance.
 
 ---
 

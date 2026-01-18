@@ -1,6 +1,6 @@
 module odood.cli.commands.repository;
 
-private import std.logger: infof, warningf, tracef;
+private import std.logger: infof, warningf, tracef, errorf;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
@@ -15,8 +15,9 @@ private import odood.lib.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.lib.addons.repository: AddonRepository;
 private import odood.utils.odoo.std_version: OdooStdVersion;
-private import odood.git: GIT_REF_WORKTREE;
+private import odood.git: GIT_REF_WORKTREE, isGitRepo;
 
 
 class CommandRepositoryAdd: OdoodCommand {
@@ -383,10 +384,72 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
     }
 }
 
+
+class CommandRepositoryPullAll: OdoodCommand {
+    this() {
+        super(
+            "pull-all",
+            "[Experimental] Pull changes from all repos and relink addons.");
+    }
+
+    private AddonRepository[] searchRepositories(in Path repo_dir) const
+    in (repo_dir.isDir) {
+        AddonRepository[] repositories;
+        foreach(p; repo_dir.walk) {
+            if (p.isGitRepo)
+                repositories ~= new AddonRepository(p);
+            else
+                repositories ~= searchRepositories(p);
+        }
+
+        return repositories;
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        foreach(repo; searchRepositories(project.directories.repositories)) {
+            auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
+            if (repo.status.isClean) {
+                infof("Repo %s: pulling changes...", repo_name);
+                bool need_link = false;
+                try {
+                    string commit_start = repo.getCurrCommit;
+                    repo.pull(ff_only: true);
+                    string commit_end = repo.getCurrCommit;
+                    if (commit_start != commit_end) {
+                        need_link = true;
+                        infof("Repo %s: pull completed (%s..%s)!", repo_name, commit_start, commit_end);
+                    } else {
+                        infof("Repo %s: Nothing to pull!", repo_name);
+                    }
+                } catch (Exception e) {
+                    errorf("Repo %s: cannot pull repo, because following error\n%s\n---\nskipping...", repo_name, e.msg);
+                    continue;
+                }
+
+                if (need_link) {
+                    try {
+                        infof("Repo %s: Linking...", repo_name);
+                        project.addons.link(repo.path, recursive: true);
+                        infof("Repo %s: Link completed...", repo_name);
+                    } catch (Exception e){
+                        errorf("Repo %s: cannot link repo, because following error\n%s\n---\nskipping...", repo_name, e.msg);
+                    }
+                }
+            } else {
+                warningf("Repo %s: not clean, skipping...", repo_name);
+            }
+        }
+
+    }
+}
+
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
+        this.add(new CommandRepositoryPullAll());
 
         // Dev commands
         this.add(new CommandRepositoryFixVersionConflict());
