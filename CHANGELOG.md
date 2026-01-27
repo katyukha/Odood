@@ -11,6 +11,8 @@
     - Clone/update git sources in parallel
 - Added ability to pull all repositories via command `odood repo pull-all`.
   This could be helpfull during development to pull all repos on instance.
+- Added command `odood pre-commit update` that could be used to update pre-commit dependencies.
+  Just an alias for normal `pre-commit autoupdate` that is run inside correct repo dir and within correct venv.
 
 ---
 

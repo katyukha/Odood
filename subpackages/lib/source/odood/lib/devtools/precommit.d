@@ -1,6 +1,7 @@
 module odood.lib.devtools.precommit;
 
 private import std.logger: warningf, infof;
+private import std.format: format;
 private import std.exception: enforce;
 
 private import odood.lib.addons.repository: AddonRepository;
@@ -62,11 +63,26 @@ void setUpPreCommit(in Project project, in AddonRepository repo) {
     if (repo.hasPreCommitConfig) {
         infof("Setting up pre-commit for %s repo!", repo.path);
         project.venv.installPyPackages("pre-commit");
-        project.venv.runE(["pre-commit", "install"]);
+        project.venv.runner
+            .inWorkDir(repo.path)
+            .withArgs("pre-commit", "install")
+            .execute
+            .ensureOk!OdoodException(true);
     } else {
         warningf(
             "Cannot set up pre-commit for repository %s, " ~
             "because it does not have pre-commit configuration!",
             repo.path);
     }
+}
+
+
+void updatePreCommit(in Project project, in AddonRepository repo) {
+    enforce!OdoodException(
+        repo.hasPreCommitConfig,
+        "Repo %s does not have pre-commit configuration!".format(repo.path));
+    project.venv.runner
+        .withArgs("pre-commit", "autoupdate")
+        .execute
+        .ensureOk!OdoodException(true);
 }

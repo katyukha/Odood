@@ -8,7 +8,8 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 private import odood.lib.devtools.precommit:
     initPreCommit,
-    setUpPreCommit;
+    setUpPreCommit,
+    updatePreCommit;
 
 
 class CommandPreCommitInit: OdoodCommand {
@@ -56,6 +57,24 @@ class CommandPreCommitSetUp: OdoodCommand {
 }
 
 
+class CommandPreCommitUpdate: OdoodCommand {
+    this() {
+        super("update", "Update pre-commit for specified repo.");
+        this.add(new Argument(
+            "path", "Path to repository to configure.").optional());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            args.arg("path") ? Path(args.arg("path")) : Path.current);
+
+        project.updatePreCommit(repo);
+    }
+}
+
+
 class CommandPreCommitRun: OdoodCommand {
     this() {
         super("run", "Run pre-commit for specified repo.");
@@ -80,6 +99,7 @@ class CommandPreCommit: OdoodCommand {
         super("pre-commit", "Work with pre-commit dev tool.");
         this.add(new CommandPreCommitInit());
         this.add(new CommandPreCommitSetUp());
+        this.add(new CommandPreCommitUpdate());
         this.add(new CommandPreCommitRun());
     }
 }
