@@ -283,14 +283,14 @@ struct AssemblySpec {
             ]),
         ]);
         if (!_known_addons.empty)
-            res["known-addons"] = _known_addons;
+            res["spec"]["known-addons"] = _known_addons;
         if (_layout != AssemblyDefaultLayout)
             final switch(_layout) {
                 case AssemblyLayout.STANDARD:
-                    res["layout"] = "standard";
+                    res["spec"]["layout"] = "standard";
                     break;
                 case AssemblyLayout.FLAT:
-                    res["layout"] = "flat";
+                    res["spec"]["layout"] = "flat";
                     break;
             }
         return res;
