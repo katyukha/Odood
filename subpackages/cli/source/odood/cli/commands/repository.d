@@ -237,6 +237,8 @@ class CommandRepositoryCheckVersion: OdoodCommand {
         // Fetch changes from origin
         repo.fetchOrigin(project.odoo.serie.toString);
 
+        // TODO: Ignore if running on stable branch
+
         bool has_changes = false;
         foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
             has_changes = true;

@@ -1,6 +1,7 @@
 module odood.lib.assembly.spec;
 
 private import std.typecons;
+private import std.logger;
 private import std.string;
 private import std.exception: enforce;
 private import std.algorithm;
@@ -114,11 +115,11 @@ struct AssemblySpecSource {
     bool no_search=false;
 
     /// Hash
-    @property hashString() const {
+    @property string hashString() const {
         string res = git_url.toString();
         if (git_ref)
             res ~= "@" ~ git_ref;
-        return sha1Of(res).toHexString();
+        return sha1Of(res).toHexString().idup;
     }
 
     private this(GitURL git_url, in string name=null, in string git_ref=null, in string access_group=null) {
@@ -275,6 +276,16 @@ struct AssemblySpec {
         return Nullable!AssemblySpecSource.init;
     }
 
+    /** Validate spec
+      **/
+    void validate() const {
+        auto duplicated_addons = _addons.map!((a) => a.name).array.dup.sort.group.filter!((t) => t[1] > 1).array;
+        enforce!OdoodAssemblyInvalidSpecException(
+            duplicated_addons.length == 0,
+            "There are duplicated addons:\n%s".format(
+                duplicated_addons.map!((a) => "%s: %s".format(a[0], a[1])).join(",\n")));
+    }
+
     auto toYAML() const {
         auto res = Node([
             "spec": Node([
@@ -297,7 +308,6 @@ struct AssemblySpec {
     }
 
     /* TODO:
-     *     - Add spec validation
      *     - Add utils for better spec processing
      */
 }

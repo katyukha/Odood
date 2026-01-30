@@ -6,9 +6,9 @@ module odood.lib.assembly.assembly;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
-private import std.typecons: Nullable, nullable;
-private import std.array: empty, join, array, split;
-private import std.algorithm: map, canFind, uniq;
+private import std.typecons: Nullable, nullable, tuple;
+private import std.array: empty, join, array, split, assocArray;
+private import std.algorithm: map, canFind, uniq, startsWith;
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
 private import std.process: environment;
@@ -38,7 +38,7 @@ private import odood.lib.addons.manager:
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.assembly.changes: AssemblyChanges;
 
-public import odood.lib.assembly.spec: AssemblySpec;
+public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
 
 // Path to version file in assembly repo
 package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
@@ -257,7 +257,6 @@ struct Assembly {
       **/
     package(odood) void syncSources() const {
         infof("Assembly: syncing sources...");
-        // TODO: make it parallel and depth=1
         // TODO: add timing to understand time consumed by sync of specific repo
         foreach(source; taskPool.parallel(_spec.sources)) {
             infof("Assembly: syncing source %s ...", source);
@@ -319,16 +318,35 @@ struct Assembly {
         return cache_path;
     }
 
+    /** Scan sources for available addons.
+      * This method will return mapping with source[hashString][addon.name] -> addon
+      **/
+    package(odood) auto scanSources() const {
+        OdooAddon[string][string] res;
+        foreach(source; spec.sources) {
+            auto source_path = getSourceCachePath(source);
+            if (source.no_search)
+                // Skip source, that should not be used to search for addons.
+                continue;
+            res[source.hashString] = _project.addons.scan(path: source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
+        }
+        return res;
+    }
+
     /** Sync addons for assembly
       *
       * This method will copy addons from assembly
       **/
     package(odood) void syncAddons() {
         // Cleanup old addons
-        infof("Assembly: Clenaning addons before syncing...");
         // TODO: try to make it parallel
+        infof("Assembly: Clenaning addons before syncing...");
         foreach(p; dist_dir.walk) {
-            if (p.isOdooAddon) {
+            /* Here we have to remove any directory inside dist folder.
+             * Except those ones started with '.'.
+             * This is needed to ensure the dist directory is clear before sync.
+             */
+            if (p.isOdooAddon || (p.isDir && !p.baseName.startsWith("."))) {
                 repo.remove(
                     path: p,
                     recursive: true,
@@ -345,12 +363,10 @@ struct Assembly {
 
         // Copy new addons
         infof("Assembly: Syncing addons...");
+        const auto sourceScanRes = scanSources();
         string[] missing_addon_names = [];
-        foreach(addon; spec.addons) {
+        foreach(addon; _spec.addons) {
             infof("Assembly: Syncing addon %s ...", addon);
-            // enforce!OdoodAssemblyException(
-            //     !addon.from_odoo_apps,
-            //     "odoo_apps source for assembly not supported yet!");
             if (addon.from_odoo_apps) {
                 auto addon_path = ensureOdooAppsAddonDownloaded(addon.name);
                 addon_path.copyTo(dist_dir.join(addon.name));
@@ -362,23 +378,14 @@ struct Assembly {
                     !source.isNull,
                     "Cannot find source %s for addon %s!".format(source, addon));
 
-                auto source_path = getSourceCachePath(source);
-                bool addon_found = false;
-                tracef("Searching for addon %s inside %s", addon.name, source);
-                foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
-                    if (s_addon.name == addon.name) {
-                        s_addon.path.copyTo(dist_dir.join(addon.name));
-                        repo.add(dist_dir.join(addon.name));
-                        addon_found = true;
-                        tracef("Addon %s from %s source added.", addon.name, source);
-                        break;
-                    }
-                }
-                if (addon_found) {
-                    infof("Assembly: Addon %s synced.", addon);
-                } else {
+                if (addon.name !in sourceScanRes[source.get.hashString]) {
                     errorf("Assembly: Cannot find addon %s!", addon);
                     missing_addon_names ~= addon.name;
+                } else {
+                    auto s_addon = sourceScanRes[source.get.hashString][addon.name];
+                    s_addon.path.copyTo(dist_dir.join(addon.name));
+                    repo.add(dist_dir.join(addon.name));
+                    infof("Assembly: Addon %s synced.", addon);
                 }
             } else {
                 bool addon_found = false;
@@ -387,19 +394,14 @@ struct Assembly {
                         // Skip source, that should not be used to search for addons.
                         continue;
 
-                    auto source_path = getSourceCachePath(source);
-                    tracef("Searching for addon %s inside %s", addon.name, source);
-                    foreach(s_addon; _project.addons.scan(path: source_path, recursive: true)) {
-                        if (s_addon.name == addon.name) {
-                            s_addon.path.copyTo(dist_dir.join(addon.name));
-                            repo.add(dist_dir.join(addon.name));
-                            addon_found = true;
-                            tracef("Addon %s from %s source added.", addon.name, source);
-                            break;
-                        }
-                    }
-                    if (addon_found)
-                        break;
+                    if (addon.name !in sourceScanRes[source.hashString])
+                        continue;
+
+                    auto s_addon = sourceScanRes[source.hashString][addon.name];
+                    s_addon.path.copyTo(dist_dir.join(addon.name));
+                    repo.add(dist_dir.join(addon.name));
+                    addon_found = true;
+                    break;
                 }
                 if (addon_found) {
                     infof("Assembly: Addon %s synced.", addon);
@@ -568,6 +570,7 @@ struct Assembly {
       * Update assembly addons from recent versiones from specified git sources
       **/
     void sync() {
+        spec.validate;
         if (repo.hasRemoteUrl("origin"))
             // Fetch origin/serie branch if origin repo is configured
             repo.fetchOrigin(project.odoo.serie.toString());

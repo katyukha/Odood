@@ -9,6 +9,7 @@
     - added support for assembly layout config (standard and flat)
     - added support for downloading addons from Odoo Apps
     - Clone/update git sources in parallel
+    - Added assemply spec validation before sync operation
 - Added ability to pull all repositories via command `odood repo pull-all`.
   This could be helpfull during development to pull all repos on instance.
 - Added command `odood pre-commit update` that could be used to update pre-commit dependencies.
