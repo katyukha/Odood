@@ -1,0 +1,20 @@
+spec:
+  addons-list:
+      - name: generic_mixin
+        source: cga
+
+      # Specify addon as name-only
+      - web_chatter_position
+
+      # Specify addons that should be downloaded from OdooApps
+      - name: kw_api_connector
+        odoo_apps: true
+
+  sources-list:
+      - github: crnd-inc/generic-addons
+        name: cga
+      - oca: web
+
+  known-addons:
+      - my_test_addon
+

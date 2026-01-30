@@ -311,3 +311,128 @@ struct AssemblySpec {
      *     - Add utils for better spec processing
      */
 }
+
+
+// Test assembly spec base
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly1", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+    spec.validate;  // Ensure spec is valid
+
+    spec.sources.length.should == 2;
+    spec.sources.map!((s) => s.git_url.toString).canFind("https://github.com/crnd-inc/generic-addons").shouldBeTrue;
+    spec.sources.map!((s) => s.git_url.toString).canFind("https://github.com/oca/web").shouldBeTrue;
+
+    spec.sources[0].git_url.toString.should == "https://github.com/crnd-inc/generic-addons";
+    spec.sources[0].name.should == "cga";
+    spec.sources[0].git_ref.should == "";
+    spec.sources[0].access_group.should == "";
+    spec.sources[0].no_search.should == false;
+
+    spec.sources[1].git_url.toString.should == "https://github.com/oca/web";
+    spec.sources[1].name.should == "";
+    spec.sources[1].git_ref.should == "";
+    spec.sources[1].access_group.should == "";
+    spec.sources[1].no_search.should == false;
+
+    spec.addons.length.should == 3;
+    spec.addons.map!((s) => s.name).canFind("generic_mixin").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("web_chatter_position").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("kw_api_connector").shouldBeTrue;
+
+    spec.addons[0].name.should == "generic_mixin";
+    spec.addons[0].source_name.should == "cga";
+    spec.addons[0].from_odoo_apps.should == false;
+
+    spec.addons[1].name.should == "web_chatter_position";
+    spec.addons[1].source_name.should == "";
+    spec.addons[1].from_odoo_apps.should == false;
+
+    spec.addons[2].name.should == "kw_api_connector";
+    spec.addons[2].source_name.should == "";
+    spec.addons[2].from_odoo_apps.should == true;
+
+    spec.known_addons.should == ["my_test_addon"];
+
+    spec.layout.should == AssemblyLayout.STANDARD;
+
+    // Add addon to spec
+    spec.addAddon("generic_condition");
+
+    spec.addons.length.should == 4;
+    spec.addons.map!((s) => s.name).should == ["generic_mixin", "web_chatter_position", "kw_api_connector", "generic_condition"];
+    spec.addons[3].name.should == "generic_condition";
+    spec.addons[3].source_name.should == "";
+    spec.addons[3].from_odoo_apps.should == false;
+
+    // Add source
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"));
+
+    spec.sources.length.should == 3;
+    spec.sources.map!((s) => s.git_url.toString).should == [
+        "https://github.com/crnd-inc/generic-addons",
+        "https://github.com/oca/web",
+        "https://github.com/OCA/server-tools",
+    ];
+
+    // Try to add same addon second time
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"));
+
+    // Ensure there is no changes.
+    // TODO: May be raise error on validation instead?
+    spec.sources.length.should == 3;
+    spec.sources.map!((s) => s.git_url.toString).should == [
+        "https://github.com/crnd-inc/generic-addons",
+        "https://github.com/oca/web",
+        "https://github.com/OCA/server-tools",
+    ];
+
+    // Test output
+    auto stream = new Appender!string();
+    auto dumper = dyaml.dumper.dumper();
+    dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
+    dumper.dump(stream, spec.toYAML);
+
+    stream.data.should == 
+"%YAML 1.1
+---
+spec:
+  sources-list:
+  - url: https://github.com/crnd-inc/generic-addons
+    name: cga
+  - url: https://github.com/oca/web
+  - url: https://github.com/OCA/server-tools
+  addons-list:
+  - name: generic_mixin
+    source: cga
+  - name: web_chatter_position
+  - name: kw_api_connector
+    odoo_apps: true
+  - name: generic_condition
+  known-addons:
+  - my_test_addon
+";
+}
+
+// Load assembly with duplicated addon
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly2", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+
+    // Spec is not valid, because it defines same addon two times
+    spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+}
