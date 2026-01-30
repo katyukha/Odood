@@ -288,11 +288,9 @@ struct AssemblySpec {
 
     auto toYAML() const {
         auto res = Node([
-            "spec": Node([
-                "addons-list": _addons.map!((n) => n.toYAML).array,
-                "sources-list": _sources.map!((s) => s.toYAML).array,
-            ]),
+            "spec":["addons-list": _addons.map!((n) => n.toYAML).array],
         ]);
+        res["spec"]["sources-list"] = _sources.map!((s) => s.toYAML).array;
         if (!_known_addons.empty)
             res["spec"]["known-addons"] = _known_addons;
         if (_layout != AssemblyDefaultLayout)
@@ -404,11 +402,6 @@ unittest {
 "%YAML 1.1
 ---
 spec:
-  sources-list:
-  - url: https://github.com/crnd-inc/generic-addons
-    name: cga
-  - url: https://github.com/oca/web
-  - url: https://github.com/OCA/server-tools
   addons-list:
   - name: generic_mixin
     source: cga
@@ -416,6 +409,11 @@ spec:
   - name: kw_api_connector
     odoo_apps: true
   - name: generic_condition
+  sources-list:
+  - url: https://github.com/crnd-inc/generic-addons
+    name: cga
+  - url: https://github.com/oca/web
+  - url: https://github.com/OCA/server-tools
   known-addons:
   - my_test_addon
 ";
