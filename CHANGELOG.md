@@ -10,6 +10,8 @@
     - added support for downloading addons from Odoo Apps
     - Clone/update git sources in parallel
     - Added assemply spec validation before sync operation
+    - Added new option `--dockerfile` that allows to automatically generate Dockerfile for assembly on *sync*.
+      Thus we have the way to build standard images for assemblies.
 - Added ability to pull all repositories via command `odood repo pull-all`.
   This could be helpfull during development to pull all repos on instance.
 - Added command `odood pre-commit update` that could be used to update pre-commit dependencies.

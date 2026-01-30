@@ -565,6 +565,30 @@ struct Assembly {
         generateChangelog(base_rev);
     }
 
+    void generateDockerfile() {
+        infof("Assembly: Preparing Dockerfile...");
+        auto assembly = this;
+        // TODO: move to template, after darktemple will be ready for this
+        auto handle_requirements_txt = path.join("requirements.txt").exists;
+        if (path.join("Dockerfile").exists) {
+            string dockerfile_content = path.join("Dockerfile")
+                .readFileText
+                .replaceFirst(
+                    regex(".*# ---- ODOOD END DYNAMIC DOCKER CONFIG ----\n", "s"),
+                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt));
+            path.join("Dockerfile").writeFile(dockerfile_content);
+        } else {
+            path.join("Dockerfile").writeFile(
+                renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt));
+        }
+        infof("Assembly: Dockerfile generated/updated!");
+
+        if (!path.join(".dockerignore").exists) {
+            path.join(".dockerignore").writeFile(renderFile!("templates/assembly/dockerignore.tmpl"));
+            infof("Assembly: Default .dockerignore generated!");
+        }
+    }
+
     /** Synchronize assembly (sources and addons)
       *
       * Update assembly addons from recent versiones from specified git sources

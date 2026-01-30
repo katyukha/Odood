@@ -126,6 +126,8 @@ class CommandAssemblySync: AssemblyCommandBase {
             null, "push-to", "Name of branch to push changes to."));
         this.add(new Flag(
             null, "changelog", "Generate changelog for assembly."));
+        this.add(new Flag(
+            null, "dockerfile", "Generate Dockerfile for assembly."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -135,7 +137,10 @@ class CommandAssemblySync: AssemblyCommandBase {
         project.assembly.get.sync();
 
         if (args.flag("changelog"))
-            project.assembly.get.generateChangelog();
+            project.assembly.get.generateChangelog;
+
+        if (args.flag("dockerfile"))
+            project.assembly.get.generateDockerfile;
 
         // Commit changes if requested (usually useful in CI flows)
         if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
