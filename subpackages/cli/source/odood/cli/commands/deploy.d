@@ -5,7 +5,7 @@ private import core.sys.posix.unistd: geteuid, getegid;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
-private import std.conv: octal;
+private import std.conv: octal, to;
 private import std.range: empty;
 private import std.typecons: nullable;
 
@@ -48,6 +48,11 @@ class CommandDeploy: OdoodCommand {
             null, "db-password", "Database password"));
         this.add(new Flag(
             null, "local-postgres", "Configure local postgresql server (requires PostgreSQL installed)"));
+
+        this.add(new Option(
+            "w", "workers",
+            "Number of workers to apply for this instance. If set to 0, then Odoo will be started in threaded mode. Default: 0")
+                .defaultValue("0"));
 
         this.add(new Flag(
             null, "proxy-mode", "Enable proxy-mode in odoo config"));
@@ -117,6 +122,9 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("proxy-mode"))
             config.odoo.proxy_mode = true;
+
+        if (args.option("workers"))
+            config.odoo.workers = args.option("workers").to!uint;
 
         if (args.flag("local-postgres"))
             config.database.local_postgres = true;
