@@ -19,7 +19,8 @@ COPY "requirements.txt" /tmp/odood-assembly-requirements.txt
 RUN odood addons link /opt/odoo/custom_addons && \
     odood venv install-py-packages -r /tmp/odood-assembly-requirements.txt && \
     odood venv python -- -m compileall -q /opt/odoo/custom_addons/ && \
-    rm /tmp/odood-assembly-requirements.txt
+    rm /tmp/odood-assembly-requirements.txt && \
+    rm -rf /root/.cache/pip/
 {% endif %}
 
 # ---- ODOOD END DYNAMIC DOCKER CONFIG ----
