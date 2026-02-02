@@ -9,3 +9,4 @@
 - [Command Reference](./odood-docs-command-ref.md)
 - [odoo-requirements.txt format](./odoo-requirements-txt.md)
 - [Migrate addons code to next Odoo serie](./addon-migration.md)
+- [Changelog](./changelog.md)

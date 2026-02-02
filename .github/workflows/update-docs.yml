@@ -64,6 +64,8 @@ jobs:
         with:
           name: odood-docs-command-ref
           path: docs/odood/src/
+      - name: Update changelog
+        run: cp -f ./CHANGELOG.md ./docks/odood/src/changelog.md
       - name: Install mdBook
         run: |
           curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
