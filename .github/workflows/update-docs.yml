@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-docs-command-ref
     env:
-      MDBOOK_VERSION: 0.4.43
+      MDBOOK_VERSION: 0.5.2
     steps:
       - uses: actions/checkout@v4
       - name: 'Download command ref doc'
