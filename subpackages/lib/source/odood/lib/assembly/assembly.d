@@ -581,10 +581,12 @@ struct Assembly {
             path.join("Dockerfile").writeFile(
                 renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt));
         }
+        repo.add(path.join("Dockerfile"));
         infof("Assembly: Dockerfile generated/updated!");
 
         if (!path.join(".dockerignore").exists) {
             path.join(".dockerignore").writeFile(renderFile!("templates/assembly/dockerignore.tmpl"));
+            repo.add(path.join(".dockerignore"));
             infof("Assembly: Default .dockerignore generated!");
         }
     }
