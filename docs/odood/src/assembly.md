@@ -186,6 +186,9 @@ spec:
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
 The format for this variable is: `user:token`
 
+Note, that in case of [GitHub Actions](https://docs.github.com/en/actions), you have to provide access token for private repo in [GitHub Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
+Thus, additionally in CI workflow definition, you have to assign secret to correct environment variable (see [docs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#using-secrets-in-a-workflow)).
+
 ## Changelogs and versions
 
 Assemblies support automatic generation of changelogs and update of repository version.
@@ -312,7 +315,6 @@ jobs:
       - name: Add current directory as safe directory for git
         run: git config --global --add safe.directory "$(pwd)"
 
-
       - name: Sync assembly
         run: |
           odood --config-from-env -v -d assembly -p . sync \
@@ -330,6 +332,32 @@ Thus, usual flow looks like:
 3. When job completed, create pull request
 4. Review and merge pull request
 5. Delete `18.0-update` branch (or configure to delete stale head branches automatically)
+
+#### Private repo notes
+
+In case when private repo have to be added to assembly, following additional steps have to be applied:
+1. Specify credentials for private repo (usually system user + access token) in [GitHub Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)
+2. On *Sync assembly* step, assign variable `ODOOD_ASSEMBLY_accessgroup_CRED` value in format `user:password` that is fetched from action's secrets, where `accessgroup` is value specified in `access-group` or `name` property of corresponding git source
+
+All the rest will be handled by Odood.
+
+For example, in case when private git source is hosted on github, the *Sync assembly* step may look like:
+
+```yaml
+      - name: Sync assembly
+        env:
+            ODOOD_ASSEMBLY_myrepo_CRED: "x-access-token:${{ secrets.GH_MY_REPO_PAT }}
+        run: |
+          odood --config-from-env -v -d assembly -p . sync \
+            --changelog \
+            --commit \
+            --commit-user='Github Action' \
+            --commit-email='github-action@odood.dev' \
+            --push
+```
+
+It is expected, that assembly contains git-source named `myrepo` or that has `access-group` equal to `myrepo`.
+Also, it is expected that access-token for this git repo added to [GitHub Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) under name `GH_MY_REPO_PAT`
 
 ### Build assembly on GitLab CI
 
