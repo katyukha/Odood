@@ -21,6 +21,7 @@
 ### Changed
 
 - Clean up pip cache after deploy, when docker image is built.
+- Assembly, if `VERSION`, `Dockerfile` or `.dockerignore` changed, that commit of changes allowed.
 
 ---
 

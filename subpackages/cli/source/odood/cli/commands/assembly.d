@@ -161,7 +161,17 @@ class CommandAssemblySync: AssemblyCommandBase {
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
-            if (project.assembly.get.repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
+            if (
+                project.assembly.get.repo.getChangedFiles(
+                    // Changes that have to be commited (expected changes with changelog excluded)
+                    path_filters: [
+                        "dist",
+                        "%s".format(ASSEMBLY_VERSION_PATH),
+                        "Dockerfile",
+                        ".dockerignore",
+                    ],
+                    staged: true)
+            ) {
                 infof("Assembly Sync: Commiting assembly changes...");
                 project.assembly.get.repo.commit(
                     message: args.option("commit-message") ? args.option("commit-message") : "[SYNC] Assembly synced",
