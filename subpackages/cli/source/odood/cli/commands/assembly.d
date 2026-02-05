@@ -154,6 +154,8 @@ class CommandAssemblySync: AssemblyCommandBase {
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
                         ":(exclude)CHANGELOG.md",
                         ":(exclude)CHANGELOG.latest.md",
+                        ":(exclude)Dockerfile",
+                        ":(exclude).dockerignore",
                     ],
                     staged: true
                 ).length == 0,
