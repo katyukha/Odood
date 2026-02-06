@@ -1,0 +1,6 @@
+spec:
+  addons-list:
+      - name: generic_mixin
+        odoo_apps: true
+      - name: kw_api_connector
+        odoo_apps: true

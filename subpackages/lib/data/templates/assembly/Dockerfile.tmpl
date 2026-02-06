@@ -1,0 +1,26 @@
+{% import odood.lib: _version, is_dev_version %}
+{% import odood.lib.assembly.spec %}
+FROM ghcr.io/katyukha/odood/odoo/{{ assembly.serie }}:{% if is_dev_version %}latest{% else %}{{ _version }}{% endif %}
+
+{% if assembly.spec.layout == AssemblyLayout.STANDARD %}
+COPY {{ assembly.dist_dir }} /opt/odoo/custom_addons/
+{% elif assembly.spec.layout == AssemblyLayout.FLAT %}
+# WARNING: Building docker images on assemblies with FLAT layout type is not recommended.
+#          Please, switch to standard layout, is you need to build docker images.
+{% for addon; assembly.spec.addons %}
+COPY {{ addon.name }} /opt/odoo/custom_addons/{{ addon.name }}
+{% endfor %}
+{% else %}
+# Layout {{ assembly.spec.layout }} not supported for in docker yet
+{% endif %}
+
+{% if handle_requirements_txt %}
+COPY "requirements.txt" /tmp/odood-assembly-requirements.txt
+RUN odood addons link /opt/odoo/custom_addons && \
+    odood venv install-py-packages -r /tmp/odood-assembly-requirements.txt && \
+    odood venv python -- -m compileall -q /opt/odoo/custom_addons/ && \
+    rm /tmp/odood-assembly-requirements.txt && \
+    rm -rf /root/.cache/pip/
+{% endif %}
+
+# ---- ODOOD END DYNAMIC DOCKER CONFIG ----

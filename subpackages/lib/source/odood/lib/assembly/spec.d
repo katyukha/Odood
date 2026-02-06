@@ -1,6 +1,7 @@
 module odood.lib.assembly.spec;
 
 private import std.typecons;
+private import std.logger;
 private import std.string;
 private import std.exception: enforce;
 private import std.algorithm;
@@ -9,7 +10,7 @@ private import std.digest.sha;
 
 private import dyaml: Node;
 
-private import odood.lib.assembly.exception: OdoodAssemblyException;
+private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
 private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -24,6 +25,24 @@ private import odood.utils.odoo.serie: OdooSerie;
   *
   **/
 
+
+/** Type of assembly layout.
+  * - STANDARD - All addons will be placed to `dist` folder.
+  * - FLAT - All addons will be placed in root folder of repo.
+  **/
+enum AssemblyLayout {
+    STANDARD = 1,
+    FLAT = 2,
+}
+
+
+/// Default layout
+alias AssemblyDefaultLayout = AssemblyLayout.STANDARD;
+
+
+/** Representation of addon in assembly specification
+  *
+  **/
 struct AssemblySpecAddon {
     string name;
     string source_name=null;
@@ -96,11 +115,11 @@ struct AssemblySpecSource {
     bool no_search=false;
 
     /// Hash
-    @property hashString() const {
+    @property string hashString() const {
         string res = git_url.toString();
         if (git_ref)
             res ~= "@" ~ git_ref;
-        return sha1Of(res).toHexString();
+        return sha1Of(res).toHexString().idup;
     }
 
     private this(GitURL git_url, in string name=null, in string git_ref=null, in string access_group=null) {
@@ -112,22 +131,29 @@ struct AssemblySpecSource {
 
     private this(in Node yaml_node) {
         enforce!OdoodAssemblyException(
-            yaml_node.containsKey("url") || yaml_node.containsKey("github") || yaml_node.containsKey("oca"),
-            "Invalid spec! Cannot determine url for git source: no 'url' nor 'github' neither 'oca' property specified.");
+            yaml_node.containsKey("url") || yaml_node.containsKey("github") || yaml_node.containsKey("oca") || yaml_node.containsKey("crnd"),
+            "Invalid spec! Cannot determine url for git source: no 'url' nor 'github' neither 'oca' neither 'crnd' property specified.");
         if (yaml_node.containsKey("url"))
             git_url = yaml_node["url"].as!string;
         else if (yaml_node.containsKey("github"))
             git_url = "https://github.com/" ~ yaml_node["github"].as!string;
         else if (yaml_node.containsKey("oca"))
             git_url = "https://github.com/oca/" ~ yaml_node["oca"].as!string;
+        else if (yaml_node.containsKey("crnd"))
+            git_url = "ssh://git@gitlab.crnd.pro/" ~ yaml_node["crnd"].as!string;
         else
             // Should be unreachable, because check at the start of constructor.
             assert(0, "Invalid spec");
 
         if (yaml_node.containsKey("name"))
             name = yaml_node["name"].as!string;
+
         if (yaml_node.containsKey("ref"))
             git_ref = yaml_node["ref"].as!string;
+        else if (yaml_node.containsKey("branch"))
+            // CRND odoo-packager compatibility
+            git_ref = yaml_node["branch"].as!string;
+
         if (yaml_node.containsKey("access-group"))
             access_group = yaml_node["access-group"].as!string;
         if (yaml_node.containsKey("no-search"))
@@ -161,17 +187,51 @@ struct AssemblySpecSource {
     }
 }
 
+
+/** Assembly Specification representation.
+  **/
 struct AssemblySpec {
     private AssemblySpecAddon[] _addons;
     private AssemblySpecSource[] _sources;
+    private AssemblyLayout _layout = AssemblyDefaultLayout;
+    private string[] _known_addons;
 
     this(in Node yaml_node) {
+        enforce!OdoodAssemblyInvalidSpecException(
+            yaml_node.containsKey("spec"),
+            "Invalid assembly spec: 'spec' key missing!");
         auto spec = yaml_node["spec"];
+
+        enforce!OdoodAssemblyInvalidSpecException(
+            spec.containsKey("addons-list"),
+            "Invalid assembly spec: 'spec.addons-list' key missing!");
         foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
-        foreach(node; spec["sources-list"].sequence)
-            _sources ~= AssemblySpecSource(node);
+        if (spec.containsKey("sources-list"))
+            foreach(node; spec["sources-list"].sequence)
+                _sources ~= AssemblySpecSource(node);
+        else if (spec.containsKey("git-sources"))
+            foreach(node; spec["git-sources"].sequence)
+                _sources ~= AssemblySpecSource(node);
+
+        if (spec.containsKey("known-addons"))
+            _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
+
+        if (spec.containsKey("layout")) {
+            switch (spec["layout"].as!string) {
+                case "standard":
+                    _layout = AssemblyLayout.STANDARD;
+                    break;
+                case "flat":
+                    _layout = AssemblyLayout.FLAT;
+                    break;
+                default:
+                    throw new OdoodAssemblyInvalidSpecException(
+                        "Invalid layout type '%s'".format(spec["layout"].as!string)
+                    );
+            }
+        }
     }
 
     /// Addons that have to be present in this assembly
@@ -179,6 +239,18 @@ struct AssemblySpec {
 
     /// Git repositories to fetch addons from
     @property auto sources() const => _sources;
+
+    /// Assembly layout
+    @property auto layout() const => _layout;
+
+    /// ditto
+    @property void layout(in AssemblyLayout layout) {
+        _layout = layout;
+    }
+
+    /// List of known addons, that supposed to be present on destination server.
+    /// These addons will be ignored during dependency validation
+    @property auto known_addons() const => _known_addons;
 
     package(odood) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
         foreach(source; _sources)
@@ -192,6 +264,10 @@ struct AssemblySpec {
         _addons ~= AssemblySpecAddon(name: name, source_name: source_name, from_odoo_apps: from_odoo_apps);
     }
 
+    package(odood) void addKnownAddon(in string name) {
+        _known_addons ~= name;
+    }
+
     /// Find source by name
     Nullable!AssemblySpecSource getSource(in string name) const {
         foreach(source; _sources)
@@ -200,17 +276,193 @@ struct AssemblySpec {
         return Nullable!AssemblySpecSource.init;
     }
 
+    /** Validate spec
+      **/
+    void validate() const {
+        auto duplicated_addons = _addons.map!((a) => a.name).array.dup.sort.group.filter!((t) => t[1] > 1).array;
+        enforce!OdoodAssemblyInvalidSpecException(
+            duplicated_addons.length == 0,
+            "There are duplicated addons:\n%s".format(
+                duplicated_addons.map!((a) => "%s: %s".format(a[0], a[1])).join(",\n")));
+    }
+
     auto toYAML() const {
-        return Node([
-            "spec": Node([
-                "addons-list": _addons.map!((n) => n.toYAML).array,
-                "sources-list": _sources.map!((s) => s.toYAML).array,
-            ]),
+        auto res = Node([
+            "spec":["addons-list": _addons.map!((n) => n.toYAML).array],
         ]);
+        res["spec"]["sources-list"] = _sources.map!((s) => s.toYAML).array;
+        if (!_known_addons.empty)
+            res["spec"]["known-addons"] = _known_addons;
+        if (_layout != AssemblyDefaultLayout)
+            final switch(_layout) {
+                case AssemblyLayout.STANDARD:
+                    res["spec"]["layout"] = "standard";
+                    break;
+                case AssemblyLayout.FLAT:
+                    res["spec"]["layout"] = "flat";
+                    break;
+            }
+        return res;
     }
 
     /* TODO:
-     *     - Add spec validation
      *     - Add utils for better spec processing
      */
+}
+
+
+// Test assembly spec base
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly1", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+    spec.validate;  // Ensure spec is valid
+
+    spec.sources.length.should == 2;
+    spec.sources.map!((s) => s.git_url.toString).canFind("https://github.com/crnd-inc/generic-addons").shouldBeTrue;
+    spec.sources.map!((s) => s.git_url.toString).canFind("https://github.com/oca/web").shouldBeTrue;
+
+    spec.sources[0].git_url.toString.should == "https://github.com/crnd-inc/generic-addons";
+    spec.sources[0].name.should == "cga";
+    spec.sources[0].git_ref.should == "";
+    spec.sources[0].access_group.should == "";
+    spec.sources[0].no_search.should == false;
+
+    spec.sources[1].git_url.toString.should == "https://github.com/oca/web";
+    spec.sources[1].name.should == "";
+    spec.sources[1].git_ref.should == "";
+    spec.sources[1].access_group.should == "";
+    spec.sources[1].no_search.should == false;
+
+    spec.addons.length.should == 3;
+    spec.addons.map!((s) => s.name).canFind("generic_mixin").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("web_chatter_position").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("kw_api_connector").shouldBeTrue;
+
+    spec.addons[0].name.should == "generic_mixin";
+    spec.addons[0].source_name.should == "cga";
+    spec.addons[0].from_odoo_apps.should == false;
+
+    spec.addons[1].name.should == "web_chatter_position";
+    spec.addons[1].source_name.should == "";
+    spec.addons[1].from_odoo_apps.should == false;
+
+    spec.addons[2].name.should == "kw_api_connector";
+    spec.addons[2].source_name.should == "";
+    spec.addons[2].from_odoo_apps.should == true;
+
+    spec.known_addons.should == ["my_test_addon"];
+
+    spec.layout.should == AssemblyLayout.STANDARD;
+
+    // Add addon to spec
+    spec.addAddon("generic_condition");
+
+    spec.addons.length.should == 4;
+    spec.addons.map!((s) => s.name).should == ["generic_mixin", "web_chatter_position", "kw_api_connector", "generic_condition"];
+    spec.addons[3].name.should == "generic_condition";
+    spec.addons[3].source_name.should == "";
+    spec.addons[3].from_odoo_apps.should == false;
+
+    // Add source
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"));
+
+    spec.sources.length.should == 3;
+    spec.sources.map!((s) => s.git_url.toString).should == [
+        "https://github.com/crnd-inc/generic-addons",
+        "https://github.com/oca/web",
+        "https://github.com/OCA/server-tools",
+    ];
+
+    // Try to add same addon second time
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"));
+
+    // Ensure there is no changes.
+    // TODO: May be raise error on validation instead?
+    spec.sources.length.should == 3;
+    spec.sources.map!((s) => s.git_url.toString).should == [
+        "https://github.com/crnd-inc/generic-addons",
+        "https://github.com/oca/web",
+        "https://github.com/OCA/server-tools",
+    ];
+
+    // Test output
+    auto stream = new Appender!string();
+    auto dumper = dyaml.dumper.dumper();
+    dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
+    dumper.dump(stream, spec.toYAML);
+
+    stream.data.should == 
+"%YAML 1.1
+---
+spec:
+  addons-list:
+  - name: generic_mixin
+    source: cga
+  - name: web_chatter_position
+  - name: kw_api_connector
+    odoo_apps: true
+  - name: generic_condition
+  sources-list:
+  - url: https://github.com/crnd-inc/generic-addons
+    name: cga
+  - url: https://github.com/oca/web
+  - url: https://github.com/OCA/server-tools
+  known-addons:
+  - my_test_addon
+";
+}
+
+// Load assembly with duplicated addon
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly2", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+
+    // Spec is not valid, because it defines same addon two times
+    spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// Load assembly with addons only
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly3", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+
+    // Spec is valid
+    spec.validate;
+
+    spec.sources.length.should == 0;
+
+    spec.addons.length.should == 2;
+    spec.addons.map!((s) => s.name).canFind("generic_mixin").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("kw_api_connector").shouldBeTrue;
+
+    spec.addons[0].name.should == "generic_mixin";
+    spec.addons[1].source_name.should == "";
+    spec.addons[0].from_odoo_apps.should == true;
+
+    spec.addons[1].name.should == "kw_api_connector";
+    spec.addons[1].source_name.should == "";
+    spec.addons[1].from_odoo_apps.should == true;
+
+    spec.layout.should == AssemblyLayout.STANDARD;
 }

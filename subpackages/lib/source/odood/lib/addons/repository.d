@@ -8,8 +8,7 @@ private import std.exception: enforce;
 
 private import thepath: Path;
 
-private import odood.lib.project: Project;
-private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.addons.addon: OdooAddon, findAddons;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.exception: OdoodException;
@@ -18,23 +17,16 @@ private import odood.git: GitRepository, GIT_REF_WORKTREE;
 
 // TODO: Do we need this class?
 class AddonRepository : GitRepository{
-    private const Project _project;
 
     @disable this();
 
-    this(in Project project, in Path path) {
-        super(path);
-        _project = project;
-    }
-
-    this(in Project project, in GitRepository repo) {
+    this(in GitRepository repo) {
         super(repo.path);
-        _project = project;
     }
 
-    /** Return Odood project associated with this addons repository
-      **/
-    auto project() const => _project;
+    this(T...)(auto ref T args) {
+        super(args);
+    }
 
     /** Scan repository for addons and return array of odoo addons,
       * found in this repo.
@@ -45,7 +37,7 @@ class AddonRepository : GitRepository{
       *         Otherwise, scan only the root directory of the repo for addons.
       **/
     auto addons(in bool recursive=true) const {
-        return project.addons.scan(path, recursive);
+        return findAddons(path, recursive);
     }
 
     /** Get version of addon in specified commit
@@ -109,9 +101,9 @@ class AddonRepository : GitRepository{
     }
 
     /// ditto
-    auto getChangedModules(in bool ignore_translations=true) const {
+    auto getChangedModules(in string start_ref, in bool ignore_translations=true) const {
         return getChangedModules(
-            start_ref: "origin/%s".format(_project.odoo.serie),
+            start_ref: start_ref,
             end_ref: GIT_REF_WORKTREE,
             ignore_translations: ignore_translations);
     }

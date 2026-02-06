@@ -80,7 +80,7 @@ sudo apt-get upgrade -yq   # upgrade packages
 sudo apt-get install -yq wget nginx postgresql certbot fail2ban
 
 # Download and install latest version of Odood
-wget -O /tmp/odood.deb https://github.com/katyukha/Odood/releases/download/v0.5.3/odood_v0.5.3_amd64.deb
+wget -O /tmp/odood.deb https://github.com/katyukha/Odood/releases/download/v0.5.4/odood_v0.5.4_amd64.deb
 sudo apt install -yq /tmp/odood.deb
 
 # Download and install correct version of Wkhtmltopdf
@@ -119,7 +119,7 @@ sudo apt-get upgrade -yq   # upgrade packages
 sudo apt-get install -yq wget nginx postgresql certbot fail2ban
 
 # Download and install latest version of Odood
-wget -O /tmp/odood.deb https://github.com/katyukha/Odood/releases/download/v0.5.3/odood_v0.5.3_amd64.deb
+wget -O /tmp/odood.deb https://github.com/katyukha/Odood/releases/download/v0.5.4/odood_v0.5.4_amd64.deb
 sudo apt install -yq /tmp/odood.deb
 
 # Download and install correct version of Wkhtmltopdf

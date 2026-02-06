@@ -4,9 +4,12 @@ private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines;
 private import std.format: format;
-private import std.algorithm: map;
+private import std.algorithm: map, canFind, startsWith;
 private import std.array: array;
+private import std.regex: ctRegex, matchFirst;
+private import std.conv: to;
 private static import std.process;
+
 
 private import thepath: Path;
 
@@ -14,6 +17,33 @@ private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.git: getGitTopLevel, GIT_REF_WORKTREE, GitURL;
 
+
+/** Representation of result of `git status` command.
+  **/
+protected struct GitStatus {
+    bool hasChanges = false;
+    bool hasUntracked = false;
+    bool hasConflicts = false;
+    int ahead = 0;
+    int behind = 0;
+    string localBranch;
+    string remoteBranch;
+
+    /** Check if repository is clean:
+      * - no untracked files
+      * - no conflicta
+      * - no changes
+      **/
+    bool isClean() const {
+        return !hasChanges && !hasUntracked && !hasConflicts;
+    }
+
+    /** Check if repo is in diverged status
+      **/
+    bool isDiverged() const {
+        return ahead > 0 && behind > 0;
+    }
+}
 
 /** Simple class to manage git repositories
   **/
@@ -234,11 +264,13 @@ class GitRepository {
 
     /** Pull repository
       **/
-    void pull() const {
-        gitCmd
-            .withArgs("pull")
-            .execute()
-            .ensureOk(true);
+    void pull(in bool ff_only=false) const {
+        auto cmd = gitCmd
+            .withArgs("pull");
+        if (ff_only)
+            cmd.addArgs("--ff-only");
+
+        cmd.execute().ensureOk(true);
     }
 
     /** Prepare git diff revision spec.
@@ -499,5 +531,62 @@ class GitRepository {
                     "push", "origin", current_branch.get)
                 .execute
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
+    }
+
+    /** Check git status and return minimal status information
+      **/
+    auto status() const {
+        // TODO: Split parsing of status output to separate method/function and add unittests for it.
+        //       Or, may be move parsing to struct GitStatus
+        auto status_str = gitCmd
+            .withEnv("LC_ALL", "C")
+            .withArgs("status", "--untracked-files=all", "--porcelain", "--branch")
+            .execute
+            .ensureOk("Cannot get git status", true)
+            .output;
+
+        GitStatus status;
+        auto lines = status_str.splitLines();
+        if (lines.length == 0) return status;
+
+        // Example: ## main...origin/main [ahead 1, behind 2]
+        auto header = lines[0];
+
+        /* Regex description
+         * 1. (?P<local>[^\s\.]+) - local branch name
+         * 2. (?:\.\.\.(?P<remote>[^\s\[]+))? - optional remote branch name (separated from local branch via '...)
+         * 3. statistics ahead/behind that is used to check for diverged state
+         *
+         * Sample: ## main...origin/main [ahead 1, behind 2]
+         */
+        auto headerRegex = ctRegex!(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
+
+        if (auto m = lines[0].matchFirst(headerRegex)) {
+            status.localBranch = m["local"];
+            status.remoteBranch = m["remote"].length ? m["remote"] : null;
+
+            if (m["ahead"].length) status.ahead = m["ahead"].to!int;
+            if (m["behind"].length) status.behind = m["behind"].to!int;
+        }
+
+        foreach (line; lines[1..$]) {
+            if (line.length < 3)
+                /* Minimal meaningful line is `XY PATH`, where:
+                 *   X - status in index,
+                 *   Y - status in tree,
+                 *   PATH - file path separated by space.
+                 *
+                 * Thus, here we skip empty or unparsable lines.
+                 */
+                continue;
+            if (["DD", "AU", "UD", "UA", "DU", "AA", "UU"].canFind(line[0 .. 2]))
+                status.hasConflicts = true;
+            else if (line.startsWith("??"))
+                status.hasUntracked = true;
+            else
+                // "M ", " A", "D " ...
+                status.hasChanges = true;  
+        }
+        return status;
     }
 }

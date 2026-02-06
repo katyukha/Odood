@@ -1,5 +1,30 @@
 # Changelog
 
+## Release 0.5.4 (2026-02-06)
+
+### Added
+
+- Assemblies:
+    - added support for `known-addons` key in spec
+    - added support for assembly layout config (standard and flat)
+    - added support for downloading addons from Odoo Apps
+    - Clone/update git sources in parallel
+    - Added assemply spec validation before sync operation
+    - Added new option `--dockerfile` that allows to automatically generate Dockerfile for assembly on *sync*.
+      Thus we have the way to build standard images for assemblies.
+- Added ability to pull all repositories via command `odood repo pull-all`.
+  This could be helpfull during development to pull all repos on instance.
+- Added command `odood pre-commit update` that could be used to update pre-commit dependencies (in pre-commit config).
+  Just an alias for standard `pre-commit autoupdate` that is run inside correct repo dir and within correct venv.
+- Added option `--workers` to `deploy` command
+
+### Changed
+
+- Clean up pip cache after deploy, when docker image is built.
+- Assembly, if `VERSION`, `Dockerfile` or `.dockerignore` changed, that commit of changes allowed.
+
+---
+
 ## Release 0.5.3 (2026-01-08)
 
 ### Added

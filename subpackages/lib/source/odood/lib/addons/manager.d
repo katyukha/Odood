@@ -211,7 +211,9 @@ struct AddonManager {
         // TODO: Implement separate struct LinkOptions to handle all link options.
         //       this could simplify the code.
         auto dest = _project.directories.addons.join(addon.name);
-        if (!dest.exists) {
+        if (dest.toAbsolute == addon.path.toAbsolute) {
+            tracef("Addon %s already in custom addons dir... There is no need to link it.", addon.name);
+        } else if (!dest.exists) {
             tracef("Linking addon %s (%s -> %s)",
                    addon.name, addon.path, dest);
             addon.path.symlink(_project.directories.addons.join(addon.name));
@@ -665,6 +667,6 @@ struct AddonManager {
         enforce!OdoodException(
             path.join(".git").exists,
             "Is not a git root directory.");
-        return new AddonRepository(_project, path);
+        return new AddonRepository(path);
     }
 }

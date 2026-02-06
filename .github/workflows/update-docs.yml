@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-docs-command-ref
     env:
-      MDBOOK_VERSION: 0.4.43
+      MDBOOK_VERSION: 0.5.2
     steps:
       - uses: actions/checkout@v4
       - name: 'Download command ref doc'
@@ -64,6 +64,8 @@ jobs:
         with:
           name: odood-docs-command-ref
           path: docs/odood/src/
+      - name: Update changelog
+        run: cp -f ./CHANGELOG.md ./docks/odood/src/changelog.md
       - name: Install mdBook
         run: |
           curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh

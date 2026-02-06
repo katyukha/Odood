@@ -124,8 +124,12 @@ class CommandAssemblySync: AssemblyCommandBase {
             null, "push", "Automatically push changes if needed."));
         this.add(new Option(
             null, "push-to", "Name of branch to push changes to."));
+
+        // TODO: Move this options to assembly spec?
         this.add(new Flag(
             null, "changelog", "Generate changelog for assembly."));
+        this.add(new Flag(
+            null, "dockerfile", "Generate Dockerfile for assembly."));
     }
 
     public override void execute(ProgramArgs args) {
@@ -135,7 +139,10 @@ class CommandAssemblySync: AssemblyCommandBase {
         project.assembly.get.sync();
 
         if (args.flag("changelog"))
-            project.assembly.get.generateChangelog();
+            project.assembly.get.generateChangelog;
+
+        if (args.flag("dockerfile"))
+            project.assembly.get.generateDockerfile;
 
         // Commit changes if requested (usually useful in CI flows)
         if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
@@ -149,12 +156,24 @@ class CommandAssemblySync: AssemblyCommandBase {
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
                         ":(exclude)CHANGELOG.md",
                         ":(exclude)CHANGELOG.latest.md",
+                        ":(exclude)Dockerfile",
+                        ":(exclude).dockerignore",
                     ],
                     staged: true
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
-            if (project.assembly.get.repo.getChangedFiles(path_filters: ["dist"], staged: true)) {
+            if (
+                project.assembly.get.repo.getChangedFiles(
+                    // Changes that have to be commited (expected changes with changelog excluded)
+                    path_filters: [
+                        "dist",
+                        "%s".format(ASSEMBLY_VERSION_PATH),
+                        "Dockerfile",
+                        ".dockerignore",
+                    ],
+                    staged: true)
+            ) {
                 infof("Assembly Sync: Commiting assembly changes...");
                 project.assembly.get.repo.commit(
                     message: args.option("commit-message") ? args.option("commit-message") : "[SYNC] Assembly synced",

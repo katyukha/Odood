@@ -1,0 +1,20 @@
+spec:
+  addons-list:
+      - name: generic_mixin
+        source: cga
+      - name: web_chatter_position
+      - name: kw_api_connector
+        odoo_apps: true
+
+      # Add duplicated addon,
+      # and specify it as name only (instead of dict)
+      - generic_mixin
+
+  sources-list:
+      - github: crnd-inc/generic-addons
+        name: cga
+      - oca: web
+
+  known-addons:
+      - my_test_addon
+
