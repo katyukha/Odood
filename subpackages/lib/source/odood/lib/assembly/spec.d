@@ -434,3 +434,35 @@ unittest {
     // Spec is not valid, because it defines same addon two times
     spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
 }
+
+// Load assembly with addons only
+unittest {
+    import std.array: Appender;
+    import dyaml;
+    import thepath;
+    import unit_threaded.assertions;
+
+    Node yaml_spec = dyaml.Loader.fromFile(
+        Path("test-data", "assemblies", "assembly3", "odood-assembly.yml").toString()
+    ).load();
+    auto spec = AssemblySpec(yaml_spec);
+
+    // Spec is valid
+    spec.validate;
+
+    spec.sources.length.should == 0;
+
+    spec.addons.length.should == 2;
+    spec.addons.map!((s) => s.name).canFind("generic_mixin").shouldBeTrue;
+    spec.addons.map!((s) => s.name).canFind("kw_api_connector").shouldBeTrue;
+
+    spec.addons[0].name.should == "generic_mixin";
+    spec.addons[1].source_name.should == "";
+    spec.addons[0].from_odoo_apps.should == true;
+
+    spec.addons[1].name.should == "kw_api_connector";
+    spec.addons[1].source_name.should == "";
+    spec.addons[1].from_odoo_apps.should == true;
+
+    spec.layout.should == AssemblyLayout.STANDARD;
+}

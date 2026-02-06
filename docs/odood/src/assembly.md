@@ -40,9 +40,25 @@ Following shortcuts available for sources, to make spec more readable:
 spec:
   addons-list:
   - name: generic_mixin
+
+  - generic_tag   # Addons could be specified by name only.
   sources-list:
   - github: crnd-inc/generic-addons  # converted to https://github.com/crnd-inc/generic-addons
   - oca: web  # converted to https://github.com/OCA/web
+```
+
+Additionally, it is allowed to download addons from [Odoo Apps](https://apps.odoo.com/apps).
+For example, following spec, will download all addons from Odoo Apps. No git sources provided.
+
+```yaml
+spec:
+  addons-list:
+    - name: generic_m2o
+      odoo_apps: true
+    - name: generic_mixin
+      odoo_apps: true
+    - name: generic_tag
+      odoo_apps: true
 ```
 
 ## Assembly workflow
