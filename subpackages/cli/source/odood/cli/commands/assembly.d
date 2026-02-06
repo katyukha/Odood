@@ -124,6 +124,8 @@ class CommandAssemblySync: AssemblyCommandBase {
             null, "push", "Automatically push changes if needed."));
         this.add(new Option(
             null, "push-to", "Name of branch to push changes to."));
+
+        // TODO: Move this options to assembly spec?
         this.add(new Flag(
             null, "changelog", "Generate changelog for assembly."));
         this.add(new Flag(
