@@ -1,7 +1,7 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"dshould": "1.7.2",
+		"dshould": "1.8.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
 		"thepath": "2.1.0",
