@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## Release 0.5.5
+
+### Fixed
+
+- Fixed bad dependency on `cbor==5.4.2`. Patch the requirements.txt during Odoo installation.
 
 ---
 

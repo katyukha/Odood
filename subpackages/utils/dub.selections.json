@@ -10,7 +10,7 @@
 		"prettyprint": "1.0.9",
 		"requests": "2.2.0",
 		"test_allocator": "0.3.4",
-		"thepath": "2.1.0",
+		"thepath": "2.2.0",
 		"theprocess": "0.0.10",
 		"unit-threaded": "2.2.3",
 		"versioned": "0.1.0",
