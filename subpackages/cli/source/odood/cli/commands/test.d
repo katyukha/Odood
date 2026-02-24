@@ -211,7 +211,7 @@ class CommandTest: OdoodCommand {
         if (!args.options("populate-models").empty)
             testRunner.setPopulateModels(args.options("populate-models"));
         if (!args.option("populate-size").empty)
-            testRunner.setPopulateModels(args.options("populate-size"));
+            testRunner.setPopulateSize(args.option("populate-size"));
 
         auto res = testRunner.run();
 

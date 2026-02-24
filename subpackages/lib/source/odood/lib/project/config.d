@@ -7,6 +7,7 @@ private import thepath: Path;
 private static import dyaml;
 
 private import odood.utils.odoo.serie: OdooSerie;
+private import odood.exception: OdoodException;
 
 package(odood)
     immutable string DEFAULT_ODOO_REPO="https://github.com/odoo/odoo";
@@ -135,8 +136,7 @@ struct ProjectConfigOdoo {
                     this.server_supervisor = ProjectServerSupervisor.Systemd;
                     break;
                 default:
-                    assert(
-                        0,
+                    throw new OdoodException(
                         "Server supervisor type %s is not supported!".format(
                             config["server-supervisor"].as!string));
             }
