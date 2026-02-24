@@ -2,6 +2,10 @@
 
 ## Release 0.5.5
 
+### Added
+
+- New command `odood venv lodoo` that exposes [LOdoo](https://pypi.org/project/lodoo/) bundled to current project.
+
 ### Fixed
 
 - Fixed bad dependency on `cbor==5.4.2`. Patch the requirements.txt during Odoo installation.

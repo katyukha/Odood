@@ -37,19 +37,20 @@ const struct LOdoo {
                 _project.odoo.testconfigfile : _project.odoo.configfile;
         }
 
-        auto runner() const {
-            auto process = _project.venv.runner()
-                .addArgs("lodoo", "--conf", odoo_conf_path.toString);
-            if (_project.odoo.server_user)
-                process.setUser(_project.odoo.server_user);
-            return process;
-        }
     public:
         @disable this();
 
         this(in Project project, in bool test_mode=false) {
             _project = project;
             _test_mode = test_mode;
+        }
+
+        auto runner() const {
+            auto process = _project.venv.runner()
+                .addArgs("lodoo", "--conf", odoo_conf_path.toString);
+            if (_project.odoo.server_user)
+                process.setUser(_project.odoo.server_user);
+            return process;
         }
 
         /** Return list of databases available on this odoo instance
