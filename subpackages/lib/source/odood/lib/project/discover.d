@@ -122,7 +122,7 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
     }
 
     // Validate parsed odoo-helper config
-    // TOOD: Do additional validation if all required parameters available;
+    // TODO: Do additional validation if all required parameters available;
     enforce!OdoodDiscoverError(
         !project_root.isNull,
         "Cannot parse odoo-helper config!");

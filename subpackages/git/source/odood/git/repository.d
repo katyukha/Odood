@@ -31,7 +31,7 @@ protected struct GitStatus {
 
     /** Check if repository is clean:
       * - no untracked files
-      * - no conflicta
+      * - no conflicts
       * - no changes
       **/
     bool isClean() const {

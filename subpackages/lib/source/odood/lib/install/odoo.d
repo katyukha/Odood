@@ -138,7 +138,7 @@ void installOdoo(in Project project) {
         );
     } else {
         /* Patch requirements txt to avoid using gevent 21.8.0 that requires build.
-         * See https://github.com/odoo/odoo/issues/187021
+         * See: https://github.com/odoo/odoo/issues/187021
          *
          * We switch to gevent 24.11.1, that is up to date, and that completely dropped
          * support for python2, thus, much easier to compile. Also, this new version,
@@ -155,6 +155,23 @@ void installOdoo(in Project project) {
                     "greenlet~=3.1");
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
+
+        /* Patch requirements txt to avoid using cbor2==5.4.2 that depends on pkg_resoures
+         * that was removed from newer setuptools.
+         * See: https://github.com/odoo/odoo/issues/248315
+         *
+         * We switch to cbor2==5.4.6, that have to work fine and
+         * has official support for python3.11
+         */
+        if (project.venv.py_version >= Version(3, 10, 0) && project.odoo.serie <= 19) {
+            info("Patching Odoo requirements.txt to avoid usage of old cbor==5.4.2...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"cbor2==5.4.2", "g"),
+                    "cbor2==5.4.6");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
 
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(

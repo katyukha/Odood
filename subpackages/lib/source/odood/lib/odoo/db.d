@@ -66,27 +66,17 @@ package(odood.lib) struct OdooDatabase {
             in string query,
             in bool no_commit,
             T params) {
+        import peque.connection: OnSuccess;
 
-        import peque.exception;
-        import peque: Result;
-
-        _connection.begin();  // Start new transaction
-        Result res;
-        try {
-            res = _connection.execParams(query, params);
-        } catch (PequeException e) {
-            // Rollback in case of any error
-            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
-            _connection.rollback();
-            throw e;
-        }
         if (no_commit) {
-            warningf("Rollback, because 'no_commit' option supplied!");
-            _connection.rollback();
-        } else {
-            _connection.commit();
+            warningf("Running SQL query in dry mode (no-commit)...");
+            return _connection.transaction!(OnSuccess.rollback)((ref tx) {
+                return tx.execParams(query, params);
+            });
         }
-        return res;
+        return _connection.transaction((ref tx) {
+            return tx.execParams(query, params);
+        });
     }
 
     /// ditto
@@ -104,22 +94,17 @@ package(odood.lib) struct OdooDatabase {
     void runSQLScript(
             in string query,
             in bool no_commit=false) {
-        import peque.exception;
+        import peque.connection: OnSuccess;
 
-        _connection.begin();  // Start new transaction
-        try {
-            _connection.exec(query);
-        } catch (PequeException e) {
-            // Rollback in case of any error
-            errorf("SQL query thrown error %s!\nQuery:\n%s", e.msg, query);
-            _connection.rollback();
-            throw e;
-        }
         if (no_commit) {
-            warningf("Rollback, because 'no_commit' option supplied!");
-            _connection.rollback();
+            warningf("Running SQL query in dry mode (no-commit)...");
+            _connection.transaction!(OnSuccess.rollback)((ref tx) {
+                tx.exec(query);
+            });
         } else {
-            _connection.commit();
+            _connection.transaction((ref tx) {
+                tx.exec(query);
+            });
         }
     }
 

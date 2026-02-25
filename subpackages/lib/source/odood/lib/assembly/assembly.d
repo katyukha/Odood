@@ -33,8 +33,8 @@ private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.utils: download;
 private import odood.lib.addons.manager:
-    DEFAULT_INSTALL_PY_REQUREMENTS,
-    DEFAULT_INSTALL_MANIFEST_REQUREMENTS;
+    DEFAULT_INSTALL_PY_REQUIREMENTS,
+    DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.assembly.changes: AssemblyChanges;
 
@@ -613,8 +613,8 @@ struct Assembly {
       * and create only valid symlinks.
       **/
     void link(
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
         infof("Assembly Link: Cleanup old symlinks.");
         if (_path.join("requirements.txt").exists) {
             infof("Installing python requirements from '%s'", _path.join("requirements.txt"));

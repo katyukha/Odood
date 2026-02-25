@@ -24,10 +24,10 @@ private import odood.git: parseGitURL, gitClone;
 private import odood.exception: OdoodException;
 
 /// Install python dependencies requirements.txt by default
-immutable bool DEFAULT_INSTALL_PY_REQUREMENTS = true;
+immutable bool DEFAULT_INSTALL_PY_REQUIREMENTS = true;
 
 /// Install python dependencies from addon manifest by default
-immutable bool DEFAULT_INSTALL_MANIFEST_REQUREMENTS = false;
+immutable bool DEFAULT_INSTALL_MANIFEST_REQUIREMENTS = false;
 
 class AddonsInstallUpdateException: OdoodException {
     mixin basicExceptionCtors;
@@ -206,8 +206,8 @@ struct AddonManager {
     void link(
             OdooAddon addon,
             in bool force=false,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
         // TODO: Implement separate struct LinkOptions to handle all link options.
         //       this could simplify the code.
         auto dest = _project.directories.addons.join(addon.name);
@@ -219,7 +219,7 @@ struct AddonManager {
             addon.path.symlink(_project.directories.addons.join(addon.name));
         } else if (force) {
             tracef(
-                ("Removing allready existing addon %s at %s " ~
+                ("Removing already existing addon %s at %s " ~
                  "before linking from %s"),
                 addon.name, dest, addon.path);
             dest.remove();
@@ -271,8 +271,8 @@ struct AddonManager {
             in Path search_path,
             in bool recursive=false,
             in bool force=false,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
         foreach(addon; scan(search_path, recursive))
             link(addon, force, py_requirements, manifest_requirements);
 
@@ -509,8 +509,8 @@ struct AddonManager {
     /// Download from odoo apps
     void downloadFromOdooApps(
             in string addon_name,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) const {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
         auto temp_dir = createTempPath();
         scope(exit) temp_dir.remove();
 
@@ -568,8 +568,8 @@ struct AddonManager {
             in Path path,
             in bool single_branch=false,
             in bool recursive=false,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
         foreach(line; parseOdooRequirements(path))
             // TODO: In case when only single module requested,
             //       add only single module
@@ -609,8 +609,8 @@ struct AddonManager {
             in string branch,
             in bool single_branch=false,
             in bool recursive=true,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
 
         auto git_url = parseGitURL(url);
 
@@ -651,8 +651,8 @@ struct AddonManager {
             in string url,
             in bool single_branch=false,
             in bool recursive=true,
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUREMENTS) {
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
         addRepo(
             url,
             _project.odoo.serie.toString,

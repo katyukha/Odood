@@ -21,7 +21,7 @@ private import odood.utils;
 private import odood.utils.versioned: Version;
 private import odood.lib.odoo.python: getSystemPythonVersion;
 
-// TOOD: May be it have sense to move this to utils subpackage.
+// TODO: May be it have sense to move this to utils subpackage.
 
 /// Python major version
 enum PySerie {

@@ -171,20 +171,21 @@ void testAddonsManagementBasic(in Project project, in string ukey="n") {
     );
     project.directories.repositories.join(
         "crnd-inc", "generic-addons", ".git").exists.shouldBeTrue;
-    project.directories.addons.join("generic_location").exists.shouldBeTrue;
-    project.directories.addons.join("generic_location").isSymlink.shouldBeTrue;
-    project.directories.addons.join("generic_location").readLink.shouldEqual(
+    project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
+    project.directories.addons.join("generic_mixin").readLink.shouldEqual(
         project.directories.repositories.join(
-            "crnd-inc", "generic-addons", "generic_location"));
+            "crnd-inc", "generic-addons", "generic_mixin"));
 
-    // Try to install generic_location module
-    project.addons.isInstalled(dbname, "generic_location").shouldBeFalse;
-    project.addons.install(dbname, "generic_location");
-    project.addons.isInstalled(dbname, "generic_location").shouldBeTrue;
+    // Try to install generic_mixin module
+    project.addons.isInstalled(dbname, "generic_mixin").shouldBeFalse;
+    project.addons.install(dbname, "generic_mixin");
+    project.addons.isInstalled(dbname, "generic_mixin").shouldBeTrue;
 
-    // Try to run tests for module generic_location
+    // Try to run tests for module generic_mixin and test_generic_mixin
     auto test_result = project.testRunner()
-        .addModule("generic_location")
+        .addModule("generic_mixin")
+        .addModule("test_generic_mixin")
         .useTemporaryDatabase()
         .registerLogHandler((in rec) { printLogRecord(rec); })
         .run();

@@ -55,12 +55,12 @@ class AddonRepository : GitRepository{
         if (!this.isFileExists(g_manifest_path, rev))
             g_manifest_path = g_path.join("__openerp__.py");
         if (!this.isFileExists(g_manifest_path, rev))
-            // File not exists in spefied revision
+            // File not exists in specified revision
             return Nullable!OdooStdVersion.init;
 
         auto manifest = tryParseOdooManifest(this.getContent(g_manifest_path, rev));
         if (manifest.isNull)
-            // Cannot read manifest in spefied revision
+            // Cannot read manifest in specified revision
             return Nullable!OdooStdVersion.init;
 
         return manifest.get.module_version.nullable;

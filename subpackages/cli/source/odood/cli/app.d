@@ -112,16 +112,16 @@ class App: OdoodProgram {
     void setUpLogging(in int verbosity, in int quietness) {
         auto log_verbosity = verbosity - quietness;
 
-        auto log_level = LogLevel.info;  // Default log level
+        LogLevel log_level;
         if (log_verbosity >= 2)
             log_level = LogLevel.all;
         else if (log_verbosity >= 1)
             log_level = LogLevel.trace;
-        else if (log_verbosity >= 0)     // Default log level
+        else if (log_verbosity >= 0)
             log_level = LogLevel.info;
-        else if (log_verbosity <= 1)
+        else if (log_verbosity >= -1)
             log_level = LogLevel.warning;
-        else if (log_verbosity <= 2)
+        else
             log_level = LogLevel.error;
 
         std.logger.sharedLog = cast(shared) new OdoodLogger(log_level);

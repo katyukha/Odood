@@ -96,7 +96,7 @@ class CommandVenvNPM: OdoodCommand {
 class CommandVenvIPython: OdoodCommand {
 
     this() {
-        super("ipython", "Run ipython in this environment. All arguments after '--' will be forwarded directly to python.");
+        super("ipython", "Run ipython in this environment. All arguments after '--' will be forwarded directly to IPython.");
     }
 
     public override void execute(ProgramArgs args) {
@@ -128,6 +128,26 @@ class CommandVenvPython: OdoodCommand {
             .execv;
     }
 
+}
+
+
+class CommandVenvLOdoo: OdoodCommand {
+
+    this() {
+        super("lodoo", "Run lodoo in this environment. All arguments after '--' will be forwarded directly to lodoo.");
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        // If lodoo not installed, install it automatically
+        if (!project.venv.path.join("bin", "lodoo").exists)
+            project.venv.installPyPackages("lodoo");
+
+        project.lodoo.runner
+            .addArgs(args.argsRest)
+            .execv;
+    }
 }
 
 
@@ -290,6 +310,7 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvNPM());
         this.add(new CommandVenvIPython());
         this.add(new CommandVenvPython());
+        this.add(new CommandVenvLOdoo());
         this.add(new CommandVenvRun());
     }
 }
