@@ -27,7 +27,7 @@ void migrateAddonsCode(in Project project, in AddonRepository repo, in string[] 
             infof("Migrating module %s (%s) to serie %s", addon.name, addon.manifest.module_version, project.odoo.serie);
             auto old_serie = addon.manifest.module_version.serie;
             auto cmd = project.venv.runner
-                .addArgs(
+                .withArgs(
                     "odoo-module-migrate",
                     "--directory=%s".format(addon.path.parent),
                     "--modules=%s".format(addon.name),

@@ -351,13 +351,13 @@ struct AddonManager {
         final switch(cmd) {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
-                runner.addArgs("--init=%s".format(addon_names_csv))
+                runner.withArgs("--init=%s".format(addon_names_csv))
                     .execute.ensureOk!AddonsInstallException(true);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
-                runner.addArgs("--update=%s".format(addon_names_csv))
+                runner.withArgs("--update=%s".format(addon_names_csv))
                     .execute.ensureOk!AddonsUpdateException(true);
                 infof("Update of addons for database %s completed!", database);
                 break;

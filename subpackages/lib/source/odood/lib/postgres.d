@@ -10,7 +10,7 @@ void createNewPostgresUser(in string user, in string password) {
     // TODO: automatically create separate db user for odood
     //       that could be used to create other users for odoo instances.
     Process("sudo")
-        .setArgs([
+        .withArgs([
             "-u", "postgres", "-H",
             "--",
             "psql", "-c",

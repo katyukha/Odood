@@ -164,8 +164,8 @@ struct OdooDatabaseManager {
                 scope(exit) tmp_dir.remove();
 
                 // Run database backup
+                pg_dump.addArgs("--file=" ~ tmp_dir.join("dump.sql").toString);
                 auto dump_pid = pg_dump
-                    .addArgs("--file=" ~ tmp_dir.join("dump.sql").toString)
                     .spawn(
                         std.stdio.File("/dev/null"),
                         tmp_dir.join("pg_dump.output.log").openFile("wt"),
@@ -196,7 +196,7 @@ struct OdooDatabaseManager {
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
                 pg_dump
-                    .addArgs(
+                    .withArgs(
                         "--format=c",
                         "--file=" ~ dest.toString)
                     .execute
@@ -498,7 +498,7 @@ struct OdooDatabaseManager {
             "Running 'populate' for database %s for models (%s) with size %s...",
             dbname, models.join(", "), populate_size);
         _project.server(_test_mode).getServerRunner("populate")
-            .addArgs(
+            .withArgs(
                 "-d", dbname,
                 "--models=%s".format(models.join(",")),
                 "--size=%s".format(populate_size),

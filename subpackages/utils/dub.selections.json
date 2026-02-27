@@ -11,7 +11,7 @@
 		"requests": "2.2.0",
 		"test_allocator": "0.3.4",
 		"thepath": "2.2.0",
-		"theprocess": "0.0.10",
+		"theprocess": "0.1.0",
 		"unit-threaded": "2.2.3",
 		"versioned": "0.1.0",
 		"zipper": "0.0.8"

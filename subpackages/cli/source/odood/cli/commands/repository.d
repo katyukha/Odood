@@ -334,25 +334,25 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
 
         // Prepare merge
         if (!repo.gitCmd
-                .addArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source_branch))
+                .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source_branch))
                 .execute.isOk)
             warningf("Merge failed, there are conflicts. Please, resolve them manually");
 
         // Revert translation changes
         repo.gitCmd
-            .addArgs("reset", "-q", "--", "*.po", "*.pot")
+            .withArgs("reset", "-q", "--", "*.po", "*.pot")
             .execute
             .ensureOk(true);
 
         repo.gitCmd
-            .addArgs("clean", "-fdx", " --", "*.po", "*.pot")
+            .withArgs("clean", "-fdx", " --", "*.po", "*.pot")
             .execute
             .ensureOk(true);
         repo.gitCmd
-            .addArgs("checkout", "--ours", "--", "*.po", "*.pot")
+            .withArgs("checkout", "--ours", "--", "*.po", "*.pot")
             .execute;
         repo.gitCmd
-            .addArgs("add", "*.po", "*.pot")
+            .withArgs("add", "*.po", "*.pot")
             .execute;
 
         // Fix version conflicts

@@ -58,8 +58,8 @@ bool isGitRepo(in Path path) {
         return true;
 
     const auto result = Process("git")
-        .setArgs("rev-parse", "--git-dir")
-        .setWorkDir(path)
+        .withArgs("rev-parse", "--git-dir")
+        .inWorkDir(path)
         .execute();
     if (result.status == 0)
         return true;
