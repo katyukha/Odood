@@ -5,10 +5,8 @@ module odood.utils;
   **/
 
 private import core.time: Duration, seconds;
-private import core.sys.posix.sys.types: pid_t;
 private import core.thread: Thread;
 private import std.logger: warningf;
-private import std.process: Pid;
 private import std.exception: enforce, basicExceptionCtors;
 private import std.format: format;
 private import std.random: uniform;
@@ -44,23 +42,6 @@ package(odood) @safe Version parsePythonVersion(in Path interpreter_path) {
         "Cannot parse python interpreter (%s) version '%s'".format(
             interpreter_path, python_version_raw));
     return Version(re_match[1]);
-}
-
-
-/// Check if process is alive
-bool isProcessRunning(in pid_t pid) {
-    import core.sys.posix.signal: kill;
-    import core.stdc.errno;
-
-    const int res = kill(pid, 0);
-    if (res == -1 && errno == ESRCH)
-        return false;
-    return true;
-}
-
-/// ditto
-bool isProcessRunning(scope Pid pid) {
-    return isProcessRunning(pid.osHandle);
 }
 
 

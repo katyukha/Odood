@@ -14,15 +14,14 @@ private import std.string: join, strip;
 private import std.algorithm.iteration: map;
 
 private import thepath: Path;
+private import theprocess: Process, isProcessRunning;
 
 private import odood.lib.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
-private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
 private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
-private import theprocess: Process;
 
 immutable auto DEFAULT_START_TIMEOUT = 8.seconds;
 
