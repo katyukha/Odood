@@ -6,7 +6,7 @@ private import std.exception: enforce;
 private import std.string: empty;
 
 private import thepath: Path;
-private import theprocess: resolveProgram;
+private import theprocess: resolveProgram, systemUserExists;
 private import commandr: Option, Flag, ProgramArgs, acceptsValues;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -16,7 +16,6 @@ private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: checkSystemUserExists;
 
 
 class CommandInit: OdoodCommand {
@@ -95,7 +94,7 @@ class CommandInit: OdoodCommand {
         if (args.flag("create-db-user"))
             // Check if we can create pg user if requested, before initialization started.
             enforce!OdoodCLIException(
-                checkSystemUserExists("postgres"),
+                systemUserExists("postgres"),
                 "Local 'postgresql' package seems not installed, thus cannot create pg user for Odoo!");
 
 

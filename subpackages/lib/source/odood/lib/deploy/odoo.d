@@ -10,11 +10,10 @@ private import std.format: format;
 private import std.string: toStringz, empty;
 
 private import thepath: Path;
-private import theprocess: Process;
+private import theprocess: Process, systemUserExists;
 private import darktemple: renderFile;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: checkSystemUserExists;
 private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
@@ -198,7 +197,7 @@ Project deployOdoo(in DeployConfig config) {
         config.install_type);
     project.save(ODOOD_SYSTEM_CONFIG_PATH);
 
-    if (!checkSystemUserExists(project.odoo.server_user))
+    if (!systemUserExists(project.odoo.server_user))
         createSystemUser(project.project_root, project.odoo.server_user);
 
     // Get info about odoo user (that is needed to set up access rights for Odoo files

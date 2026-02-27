@@ -7,7 +7,7 @@ private import std.format: format;
 private import std.typecons: Nullable;
 
 private import thepath: Path;
-private import theprocess: Process, resolveProgram;
+private import theprocess: Process, resolveProgram, systemUserExists;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
@@ -21,7 +21,7 @@ private import odood.lib.project.config:
 private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: generateRandomString, checkSystemUserExists;
+private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
@@ -154,7 +154,7 @@ struct DeployConfig {
         if (this.database.local_postgres)
             // If local postgres requested, we expect that `postgres` user exists in system.
             enforce!OdoodDeployException(
-                checkSystemUserExists("postgres"),
+                systemUserExists("postgres"),
                 "Local postgres requested, but 'postgresql' package seems not installed!");
 
         if (this.nginx.enable)
