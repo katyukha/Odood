@@ -45,6 +45,7 @@ mixin(joinFnBinds!false((){
         //PyErr
         {q{PyObject*}, q{PyErr_Occurred}},
         {q{void}, q{PyErr_Fetch}, q{PyObject **ptype, PyObject **pvalue, PyObject **ptraceback}},
+        {q{void}, q{PyErr_Clear}},
 
         // PyDict
         {q{PyObject*}, q{PyDict_New}},
@@ -66,9 +67,6 @@ mixin(joinFnBinds!false((){
 
         // PyIter
         {q{PyObject*}, q{PyIter_Next}, q{PyObject* o}},
-
-        // PyList
-        {q{PyObject*}, q{PyList_AsTuple}, q{PyObject* list}},
 
         // PyBytes
         {q{char*}, q{PyBytes_AsString}, q{PyObject* o}},

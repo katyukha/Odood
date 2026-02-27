@@ -59,6 +59,24 @@ bool loadPyLib() {
 }
 
 
+/** Low-level string extraction that does NOT call pyEnforce or pyEnsureNoError.
+  * Used inside error-handling paths to avoid infinite recursion.
+  * On any nested failure, clears the error and returns a fallback string.
+  **/
+private string pyObjectToStringRaw(PyObject* o) {
+    if (!o) return "<null>";
+    auto unicode = PyObject_Str(o);
+    if (!unicode) { PyErr_Clear(); return "<failed to stringify>"; }
+    scope(exit) Py_DecRef(unicode);
+    auto str = PyUnicode_AsUTF8String(unicode);
+    if (!str) { PyErr_Clear(); return "<failed to encode>"; }
+    scope(exit) Py_DecRef(str);
+    auto cstr = PyBytes_AsString(str);
+    if (!cstr) { PyErr_Clear(); return "<failed to get bytes>"; }
+    return cstr.fromStringz.idup;
+}
+
+
 /** Ensure no python error is set.
   * Checks python error indicator and throw error if such indicator is set.
   *
@@ -75,10 +93,8 @@ void pyEnsureNoError() {
             if (etraceback) Py_DecRef(etraceback);
         }
 
-        // TODO: Think about avoiding usage of convertPyToD
-        //       to avoid possible infinite recursion
-        string msg = etype.convertPyToD!string;
-        if (evalue) msg ~= ": " ~ evalue.convertPyToD!string;
+        string msg = pyObjectToStringRaw(etype);
+        if (evalue) msg ~= ": " ~ pyObjectToStringRaw(evalue);
         throw new Exception(msg);
     }
 }
@@ -96,8 +112,10 @@ void pyEnsureNoError() {
   *     Exception when python object is not valid and some error occured.
   **/
 auto pyEnforce(PyObject* value) {
-    if (!value)
-       pyEnsureNoError();
+    if (!value) {
+        pyEnsureNoError();
+        throw new Exception("Python returned NULL without setting an error indicator");
+    }
     return value;
 }
 
@@ -143,7 +161,7 @@ if (isArray!T && !isSomeString!T) {
         result ~= convertPyToD!(ElementType!T)(item);
     }
 
-    // Ensure python error indicatori is not set
+    // Ensure python error indicator is not set
     pyEnsureNoError();
 
     return result;
@@ -154,7 +172,7 @@ T convertPyToD(T)(PyObject* o)
 if (isFloatingPoint!T) {
     auto number = PyNumber_Float(o).pyEnforce;
     const double result = PyFloat_AsDouble(number);
-    pyEnsureNoError;
+    pyEnsureNoError();
     return result;
 }
 
@@ -196,9 +214,5 @@ auto callPyFunc(T...)(PyObject* fn, T params) {
         PyTuple_SetItem(args, i, params[i].convertToPy);
     }
 
-    //writefln("Call fn %s with args %s and kwargs %s", convertPyToString(fn), convertPyToString(args), convertPyToString(kwargs));
-    auto res = PyObject_Call(fn, args, kwargs);
-    pyEnforce(res);
-    //writefln("Result: %s", res.convertPyToString);
-    return res;
+    return PyObject_Call(fn, args, kwargs).pyEnforce;
 }
