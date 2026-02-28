@@ -77,7 +77,14 @@ auto parseOdooManifest(in string manifest_content) {
     auto gstate = PyGILState_Ensure();
     scope(exit) PyGILState_Release(gstate);
 
-    auto parsed = callPyFunc(cast(PyObject*)_fn_literal_eval, manifest_content);
+    // ast is cached in sys.modules after the first call, so this is O(1).
+    auto mod_ast = PyImport_ImportModule("ast").pyEnforce;
+    scope(exit) Py_DecRef(mod_ast);
+
+    auto fn_literal_eval = PyObject_GetAttrString(mod_ast, "literal_eval".toStringz).pyEnforce;
+    scope(exit) Py_DecRef(fn_literal_eval);
+
+    auto parsed = callPyFunc(fn_literal_eval, manifest_content);
     scope(exit) Py_DecRef(parsed);
 
     // PyDict_GetItemString returns borrowed reference,
@@ -157,60 +164,6 @@ auto tryParseOdooManifest(in Path path) {
     return tryParseOdooManifest(path.readFileText);
 }
 
-// Module level link to ast module
-private shared PyObject* _fn_literal_eval;
-private shared PyThreadState* _py_thread_state;
-private shared bool _py_initialized = false;
-
-// Load and initialize the Python interpreter, import ast.literal_eval.
-// Returns true on success; throws OdoodException on failure.
-// Called lazily on first use via ensurePyInitialized().
-private bool initPython() {
-    import bindbc.loader;
-    import std.algorithm: map;
-    import std.string: fromStringz, join;
-
-    auto err_count_start = bindbc.loader.errorCount;
-    bool load_status = loadPyLib;
-    if (!load_status) {
-        auto errors = bindbc.loader.errors[err_count_start .. bindbc.loader.errorCount]
-            .map!((e) => "%s: %s".format(e.error.fromStringz.idup, e.message.fromStringz.idup))
-            .join(",\n");
-        throw new OdoodException("Cannot load python as library! Errors: %s".format(errors));
-    }
-
-    Py_Initialize();
-    if (!PyEval_ThreadsInitialized())
-        PyEval_InitThreads();
-
-    auto mod_ast = PyImport_ImportModule("ast");
-    scope(exit) Py_DecRef(mod_ast);
-
-    // Save function literal_eval from ast on module level
-    _fn_literal_eval = cast(shared PyObject*)PyObject_GetAttrString(
-        mod_ast, "literal_eval".toStringz
-    ).pyEnforce;
-
-    _py_thread_state = cast(shared PyThreadState*)PyEval_SaveThread();
-    return true;
-}
-
-// Ensure Python is initialized exactly once, on first use.
-// Thread-safe via std.concurrency.initOnce (double-checked locking).
-private void ensurePyInitialized() {
-    import std.concurrency: initOnce;
-    initOnce!_py_initialized(initPython());
-}
-
-// Finalize python interpreter (do clean up)
-shared static ~this() {
-    if (_py_thread_state)
-        PyEval_RestoreThread(cast(PyThreadState*)_py_thread_state);
-    if (_fn_literal_eval)
-        Py_DecRef(cast(PyObject*)_fn_literal_eval);
-    if (_py_initialized)
-        Py_Finalize();
-}
 
 
 // Tests

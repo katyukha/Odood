@@ -40,6 +40,56 @@ private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths(
 ));
 
 
+// Python runtime lifecycle state
+private shared PyThreadState* _py_thread_state = null;
+private shared bool _py_initialized = false;
+
+
+// Boot the Python runtime: load the shared library, initialize the
+// interpreter, enable threading support, and release the GIL.
+// Returns true on success; throws on failure.
+private bool initPyRuntime() {
+    import bindbc.loader;
+    import std.algorithm: map;
+    import std.format: format;
+    import std.string: fromStringz, join;
+
+    auto err_count_start = bindbc.loader.errorCount;
+    if (!loadPyLib()) {
+        auto errors = bindbc.loader.errors[err_count_start .. bindbc.loader.errorCount]
+            .map!((e) => "%s: %s".format(e.error.fromStringz.idup, e.message.fromStringz.idup))
+            .join(",\n");
+        throw new Exception("Cannot load python as library! Errors: %s".format(errors));
+    }
+
+    Py_Initialize();
+    if (!PyEval_ThreadsInitialized())
+        PyEval_InitThreads();
+
+    _py_thread_state = cast(shared PyThreadState*) PyEval_SaveThread();
+    return true;
+}
+
+
+/** Ensure the Python runtime is loaded and initialized exactly once.
+  * Thread-safe via initOnce (double-checked locking).
+  * Subsequent calls after the first are no-ops.
+  **/
+void ensurePyInitialized() {
+    import std.concurrency: initOnce;
+    initOnce!_py_initialized(initPyRuntime());
+}
+
+
+// Shut down the Python runtime at program exit.
+shared static ~this() {
+    if (_py_thread_state)
+        PyEval_RestoreThread(cast(PyThreadState*) _py_thread_state);
+    if (_py_initialized)
+        Py_Finalize();
+}
+
+
 // Load python library
 bool loadPyLib() {
     foreach(libname; supported_lib_names) {
