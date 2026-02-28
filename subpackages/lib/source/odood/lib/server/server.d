@@ -20,6 +20,7 @@ private import odood.lib.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.lib.server.exception;
+private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
 
@@ -352,6 +353,51 @@ struct OdooServer {
                 break;
         }
     }
+
+    /** Check if the Odoo HTTP server is responding and healthy.
+      *
+      * For Odoo 14+: uses /web/health, expects HTTP 200.
+      * For older Odoo: uses /web/, accepts any HTTP response below 500
+      *     (200 or 302 both indicate Odoo is up).
+      *
+      * Params:
+      *     timeout = HTTP request timeout. Default is 10 seconds.
+      *
+      * Returns:
+      *     true if the server is healthy, false otherwise.
+      **/
+    bool healthcheck(in Duration timeout = 10.seconds) const {
+        import requests: Request;
+
+        auto odoo_config = _project.getOdooConfig();
+
+        string host = odoo_config.getConfVal(
+            _project.odoo.serie >= OdooSerie(11) ? "http_interface" : "xmlrpc_interface",
+            "127.0.0.1");
+        string port = odoo_config.getConfVal(
+            _project.odoo.serie >= OdooSerie(11) ? "http_port" : "xmlrpc_port",
+            "8069");
+
+        // /web/health exists from Odoo 14; for older versions /web/ responds
+        // with 200 or 302 when the server is up.
+        string path = _project.odoo.serie >= OdooSerie(14)
+            ? "/web/health" : "/web/";
+        string url = "http://%s:%s%s".format(host, port, path);
+
+        try {
+            auto request = Request();
+            request.timeout = timeout;
+            auto response = request.get(url);
+            if (_project.odoo.serie >= OdooSerie(14))
+                return response.code == 200;
+            else
+                return response.code < 500;
+        } catch (Exception e) {
+            tracef("Healthcheck failed: %s", e.msg);
+            return false;
+        }
+    }
+
 
     /** Run delegate and gather Odoo errors happened while delegate was running.
       **/

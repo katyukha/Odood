@@ -177,6 +177,32 @@ class CommandServerLogView: OdoodCommand {
 }
 
 
+class CommandServerHealthcheck: OdoodCommand {
+    this() {
+        super("healthcheck",
+            "Check if the Odoo HTTP server is healthy.\n" ~
+            "Exits 0 if healthy, 1 if not.\n");
+        this.add(new Option(
+            "t", "timeout",
+            "HTTP request timeout in seconds.")
+            .defaultValue("10"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.stdio: writeln;
+        import core.time: seconds;
+
+        auto project = Project.loadProject;
+        auto timeout = args.option("timeout").to!long.seconds;
+
+        if (project.server.healthcheck(timeout))
+            infof("Odoo server is healthy.");
+        else
+            throw new OdoodCLIException("Odoo server is not healthy!");
+    }
+}
+
+
 class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
@@ -187,6 +213,7 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerRestart());
         this.add(new CommandServerBrowse());
         this.add(new CommandServerLogView());
+        this.add(new CommandServerHealthcheck());
     }
 }
 

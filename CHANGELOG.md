@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Added `odood server healthcheck` command. One step to make Odood container-friendly.
+
 ---
 
 ## Release 0.5.5 (2026-02-25)
