@@ -23,4 +23,13 @@ RUN odood addons link /opt/odoo/custom_addons && \
     rm -rf /root/.cache/pip/
 {% endif %}
 
+LABEL odoo.serie="{{ assembly.serie }}"
+{% if assembly_version %}
+LABEL org.opencontainers.image.version="{{ assembly_version }}"
+{% endif %}
+{% if assembly_source_url %}
+LABEL org.opencontainers.image.source="{{ assembly_source_url }}"
+{% endif %}
+STOPSIGNAL SIGINT
+
 # ---- ODOOD END DYNAMIC DOCKER CONFIG ----
