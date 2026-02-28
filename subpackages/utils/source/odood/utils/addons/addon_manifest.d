@@ -71,6 +71,8 @@ struct OdooAddonManifest {
 auto parseOdooManifest(in string manifest_content) {
     OdooAddonManifest manifest;
 
+    ensurePyInitialized();
+
     // Acuire python's GIL
     auto gstate = PyGILState_Ensure();
     scope(exit) PyGILState_Release(gstate);
@@ -160,9 +162,10 @@ private shared PyObject* _fn_literal_eval;
 private shared PyThreadState* _py_thread_state;
 private shared bool _py_initialized = false;
 
-// Initialize python interpreter (import ast.literal_eval)
-shared static this() {
-    // TODO: think about lazy initialization of python
+// Load and initialize the Python interpreter, import ast.literal_eval.
+// Returns true on success; throws OdoodException on failure.
+// Called lazily on first use via ensurePyInitialized().
+private bool initPython() {
     import bindbc.loader;
     import std.algorithm: map;
     import std.string: fromStringz, join;
@@ -189,7 +192,14 @@ shared static this() {
     ).pyEnforce;
 
     _py_thread_state = cast(shared PyThreadState*)PyEval_SaveThread();
-    _py_initialized = cast(shared bool)true;
+    return true;
+}
+
+// Ensure Python is initialized exactly once, on first use.
+// Thread-safe via std.concurrency.initOnce (double-checked locking).
+private void ensurePyInitialized() {
+    import std.concurrency: initOnce;
+    initOnce!_py_initialized(initPython());
 }
 
 // Finalize python interpreter (do clean up)
