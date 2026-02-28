@@ -315,7 +315,7 @@ struct OdooDatabaseManager {
         import std.uni;
         import peque.exception;
         import odood.lib.odoo.config: getConfVal;
-        auto odoo_conf = _project.getOdooConfig();
+        auto odoo_conf = _project.server.getConfig;
         auto db_template = odoo_conf.getConfVal("db_template", "template0");
         auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
 

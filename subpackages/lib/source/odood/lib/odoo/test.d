@@ -15,17 +15,18 @@ private import std.exception: enforce;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.utils.odoo.serie: OdooSerie;
+private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
-private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.server.log_pipe: OdooLogPipe;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
+private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
 
 // TODO: Make randomized ports
 private immutable ODOO_TEST_HTTP_PORT=8269;
@@ -38,9 +39,8 @@ private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
   *     project = project to generate name of test database for.
   **/
 string generateTestDbName(in Project project) {
-    string prefix = project.getOdooConfig["options"].getKey(
-            "db_user",
-            "odood%s".format(project.odoo.serie.major));
+    string prefix = project.server.getConfig.getConfVal(
+        "db_user", "odood%s".format(project.odoo.serie.major));
     return "%s-odood-test".format(prefix);
 }
 

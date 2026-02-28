@@ -15,7 +15,7 @@ private import zipper: Zipper, ZipMode;
 
 private import odood.exception: OdoodException;
 
-private import odood.lib.odoo.config: initOdooConfig, readOdooConfig;
+private import odood.lib.odoo.config: initOdooConfig, readOdooConfig, getConfVal;
 private import odood.lib.odoo.python: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
@@ -278,18 +278,14 @@ class Project {
       * Returns: Process instance (from theprocess package)
       **/
     auto psql() const {
-        auto odoo_conf = getOdooConfig();
+        auto odoo_conf = server.getConfig();
 
         // TODO: Use resolveProgramPath here
         auto res = Process("psql")
             .withEnv(
-                "PGUSER",
-                odoo_conf["options"].hasKey("db_user") ?
-                    odoo_conf["options"].getKey("db_user") : "odoo")
+                "PGUSER", odoo_conf.getConfVal("db_user", "odoo"))
             .withEnv(
-                "PGPASSWORD",
-                odoo_conf["options"].hasKey("db_password") ?
-                    odoo_conf["options"].getKey("db_password") : "odoo");
+                "PGPASSWORD", odoo_conf.getConfVal("db_password", "odoo"));
 
         if (odoo_conf["options"].hasKey("db_host"))
             res.setEnv(
@@ -583,10 +579,5 @@ class Project {
             this.odoo_install_type,
             serie.guessVenvOptions,
             backup);
-    }
-
-    /// Get configuration for Odoo
-    auto getOdooConfig() const {
-        return this.readOdooConfig;
     }
 }

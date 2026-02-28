@@ -130,28 +130,7 @@ class CommandServerBrowse: OdoodCommand {
         if (!project.server.isRunning)
             project.server.start;
 
-        auto odoo_conf = project.getOdooConfig;
-
-        /** Get option with default value
-          **/
-        string get_option(
-                in string name,
-                lazy string default_val) {
-            if (odoo_conf["options"].hasKey(name))
-                return odoo_conf["options"].getKey(name);
-            return default_val;
-        }
-
-        string url = "http://%s:%s/".format(
-            get_option(
-                "http_interface",
-                get_option(
-                    "xmlrpc_interface", "localhost")),
-            get_option(
-                "http_port",
-                get_option(
-                    "xmlrpc_port", "8069"))
-        );
+        auto url = project.server.getConfigHTTP.url;
         infof("Opening %s in browse....", url);
         std.process.browse(url);
     }
