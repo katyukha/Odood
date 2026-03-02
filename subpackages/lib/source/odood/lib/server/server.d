@@ -454,6 +454,8 @@ struct OdooServer {
             db_params["user"] = db_conf.user;
         if (db_conf.password)
             db_params["password"] = db_conf.password;
+        if (db_conf.sslmode)
+            db_params["sslmode"] = db_conf.sslmode;
 
         auto deadline = MonoTime.currTime + timeout;
         while (MonoTime.currTime < deadline) {

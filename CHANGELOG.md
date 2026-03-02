@@ -15,6 +15,9 @@
     - Database manager (`/web/database`) is blocked by default
     - Bugfixes related to nginx config generation
 
+### Fixed
+- Odood now will handle `db_sslmode` parameter correctly inside it's internal database interactions
+
 ---
 
 ## Release 0.5.5 (2026-02-25)

@@ -143,19 +143,20 @@ string getConfVal(Ini config, in string key, return in string defValue=null) {
 
 
 /** Parse Odoo's database config and return tuple with following fields:
-  * host, port, user, password
+  * host, port, user, password, sslmode
   **/
 auto parseOdooDatabaseConfig(in Project project) {
     // TODO: handle test config
     auto config = project.readOdooConfig;
 
-
     return Tuple!(
-        string, "host", string, "port", string, "user", string, "password"
+        string, "host", string, "port", string, "user", string, "password",
+        string, "sslmode"
     )(
         config.getConfVal("db_host"),
         config.getConfVal("db_port"),
         config.getConfVal("db_user"),
         config.getConfVal("db_password"),
+        config.getConfVal("db_sslmode"),
     );
 }
