@@ -98,7 +98,7 @@ struct DeployConfig {
 
     bool letsencrypt_enable = false;
     string letsencrypt_email = null;
-    Path letsencrypt_webroot = Path("/", "var", "/var/acme_challenge_webroot");
+    Path letsencrypt_webroot = Path("/", "var", "acme_challenge_webroot");
     uint letsencrypt_rsa_key_size = 4096;
 
     Nullable!GitURL assembly_repo;
@@ -128,7 +128,7 @@ struct DeployConfig {
 
         if (this.logrotate_enable)
             enforce!OdoodDeployException(
-                !Path("etc", "logrotate.d", "odoo").exists,
+                !Path("/", "etc", "logrotate.d", "odoo").exists,
                 "It seems that Odoo config for logrotate already exists!");
 
         final switch(this.odoo.server_supervisor) {

@@ -6,6 +6,13 @@
 
 - Added `odood server healthcheck` command. One step to make Odood container-friendly.
 
+### Changed
+
+- Changed template for `nginx` configuration for `deploy` command:
+    - Added security headers
+    - Database manager (`/web/database`) is blocked by default
+    - Bugfixes related to nginx config generation
+
 ---
 
 ## Release 0.5.5 (2026-02-25)

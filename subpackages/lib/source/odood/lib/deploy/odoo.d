@@ -30,7 +30,7 @@ private void deployInitScript(in Project project) {
 
     // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
-        renderFile!("templates/deploy/systemd.tmpl", project));
+        renderFile!("templates/deploy/init.d.tmpl", project));
 
     // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
@@ -162,8 +162,8 @@ private void deployFail2banConfig(in Project project, in DeployConfig config) {
     config.fail2ban_jail_path.writeFile(
         renderFile!("templates/deploy/fail2ban.jail.tmpl", project));
 
-    // Set access rights for logrotate config
-    config.fail2ban_filter_path.setAttributes(octal!644);
+    // Set access rights for jail config
+    config.fail2ban_jail_path.setAttributes(octal!644);
     config.fail2ban_jail_path.chown("root", "root");
 
     // Reload nginx
