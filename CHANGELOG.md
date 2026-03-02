@@ -7,6 +7,7 @@
 - Added `odood server healthcheck` command. One step to make Odood container-friendly.
 - Added `odood server wait-pg` command
 - Added `odood server run --wait-pg` option
+- Added `odood db is-initialized` command to check if database is already initialized.
 
 ### Changed
 

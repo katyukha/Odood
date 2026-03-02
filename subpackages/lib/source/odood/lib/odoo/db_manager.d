@@ -79,6 +79,29 @@ struct OdooDatabaseManager {
         return res[0][0].get!bool;
     }
 
+    /** Check if database is initialized as an Odoo database.
+      *
+      * Checks for the presence of the ir_module_module table, which is
+      * created during Odoo's database initialization.
+      *
+      * Returns:
+      *     true if the database contains an Odoo installation, false otherwise.
+      **/
+    bool isInitialized(in string name) const {
+        auto conn = _project.openPgConnection(name);
+        auto res = conn.transaction((ref tx) {
+            tx.exec("SET LOCAL lock_timeout = '15s'");
+            return tx.execParams(
+                "SELECT EXISTS (" ~
+                "    SELECT 1 FROM information_schema.tables" ~
+                "    WHERE table_name = 'ir_module_module'" ~
+                "    AND table_schema = 'public'" ~
+                ")"
+            );
+        });
+        return res[0][0].get!bool;
+    }
+
     /** Rename database
       **/
     auto rename(in string old_name, in string new_name) const {

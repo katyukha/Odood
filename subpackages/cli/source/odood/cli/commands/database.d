@@ -158,6 +158,31 @@ class CommandDatabaseExists: OdoodCommand {
 }
 
 
+class CommandDatabaseIsInitialized: OdoodCommand {
+    this() {
+        super("is-initialized",
+            "Check if database is initialized as an Odoo database.");
+        this.add(new Flag(
+            "q", "quiet", "Suppress output, just return exit code."));
+        this.add(new Argument("name", "Name of database.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        bool initialized = project.databases.isInitialized(args.arg("name"));
+        if (initialized) {
+            if (!args.flag("quiet"))
+                writeln("Database %s is initialized.".format(args.arg("name")));
+            exitWithCode(0, "Database is initialized");
+        } else {
+            if (!args.flag("quiet"))
+                writeln("Database %s is not initialized.".format(args.arg("name")));
+            exitWithCode(1, "Database is not initialized");
+        }
+    }
+}
+
+
 class CommandDatabaseRename: OdoodCommand {
     this() {
         super("rename", "Rename database.");
@@ -353,6 +378,7 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabaseCreate());
         this.add(new CommandDatabaseDrop());
         this.add(new CommandDatabaseExists());
+        this.add(new CommandDatabaseIsInitialized());
         this.add(new CommandDatabaseRename());
         this.add(new CommandDatabaseCopy());
         this.add(new CommandDatabaseBackup());
