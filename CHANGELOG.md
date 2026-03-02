@@ -15,6 +15,7 @@
     - Added security headers
     - Database manager (`/web/database`) is blocked by default
     - Bugfixes related to nginx config generation
+- Command `odood db list` rewritten in D (no more python / lodoo call)
 
 ### Fixed
 - Odood now will handle `db_sslmode` parameter correctly inside it's internal database interactions

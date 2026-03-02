@@ -4,20 +4,22 @@
 module odood.lib.odoo.db_manager;
 
 private import std.logger;
+private import std.array: array;
 private import std.json;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
+private import std.algorithm.iteration: filter, map;
 private import std.algorithm.searching: canFind;
-private import std.string: join, startsWith, chompPrefix, empty;
+private import std.string: join, startsWith, chompPrefix, empty, split, strip;
 
 private import thepath;
 private import theprocess;
 private import zipper;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.config: parseOdooDatabaseConfig;
+private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
 private import odood.lib.odoo.db: OdooDatabase;
 private import odood.lib.odoo.db_utils: openPgConnection;
 
@@ -45,10 +47,52 @@ struct OdooDatabaseManager {
         _test_mode = test_mode;
     }
 
-    /** Return list of databases available on this odoo instance
+    /** Return list of databases available on this odoo instance.
+      *
+      * Mirrors Odoo's own list_dbs() logic:
+      *
+      * - If db_name is set in odoo.conf, return those names directly without
+      *   querying PostgreSQL.
+      * - Otherwise, query pg_database restricted to databases owned by the
+      *   current PostgreSQL user (datdba = current_user).
+      *
+      * db_filter is intentionally ignored: it is HTTP-specific (used to select
+      * a database based on request hostname).
       **/
     string[] list() const {
-        return _project.lodoo(_test_mode).databaseList();
+        import std.algorithm.sorting: sort;
+
+        auto odoo_conf = _project.server.getConfig;
+
+        // If db_name is configured, use it directly — no PG query needed.
+        auto db_name_conf = odoo_conf.getConfVal("db_name");
+        if (db_name_conf) {
+            auto result = db_name_conf.split(",").map!(s => s.strip).array;
+            result.sort();
+            return result;
+        }
+
+        // Query pg_database scoped to databases owned by the current PG user.
+        auto db_template = odoo_conf.getConfVal("db_template", "template0");
+        auto conn = _project.openPgConnection("postgres");
+        auto res = conn.transaction((ref tx) {
+            return tx.execParams(
+                "SELECT datname FROM pg_database " ~
+                "WHERE datdba = (SELECT usesysid FROM pg_user WHERE usename = current_user) " ~
+                "  AND NOT datistemplate " ~
+                "  AND datallowconn " ~
+                "  AND datname != $1 " ~
+                "  AND datname != $2 " ~
+                "ORDER BY datname",
+                "postgres",
+                db_template
+            );
+        });
+
+        string[] databases;
+        foreach (row; res)
+            databases ~= row[0].as!string;
+        return databases;
     }
 
     /** Create new Odoo database on this odoo instance
