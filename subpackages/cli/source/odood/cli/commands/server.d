@@ -22,6 +22,13 @@ class CommandServerRun: OdoodCommand {
         super("run", "Run the server.");
         this.add(new Flag(
             null, "ignore-running", "Ingore running Odoo instance. (Do not check/create pidfile)."));
+        this.add(new Flag(
+            null, "wait-pg",
+            "Wait for PostgreSQL to be ready before starting the server."));
+        this.add(new Option(
+            null, "wait-pg-timeout",
+            "Maximum time to wait for PostgreSQL in seconds.")
+            .defaultValue("60"));
     }
 
     public override void execute(ProgramArgs args) {
@@ -39,6 +46,15 @@ class CommandServerRun: OdoodCommand {
             enforce!OdoodCLIException(
                 !project.server.isRunning,
                 "Odoo server already running!");
+        }
+
+        if (args.flag("wait-pg")) {
+            auto pg_timeout = args.option("wait-pg-timeout").to!long.seconds;
+            infof("Waiting for PostgreSQL...");
+            enforce!OdoodCLIException(
+                project.server.waitForPostgres(pg_timeout),
+                "PostgreSQL did not become available within the timeout.");
+            infof("PostgreSQL is ready.");
         }
 
         debug tracef("Running Odoo: %s", runner);
@@ -182,6 +198,33 @@ class CommandServerHealthcheck: OdoodCommand {
 }
 
 
+class CommandServerWaitPg: OdoodCommand {
+    this() {
+        super("wait-pg", "Wait for PostgreSQL to become available.");
+        this.add(new Option(
+            "t", "timeout",
+            "Maximum time to wait in seconds.")
+            .defaultValue("60"));
+        this.add(new Option(
+            null, "interval",
+            "Time between connection attempts in seconds.")
+            .defaultValue("2"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        auto timeout = args.option("timeout").to!long.seconds;
+        auto interval = args.option("interval").to!long.seconds;
+
+        infof("Waiting for PostgreSQL...");
+        enforce!OdoodCLIException(
+            project.server.waitForPostgres(timeout, interval),
+            "PostgreSQL did not become available within the timeout.");
+        infof("PostgreSQL is ready.");
+    }
+}
+
+
 class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
@@ -193,6 +236,7 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerBrowse());
         this.add(new CommandServerLogView());
         this.add(new CommandServerHealthcheck());
+        this.add(new CommandServerWaitPg());
     }
 }
 

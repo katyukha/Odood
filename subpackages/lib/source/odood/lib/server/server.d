@@ -424,6 +424,51 @@ struct OdooServer {
     }
 
 
+    /** Wait for PostgreSQL to become available.
+      *
+      * Tries to connect to the PostgreSQL server configured in odoo.conf.
+      * Retries until connected or timeout expires.
+      *
+      * Params:
+      *     timeout  = maximum time to wait. Default 60 seconds.
+      *     interval = time between connection attempts. Default 2 seconds.
+      *
+      * Returns:
+      *     true if PostgreSQL became available within timeout, false otherwise.
+      **/
+    bool waitForPostgres(
+            in Duration timeout = 60.seconds,
+            in Duration interval = 2.seconds) const {
+        import core.time: MonoTime;
+        import peque: Connection;
+        import peque.exception: PequeException;
+        import odood.lib.odoo.config: parseOdooDatabaseConfig;
+
+        auto db_conf = _project.parseOdooDatabaseConfig;
+        string[string] db_params = ["dbname": "postgres"];
+        if (db_conf.host)
+            db_params["host"] = db_conf.host;
+        if (db_conf.port)
+            db_params["port"] = db_conf.port;
+        if (db_conf.user)
+            db_params["user"] = db_conf.user;
+        if (db_conf.password)
+            db_params["password"] = db_conf.password;
+
+        auto deadline = MonoTime.currTime + timeout;
+        while (MonoTime.currTime < deadline) {
+            try {
+                auto conn = Connection(db_params);
+                return true;
+            } catch (PequeException e) {
+                tracef("PostgreSQL not ready yet: %s", e.msg);
+                Thread.sleep(interval);
+            }
+        }
+        return false;
+    }
+
+
     /** Run delegate and gather Odoo errors happened while delegate was running.
       **/
     auto catchOdooErrors(TE=OdoodException)(void delegate () dg) const {
