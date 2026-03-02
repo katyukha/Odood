@@ -75,7 +75,7 @@ final class OdooAddon {
     auto readChangelogEntries(
             in Nullable!Version start_ver=Nullable!Version.init,
             in Nullable!Version end_ver=Nullable!Version.init) const {
-        OdooAddonChangelogEntrie[] result;
+        OdooAddonChangelogEntry[] result;
 
         auto changelog_path = _path.join("changelog");
         if (!changelog_path.exists) {
@@ -85,14 +85,14 @@ final class OdooAddon {
             auto m = matchFirst(
                 p.baseName, `^changelog.(\d+\.\d+\.\d+).md$`);
             if (!m.empty) {
-                auto entrie = OdooAddonChangelogEntrie(m[1], p.readFileText);
-                if (!start_ver.isNull && start_ver.get >= entrie.ver)
-                    // Start ver is defined end entrie version is less than start ver, then skip
+                auto entry = OdooAddonChangelogEntry(m[1], p.readFileText);
+                if (!start_ver.isNull && start_ver.get >= entry.ver)
+                    // Start ver is defined and entry version is less than start ver, then skip
                     continue;
-                if (!end_ver.isNull && end_ver.get < entrie.ver)
-                    /// End ver is defined and etrie version is greater than end ver, then skip
+                if (!end_ver.isNull && end_ver.get < entry.ver)
+                    // End ver is defined and entry version is greater than end ver, then skip
                     continue;
-                result ~= entrie;
+                result ~= entry;
             }
         }
         result.sort!("a > b");  // Sort results

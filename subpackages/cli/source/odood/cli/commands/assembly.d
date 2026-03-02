@@ -35,9 +35,10 @@ class CommandAssemblyInit: OdoodCommand {
             "Assembly already initialized!");
         if (args.option("repo").empty)
             project.initializeAssembly();
-        else
+        else {
             project.initializeAssembly(parseGitURL(args.option("repo")));
             project.assembly.get.link();
+        }
     }
 }
 

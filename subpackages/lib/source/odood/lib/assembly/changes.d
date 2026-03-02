@@ -24,7 +24,7 @@ struct NotableChanges {
     string name;
     OdooStdVersion old_version;
     OdooStdVersion new_version;
-    OdooAddonChangelogEntrie[] changelog;
+    OdooAddonChangelogEntry[] changelog;
 }
 
 
@@ -63,7 +63,7 @@ class AssemblyChanges {
             in string name,
             in OdooStdVersion old_version,
             in OdooStdVersion new_version,
-            in OdooAddonChangelogEntrie[] changelog) {
+            in OdooAddonChangelogEntry[] changelog) {
         addons_updated ~= AddonUpdated(name, old_version, new_version);
         if (changelog.length > 0)
             notable_changes ~= NotableChanges(name, old_version, new_version, changelog.dup);

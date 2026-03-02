@@ -5,8 +5,8 @@ private import std.string: strip;
 private import versioned: Version;
 
 
-/// This struct represents single changelog entries
-struct OdooAddonChangelogEntrie {
+/// This struct represents single changelog entry
+struct OdooAddonChangelogEntry {
     private Version _ver;
     private string _data;
 
@@ -17,17 +17,17 @@ struct OdooAddonChangelogEntrie {
         this._data = data.strip;
     }
 
-    /// Version of this changelog entrie
+    /// Version of this changelog entry
     auto ver() const => _ver;
 
-    /// Data of changelog entrie
+    /// Data of changelog entry
     auto data() const => _data;
 
-    int opCmp(in OdooAddonChangelogEntrie other) {
+    int opCmp(in OdooAddonChangelogEntry other) {
         return this._ver.opCmp(other._ver);
     }
 
-    int opEquals(in OdooAddonChangelogEntrie other) {
+    int opEquals(in OdooAddonChangelogEntry other) {
         return this._ver.opEquals(other._ver);
     }
 }
