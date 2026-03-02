@@ -9,6 +9,7 @@ private import thepath: Path;
 private import peque: Connection;
 
 private import odood.lib.odoo.config;
+private import odood.lib.odoo.db_utils: openPgConnection;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.exception: OdoodException;
@@ -26,21 +27,7 @@ package(odood.lib) struct OdooDatabase {
         _project = project;
         _dbname = dbname;
 
-        auto db_conf = _project.parseOdooDatabaseConfig;
-
-        string[string] db_params = [
-            "dbname": dbname,
-        ];
-        if (db_conf.host)
-            db_params["host"] = db_conf.host;
-        if (db_conf.port)
-            db_params["port"] = db_conf.port;
-        if (db_conf.user)
-            db_params["user"] = db_conf.user;
-        if (db_conf.password)
-            db_params["password"] = db_conf.password;
-
-        _connection = Connection(db_params);
+        _connection = _project.openPgConnection(dbname);
     }
 
     /** Return dpq connection to database

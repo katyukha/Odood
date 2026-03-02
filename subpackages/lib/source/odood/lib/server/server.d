@@ -440,27 +440,13 @@ struct OdooServer {
             in Duration timeout = 60.seconds,
             in Duration interval = 2.seconds) const {
         import core.time: MonoTime;
-        import peque: Connection;
         import peque.exception: PequeException;
-        import odood.lib.odoo.config: parseOdooDatabaseConfig;
-
-        auto db_conf = _project.parseOdooDatabaseConfig;
-        string[string] db_params = ["dbname": "postgres"];
-        if (db_conf.host)
-            db_params["host"] = db_conf.host;
-        if (db_conf.port)
-            db_params["port"] = db_conf.port;
-        if (db_conf.user)
-            db_params["user"] = db_conf.user;
-        if (db_conf.password)
-            db_params["password"] = db_conf.password;
-        if (db_conf.sslmode)
-            db_params["sslmode"] = db_conf.sslmode;
+        import odood.lib.odoo.db_utils: openPgConnection;
 
         auto deadline = MonoTime.currTime + timeout;
         while (MonoTime.currTime < deadline) {
             try {
-                auto conn = Connection(db_params);
+                _project.openPgConnection("postgres");
                 return true;
             } catch (PequeException e) {
                 tracef("PostgreSQL not ready yet: %s", e.msg);

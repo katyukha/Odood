@@ -19,6 +19,8 @@ private import zipper;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.lib.odoo.db_utils: openPgConnection;
+
 private import odood.utils.odoo: parseServerSerie;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.db: detectDatabaseBackupFormat, BackupFormat;
@@ -66,11 +68,15 @@ struct OdooDatabaseManager {
     /** Check if database exists
       **/
     bool exists(in string name) const {
-        // TODO: replace with project's db wrapper to check if database exists
-        //       This could improve performance by avoiding call to python
-        //       interpreter. Take into account that database could exist,
-        //       but still could not be visible for Odoo.
-        return _project.lodoo(_test_mode).databaseExists(name);
+        auto conn = _project.openPgConnection("postgres");
+        auto res = conn.transaction((ref tx) {
+            return tx.execParams(
+                "SELECT EXISTS (" ~
+                "    SELECT 1 FROM pg_catalog.pg_database WHERE datname = $1" ~
+                ")",
+                name);
+        });
+        return res[0][0].get!bool;
     }
 
     /** Rename database
@@ -319,7 +325,7 @@ struct OdooDatabaseManager {
         auto db_template = odoo_conf.getConfVal("db_template", "template0");
         auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
 
-        auto pg_db = this.get("postgres").connection;
+        auto pg_db = _project.openPgConnection("postgres");
         pg_db.exec(
             "CREATE DATABASE \"%s\" ENCODING 'unicode' %s TEMPLATE %s".format(
                 name, collate, db_template));
