@@ -179,6 +179,16 @@ class GitRepository {
         return getRemoteUrl("origin");
     }
 
+    /** Check if repo has local branch with specified name
+      **/
+    bool hasLocalBranch(in string name) const {
+        return gitCmd
+            .withArgs("show-ref", "--verify", "--quiet", "refs/heads/%s".format(name))
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
     /** Switch repo to specified branch
       **/
     void switchBranchTo(in string branch_name, in bool create=false) const {

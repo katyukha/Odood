@@ -525,8 +525,7 @@ struct Assembly {
       *    base_rev = base revision. Changelog will be generated for changes between base_rev and current commit.
       **/
     void generateChangelog(in string base_rev) {
-        infof("Assembly: Generiating changelog.");
-        // TODO: We have also handle cases, when no origin repo connected to assembly
+        infof("Assembly: Generating changelog.");
 
         auto changes = getChanges(base_rev: base_rev);
         auto release_date = cast(DateTime)Clock.currTime();
@@ -561,9 +560,15 @@ struct Assembly {
     }
 
     void generateChangelog() {
-        // Base, that have to be used to generate changelog
-        auto base_rev = "origin/"~project.odoo.serie.toString;
-        generateChangelog(base_rev);
+        if (repo.hasRemoteUrl("origin"))
+            generateChangelog("origin/" ~ project.odoo.serie.toString);
+        else if (repo.hasLocalBranch(project.odoo.serie.toString))
+            generateChangelog(project.odoo.serie.toString);
+        else
+            throw new OdoodAssemblyException(
+                "Changelog generation requires an 'origin' remote to be configured " ~
+                "and local or remote branch named same as Odoo serie. " ~
+                "Or, base revision to compare changes to have to be provided.");
     }
 
     void generateDockerfile() {
