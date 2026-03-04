@@ -158,6 +158,52 @@ struct OdooDatabaseManager {
         return _project.lodoo(_test_mode).databaseCopy(old_name, new_name);
     }
 
+    /** Ensure database is initialized as an Odoo database.
+      *
+      * Idempotent: safe to call on every deploy.
+      * - If the PG database does not exist, creates it.
+      * - If the database is not Odoo-initialized, runs Odoo with
+      *   --init=base --stop-after-init to initialize it.
+      * - If the database is already initialized, does nothing.
+      *
+      * Params:
+      *     name = database name
+      *     demo = load demo data (only effective on first initialization)
+      *     lang = language code, e.g. "en_US" (only effective on first initialization)
+      **/
+    void ensureInitialized(
+            in string name,
+            in bool demo = false,
+            in string lang = null) const {
+        if (!exists(name)) {
+            infof("Database '%s' does not exist. Creating...", name);
+            _createEmptyDB(name);
+        }
+
+        if (!isInitialized(name)) {
+            infof("Initializing Odoo database '%s'...", name);
+            auto swm = _project.server.getConfig.getConfVal(
+                "server_wide_modules", "base,web");
+            auto runner = _project.server(_test_mode).getServerRunner(
+                "-d", name,
+                "--max-cron-threads=0",
+                "--stop-after-init",
+                _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
+                "--pidfile=",
+                "--logfile=%s".format(_project.odoo.logfile),
+                "--init=%s".format(swm),
+            );
+            if (!demo)
+                runner.addArgs("--without-demo=all");
+            if (lang)
+                runner.addArgs("--lang=%s".format(lang));
+            runner.execute.ensureOk!OdoodException(true);
+            infof("Database '%s' initialized.", name);
+        } else {
+            infof("Database '%s' is already initialized.", name);
+        }
+    }
+
     /** Generate name of backup
       **/
     private string generateBackupName(

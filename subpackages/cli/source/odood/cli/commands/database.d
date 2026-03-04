@@ -1,5 +1,6 @@
 module odood.cli.commands.database;
 
+private import core.time;
 private import std.logger;
 private import std.stdio: writeln;
 private import std.format: format;
@@ -371,11 +372,52 @@ class CommandDatabasePopulate: OdoodCommand {
 }
 
 
+class CommandDatabaseEnsureInitialized: OdoodCommand {
+    this() {
+        super("ensure-initialized",
+              "Ensure a database exists and is initialized as an Odoo database. " ~
+              "Idempotent: safe to use in K8s init containers.");
+        this.add(new Flag(
+            null, "wait-pg",
+            "Wait for PostgreSQL to be ready before proceeding."));
+        this.add(new Option(
+            null, "wait-pg-timeout",
+            "Maximum time to wait for PostgreSQL in seconds.")
+            .defaultValue("60"));
+        this.add(new Flag("d", "demo", "Load demo data (only on first initialization)."));
+        this.add(new Option(
+            "l", "lang",
+            "Language code, e.g. en_US (only on first initialization).")
+            .defaultValue("en_US"));
+        this.add(new Argument("name", "Name of database.").required());
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+
+        if (args.flag("wait-pg")) {
+            auto pg_timeout = args.option("wait-pg-timeout").to!long.seconds;
+            infof("Waiting for PostgreSQL...");
+            enforce!OdoodCLIException(
+                project.server.waitForPostgres(pg_timeout),
+                "PostgreSQL did not become available within the timeout.");
+            infof("PostgreSQL is ready.");
+        }
+
+        project.databases.ensureInitialized(
+            args.arg("name"),
+            args.flag("demo"),
+            args.option("lang"));
+    }
+}
+
+
 class CommandDatabase: OdoodCommand {
     this() {
         super("db", "Database management commands");
         this.add(new CommandDatabaseList());
         this.add(new CommandDatabaseCreate());
+        this.add(new CommandDatabaseEnsureInitialized());
         this.add(new CommandDatabaseDrop());
         this.add(new CommandDatabaseExists());
         this.add(new CommandDatabaseIsInitialized());
