@@ -9,6 +9,13 @@
 - Added `odood server run --wait-pg` option
 - Added `odood db is-initialized` command to check if database is already initialized.
 - Added `odood db ensure-initialized` command to  initialize database if it is not initialized yet.
+- Added new options to `odood addons install`
+    - `--missing-only` - install only addons that are not installed in specified db from the list.
+    - `--ignore-unfinished-updates` - do not fail on unfinished updates
+- Added new options to `odood addons update`
+    - `--installed-only` - install only addons that are not installed in specified db from the list.
+    - `--ignore-unfinished-updates` - do not fail on unfinished updates
+
 
 ### Changed
 
@@ -17,6 +24,9 @@
     - Database manager (`/web/database`) is blocked by default
     - Bugfixes related to nginx config generation
 - Command `odood db list` rewritten in D (no more python / lodoo call)
+- Commands `odood addons install` and `odood addons update` now will
+  fail if there are unfinished addon updates before running command or after.
+  This way these commands ensures clean state of db before and after operation.
 
 ### Fixed
 - Odood now will handle `db_sslmode` parameter correctly inside it's internal database interactions

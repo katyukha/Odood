@@ -8,7 +8,7 @@ private import std.algorithm;
 private import std.conv: to;
 private import std.string: capitalize, strip, join;
 private import std.regex;
-private import std.array: array;
+private import std.array: array, empty;
 
 private import thepath: Path;
 private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
@@ -419,11 +419,37 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         this.add(
             new Flag(
                 null, "skip-errors", "Do not fail on errors during installation."));
+        this.add(
+            new Flag(
+                null, "ignore-unfinished-updates",
+                "Do not fail if there are unfinished addon install/update/uninstall operations."));
 
         // Start server after update (if everythign is ok)
         this.add(
             new Flag(
                 null, "start", "Start server after update (if everything is ok)"));
+    }
+
+    /** Check for unfinished addon operations in the database.
+      * By default throws if any are found; pass --ignore-unfinished-updates to warn only.
+      **/
+    protected void checkUnfinishedUpdates(
+            in Project project,
+            in string dbname,
+            ProgramArgs args) {
+        auto unfinished = project.databases[dbname].getUnfinishedUpdates();
+        if (unfinished.length == 0)
+            return;
+        warningf(
+            "Database '%s' has %s unfinished install/update/uninstall operation(s): %s",
+            dbname,
+            unfinished.length,
+            unfinished.map!(u => "%s (state=%s, available=%s)".format(
+                u.addon_name, u.addon_state, u.is_available)).join(", "));
+        if (!args.flag("ignore-unfinished-updates"))
+            throw new OdoodCLIException(
+                "Database '%s' has unfinished addon operations. ".format(dbname) ~
+                "Use --ignore-unfinished-updates to proceed anyway.");
     }
 
     /** Find addons
@@ -526,18 +552,33 @@ class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
         this.add(
             new Flag(
                 "a", "all", "Update all modules"));
+        this.add(
+            new Flag(
+                null, "installed-only",
+                "Skip addons that are not installed in the database."));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
         applyForDatabases(args, project, (in string dbname) {
+            checkUnfinishedUpdates(project, dbname, args);
             if (args.flag("ual"))
                 project.lodoo.addonsUpdateList(dbname, true);
             if (args.flag("all"))
                 project.addons.updateAll(dbname);
-            else
-                project.addons.update(dbname, findAddons(args, project));
+            else {
+                auto addons = findAddons(args, project);
+                if (args.flag("installed-only"))
+                    addons = addons
+                        .filter!(a => project.addons.isInstalled(dbname, a))
+                        .array;
+                if (addons.empty)
+                    infof("No installed addons to update in %s, skipping.", dbname);
+                else
+                    project.addons.update(dbname, addons);
+            }
+            checkUnfinishedUpdates(project, dbname, args);
         });
     }
 
@@ -550,15 +591,29 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
         this.add(
             new Flag(
                 null, "ual", "Update addons list before install."));
+        this.add(
+            new Flag(
+                null, "missing-only",
+                "Skip addons that are already installed in the database."));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
 
         applyForDatabases(args, project, (in string dbname) {
+            checkUnfinishedUpdates(project, dbname, args);
             if (args.flag("ual"))
                 project.lodoo.addonsUpdateList(dbname, true);
-            project.addons.install(dbname, findAddons(args, project));
+            auto addons = findAddons(args, project);
+            if (args.flag("missing-only"))
+                addons = addons
+                    .filter!(a => !project.addons.isInstalled(dbname, a))
+                    .array;
+            if (addons.empty)
+                infof("All addons already installed in %s, skipping.", dbname);
+            else
+                project.addons.install(dbname, addons);
+            checkUnfinishedUpdates(project, dbname, args);
         });
     }
 }
