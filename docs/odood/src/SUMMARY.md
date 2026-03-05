@@ -5,6 +5,7 @@
 - [Production Deployment](./production-deployment.md)
 - [Assembly](./assembly.md)
 - [Odood Directory Structure](./directory-structure.md)
+- [Development Workflow](./development-workflow.md)
 - [Frequently Used Commands](./frequently-used-commands.md)
 - [Command Reference](./odood-docs-command-ref.md)
 - [odoo-requirements.txt format](./odoo-requirements-txt.md)
