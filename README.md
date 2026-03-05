@@ -41,6 +41,7 @@ Following features available:
 - Simple installation via prebuilt debian package (see [releases](https://github.com/katyukha/Odood/releases))
 - Support for [assemblies](https://katyukha.github.io/Odood/assembly.html): single repo with all addons for project, populated in semi-automatic way.
 - Build with docker-support in mind
+- Configure Odoo via `ODOOD_OPT_*` environment variables — useful for Docker/K8s deployments
 - Basic integration with [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator). See [docs](https://katyukha.github.io/Odood/addon-migration.html)
 
 
@@ -82,8 +83,16 @@ You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&rep
 
 ## Installation (as Debian Package)
 
-To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
-Thats all.
+To install the latest stable version of Odood, run:
+
+```bash
+wget -O /tmp/odood.deb \
+    "https://github.com/katyukha/Odood/releases/latest/download/odood_$(dpkg --print-architecture).deb"
+sudo apt install -yq /tmp/odood.deb
+```
+
+Or, to install a specific version, visit the [releases](https://github.com/katyukha/Odood/releases) page,
+download the `.deb` package for the desired version and architecture, and install it.
 
 Note, that usually you will need to manually install additional system packages, that include:
 - [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
@@ -141,7 +150,7 @@ project with Odood is to run command `odood discover odoo-helper` somewhere insi
 Use following command to create new local (development) odoo instance:
 
 ```bash
-odood init -v 17 -i odoo-17.0 --db-user=odoo17 --db-password=odoo --http-port=17069 --create-db-user
+odood init -v 18 -i odoo-18 --db-user=odoo18 --db-password=odoo --http-port=18069 --create-db-user
 ```
 
 This command will create new virtual environment for Odoo and install odoo there.
@@ -149,13 +158,12 @@ Also, this command will automatically create database user for this Odoo instanc
 
 For production installations, you can use command `odood deploy` that will
 deploy Odoo of specified version to machine where this command is running.
-For example: `odood deploy -v 17 --supervisor=systemd --local-postgres --enable-logrotate`
-But this command is still experimental.
+For example: `odood deploy -v 18 --supervisor=systemd --local-postgres --enable-logrotate`
 
 Next, change current working directory to directory where we installed Odoo:
 
 ```bash
-cd odoo-17.0
+cd odoo-18
 ```
 
 After this, just run command:
@@ -237,7 +245,7 @@ services:
         restart: "no"
 
     odood-example-odoo:
-        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        image: ghcr.io/katyukha/odood/odoo/18.0:latest
         container_name: odood-example-odoo
         depends_on:
             - odood-example-db

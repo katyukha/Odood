@@ -9,28 +9,29 @@ just call if with `-h` option.
 ### Server management
 - `odood start` - start odoo server
 - `odood restart` - restart odoo server
-- `odood stop` - stop odoo-helper server
+- `odood stop` - stop odoo server
 - `odood log` - see odoo server logs
 - `odood browse` - open running odoo installation in browser
 
 ### Addons management
 - `odood addons list <path>` - list odoo addons in specified directory
 - `odood addons update-list` - update list of available addons in all databases available for this server
-- `odood addons install <addon1> [addonN]` - install specified odoo addons for all databases available for this server
-- `odood addons update <addon1> [addonN]` - update specified odoo addons for all databases available for this server
+- `odood addons install <addon1> [addonN]` - install specified odoo addons for all databases available for this server; use `--missing-only` to skip already-installed ones
+- `odood addons update <addon1> [addonN]` - update specified odoo addons for all databases available for this server; use `--installed-only` to skip non-installed ones
 - `odood addons uninstall <addon1> [addonN]` - uninstall specified odoo addons for all databases available for this server
 - `odood addons update --dir <path>` - find all installable addons in specified directory and update them
 - `odood addons install --dir <path>` - find all installable addons in specified directory and install them
 - `odood addons link .` - link all addons in current directory.
 - `odood addons add -h` - add third-party addons from [odoo-apps](https://apps.odoo.com/apps) (free only) or from [odoo-requirements.txt](./odoo-requirements-txt.md)
 
+Both `install` and `update` support `--ignore-unfinished-updates` to proceed even if the database has pending addon state transitions.
+
 ### Tests
-- `odoo-helper test -t <module>` - test single module on temporary database
-- `odoo-helper test -t --dir .` - test all installable addons in current directory
-- `odoo-helper test -t --migration --dir .` - run migration test for all installable addons in current directory.
-  This includes switching to stable branch, installing modules, optionally populating with extra data, switching back to test branch and running tests for migrated addons.
-- `odoo-helper test --coverage-html <module>` - test single module and create html coverage report in current dir
-- `odoo-helper test --coverage-html --dir .` - test all installable addons in current directory and create html coverage report in current dir
+- `odood test -t <module>` - test single module on temporary database
+- `odood test -t --dir .` - test all installable addons in current directory
+- `odood test -t --migration --dir .` - run migration tests for all installable addons in current directory
+- `odood test --coverage-html -t <module>` - test single module and create html coverage report
+- `odood test --coverage-html --dir .` - test all installable addons and create html coverage report
 
 ### Pre-commit
 
