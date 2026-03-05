@@ -8,10 +8,16 @@ if you are interested what it can do, just type `odood --help` :)
 
 ## Installation
 
-In order to install Odood, you have to do following:
-1. Visit [releases](https://github.com/katyukha/Odood/releases) page
-2. Download `.deb` package for desired architecture
-3. Install downloaded `.deb` package.
+To install the latest stable version of Odood, run:
+
+```bash
+wget -O /tmp/odood.deb \
+    "https://github.com/katyukha/Odood/releases/latest/download/odood_$(dpkg --print-architecture).deb"
+sudo apt install -yq /tmp/odood.deb
+```
+
+Or, to install a specific version, visit the [releases](https://github.com/katyukha/Odood/releases) page,
+download the `.deb` package for the desired version and architecture, and install it.
 
 Usually you will need to manually install additional system packages, that include:
 - [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
