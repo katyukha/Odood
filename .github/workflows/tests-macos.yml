@@ -20,19 +20,20 @@ jobs:
       ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Install D compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ matrix.dc }}
 
       - name: Install system dependencies
         run: |
           brew install libpq
-          brew install postgresql@14
+          brew install postgresql@16
           brew install libzip
           brew install python@3.13
+          echo "$(brew --prefix postgresql@16)/bin" >> $GITHUB_PATH
 
       - name: PyEnv - Install
         if: matrix.py_install_type == 'pyenv'
@@ -49,7 +50,7 @@ jobs:
 
       - name: Start postgresql server
         run: |
-          brew services start postgresql
+          brew services start postgresql@16
           echo 'Check PostgreSQL service is running'
           i=10
           while [ $i -gt 0 ]; do
