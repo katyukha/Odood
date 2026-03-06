@@ -264,6 +264,8 @@ The prefix `ODOOD_OPT_` is stripped and the remainder is lowercased before being
 
 Any other valid `odoo.conf` option can be set the same way — the list above covers the most commonly needed ones in containerised deployments.
 
+For deployment context (not CI), see [Docker Compose deployment](./deployment-docker-compose.md).
+
 ---
 
 ### GitHub Actions
