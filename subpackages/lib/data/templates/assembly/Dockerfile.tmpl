@@ -35,4 +35,8 @@ LABEL org.opencontainers.image.source="{{ assembly_source_url }}"
 {% endif %}
 STOPSIGNAL SIGINT
 
+# HEALTHCHECK is inherited from the base Odood image.
+# It runs `odood server healthcheck` on a 30s interval with a 120s start period.
+# Override it here if the assembly requires different timing.
+
 # ---- ODOOD END DYNAMIC DOCKER CONFIG ----

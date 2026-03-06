@@ -222,6 +222,10 @@ The prebuilt Docker images (`ghcr.io/katyukha/odood/odoo/{serie}:latest`) alread
 `ODOOD_OPT_*` environment variables allow you to override individual Odoo configuration options (i.e. values in `odoo.conf`) at runtime — without modifying any file on disk.
 Combined with the `--config-from-env` flag, this is the standard way to point CI containers at the PostgreSQL sidecar.
 
+> **Note:** The `--config-from-env` flag and `ODOOD_OPT_*` support are only compiled in when Odood is built
+> with the `-d-version OdoodInDocker` flag, and thus are available only in the official prebuilt Docker images.
+> The Debian package and source builds do not include this flag.
+
 For example, set these environment variables in your CI job:
 
 ```
@@ -236,6 +240,29 @@ Then invoke Odood as:
 odood --config-from-env addons link .
 odood --config-from-env test -t --dir .
 ```
+
+#### Common `ODOOD_OPT_*` variables
+
+Each variable maps directly to the corresponding key in Odoo's `[options]` section of `odoo.conf`.
+The prefix `ODOOD_OPT_` is stripped and the remainder is lowercased before being applied.
+
+| Environment variable | `odoo.conf` key | Description |
+|---|---|---|
+| `ODOOD_OPT_DB_HOST` | `db_host` | PostgreSQL host |
+| `ODOOD_OPT_DB_PORT` | `db_port` | PostgreSQL port (default: `5432`) |
+| `ODOOD_OPT_DB_USER` | `db_user` | PostgreSQL user |
+| `ODOOD_OPT_DB_PASSWORD` | `db_password` | PostgreSQL password |
+| `ODOOD_OPT_ADMIN_PASSWD` | `admin_passwd` | Odoo master password (database manager) |
+| `ODOOD_OPT_WORKERS` | `workers` | Number of worker processes (`0` = single-process mode) |
+| `ODOOD_OPT_PROXY_MODE` | `proxy_mode` | Set `True` when running behind a reverse proxy |
+| `ODOOD_OPT_DBFILTER` | `dbfilter` | Regex to restrict which databases are served |
+| `ODOOD_OPT_LIMIT_MEMORY_HARD` | `limit_memory_hard` | Hard memory limit per worker (bytes) |
+| `ODOOD_OPT_LIMIT_MEMORY_SOFT` | `limit_memory_soft` | Soft memory limit per worker (bytes) |
+| `ODOOD_OPT_LIMIT_TIME_CPU` | `limit_time_cpu` | CPU time limit per request (seconds) |
+| `ODOOD_OPT_LIMIT_TIME_REAL` | `limit_time_real` | Real time limit per request (seconds) |
+| `ODOOD_OPT_LOG_LEVEL` | `log_level` | Log level (`info`, `debug`, `warning`, `error`) |
+
+Any other valid `odoo.conf` option can be set the same way — the list above covers the most commonly needed ones in containerised deployments.
 
 ---
 

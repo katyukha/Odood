@@ -223,43 +223,50 @@ See examples directory for more details.
 Example `docker-compose.yml`:
 
 ```yml
-version: '3'
-
 volumes:
     odood-example-db-data:
     odood-example-odoo-data:
 
 services:
     odood-example-db:
-        image: postgres:15
+        image: postgres:16
         container_name: odood-example-db
         environment:
-            - POSTGRES_USER=odoo
-            - POSTGRES_PASSWORD=odoo-db-pass
-
-            # this is needed to avoid auto-creation of database by postgres itself
-            # databases must be created by Odoo only
-            - POSTGRES_DB=postgres
+            # Credentials must match ODOOD_OPT_DB_USER / ODOOD_OPT_DB_PASSWORD below.
+            POSTGRES_USER: odoo
+            POSTGRES_PASSWORD: odoo-db-pass
+            # Prevents PostgreSQL from auto-creating a default database;
+            # all Odoo databases must be created by Odoo itself.
+            POSTGRES_DB: postgres
         volumes:
             - odood-example-db-data:/var/lib/postgresql/data
-        restart: "no"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U odoo"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        restart: unless-stopped
 
     odood-example-odoo:
         image: ghcr.io/katyukha/odood/odoo/18.0:latest
         container_name: odood-example-odoo
         depends_on:
-            - odood-example-db
+            odood-example-db:
+                # Wait until PostgreSQL is healthy before starting Odoo.
+                condition: service_healthy
         environment:
             ODOOD_OPT_DB_HOST: odood-example-db
             ODOOD_OPT_DB_USER: odoo
             ODOOD_OPT_DB_PASSWORD: odoo-db-pass
             ODOOD_OPT_ADMIN_PASSWD: admin
-            ODOOD_OPT_WORKERS: "1"
+            ODOOD_OPT_WORKERS: "2"
+            ODOOD_OPT_PROXY_MODE: "True"
         ports:
             - "8069:8069"
         volumes:
             - odood-example-odoo-data:/opt/odoo/data
-        restart: "no"
+        restart: unless-stopped
 ```
 
 
