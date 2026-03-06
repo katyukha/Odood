@@ -1,4 +1,12 @@
-version: '3'
+# Odood Docker Compose Example — HTTP
+#
+# Runs Odoo 18 with PostgreSQL behind a Traefik reverse proxy over plain HTTP.
+#
+# Usage:
+#   docker compose up -d
+#
+# Odoo will be available at http://localhost
+# Traefik dashboard at http://localhost:8080 (disable in production)
 
 volumes:
     odood-example-db-data:
@@ -6,58 +14,73 @@ volumes:
 
 services:
     odood-example-db:
-        image: postgres:15
+        image: postgres:16
         container_name: odood-example-db
         environment:
-            - POSTGRES_USER=odoo
-            - POSTGRES_PASSWORD=odoo-db-pass
-
-            # this is needed to avoid auto-creation of database by postgres itself
-            # databases must be created by Odoo only
-            - POSTGRES_DB=postgres
+            # Credentials must match ODOOD_OPT_DB_USER / ODOOD_OPT_DB_PASSWORD below.
+            POSTGRES_USER: odoo
+            POSTGRES_PASSWORD: odoo-db-pass
+            # Prevents PostgreSQL from auto-creating a default database;
+            # all Odoo databases must be created by Odoo itself.
+            POSTGRES_DB: postgres
         volumes:
             - odood-example-db-data:/var/lib/postgresql/data
-        restart: "no"
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U odoo"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        restart: unless-stopped
 
     odood-example-odoo:
-        image: ghcr.io/katyukha/odood/odoo/17.0:latest
+        image: ghcr.io/katyukha/odood/odoo/18.0:latest
         container_name: odood-example-odoo
         labels:
-          - "traefik.enable=true"
-          - "traefik.http.routers.odoo-route.rule=Host(`localhost`)"
-          - "traefik.http.routers.odoo-route.service=odoo-service"
-          - "traefik.http.routers.odoo-route.entrypoints=web"
-          - "traefik.http.services.odoo-service.loadbalancer.server.port=8069"
-          - "traefik.http.routers.odoo-ge-route.rule=Host(`localhost`) && Path(`/websocket`)"
-          - "traefik.http.routers.odoo-ge-route.service=odoo-ge-service"
-          - "traefik.http.routers.odoo-ge-route.entrypoints=web"
-          - "traefik.http.services.odoo-ge-service.loadbalancer.server.port=8072"
-
+            # Route all HTTP traffic to Odoo on port 8069.
+            - "traefik.enable=true"
+            - "traefik.http.routers.odoo-route.rule=Host(`localhost`)"
+            - "traefik.http.routers.odoo-route.service=odoo-service"
+            - "traefik.http.routers.odoo-route.entrypoints=web"
+            - "traefik.http.services.odoo-service.loadbalancer.server.port=8069"
+            # Route /websocket traffic to the Gevent worker on port 8072.
+            - "traefik.http.routers.odoo-ge-route.rule=Host(`localhost`) && Path(`/websocket`)"
+            - "traefik.http.routers.odoo-ge-route.service=odoo-ge-service"
+            - "traefik.http.routers.odoo-ge-route.entrypoints=web"
+            - "traefik.http.services.odoo-ge-service.loadbalancer.server.port=8072"
         depends_on:
-            - odood-example-db
+            odood-example-db:
+                # Wait until PostgreSQL is healthy before starting Odoo.
+                condition: service_healthy
         environment:
+            # Database connection — must match POSTGRES_USER/PASSWORD above.
             ODOOD_OPT_DB_HOST: odood-example-db
             ODOOD_OPT_DB_USER: odoo
             ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+            # Odoo master password used to create/drop databases via the web UI.
             ODOOD_OPT_ADMIN_PASSWD: admin
-            ODOOD_OPT_WORKERS: "1"
-            ODOOD_OPT_PROXY_MODE: True
+            # Number of Odoo worker processes. Increase for higher load.
+            # Rule of thumb: (CPU cores * 2) + 1, minimum 2.
+            ODOOD_OPT_WORKERS: "2"
+            # Required when Odoo runs behind a reverse proxy.
+            ODOOD_OPT_PROXY_MODE: "True"
         volumes:
             - odood-example-odoo-data:/opt/odoo/data
-        restart: "no"
+        restart: unless-stopped
 
     odood-example-traefik:
-      image: "traefik:v3.2"
-      container_name: "odood-example-traefik"
-      command:
-        #- "--log.level=DEBUG"
-        - "--api.insecure=true"
-        - "--providers.docker=true"
-        - "--providers.docker.exposedbydefault=false"
-        - "--entryPoints.web.address=:80"
-      ports:
-        - "80:80"
-        - "8080:8080"
-      volumes:
-        - "/var/run/docker.sock:/var/run/docker.sock:ro"
-
+        image: "traefik:v3.2"
+        container_name: "odood-example-traefik"
+        command:
+            #- "--log.level=DEBUG"
+            - "--api.insecure=true"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedbydefault=false"
+            - "--entryPoints.web.address=:80"
+        ports:
+            - "80:80"
+            # Traefik dashboard — remove in production.
+            - "8080:8080"
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock:ro"
+        restart: unless-stopped

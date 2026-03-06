@@ -49,4 +49,4 @@ STOPSIGNAL SIGINT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD odood server healthcheck -t 9
 
-CMD ["/usr/bin/odood", "--config-from-env", "server", "run"]
+CMD ["/usr/bin/odood", "--config-from-env", "server", "run", "--wait-pg"]

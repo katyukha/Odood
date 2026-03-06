@@ -27,6 +27,7 @@
 - Commands `odood addons install` and `odood addons update` now will
   fail if there are unfinished addon updates before running command or after.
   This way these commands ensures clean state of db before and after operation.
+- Default dockerimage's command now waits when pg is ready before running Odoo (`odood server run --wait-pg` insteand of `odood server run`)
 
 ### Fixed
 - Odood now will handle `db_sslmode` parameter correctly inside it's internal database interactions

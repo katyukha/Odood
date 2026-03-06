@@ -21,6 +21,9 @@ RUN odood addons link /opt/odoo/custom_addons && \
     odood venv python -- -m compileall -q /opt/odoo/custom_addons/ && \
     rm /tmp/odood-assembly-requirements.txt && \
     rm -rf /root/.cache/pip/
+{% else %}
+RUN odood addons link /opt/odoo/custom_addons && \
+    odood venv python -- -m compileall -q /opt/odoo/custom_addons/
 {% endif %}
 
 LABEL odoo.serie="{{ assembly.serie }}"
