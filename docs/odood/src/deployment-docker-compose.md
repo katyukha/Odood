@@ -263,21 +263,163 @@ docker compose pull
 docker compose up -d
 ```
 
-Odoo will restart with the new image. If the Odoo version has changed, the database upgrade runs automatically on first start.
+Odoo will restart with the new image.
+
+> **Note:** For assembly-based deployments, use the dedicated workflow in
+> [Upgrading assembly-based deployments](#upgrading-assembly-based-deployments) below —
+> it stops Odoo first, runs the addon update step, and covers recovery.
 
 ## Using assembly images
 
-If you manage third-party addons with [Assembly](./assembly.md), build a custom Docker image that includes your assembly on top of the base Odood image:
+When third-party addons are managed with [Assembly](./assembly.md), the assembly's addon directory
+(`dist/`) is baked into a custom Docker image at build time — not cloned or mounted at runtime.
+Every assembly release becomes a distinct, pinned image that can be rolled back if needed.
 
-```dockerfile
-FROM ghcr.io/katyukha/odood/odoo/18.0:latest
+### Building assembly images
 
-# Clone assembly and link addons
-RUN odood assembly init --repo https://github.com/my/assembly \
-    && odood assembly link
+Odood generates the `Dockerfile` automatically. Add `--dockerfile` to the `assembly sync` command
+in your CI workflow and it will be created (or updated) on every sync:
+
+```bash
+odood --config-from-env assembly sync \
+    --changelog \
+    --dockerfile \
+    --commit --push
 ```
 
-See [Assembly](./assembly.md) for details on how to set up and maintain an assembly.
+The generated Dockerfile:
+- Copies `odood-assembly.yml` and `dist/` into `/opt/odoo/assembly/`
+- Runs `odood assembly use /opt/odoo/assembly` to register the assembly in `odood.yml`
+- Runs `odood assembly link` to create symlinks in `custom_addons/`, install Python requirements, and make addons visible to Odoo
+
+Registering the assembly is what makes `--assembly` work in upgrade commands inside the container.
+The image inherits the base image's `CMD`, which already includes `--wait-pg`, so no entrypoint customisation is needed.
+
+See [Assembly CI — Full release cycle](./assembly.md#full-release-cycle) for complete GitHub
+Actions workflows covering sync, PR creation, and image publishing.
+
+### Image tags and docker-compose.yml
+
+The recommended CI workflow publishes two tags per release derived from the assembly `VERSION` file
+(e.g. `18.0.1.2.3`):
+
+- **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml`.
+- **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor.
+
+Always pin to the full version tag in `docker-compose.yml` — never `:latest`.
+An explicit tag lets you roll back to the previous image if an upgrade fails.
+Pass the image reference as an environment variable so it can be updated at upgrade time
+without editing the Compose file directly:
+
+```yaml
+services:
+  odoo:
+    image: ${ODOO_IMAGE}   # e.g. ghcr.io/my-org/my-assembly:18.0.1.2.3
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ODOOD_OPT_DB_HOST: db
+      ODOOD_OPT_DB_USER: odoo
+      ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+      ODOOD_OPT_ADMIN_PASSWD: admin
+      ODOOD_OPT_WORKERS: "2"
+      ODOOD_OPT_PROXY_MODE: "True"
+    volumes:
+      - odoo-data:/opt/odoo/data
+    restart: unless-stopped
+```
+
+## Upgrading assembly-based deployments
+
+Running two different versions of addon code against the same database simultaneously risks
+corruption. **Always stop Odoo before running addon updates**, even in containerised environments.
+
+Add the following `odoo-upgrade` service to your `docker-compose.yml`. It shares the image and
+data volume with the main `odoo` service but only runs on demand via the `upgrade` profile:
+
+```yaml
+  odoo-upgrade:
+    image: ${ODOO_IMAGE}
+    profiles: [upgrade]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ODOOD_OPT_DB_HOST: db        # match your DB service name
+      ODOOD_OPT_DB_USER: odoo
+      ODOOD_OPT_DB_PASSWORD: odoo-db-pass
+    command: >
+      bash -c "
+        odood --config-from-env db backup -a &&
+        odood --config-from-env addons install --missing-only --assembly &&
+        odood --config-from-env addons update --installed-only --assembly
+      "
+    volumes:
+      - odoo-data:/opt/odoo/data
+    restart: "no"
+```
+
+What each command in the upgrade sequence does:
+
+- `db backup -a` — backs up every database before any changes are made.
+- `addons install --missing-only --assembly` — installs assembly addons not yet present in any
+  database (handles newly added modules across releases). Applies to all databases by default.
+- `addons update --installed-only --assembly` — updates only addons that are already installed,
+  skipping uninstalled ones (safe and idempotent). Applies to all databases by default.
+
+`--assembly` works because the generated Dockerfile registers the assembly in `odood.yml`
+via `odood assembly use`, so the container knows where to find the assembly addons.
+
+### Upgrade workflow
+
+```bash
+# Set the new assembly image version (explicit tag — never :latest)
+export ODOO_IMAGE=ghcr.io/my-org/my-assembly:18.0.1.2.3
+
+# 1. Pull the new image
+docker compose pull
+
+# 2. Stop Odoo — the DB container keeps running so the upgrade container can connect
+docker compose stop odoo
+
+# 3. Backup all databases, install new assembly addons, update changed addons
+docker compose --profile upgrade run --rm odoo-upgrade
+
+# 4a. Exit 0 — start Odoo with the new image
+docker compose up -d odoo
+
+# 4b. Non-zero — see Recovery below; Odoo remains stopped until you intervene
+```
+
+### Recovery
+
+If the upgrade fails, restore every database from its pre-upgrade backup and restart Odoo with
+the previous image.
+
+```bash
+# 1. List the backups created before the failed upgrade
+docker compose run --rm --no-deps odoo-upgrade \
+    ls /opt/odoo/data/backups/
+
+# 2. Restore each database from its pre-upgrade backup
+#    Repeat for every database, replacing the name and timestamp
+docker compose run --rm --no-deps odoo-upgrade \
+    odood --config-from-env db restore mydb \
+        /opt/odoo/data/backups/mydb-TIMESTAMP.zip
+
+# 3. Roll back to the previous image and start Odoo
+export ODOO_IMAGE=ghcr.io/my-org/my-assembly:18.0.1.2.2
+docker compose up -d odoo
+```
+
+> **Important:** If `addons update` partially succeeded before the failure (some modules updated,
+> then a crash), the database is in a mixed state — some modules at the new version, others at
+> the old. **Do not attempt to undo partial updates manually.** Restore from the pre-upgrade
+> backup; that is the only clean recovery path.
+
+> **`--no-deps`** starts the upgrade container without attempting to start its declared
+> dependencies — safe to use in recovery when the DB container is already running.
 
 ## Scaling caveat
 

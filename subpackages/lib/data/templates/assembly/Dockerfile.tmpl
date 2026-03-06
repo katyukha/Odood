@@ -3,27 +3,28 @@
 FROM ghcr.io/katyukha/odood/odoo/{{ assembly.serie }}:{% if is_dev_version %}latest{% else %}{{ _version }}{% endif %}
 
 {% if assembly.spec.layout == AssemblyLayout.STANDARD %}
-COPY {{ assembly.dist_dir }} /opt/odoo/custom_addons/
-{% elif assembly.spec.layout == AssemblyLayout.FLAT %}
-# WARNING: Building docker images on assemblies with FLAT layout type is not recommended.
-#          Please, switch to standard layout, is you need to build docker images.
-{% for addon; assembly.spec.addons %}
-COPY {{ addon.name }} /opt/odoo/custom_addons/{{ addon.name }}
-{% endfor %}
-{% else %}
-# Layout {{ assembly.spec.layout }} not supported for in docker yet
+# Copy the assembly spec and addons into a dedicated directory.
+# The spec file is required so that 'odood assembly use' can register the assembly
+# in odood.yml, which makes '--assembly' available for addon install/update commands
+# inside the container.
+COPY odood-assembly.yml /opt/odoo/assembly/odood-assembly.yml
+COPY dist/ /opt/odoo/assembly/dist/
+{% if handle_requirements_txt %}
+COPY requirements.txt /opt/odoo/assembly/requirements.txt
 {% endif %}
 
-{% if handle_requirements_txt %}
-COPY "requirements.txt" /tmp/odood-assembly-requirements.txt
-RUN odood addons link /opt/odoo/custom_addons && \
-    odood venv install-py-packages -r /tmp/odood-assembly-requirements.txt && \
-    odood venv python -- -m compileall -q /opt/odoo/custom_addons/ && \
-    rm /tmp/odood-assembly-requirements.txt && \
+# Register the assembly with the project, link addons into custom_addons/,
+# install Python requirements (handled automatically by 'assembly link'),
+# and pre-compile all addon Python files.
+RUN odood assembly use /opt/odoo/assembly && \
+    odood assembly link && \
+    odood venv python -- -m compileall -q /opt/odoo/assembly/dist/ && \
     rm -rf /root/.cache/pip/
+{% elif assembly.spec.layout == AssemblyLayout.FLAT %}
+# WARNING: Building Docker images from assemblies with FLAT layout is not supported.
+#          Switch to standard layout to build Docker images.
 {% else %}
-RUN odood addons link /opt/odoo/custom_addons && \
-    odood venv python -- -m compileall -q /opt/odoo/custom_addons/
+# Layout {{ assembly.spec.layout }} not supported for Docker yet.
 {% endif %}
 
 LABEL odoo.serie="{{ assembly.serie }}"
