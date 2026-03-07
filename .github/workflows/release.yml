@@ -79,6 +79,66 @@ jobs:
           path: |
             build/odood_${{ steps.check-arch.outputs.arch }}.deb
 
+  build-docs-pdf:
+    name: Build Docs PDF
+    runs-on: ubuntu-22.04
+    env:
+      MDBOOK_VERSION: 0.5.2
+      MDBOOK_PDF_VERSION: 0.1.9
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ env.ODOOD_DLANG_COMPILER }}
+
+      - name: Install system dependencies
+        uses: lyricwulf/abc@v1
+        with:
+          linux: libzip-dev libpq-dev python3-dev
+
+      - name: Set version from tag
+        run: echo "${{ github.ref_name }}" > ./subpackages/lib/data/ODOOD_VERSION
+
+      - name: Build Odood command reference
+        run: dub build -c generate-command-ref
+
+      - name: Prepare docs sources
+        run: |
+          cp build/odood-docs-command-ref.md docs/odood/src/odood-docs-command-ref.md
+          cp -f ./CHANGELOG.md ./docs/odood/src/changelog.md
+          # Append PDF output backend to book.toml for this build only.
+          # When multiple outputs are configured mdBook places each in its own
+          # subdirectory: book/html/ for HTML, book/pdf/ for PDF.
+          printf '\n[output.pdf]\n' >> docs/odood/book.toml
+
+      - name: Cache cargo
+        id: cache-cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/mdbook
+            ~/.cargo/bin/mdbook-pdf
+          key: cargo-mdbook-${{ env.MDBOOK_VERSION }}-pdf-${{ env.MDBOOK_PDF_VERSION }}
+
+      - name: Install mdBook and mdbook-pdf
+        if: steps.cache-cargo.outputs.cache-hit != 'true'
+        run: |
+          cargo install --version ${MDBOOK_VERSION} mdbook
+          cargo install --version ${MDBOOK_PDF_VERSION} mdbook-pdf
+
+      - name: Build docs
+        run: mdbook build ./docs/odood
+
+      - name: Upload docs PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: odood-docs-pdf
+          path: docs/odood/book/pdf/output.pdf
+
   publish_release:
     name: Publish Release
     runs-on: ubuntu-22.04
@@ -86,6 +146,7 @@ jobs:
       contents: write
     needs:
       - build-ubuntu
+      - build-docs-pdf
     steps:
       - uses: actions/checkout@v3
 
@@ -100,6 +161,12 @@ jobs:
         with:
           name: odood-arm64
           path: build-arm64
+
+      - name: 'Download docs PDF'
+        uses: actions/download-artifact@v4
+        with:
+          name: odood-docs-pdf
+          path: build-docs
 
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
@@ -120,6 +187,7 @@ jobs:
           files: |
             build-arm64/odood_arm64.deb
             build-amd64/odood_amd64.deb
+            build-docs/output.pdf
           prerelease: true
           body_path: CHANGELOG.00.md
 
@@ -130,5 +198,6 @@ jobs:
           files: |
             build-arm64/odood_arm64.deb
             build-amd64/odood_amd64.deb
+            build-docs/output.pdf
           prerelease: false
           body_path: CHANGELOG.00.md
