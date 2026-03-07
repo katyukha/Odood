@@ -138,7 +138,7 @@ class App: OdoodProgram {
             import std.process: environment;
             import std.string: chompPrefix, toLower, startsWith;
             infof("Applying configuration from env variables to Odoo config...");
-            auto config = project.get.getOdooConfig;
+            auto config = project.get.server.getConfig;
             foreach(kv; environment.toAA.byKeyValue) {
                 if (!kv.key.toLower.startsWith("odood_opt_"))
                     // Skip options that not related to Odood

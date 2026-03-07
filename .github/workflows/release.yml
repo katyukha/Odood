@@ -81,10 +81,10 @@ jobs:
 
   build-docs-pdf:
     name: Build Docs PDF
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       MDBOOK_VERSION: 0.5.2
-      MDBOOK_PDF_VERSION: 0.1.9
+      MDBOOK_PDF_VERSION: 0.1.13
     steps:
       - uses: actions/checkout@v6
 
@@ -113,22 +113,11 @@ jobs:
           # subdirectory: book/html/ for HTML, book/pdf/ for PDF.
           printf '\n[output.pdf]\n' >> docs/odood/book.toml
 
-      - name: Cache cargo
-        id: cache-cargo
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/mdbook
-            ~/.cargo/bin/mdbook-pdf
-          key: cargo-mdbook-${{ env.MDBOOK_VERSION }}-pdf-${{ env.MDBOOK_PDF_VERSION }}
-
       - name: Install mdBook and mdbook-pdf
-        if: steps.cache-cargo.outputs.cache-hit != 'true'
         run: |
-          cargo install --version ${MDBOOK_VERSION} mdbook
-          cargo install --version ${MDBOOK_PDF_VERSION} mdbook-pdf
+          wget -qO- "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C /usr/local/bin
+          wget -qO /usr/local/bin/mdbook-pdf "https://github.com/HollowMan6/mdbook-pdf/releases/download/v${MDBOOK_PDF_VERSION}/mdbook-pdf-v${MDBOOK_PDF_VERSION}-x86_64-unknown-linux-gnu"
+          chmod +x /usr/local/bin/mdbook-pdf
 
       - name: Build docs
         run: mdbook build ./docs/odood
