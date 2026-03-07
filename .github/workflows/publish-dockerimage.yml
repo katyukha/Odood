@@ -28,7 +28,7 @@ jobs:
           - ubuntu-24.04-arm
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check arch
         id: check-arch
@@ -36,7 +36,7 @@ jobs:
           echo "arch=$(dpkg --print-architecture)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ env.ODOOD_DLANG_COMPILER }}
 
@@ -87,7 +87,7 @@ jobs:
           - "19.0"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 'Download artifacts for amd64'
         uses: actions/download-artifact@v4

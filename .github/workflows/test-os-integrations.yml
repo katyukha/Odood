@@ -20,7 +20,7 @@ jobs:
           - ubuntu-22.04-arm
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Check arch
         id: check-arch
@@ -28,7 +28,7 @@ jobs:
           echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
 
       - name: Install D compiler
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ env.ODOOD_DLANG_COMPILER }}
 
@@ -75,7 +75,7 @@ jobs:
       DEBIAN_FRONTEND: 'noninteractive'
       ODOOD_PREFER_PY_INSTALL: ${{ matrix.py_install_type }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Check arch
         id: check-arch
@@ -143,7 +143,7 @@ jobs:
         run: ./build/odood-unittest-integration-ut --chrono
 
       - name: Install D compiler (to convert test coverage to cobertura.xml)
-        uses: dlang-community/setup-dlang@v1
+        uses: dlang-community/setup-dlang@v2
         with:
           compiler: ${{ env.ODOOD_DLANG_COMPILER }}
 
