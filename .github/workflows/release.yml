@@ -157,6 +157,9 @@ jobs:
           name: odood-docs-pdf
           path: build-docs
 
+      - name: Rename docs PDF
+        run: mv build-docs/output.pdf build-docs/odood-documentation.pdf
+
       - name: "Prepare release notes"
         run: csplit --prefix=CHANGELOG. --suffix=%02d.md CHANGELOG.md '/---/'
 
@@ -176,7 +179,7 @@ jobs:
           files: |
             build-arm64/odood_arm64.deb
             build-amd64/odood_amd64.deb
-            build-docs/output.pdf
+            build-docs/odood-documentation.pdf
           prerelease: true
           body_path: CHANGELOG.00.md
 
@@ -187,6 +190,6 @@ jobs:
           files: |
             build-arm64/odood_arm64.deb
             build-amd64/odood_amd64.deb
-            build-docs/output.pdf
+            build-docs/odood-documentation.pdf
           prerelease: false
           body_path: CHANGELOG.00.md
