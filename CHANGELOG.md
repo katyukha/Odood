@@ -28,6 +28,10 @@
   fail if there are unfinished addon updates before running command or after.
   This way these commands ensures clean state of db before and after operation.
 - Default dockerimage's command now waits when pg is ready before running Odoo (`odood server run --wait-pg` insteand of `odood server run`)
+- "No access rules" warnings are no longer treated as test errors. Models
+  that intentionally have no ACLs (e.g. sudo()-only technical models) will
+  no longer cause `odood test` to fail.
+
 
 ### Fixed
 - Odood now will handle `db_sslmode` parameter correctly inside it's internal database interactions

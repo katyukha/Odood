@@ -49,7 +49,6 @@ string generateTestDbName(in Project project) {
 private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`At least one test failed`),
     ctRegex!(`invalid module names, ignored`),
-    ctRegex!(`no access rules.*, consider adding`),
     ctRegex!(`OperationalError: FATAL`),
     ctRegex!(`Comparing apples and oranges`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
@@ -88,12 +87,6 @@ unittest {
 
     // Pattern: "invalid module names, ignored"
     is_re_error("invalid module names, ignored: nonexistent_module ").shouldBeTrue;
-
-    // Pattern: "no access rules, consider adding one"
-    // Older versions (example 12.0)
-    is_re_error("The model res.custom has no access rules, consider adding one. E.g. access_res_custom,access_res_custom,model_res_custom,base.group_user,1,0,0,0 ").shouldBeTrue;
-    // Newer version (example 15.0)
-    is_re_error("The models ['res.custom'] have no access rules in module my_module, consider adding some").shouldBeTrue;
 
     // Pattern: "OperationalError: FATAL"
     is_re_error("OperationalError: FATAL:  password authentication failed for user \"odoo\" ").shouldBeTrue;
@@ -175,7 +168,6 @@ unittest {
     ).shouldBeTrue;
 
     // Non-matching warnings should not be filtered
-    is_safe_warning("no access rules, consider adding one ").shouldBeFalse;
     is_safe_warning("At least one test failed ").shouldBeFalse;
     is_safe_warning("").shouldBeFalse;
 }
