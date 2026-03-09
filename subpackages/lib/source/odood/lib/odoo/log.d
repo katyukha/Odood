@@ -178,6 +178,58 @@ immutable auto RE_LOG_RECORD_DATA = ctRegex!(
 }
 
 
+/// Test OdooLogRecord.isError
+unittest {
+    import unit_threaded.assertions;
+
+    OdooLogRecord rec;
+
+    rec.log_level = "ERROR";
+    rec.isError.shouldBeTrue;
+
+    rec.log_level = "CRITICAL";
+    rec.isError.shouldBeTrue;
+
+    rec.log_level = "WARNING";
+    rec.isError.shouldBeFalse;
+
+    rec.log_level = "INFO";
+    rec.isError.shouldBeFalse;
+
+    rec.log_level = "DEBUG";
+    rec.isError.shouldBeFalse;
+}
+
+/// Test OdooLogRecord.toString truncation
+unittest {
+    import std.range: repeat;
+    import std.conv: to;
+    import unit_threaded.assertions;
+
+    OdooLogRecord rec;
+    rec.date = "2025-01-01 12:00:00,000";
+    rec.process_id = 12345;
+    rec.log_level = "INFO";
+    rec.db = "mydb";
+    rec.logger = "odoo.test";
+
+    // Short message: not truncated
+    rec.msg = "short message";
+    auto str = rec.toString;
+    str.shouldEqual("2025-01-01 12:00:00,000 12345 INFO mydb odoo.test short message");
+
+    // Long message (>200 chars): truncated with "..."
+    rec.msg = 'x'.repeat(250).to!string;
+    auto long_str = rec.toString;
+    import std.algorithm.searching: canFind;
+    long_str.canFind("...").shouldBeTrue;
+    // The truncated message portion should be 200 chars + "..."
+    import std.string: indexOf;
+    auto x_run_start = long_str.indexOf('x');
+    auto suffix = long_str[x_run_start .. $];
+    suffix.shouldEqual('x'.repeat(200).to!string ~ "...");
+}
+
 ///
 unittest {
     import unit_threaded.assertions;

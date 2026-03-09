@@ -142,6 +142,46 @@ string getConfVal(Ini config, in string key, return in string defValue=null) {
 }
 
 
+/// Test getConfVal with various value types
+unittest {
+    import unit_threaded.assertions;
+
+    Ini config;
+    IniSection options = IniSection("options");
+    config.addSection(options);
+
+    config["options"].setKey("db_host", "localhost");
+    config["options"].setKey("db_port", "5432");
+    config["options"].setKey("db_password", "None");
+    config["options"].setKey("db_sslmode", "False");
+    config["options"].setKey("db_user", "false");
+    config["options"].setKey("db_none_upper", "NONE");
+
+    // Normal values are returned as-is
+    config.getConfVal("db_host").shouldEqual("localhost");
+    config.getConfVal("db_port").shouldEqual("5432");
+
+    // "None" returns default value (null by default)
+    config.getConfVal("db_password").shouldBeNull;
+    config.getConfVal("db_password", "secret").shouldEqual("secret");
+
+    // "False" returns default value (case-insensitive)
+    config.getConfVal("db_sslmode").shouldBeNull;
+    config.getConfVal("db_sslmode", "prefer").shouldEqual("prefer");
+
+    // "false" (lowercase) also returns default
+    config.getConfVal("db_user").shouldBeNull;
+    config.getConfVal("db_user", "odoo").shouldEqual("odoo");
+
+    // "NONE" (uppercase) also returns default
+    config.getConfVal("db_none_upper").shouldBeNull;
+
+    // Missing key defaults to "None" internally, so returns default
+    config.getConfVal("nonexistent_key").shouldBeNull;
+    config.getConfVal("nonexistent_key", "fallback").shouldEqual("fallback");
+}
+
+
 /** Parse Odoo's database config and return tuple with following fields:
   * host, port, user, password, sslmode
   **/
