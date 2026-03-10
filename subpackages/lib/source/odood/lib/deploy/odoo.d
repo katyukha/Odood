@@ -24,13 +24,13 @@ private import odood.lib.deploy.utils:
     postgresCreateUser;
 
 
-private void deployInitScript(in Project project) {
+private void deployInitScript(in Project project, in DeployConfig config) {
 
     infof("Configuring init script for Odoo...");
 
     // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
-        renderFile!("templates/deploy/init.d.tmpl", project));
+        renderFile!("templates/deploy/init.d.tmpl", project, config));
 
     // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
@@ -45,13 +45,13 @@ private void deployInitScript(in Project project) {
 }
 
 
-private void deploySystemdConfig(in Project project) {
+private void deploySystemdConfig(in Project project, in DeployConfig config) {
 
     infof("Configuring systemd daemon for Odoo...");
 
     // Configure systemd
     project.odoo.server_systemd_service_path.writeFile(
-        renderFile!("templates/deploy/systemd.tmpl", project));
+        renderFile!("templates/deploy/systemd.tmpl", project, config));
 
     // Set access rights for systemd config
     project.odoo.server_systemd_service_path.setAttributes(octal!755);
@@ -259,10 +259,10 @@ Project deployOdoo(in DeployConfig config) {
             // TODO: May be it have sense to create some link in /usr/sbin for Odoo?
             break;
         case ProjectServerSupervisor.InitScript:
-            deployInitScript(project);
+            deployInitScript(project, config);
             break;
         case ProjectServerSupervisor.Systemd:
-            deploySystemdConfig(project);
+            deploySystemdConfig(project, config);
             break;
     }
 

@@ -26,6 +26,7 @@ private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
 private import odood.lib.deploy;
+private import odood.lib.deploy.config: detectSystemCABundle;
 
 
 class CommandDeploy: OdoodCommand {
@@ -91,6 +92,11 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+
+        this.add(new Flag(
+            null, "use-system-ca-bundle",
+            "Set REQUESTS_CA_BUNDLE to the system CA certificate store, " ~
+            "so Odoo uses system certificates instead of the bundled certifi CA bundle."));
 
         this.add(new Option(
             null, "assembly-repo",
@@ -191,6 +197,11 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("log-to-stderr"))
             config.odoo.log_to_stderr = true;
+
+        if (args.flag("use-system-ca-bundle")) {
+            config.odoo.use_system_ca_bundle = true;
+            config.odoo.system_ca_bundle_path = detectSystemCABundle();
+        }
 
         if (!args.option("assembly-repo").empty)
             config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;

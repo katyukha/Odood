@@ -22,6 +22,9 @@ LOGFILE="{{ project.odoo.logfile }}"
 PIDFILE="{{project.odoo.pidfile }}.pid"
 USER="{{ project.odoo.server_user }}"
 export LOGNAME=$USER
+{% if !config.odoo.system_ca_bundle_path.isNull %}
+export REQUESTS_CA_BUNDLE={{ config.odoo.system_ca_bundle_path.get }}
+{% endif %}
 
 test -x $DAEMON || exit 0
 set -e

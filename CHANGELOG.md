@@ -17,6 +17,9 @@
     - `--ignore-unfinished-updates` - do not fail on unfinished updates
 - Added `--tls12-compat` flag to `odood deploy` to allow TLS 1.2 in addition
   to TLS 1.3 for backward compatibility with older clients.
+- Added `--use-system-ca-bundle` flag to `odood deploy` to set
+  `REQUESTS_CA_BUNDLE` to the system CA certificate store. Auto-detects
+  the CA bundle path across Debian/Ubuntu, RHEL/CentOS/Fedora, and openSUSE.
 
 
 ### Changed
