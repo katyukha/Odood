@@ -15,17 +15,18 @@ private import std.exception: enforce;
 private import thepath: Path;
 
 private import odood.lib.project: Project;
-private import odood.utils.odoo.serie: OdooSerie;
+private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
-private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.server.log_pipe: OdooLogPipe;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
+private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
 
 // TODO: Make randomized ports
 private immutable ODOO_TEST_HTTP_PORT=8269;
@@ -38,9 +39,8 @@ private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
   *     project = project to generate name of test database for.
   **/
 string generateTestDbName(in Project project) {
-    string prefix = project.getOdooConfig["options"].getKey(
-            "db_user",
-            "odood%s".format(project.odoo.serie.major));
+    string prefix = project.server.getConfig.getConfVal(
+        "db_user", "odood%s".format(project.odoo.serie.major));
     return "%s-odood-test".format(prefix);
 }
 
@@ -49,21 +49,28 @@ string generateTestDbName(in Project project) {
 private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`At least one test failed`),
     ctRegex!(`invalid module names, ignored`),
-    ctRegex!(`no access rules, consider adding one`),
     ctRegex!(`OperationalError: FATAL`),
     ctRegex!(`Comparing apples and oranges`),
-    ctRegex!(`Module [a-zA-Z0-9_]\+ demo data failed to install, installed without demo data`),
-    ctRegex!(`[a-zA-Z0-9\\._]\+.create() includes unknown fields`),
-    ctRegex!(`[a-zA-Z0-9\\._]\+.write() includes unknown fields`),
-    ctRegex!(`The group [a-zA-Z0-9\\._]\+ defined in view [a-zA-Z0-9\\._]\+ [a-z]\+ does not exist!`),
-    ctRegex!(`[a-zA-Z0-9\\._]\+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Module .+ demo data failed to install, installed without demo data`),
+    ctRegex!(`[a-zA-Z0-9\\._]+\.create\(\) includes unknown fields`),
+    ctRegex!(`[a-zA-Z0-9\\._]+\.write\(\) includes unknown fields`),
+    ctRegex!(`[a-zA-Z0-9\\._]+\.create\(\) with unknown fields`),
+    ctRegex!(`[a-zA-Z0-9\\._]+\.write\(\) with unknown fields`),
+    ctRegex!(`The group [a-zA-Z0-9\\._]+ defined in view [a-zA-Z0-9\\._]+ [a-z]+ does not exist!?`),
+    ctRegex!(`The group [“'”"][a-zA-Z0-9\\._]+[“'”"] defined in view does not exist!?`),
+    ctRegex!(`[a-zA-Z0-9\\._]+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
-    ctRegex!(`odoo.modules.graph: module [a-zA-Z0-9\\._]+: Unmet dependencies: [a-zA-Z0-9\\._,\s]+`),
+    ctRegex!(`module [a-zA-Z0-9\\._]+: Unmet dependencies: [a-zA-Z0-9\\._,\s]+`),
 ];
 
 unittest {
     import unit_threaded.assertions;
+
+    // RE_ERROR_CHECKS are matched against OdooLogRecord.msg — the message
+    // portion extracted from log lines like:
+    //   2023-01-02 15:34:26,873 115109 WARNING mydb odoo.modules.loading: <msg>
+    // The test inputs below use realistic msg values as they would appear
+    // after log parsing.
 
     bool is_re_error(in string msg) {
         foreach(check; RE_ERROR_CHECKS)
@@ -72,13 +79,190 @@ unittest {
         return false;
     }
 
-    is_re_error("Field my_field with unknown comodel_name 'my.model'").shouldBeTrue;
+    // Test each RE_ERROR_CHECKS pattern individually
+
+    // Pattern: "At least one test failed"
+    is_re_error("At least one test failed when loading modules").shouldBeTrue;
+    is_re_error("At least one test failed").shouldBeTrue;
+
+    // Pattern: "invalid module names, ignored"
+    is_re_error("invalid module names, ignored: nonexistent_module ").shouldBeTrue;
+
+    // Pattern: "OperationalError: FATAL"
+    is_re_error("OperationalError: FATAL:  password authentication failed for user \"odoo\" ").shouldBeTrue;
+    is_re_error("OperationalError: FATAL:  database \"nonexistent\" does not exist ").shouldBeTrue;
+
+    // Pattern: "Comparing apples and oranges"
+    is_re_error("Comparing apples and oranges: res.partner(1,) and 'Administrator' ").shouldBeTrue;
+
+    // Pattern: "Module .+ demo data failed to install, installed without demo data"
+    is_re_error("Module sale demo data failed to install, installed without demo data ").shouldBeTrue;
+    is_re_error("Module generic_request_service demo data failed to install, installed without demo data ").shouldBeTrue;
+
+    // Pattern: ".create() includes unknown fields"
+    is_re_error("The model 'res.partner' does not exist. res.partner.create() includes unknown fields: custom_field ").shouldBeTrue;
+    is_re_error("sale.order.line.create() includes unknown fields: nonexistent_field ").shouldBeTrue;
+    is_re_error("sale.order.line.create() with unknown fields: nonexistent_field ").shouldBeTrue;
+
+    // Pattern: ".write() includes unknown fields"
+    is_re_error("res.partner.write() includes unknown fields: missing_field ").shouldBeTrue;
+    is_re_error("account.move.line.write() includes unknown fields: bad_column ").shouldBeTrue;
+    is_re_error("sale.order.line.write() with unknown fields: nonexistent_field ").shouldBeTrue;
+
+    // Pattern: "The group X defined in view Y ... does not exist!"
+    is_re_error("The group base.group_erp_manager defined in view sale.view_order_form edit does not exist!").shouldBeTrue;
+    is_re_error("The group sale.group_sale_manager defined in view account.view_move_form invisible does not exist!").shouldBeTrue;
+    is_re_error("The group “my_group” defined in view does not exist").shouldBeTrue;
+    is_re_error("The group 'my_group' defined in view does not exist").shouldBeTrue;
+
+    // Pattern: "inconsistent 'compute_sudo' for computed fields"
+    is_re_error("sale.order: inconsistent 'compute_sudo' for computed fields: amount_total, amount_untaxed ").shouldBeTrue;
+    is_re_error("res.partner: inconsistent 'compute_sudo' for computed fields: display_name ").shouldBeTrue;
+
+    // Pattern: "Field X with unknown comodel_name 'Y'"
+    is_re_error("Field sale.order.custom_partner_id with unknown comodel_name 'res.custom.partner' ").shouldBeTrue;
+    is_re_error("Field generic_request.request.service_id with unknown comodel_name 'generic.service' ").shouldBeTrue;
+
+    // Pattern: "module X: Unmet dependencies: Y"
     is_re_error(
-        "2025-08-26 14:56:11,130 501772 INFO odoo18-test odoo.modules.graph: module my_module: Unmet dependencies: other_module"
+        "module my_module: Unmet dependencies: another_module"
     ).shouldBeTrue;
     is_re_error(
-        "2025-08-26 14:56:11,130 501772 INFO odoo18-test odoo.modules.graph: module my_module: Unmet dependencies: other_module, another_mod"
+        "module my_module: Unmet dependencies: another_module, other_module"
     ).shouldBeTrue;
+
+    // Negative cases: normal operational messages that should NOT match
+    is_re_error("Odoo version 16.0 ").shouldBeFalse;
+    is_re_error("skip sending email in test mode ").shouldBeFalse;
+    is_re_error("Starting TestRequestBase.test_request_can_change_category ... ").shouldBeFalse;
+    is_re_error("loading 38 modules... ").shouldBeFalse;
+    is_re_error("Module sale loaded in 0.42s, 12 queries ").shouldBeFalse;
+    is_re_error("").shouldBeFalse;
+}
+
+/// Test RE_SAFE_WARNINGS patterns with realistic log messages
+unittest {
+    import unit_threaded.assertions;
+
+    bool is_safe_warning(in string msg) {
+        foreach(check; RE_SAFE_WARNINGS)
+           if (msg.matchFirst(check))
+               return true;
+        return false;
+    }
+
+    // Pattern: "Two fields (X) of Y() have the same label"
+    // Based on real log: odoo.test.2.log line 16-17
+    is_safe_warning(
+        "Two fields (date_closed, closed) of request.request() have the same label: Closed. "
+    ).shouldBeTrue;
+    is_safe_warning(
+        "Two fields (create_uid, created_by_id) of request.request() have the same label: Created by. "
+    ).shouldBeTrue;
+
+    // Pattern: "Field X: unknown parameter 'tracking'..."
+    is_safe_warning(
+        "Field generic_request.request.date_deadline: unknown parameter 'tracking', " ~
+        "if this is an actual parameter you may want to override the " ~
+        "method _valid_field_parameter on the relevant model in order to allow it"
+    ).shouldBeTrue;
+
+    // Non-matching warnings should not be filtered
+    is_safe_warning("At least one test failed ").shouldBeFalse;
+    is_safe_warning("").shouldBeFalse;
+}
+
+/// Test OdooTestResult state management
+unittest {
+    import unit_threaded.assertions;
+
+    // Test initial state
+    OdooTestResult result;
+    result.success.shouldBeFalse;
+    result.cancelled.shouldBeFalse;
+    result.cancelReason.shouldBeNull;
+    result.logRecords.length.shouldEqual(0);
+
+    // Test setSuccess
+    result.setSuccess();
+    result.success.shouldBeTrue;
+    result.cancelled.shouldBeFalse;
+
+    // Test setFailed
+    result.setFailed();
+    result.success.shouldBeFalse;
+    result.cancelled.shouldBeFalse;
+
+    // Test setCancelled sets both cancelled and failed
+    result.setSuccess();  // reset to success first
+    result.success.shouldBeTrue;
+    result.setCancelled("Keyboard interrupt");
+    result.success.shouldBeFalse;
+    result.cancelled.shouldBeTrue;
+    result.cancelReason.shouldEqual("Keyboard interrupt");
+}
+
+/// Test OdooTestResult log record filtering (warnings/errors)
+unittest {
+    import std.algorithm: map;
+    import std.array: array;
+    import unit_threaded.assertions;
+
+    OdooTestResult result;
+
+    // Add various log records
+    OdooLogRecord info_rec;
+    info_rec.log_level = "INFO";
+    info_rec.msg = "Normal info message";
+    result.addLogRecord(info_rec);
+
+    OdooLogRecord warn_rec;
+    warn_rec.log_level = "WARNING";
+    warn_rec.msg = "Some warning";
+    result.addLogRecord(warn_rec);
+
+    OdooLogRecord err_rec;
+    err_rec.log_level = "ERROR";
+    err_rec.msg = "Something failed";
+    result.addLogRecord(err_rec);
+
+    OdooLogRecord crit_rec;
+    crit_rec.log_level = "CRITICAL";
+    crit_rec.msg = "Critical failure";
+    result.addLogRecord(crit_rec);
+
+    // A WARNING that matches RE_ERROR_CHECKS (treated as error)
+    OdooLogRecord warn_error_rec;
+    warn_error_rec.log_level = "WARNING";
+    warn_error_rec.msg = "At least one test failed";
+    result.addLogRecord(warn_error_rec);
+
+    result.logRecords.length.shouldEqual(5);
+
+    // warnings() should return only WARNING-level records
+    auto warnings = result.warnings.array;
+    warnings.length.shouldEqual(2);
+    warnings[0].msg.shouldEqual("Some warning");
+    warnings[1].msg.shouldEqual("At least one test failed");
+
+    // errors() should return ERROR, CRITICAL, and WARNING matching RE_ERROR_CHECKS
+    auto errors = result.errors.array;
+    errors.length.shouldEqual(3);
+    errors.map!(e => e.msg).array.shouldEqual(
+        ["Something failed", "Critical failure", "At least one test failed"]);
+}
+
+/// Test OdooTestResult duration tracking
+unittest {
+    import core.time: seconds;
+    import unit_threaded.assertions;
+
+    OdooTestResult result;
+    result.setDurationTotal(5.seconds);
+    result.setDurationTests(3.seconds);
+
+    result.totalDuration.shouldEqual(5.seconds);
+    result.testsDuration.shouldEqual(3.seconds);
 }
 
 

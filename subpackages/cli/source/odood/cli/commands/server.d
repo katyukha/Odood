@@ -22,6 +22,13 @@ class CommandServerRun: OdoodCommand {
         super("run", "Run the server.");
         this.add(new Flag(
             null, "ignore-running", "Ingore running Odoo instance. (Do not check/create pidfile)."));
+        this.add(new Flag(
+            null, "wait-pg",
+            "Wait for PostgreSQL to be ready before starting the server."));
+        this.add(new Option(
+            null, "wait-pg-timeout",
+            "Maximum time to wait for PostgreSQL in seconds.")
+            .defaultValue("60"));
     }
 
     public override void execute(ProgramArgs args) {
@@ -39,6 +46,15 @@ class CommandServerRun: OdoodCommand {
             enforce!OdoodCLIException(
                 !project.server.isRunning,
                 "Odoo server already running!");
+        }
+
+        if (args.flag("wait-pg")) {
+            auto pg_timeout = args.option("wait-pg-timeout").to!long.seconds;
+            infof("Waiting for PostgreSQL...");
+            enforce!OdoodCLIException(
+                project.server.waitForPostgres(pg_timeout),
+                "PostgreSQL did not become available within the timeout.");
+            infof("PostgreSQL is ready.");
         }
 
         debug tracef("Running Odoo: %s", runner);
@@ -130,28 +146,7 @@ class CommandServerBrowse: OdoodCommand {
         if (!project.server.isRunning)
             project.server.start;
 
-        auto odoo_conf = project.getOdooConfig;
-
-        /** Get option with default value
-          **/
-        string get_option(
-                in string name,
-                lazy string default_val) {
-            if (odoo_conf["options"].hasKey(name))
-                return odoo_conf["options"].getKey(name);
-            return default_val;
-        }
-
-        string url = "http://%s:%s/".format(
-            get_option(
-                "http_interface",
-                get_option(
-                    "xmlrpc_interface", "localhost")),
-            get_option(
-                "http_port",
-                get_option(
-                    "xmlrpc_port", "8069"))
-        );
+        auto url = project.server.getConfigHTTP.url;
         infof("Opening %s in browse....", url);
         std.process.browse(url);
     }
@@ -177,6 +172,59 @@ class CommandServerLogView: OdoodCommand {
 }
 
 
+class CommandServerHealthcheck: OdoodCommand {
+    this() {
+        super("healthcheck",
+            "Check if the Odoo HTTP server is healthy.\n" ~
+            "Exits 0 if healthy, 1 if not.\n");
+        this.add(new Option(
+            "t", "timeout",
+            "HTTP request timeout in seconds.")
+            .defaultValue("10"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        import std.stdio: writeln;
+        import core.time: seconds;
+
+        auto project = Project.loadProject;
+        auto timeout = args.option("timeout").to!long.seconds;
+
+        if (project.server.healthcheck(timeout))
+            infof("Odoo server is healthy.");
+        else
+            throw new OdoodCLIException("Odoo server is not healthy!");
+    }
+}
+
+
+class CommandServerWaitPg: OdoodCommand {
+    this() {
+        super("wait-pg", "Wait for PostgreSQL to become available.");
+        this.add(new Option(
+            "t", "timeout",
+            "Maximum time to wait in seconds.")
+            .defaultValue("60"));
+        this.add(new Option(
+            null, "interval",
+            "Time between connection attempts in seconds.")
+            .defaultValue("2"));
+    }
+
+    public override void execute(ProgramArgs args) {
+        auto project = Project.loadProject;
+        auto timeout = args.option("timeout").to!long.seconds;
+        auto interval = args.option("interval").to!long.seconds;
+
+        infof("Waiting for PostgreSQL...");
+        enforce!OdoodCLIException(
+            project.server.waitForPostgres(timeout, interval),
+            "PostgreSQL did not become available within the timeout.");
+        infof("PostgreSQL is ready.");
+    }
+}
+
+
 class CommandServer: OdoodCommand {
     this() {
         super("server", "Server management commands.");
@@ -187,6 +235,8 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerRestart());
         this.add(new CommandServerBrowse());
         this.add(new CommandServerLogView());
+        this.add(new CommandServerHealthcheck());
+        this.add(new CommandServerWaitPg());
     }
 }
 

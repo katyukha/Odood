@@ -5,10 +5,8 @@ module odood.utils;
   **/
 
 private import core.time: Duration, seconds;
-private import core.sys.posix.sys.types: pid_t;
 private import core.thread: Thread;
 private import std.logger: warningf;
-private import std.process: Pid;
 private import std.exception: enforce, basicExceptionCtors;
 private import std.format: format;
 private import std.random: uniform;
@@ -44,23 +42,6 @@ package(odood) @safe Version parsePythonVersion(in Path interpreter_path) {
         "Cannot parse python interpreter (%s) version '%s'".format(
             interpreter_path, python_version_raw));
     return Version(re_match[1]);
-}
-
-
-/// Check if process is alive
-bool isProcessRunning(in pid_t pid) {
-    import core.sys.posix.signal: kill;
-    import core.stdc.errno;
-
-    const int res = kill(pid, 0);
-    if (res == -1 && errno == ESRCH)
-        return false;
-    return true;
-}
-
-/// ditto
-bool isProcessRunning(scope Pid pid) {
-    return isProcessRunning(pid.osHandle);
 }
 
 
@@ -265,37 +246,4 @@ unittest {
     environment["ODOOD_CACHE_DIR"] = root.join("cache-root").toString;
     getCacheDir("cache-42", root.join("default")).shouldEqual(root.join("cache-root", "cache-42"));
     getCacheDir("cache-42", root.join("default")).isAbsolute.shouldBeTrue;
-}
-
-
-/** Check if system user with specified name exists
-  *
-  * Params:
-  *     username = name of user to check if exists
-  * Returns:
-  *     True if such user exists, otherwise false.
-  **/
-bool checkSystemUserExists(in string username) {
-    import core.sys.posix.pwd: getpwnam_r, passwd;
-    import std.exception: errnoEnforce;
-    import std.string: toStringz;
-    import core.stdc.errno: ENOENT, ESRCH, EBADF, EPERM;
-    passwd pwd;
-    passwd* result;
-    long bufsize = 16384;
-    char[] buf = new char[bufsize];
-
-    int s = getpwnam_r(username.toStringz, &pwd, &buf[0], bufsize, &result);
-    if (s == ENOENT || s == ESRCH || s == EBADF || s == EPERM)
-        // Such user does not exists
-        return false;
-
-    errnoEnforce(
-        s == 0,
-        "Got error on attempt to check if user %s exists".format(username));
-
-    if (result)
-        return true;
-
-    return false;
 }

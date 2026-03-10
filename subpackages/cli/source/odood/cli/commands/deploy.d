@@ -26,6 +26,7 @@ private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
 private import odood.lib.deploy;
+private import odood.lib.deploy.config: detectSystemCABundle;
 
 
 class CommandDeploy: OdoodCommand {
@@ -69,6 +70,11 @@ class CommandDeploy: OdoodCommand {
             null, "local-nginx-ssl-key", "Path to SSL key for local nginx."));
 
         this.add(new Flag(
+            null, "tls12-compat",
+            "Allow TLS 1.2 in addition to TLS 1.3 for backward compatibility with older clients. " ~
+            "By default, only TLS 1.3 is enabled."));
+
+        this.add(new Flag(
             null, "letsencrypt", "Enable Let's Encrypt configuration."));
         this.add(new Option(
             null, "letsencrypt-email", "Email for Let's Encrypt account."));
@@ -86,6 +92,11 @@ class CommandDeploy: OdoodCommand {
 
         this.add(new Flag(
             null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+
+        this.add(new Flag(
+            null, "use-system-ca-bundle",
+            "Set REQUESTS_CA_BUNDLE to the system CA certificate store, " ~
+            "so Odoo uses system certificates instead of the bundled certifi CA bundle."));
 
         this.add(new Option(
             null, "assembly-repo",
@@ -153,6 +164,9 @@ class CommandDeploy: OdoodCommand {
 
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
+
+            if (args.flag("tls12-compat"))
+                config.nginx.tls12_compat = true;
         }
         if (args.flag("letsencrypt") || !args.option("letsencrypt-email").empty) {
             config.letsencrypt_enable = true;
@@ -183,6 +197,11 @@ class CommandDeploy: OdoodCommand {
 
         if (args.flag("log-to-stderr"))
             config.odoo.log_to_stderr = true;
+
+        if (args.flag("use-system-ca-bundle")) {
+            config.odoo.use_system_ca_bundle = true;
+            config.odoo.system_ca_bundle_path = detectSystemCABundle();
+        }
 
         if (!args.option("assembly-repo").empty)
             config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;

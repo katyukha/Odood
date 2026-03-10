@@ -114,7 +114,7 @@ class GitRepository {
     Nullable!string getCurrBranch() const {
         auto result = gitCmd
             .withArgs(["symbolic-ref", "-q", "HEAD"])
-            .setFlag(std.process.Config.Flags.stderrPassThrough)
+            .withFlag(std.process.Config.Flags.stderrPassThrough)
             .execute();
         if (result.status == 0)
             return result.output.strip().chompPrefix("refs/heads/").nullable;
@@ -129,7 +129,7 @@ class GitRepository {
     string getCurrCommit() const {
         return gitCmd
             .withArgs(["rev-parse", "-q", "HEAD"])
-            .setFlag(std.process.Config.stderrPassThrough)
+            .withFlag(std.process.Config.stderrPassThrough)
             .execute()
             .ensureStatus(true)
             .output.strip();
@@ -147,7 +147,7 @@ class GitRepository {
     /// ditto
     void fetchOrigin(in string branch) const {
         gitCmd
-            .setArgs("fetch", "origin", branch)
+            .withArgs("fetch", "origin", branch)
             .execute()
             .ensureStatus(true);
     }
@@ -156,7 +156,7 @@ class GitRepository {
       **/
     auto hasRemoteUrl(in string name) const {
         return gitCmd
-            .setArgs("remote", "get-url", name)
+            .withArgs("remote", "get-url", name)
             .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .isOk;
@@ -166,7 +166,7 @@ class GitRepository {
       **/
     auto getRemoteUrl(in string name) const {
         string res = gitCmd
-            .setArgs("remote", "get-url", name)
+            .withArgs("remote", "get-url", name)
             .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .ensureOk(true)
@@ -179,17 +179,27 @@ class GitRepository {
         return getRemoteUrl("origin");
     }
 
+    /** Check if repo has local branch with specified name
+      **/
+    bool hasLocalBranch(in string name) const {
+        return gitCmd
+            .withArgs("show-ref", "--verify", "--quiet", "refs/heads/%s".format(name))
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
     /** Switch repo to specified branch
       **/
     void switchBranchTo(in string branch_name, in bool create=false) const {
         if (create)
             gitCmd
-                .setArgs("checkout", "-b", branch_name)
+                .withArgs("checkout", "-b", branch_name)
                 .execute()
                 .ensureStatus(true);
         else
             gitCmd
-                .setArgs("checkout", branch_name)
+                .withArgs("checkout", branch_name)
                 .execute()
                 .ensureStatus(true);
     }
@@ -306,14 +316,14 @@ class GitRepository {
             .withFlag(std.process.Config.stderrPassThrough);
 
         if (staged)
-            cmd = cmd.addArgs("--staged");
+            cmd.addArgs("--staged");
 
         // Prepeare command for git diff
         if (start_rev !is null) {
-            cmd = cmd.addArgs(prepareRevRange(start_rev, end_rev));
+            cmd.addArgs(prepareRevRange(start_rev, end_rev));
         }
         if (path_filters) {
-            cmd = cmd.addArgs(["--"] ~ path_filters);
+            cmd.addArgs(["--"] ~ path_filters);
         }
 
         return cmd.execute.ensureOk(true).output.splitLines.map!((p) => Path(p)).array;

@@ -11,6 +11,7 @@ private import std.array: empty, join, array, split, assocArray;
 private import std.algorithm: map, canFind, uniq, startsWith;
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
+private import std.string: strip;
 private import std.process: environment;
 private import std.datetime.date: DateTime;
 private import std.datetime.systime: Clock;
@@ -524,8 +525,7 @@ struct Assembly {
       *    base_rev = base revision. Changelog will be generated for changes between base_rev and current commit.
       **/
     void generateChangelog(in string base_rev) {
-        infof("Assembly: Generiating changelog.");
-        // TODO: We have also handle cases, when no origin repo connected to assembly
+        infof("Assembly: Generating changelog.");
 
         auto changes = getChanges(base_rev: base_rev);
         auto release_date = cast(DateTime)Clock.currTime();
@@ -560,9 +560,15 @@ struct Assembly {
     }
 
     void generateChangelog() {
-        // Base, that have to be used to generate changelog
-        auto base_rev = "origin/"~project.odoo.serie.toString;
-        generateChangelog(base_rev);
+        if (repo.hasRemoteUrl("origin"))
+            generateChangelog("origin/" ~ project.odoo.serie.toString);
+        else if (repo.hasLocalBranch(project.odoo.serie.toString))
+            generateChangelog(project.odoo.serie.toString);
+        else
+            throw new OdoodAssemblyException(
+                "Changelog generation requires an 'origin' remote to be configured " ~
+                "and local or remote branch named same as Odoo serie. " ~
+                "Or, base revision to compare changes to have to be provided.");
     }
 
     void generateDockerfile() {
@@ -570,16 +576,18 @@ struct Assembly {
         auto assembly = this;
         // TODO: move to template, after darktemple will be ready for this
         auto handle_requirements_txt = path.join("requirements.txt").exists;
+        auto assembly_version = version_path.exists ? version_path.readFileText.strip : "";
+        auto assembly_source_url = repo.hasRemoteUrl("origin") ? repo.getRemoteUrl().toString : "";
         if (path.join("Dockerfile").exists) {
             string dockerfile_content = path.join("Dockerfile")
                 .readFileText
                 .replaceFirst(
                     regex(".*# ---- ODOOD END DYNAMIC DOCKER CONFIG ----\n", "s"),
-                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt));
+                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, assembly_version, assembly_source_url));
             path.join("Dockerfile").writeFile(dockerfile_content);
         } else {
             path.join("Dockerfile").writeFile(
-                renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt));
+                renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, assembly_version, assembly_source_url));
         }
         repo.add(path.join("Dockerfile"));
         infof("Assembly: Dockerfile generated/updated!");

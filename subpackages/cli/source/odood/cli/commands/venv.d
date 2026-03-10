@@ -69,8 +69,8 @@ class CommandVenvPIP: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         Project.loadProject.venv.runner
-            .addArgs("pip")
-            .addArgs(args.argsRest)
+            .withArgs("pip")
+            .withArgs(args.argsRest)
             .execv;
     }
 
@@ -85,8 +85,8 @@ class CommandVenvNPM: OdoodCommand {
 
     public override void execute(ProgramArgs args) {
         Project.loadProject.venv.runner
-            .addArgs("npm")
-            .addArgs(args.argsRest)
+            .withArgs("npm")
+            .withArgs(args.argsRest)
             .execv;
     }
 
@@ -107,8 +107,8 @@ class CommandVenvIPython: OdoodCommand {
             project.venv.installPyPackages("ipython");
 
         project.venv.runner
-            .addArgs("ipython")
-            .addArgs(args.argsRest)
+            .withArgs("ipython")
+            .withArgs(args.argsRest)
             .execv;
     }
 }
@@ -123,8 +123,8 @@ class CommandVenvPython: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
         project.venv.runner
-            .addArgs("python")
-            .addArgs(args.argsRest)
+            .withArgs("python")
+            .withArgs(args.argsRest)
             .execv;
     }
 
@@ -145,7 +145,7 @@ class CommandVenvLOdoo: OdoodCommand {
             project.venv.installPyPackages("lodoo");
 
         project.lodoo.runner
-            .addArgs(args.argsRest)
+            .withArgs(args.argsRest)
             .execv;
     }
 }
@@ -162,7 +162,7 @@ class CommandVenvRun: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        Project.loadProject.venv.runner.addArgs(args.argsRest).execv;
+        Project.loadProject.venv.runner.withArgs(args.argsRest).execv;
     }
 
 }

@@ -14,15 +14,15 @@ private import std.string: join, strip;
 private import std.algorithm.iteration: map;
 
 private import thepath: Path;
+private import theprocess: Process, isProcessRunning;
 
 private import odood.lib.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
-private import odood.utils: isProcessRunning;
 private import odood.lib.server.exception;
+private import odood.lib.odoo.config: getConfVal, readOdooConfig;
 private import odood.lib.server.log_pipe;
 private import odood.lib.odoo.log: OdooLogRecord, OdooLogProcessor;
-private import theprocess: Process;
 
 immutable auto DEFAULT_START_TIMEOUT = 8.seconds;
 
@@ -79,6 +79,43 @@ struct OdooServer {
         return _project.venv.path.join("bin", scriptName());
     }
 
+    /// Get path to server configuration file for this server instance
+    @safe pure auto getConfigPath() const {
+        if (_test_mode)
+            return _project.odoo.testconfigfile;
+        else
+            return _project.odoo.configfile;
+    }
+
+    /// Get server configuration
+    auto getConfig() const {
+        return getConfigPath.readOdooConfig;
+    }
+
+    /// Get HTTP url for the server
+    auto getConfigHTTP() const {
+        const struct ServerHTTPInfo {
+            string host;
+            uint port;
+            string url;
+        }
+
+        auto config = getConfig;
+
+        string host = config.getConfVal(
+            _project.odoo.serie >= 11 ? "http_interface" : "xmlrpc_interface",
+            "127.0.0.1");
+        string port = config.getConfVal(
+            _project.odoo.serie >= 11 ? "http_port" : "xmlrpc_port",
+            "8069");
+
+        return ServerHTTPInfo(
+            host: host,
+            port: port.to!uint,
+            url: "http://%s:%s".format(host, port),
+        );
+    }
+
     /** Get PID of running Odoo Process
       * Returns:
       *    - PID of process running
@@ -116,10 +153,7 @@ struct OdooServer {
             foreach(k, v; env) res[k] = v;
 
         string odoo_rc_env_var = _project.odoo.serie > 10 ? "ODOO_RC" : "OPENERP_SERVER";
-        if (_test_mode)
-            res[odoo_rc_env_var] = _project.odoo.testconfigfile.toString;
-        else
-            res[odoo_rc_env_var] = _project.odoo.configfile.toString;
+        res[odoo_rc_env_var] = getConfigPath.toString;
 
         // TODO: Add ability to parse .env files and forward environment variables to Odoo process
         //       This will allow to run Odoo in docker containers and locally in similar way.
@@ -353,6 +387,75 @@ struct OdooServer {
                 break;
         }
     }
+
+    /** Check if the Odoo HTTP server is responding and healthy.
+      *
+      * For Odoo 14+: uses /web/health, expects HTTP 200.
+      * For older Odoo: uses /web/, accepts any HTTP response below 500
+      *     (200 or 302 both indicate Odoo is up).
+      *
+      * Params:
+      *     timeout = HTTP request timeout. Default is 10 seconds.
+      *
+      * Returns:
+      *     true if the server is healthy, false otherwise.
+      **/
+    bool healthcheck(in Duration timeout = 10.seconds) const {
+        import requests: Request;
+
+        // /web/health exists from Odoo 14; for older versions /web/ responds
+        // with 200 or 302 when the server is up.
+        string path = _project.odoo.serie >= OdooSerie(14)
+            ? "/web/health" : "/web/";
+        string url = "%s%s".format(getConfigHTTP.url, path);
+
+        try {
+            auto request = Request();
+            request.timeout = timeout;
+            auto response = request.get(url);
+            if (_project.odoo.serie >= OdooSerie(14))
+                return response.code == 200;
+            else
+                return response.code < 500;
+        } catch (Exception e) {
+            tracef("Healthcheck failed: %s", e.msg);
+            return false;
+        }
+    }
+
+
+    /** Wait for PostgreSQL to become available.
+      *
+      * Tries to connect to the PostgreSQL server configured in odoo.conf.
+      * Retries until connected or timeout expires.
+      *
+      * Params:
+      *     timeout  = maximum time to wait. Default 60 seconds.
+      *     interval = time between connection attempts. Default 2 seconds.
+      *
+      * Returns:
+      *     true if PostgreSQL became available within timeout, false otherwise.
+      **/
+    bool waitForPostgres(
+            in Duration timeout = 60.seconds,
+            in Duration interval = 2.seconds) const {
+        import core.time: MonoTime;
+        import peque.exception: PequeException;
+        import odood.lib.odoo.db_utils: openPgConnection;
+
+        auto deadline = MonoTime.currTime + timeout;
+        while (MonoTime.currTime < deadline) {
+            try {
+                _project.openPgConnection("postgres");
+                return true;
+            } catch (PequeException e) {
+                tracef("PostgreSQL not ready yet: %s", e.msg);
+                Thread.sleep(interval);
+            }
+        }
+        return false;
+    }
+
 
     /** Run delegate and gather Odoo errors happened while delegate was running.
       **/

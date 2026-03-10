@@ -156,6 +156,14 @@ That will do all the job:
 2. relink modules,
 3. update addons on all databases.
 
+#### Docker Compose deployments
+
+When running Odoo in Docker Compose, the assembly is baked into the Docker image at build time
+rather than cloned on the server. Updates therefore follow a different workflow: build a new image,
+stop the running container, run addon updates, restart with the new image.
+
+See [Docker Compose — Upgrading assembly-based deployments](./deployment-docker-compose.md#upgrading-assembly-based-deployments)
+for the full workflow including backup, recovery steps, and the recommended Compose service layout.
 
 ## Assembly management
 
@@ -335,19 +343,226 @@ jobs:
         run: |
           odood --config-from-env -v -d assembly -p . sync \
             --changelog \
+            --dockerfile \
             --commit \
             --commit-user='Github Action' \
             --commit-email='github-action@odood.dev' \
             --push
 ```
 
-This will run assembly build job for all branches starting from `18.0-` prefix.
-Thus, usual flow looks like:
-1. create new branch `18.0-update`
-2. wait while job started
-3. When job completed, create pull request
-4. Review and merge pull request
-5. Delete `18.0-update` branch (or configure to delete stale head branches automatically)
+The `--dockerfile` flag instructs Odood to generate (or regenerate) a `Dockerfile` in the assembly
+repository root on every sync. This Dockerfile copies the synced `dist/` directory into the image
+and runs `odood addons link` — it is what enables building a Docker image from the assembly.
+
+This workflow runs on all branches matching `18.0-*`. Usual flow:
+1. Create a new branch `18.0-update`
+2. Wait for the job to complete
+3. Create a pull request
+4. Review and merge the pull request
+5. Delete the `18.0-update` branch (or configure automatic stale-branch deletion)
+
+#### Semi-automatic update cycle (recommended)
+
+The workflow above commits directly to the current branch.
+For a more controlled flow that requires human review before merging, use a separate
+workflow that creates a PR automatically:
+
+```yaml
+name: Init assembly sync
+on: workflow_dispatch
+
+jobs:
+  init-assembly-sync:
+    name: Init assembly sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    container:
+      image: ghcr.io/katyukha/odood/odoo/18.0:latest
+    env:
+      # Credentials for private repos (if needed):
+      # ODOOD_ASSEMBLY_myrepo_CRED: "x-access-token:${{ secrets.MY_REPO_PAT }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add current directory as safe directory for git
+        run: git config --global --add safe.directory "$(pwd)"
+
+      - name: Use current repo as assembly
+        run: odood -v -d --config-from-env assembly use .
+
+      - name: Sync assembly
+        run: |
+          odood -v -d --config-from-env assembly sync \
+            --changelog \
+            --commit \
+            --commit-user='Github Action' \
+            --commit-email='github-action@odood.dev' \
+            --push-to=18.0-assembly-update \
+            --fail-nothing-to-commit
+
+  create-pull-request:
+    name: Create assembly sync PR
+    runs-on: ubuntu-latest
+    needs: init-assembly-sync
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - id: check-pr-exists
+        run: |
+          prs=$(gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --head '18.0-assembly-update' \
+              --base '18.0' \
+              --json title \
+              --jq 'length')
+          if ((prs > 0)); then
+              echo "pr_exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: '!steps.check-pr-exists.outputs.pr_exists'
+        run: |
+          gh label create auto-update \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Automatic update" \
+            --force
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title="Automatic assembly update" \
+            --body="Automatic assembly update" \
+            -l auto-update \
+            -B 18.0 -H 18.0-assembly-update
+```
+
+Key flags used in the sync step:
+- `--push-to=18.0-assembly-update` — pushes to a dedicated update branch instead of the current one.
+- `--fail-nothing-to-commit` — exits non-zero if no addons changed, preventing a no-op PR.
+- `assembly use .` — registers the current directory as the assembly path, needed when the assembly
+  repository and the Odood project share the same repo.
+
+Triggering this workflow creates a draft PR from `18.0-assembly-update` into `18.0` (if one does
+not already exist). Pushing to `18.0-assembly-update` also triggers the `Sync assembly` workflow
+above (it matches `18.0-*`), which re-runs with `--dockerfile` to regenerate the Dockerfile.
+
+#### Releasing a Docker image
+
+Once the update PR is merged to the stable branch, trigger this workflow manually to tag the release
+and build a multi-architecture Docker image published to GHCR:
+
+```yaml
+name: Do Release
+on: workflow_dispatch
+
+jobs:
+  set-tag:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: version
+        run: echo "version=v$(cat VERSION)" >> $GITHUB_OUTPUT
+      - name: Create version tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ steps.version.outputs.version }}',
+              sha: context.sha
+            }).catch(err => {
+              if (err.status !== 422) throw err;
+              github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'tags/${{ steps.version.outputs.version }}',
+                sha: context.sha
+              });
+            })
+
+  build-and-push-docker-image:
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+      ODOO_SERIE: '18.0'
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+    runs-on: ubuntu-latest
+    needs: set-tag
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: echo "version=v$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=match,pattern=v(.*),group=1,value=${{ steps.version.outputs.version }}
+            type=match,pattern=v(\d+\.\d+)\.(.*),group=1,value=${{ steps.version.outputs.version }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+```
+
+The `metadata-action` step derives two image tags from the assembly `VERSION` file
+(e.g. `18.0.1.2.3`):
+- **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml` for reproducibility and rollback.
+- **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor version.
+
+Multi-arch builds (`linux/amd64,linux/arm64`) require QEMU and Docker Buildx.
+Remove the `platforms` line if you only need `amd64`.
+
+#### Full release cycle
+
+```
+1. Trigger "Init assembly sync" (workflow_dispatch)
+      → syncs addons, commits, pushes to 18.0-assembly-update, opens draft PR
+      → "Sync assembly" fires automatically on the new branch, regenerates Dockerfile
+2. Review and merge the PR to 18.0
+3. Trigger "Do Release" (workflow_dispatch)
+      → reads VERSION file, creates git tag, builds and pushes Docker image with version tags
+4. Deploy using the upgrade workflow:
+      → see Upgrading assembly-based deployments in Docker Compose docs
+```
 
 #### Private repo notes
 

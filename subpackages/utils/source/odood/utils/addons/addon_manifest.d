@@ -71,11 +71,20 @@ struct OdooAddonManifest {
 auto parseOdooManifest(in string manifest_content) {
     OdooAddonManifest manifest;
 
+    ensurePyInitialized();
+
     // Acuire python's GIL
     auto gstate = PyGILState_Ensure();
     scope(exit) PyGILState_Release(gstate);
 
-    auto parsed = callPyFunc(cast(PyObject*)_fn_literal_eval, manifest_content);
+    // ast is cached in sys.modules after the first call, so this is O(1).
+    auto mod_ast = PyImport_ImportModule("ast").pyEnforce;
+    scope(exit) Py_DecRef(mod_ast);
+
+    auto fn_literal_eval = PyObject_GetAttrString(mod_ast, "literal_eval".toStringz).pyEnforce;
+    scope(exit) Py_DecRef(fn_literal_eval);
+
+    auto parsed = callPyFunc(fn_literal_eval, manifest_content);
     scope(exit) Py_DecRef(parsed);
 
     // PyDict_GetItemString returns borrowed reference,
@@ -155,52 +164,6 @@ auto tryParseOdooManifest(in Path path) {
     return tryParseOdooManifest(path.readFileText);
 }
 
-// Module level link to ast module
-private shared PyObject* _fn_literal_eval;
-private shared PyThreadState* _py_thread_state;
-private shared bool _py_initialized = false;
-
-// Initialize python interpreter (import ast.literal_eval)
-shared static this() {
-    // TODO: think about lazy initialization of python
-    import bindbc.loader;
-    import std.algorithm: map;
-    import std.string: fromStringz, join;
-
-    auto err_count_start = bindbc.loader.errorCount;
-    bool load_status = loadPyLib;
-    if (!load_status) {
-        auto errors = bindbc.loader.errors[err_count_start .. bindbc.loader.errorCount]
-            .map!((e) => "%s: %s".format(e.error.fromStringz.idup, e.message.fromStringz.idup))
-            .join(",\n");
-        throw new OdoodException("Cannot load python as library! Errors: %s".format(errors));
-    }
-
-    Py_Initialize();
-    if (!PyEval_ThreadsInitialized())
-        PyEval_InitThreads();
-
-    auto mod_ast = PyImport_ImportModule("ast");
-    scope(exit) Py_DecRef(mod_ast);
-
-    // Save function literal_eval from ast on module level
-    _fn_literal_eval = cast(shared PyObject*)PyObject_GetAttrString(
-        mod_ast, "literal_eval".toStringz
-    ).pyEnforce;
-
-    _py_thread_state = cast(shared PyThreadState*)PyEval_SaveThread();
-    _py_initialized = cast(shared bool)true;
-}
-
-// Finalize python interpreter (do clean up)
-shared static ~this() {
-    if (_py_thread_state)
-        PyEval_RestoreThread(cast(PyThreadState*)_py_thread_state);
-    if (_fn_literal_eval)
-        Py_DecRef(cast(PyObject*)_fn_literal_eval);
-    if (_py_initialized)
-        Py_Finalize();
-}
 
 
 // Tests
@@ -229,6 +192,124 @@ unittest {
     assert(manifest.module_version.toString == "1.0");
     assert(manifest.module_version.rawVersion == "1.0");
     assert(manifest.dependencies == ["base"]);
+}
+
+// Test manifest with price, currency, external_dependencies, tags, and boolean flags
+unittest {
+    const auto manifest = parseOdooManifest(`{
+    'name': "Paid Module",
+    'version': '16.0.1.2.0',
+    'depends': ['base', 'sale'],
+    'author': "Test Author",
+    'category': 'Sales',
+    'summary': 'A paid module',
+    'license': 'OPL-1',
+    'maintainer': 'Maintainer Inc',
+    'application': True,
+    'auto_install': True,
+    'installable': False,
+    'price': 99.99,
+    'currency': 'USD',
+    'tags': ['sales', 'accounting'],
+    'external_dependencies': {
+        'python': ['requests', 'lxml'],
+        'bin': ['wkhtmltopdf'],
+    },
+}`);
+
+    assert(manifest.name == "Paid Module");
+    assert(manifest.module_version.isStandard == true);
+    assert(manifest.module_version.toString == "16.0.1.2.0");
+    assert(manifest.author == "Test Author");
+    assert(manifest.category == "Sales");
+    assert(manifest.summary == "A paid module");
+    assert(manifest.license == "OPL-1");
+    assert(manifest.maintainer == "Maintainer Inc");
+
+    // Boolean flags
+    assert(manifest.application == true);
+    assert(manifest.auto_install == true);
+    assert(manifest.installable == false);
+
+    // Dependencies
+    assert(manifest.dependencies == ["base", "sale"]);
+    assert(manifest.python_dependencies == ["requests", "lxml"]);
+    assert(manifest.bin_dependencies == ["wkhtmltopdf"]);
+
+    // Tags
+    assert(manifest.tags == ["sales", "accounting"]);
+
+    // Price with explicit currency
+    assert(manifest.price.is_set == true);
+    assert(manifest.price.price == 99.99f);
+    assert(manifest.price.currency == "USD");
+
+    import std.algorithm.searching: canFind;
+    assert(manifest.price.toString.canFind("99.99"));
+    assert(manifest.price.toString.canFind("USD"));
+}
+
+// Test manifest with price but no currency (defaults to EUR)
+unittest {
+    const auto manifest = parseOdooManifest(`{
+    'name': "Euro Module",
+    'version': '1.0',
+    'depends': ['base'],
+    'price': 50.0,
+}`);
+
+    assert(manifest.price.is_set == true);
+    assert(manifest.price.price == 50.0f);
+    assert(manifest.price.currency == "EUR");
+}
+
+// Test manifest without price (price.is_set should be false)
+unittest {
+    const auto manifest = parseOdooManifest(`{
+    'name': "Free Module",
+    'version': '1.0',
+    'depends': ['base'],
+}`);
+
+    assert(manifest.price.is_set == false);
+    assert(manifest.price.toString == "");
+}
+
+// Test manifest with default values when fields are missing
+unittest {
+    const auto manifest = parseOdooManifest(`{
+    'name': "Minimal Module",
+}`);
+
+    assert(manifest.name == "Minimal Module");
+    assert(manifest.license == "LGPL-3");  // default
+    assert(manifest.auto_install == false);  // default
+    assert(manifest.application == false);  // default
+    assert(manifest.installable == true);  // default
+    assert(manifest.dependencies == []);
+    assert(manifest.python_dependencies == []);
+    assert(manifest.bin_dependencies == []);
+    assert(manifest.tags == []);
+}
+
+// Test tryParseOdooManifest with invalid content returns null
+unittest {
+    auto result = tryParseOdooManifest("this is not valid python");
+    assert(result.isNull);
+}
+
+// Test OdooAddonManifest.toString
+unittest {
+    import std.algorithm.searching: canFind;
+    const auto manifest = parseOdooManifest(`{
+    'name': "My Addon",
+    'version': '16.0.1.0.0',
+    'depends': ['base'],
+}`);
+
+    auto str = manifest.toString;
+    assert(str.canFind("My Addon"));
+    assert(str.canFind("16.0.1.0.0"));
 }
 
 // Test multithreading

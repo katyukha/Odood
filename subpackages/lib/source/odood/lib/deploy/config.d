@@ -7,7 +7,7 @@ private import std.format: format;
 private import std.typecons: Nullable;
 
 private import thepath: Path;
-private import theprocess: Process, resolveProgram;
+private import theprocess: Process, resolveProgram, systemUserExists;
 
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
@@ -21,10 +21,39 @@ private import odood.lib.project.config:
 private import odood.lib.deploy.exception: OdoodDeployException;
 private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: generateRandomString, checkSystemUserExists;
+private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
 immutable auto DEFAULT_PASSWORD_LEN = 32;
+
+/** Known system CA bundle paths, ordered by preference.
+  * The first path that exists on the system will be used.
+  **/
+private immutable string[] KNOWN_CA_BUNDLE_PATHS = [
+    "/etc/ssl/certs/ca-certificates.crt",       // Debian, Ubuntu, Alpine
+    "/etc/pki/tls/certs/ca-bundle.crt",          // RHEL, CentOS, Fedora
+    "/etc/ssl/ca-bundle.pem",                     // openSUSE
+    "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",  // RHEL/CentOS (alt)
+];
+
+/** Detect system CA bundle path.
+  * Returns the first known path that exists, or null if none found.
+  **/
+Nullable!Path detectSystemCABundle() {
+    foreach (p; KNOWN_CA_BUNDLE_PATHS) {
+        auto path = Path(p);
+        if (path.exists)
+            return Nullable!Path(path);
+    }
+    return Nullable!Path.init;
+}
+
+unittest {
+    // detectSystemCABundle should return a valid path or null, never throw.
+    auto result = detectSystemCABundle();
+    // On CI (Ubuntu), the Debian path should exist.
+    // On other systems, we just verify it doesn't crash.
+}
 
 
 /** Odoo database cofiguration to be deployed
@@ -49,7 +78,8 @@ struct DeployConfigOdoo {
     uint workers=0;
 
     string server_user="odoo";
-    // TODO: Add configuration to automatically patch system config to use system ssl certificates for requests
+    bool use_system_ca_bundle = false;
+    Nullable!Path system_ca_bundle_path;
     ProjectServerSupervisor server_supervisor=ProjectServerSupervisor.Systemd;
     Path server_init_script_path = Path(
         "/", "etc", "init.d", "odoo");
@@ -70,6 +100,7 @@ struct DeployConfigNginx {
 
 
     bool ssl_on = false;
+    bool tls12_compat = false;
     Path ssl_cert = Path("/", "etc", "nginx", "ssl", "server.crt");
     Path ssl_key = Path("/", "etc", "nginx", "ssl", "server.key");
 
@@ -98,7 +129,7 @@ struct DeployConfig {
 
     bool letsencrypt_enable = false;
     string letsencrypt_email = null;
-    Path letsencrypt_webroot = Path("/", "var", "/var/acme_challenge_webroot");
+    Path letsencrypt_webroot = Path("/", "var", "acme_challenge_webroot");
     uint letsencrypt_rsa_key_size = 4096;
 
     Nullable!GitURL assembly_repo;
@@ -128,7 +159,7 @@ struct DeployConfig {
 
         if (this.logrotate_enable)
             enforce!OdoodDeployException(
-                !Path("etc", "logrotate.d", "odoo").exists,
+                !Path("/", "etc", "logrotate.d", "odoo").exists,
                 "It seems that Odoo config for logrotate already exists!");
 
         final switch(this.odoo.server_supervisor) {
@@ -154,7 +185,7 @@ struct DeployConfig {
         if (this.database.local_postgres)
             // If local postgres requested, we expect that `postgres` user exists in system.
             enforce!OdoodDeployException(
-                checkSystemUserExists("postgres"),
+                systemUserExists("postgres"),
                 "Local postgres requested, but 'postgresql' package seems not installed!");
 
         if (this.nginx.enable)
@@ -181,6 +212,13 @@ struct DeployConfig {
                 this.nginx.ssl_cert.exists(),
                 "SSL enabled, but provided SSL certificate (%s) does not exists!".format(this.nginx.ssl_cert));
         }
+
+        if (this.odoo.use_system_ca_bundle)
+            enforce!OdoodDeployException(
+                !this.odoo.system_ca_bundle_path.isNull
+                    && this.odoo.system_ca_bundle_path.get.exists,
+                "Use system CA bundle requested, but no CA bundle found. " ~
+                "Install the `ca-certificates` package and try again.");
 
         if (this.letsencrypt_enable) {
             enforce!OdoodDeployException(

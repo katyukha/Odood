@@ -40,6 +40,56 @@ private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths(
 ));
 
 
+// Python runtime lifecycle state
+private shared PyThreadState* _py_thread_state = null;
+private shared bool _py_initialized = false;
+
+
+// Boot the Python runtime: load the shared library, initialize the
+// interpreter, enable threading support, and release the GIL.
+// Returns true on success; throws on failure.
+private bool initPyRuntime() {
+    import bindbc.loader;
+    import std.algorithm: map;
+    import std.format: format;
+    import std.string: fromStringz, join;
+
+    auto err_count_start = bindbc.loader.errorCount;
+    if (!loadPyLib()) {
+        auto errors = bindbc.loader.errors[err_count_start .. bindbc.loader.errorCount]
+            .map!((e) => "%s: %s".format(e.error.fromStringz.idup, e.message.fromStringz.idup))
+            .join(",\n");
+        throw new Exception("Cannot load python as library! Errors: %s".format(errors));
+    }
+
+    Py_Initialize();
+    if (!PyEval_ThreadsInitialized())
+        PyEval_InitThreads();
+
+    _py_thread_state = cast(shared PyThreadState*) PyEval_SaveThread();
+    return true;
+}
+
+
+/** Ensure the Python runtime is loaded and initialized exactly once.
+  * Thread-safe via initOnce (double-checked locking).
+  * Subsequent calls after the first are no-ops.
+  **/
+void ensurePyInitialized() {
+    import std.concurrency: initOnce;
+    initOnce!_py_initialized(initPyRuntime());
+}
+
+
+// Shut down the Python runtime at program exit.
+shared static ~this() {
+    if (_py_thread_state)
+        PyEval_RestoreThread(cast(PyThreadState*) _py_thread_state);
+    if (_py_initialized)
+        Py_Finalize();
+}
+
+
 // Load python library
 bool loadPyLib() {
     foreach(libname; supported_lib_names) {
@@ -59,6 +109,24 @@ bool loadPyLib() {
 }
 
 
+/** Low-level string extraction that does NOT call pyEnforce or pyEnsureNoError.
+  * Used inside error-handling paths to avoid infinite recursion.
+  * On any nested failure, clears the error and returns a fallback string.
+  **/
+private string pyObjectToStringRaw(PyObject* o) {
+    if (!o) return "<null>";
+    auto unicode = PyObject_Str(o);
+    if (!unicode) { PyErr_Clear(); return "<failed to stringify>"; }
+    scope(exit) Py_DecRef(unicode);
+    auto str = PyUnicode_AsUTF8String(unicode);
+    if (!str) { PyErr_Clear(); return "<failed to encode>"; }
+    scope(exit) Py_DecRef(str);
+    auto cstr = PyBytes_AsString(str);
+    if (!cstr) { PyErr_Clear(); return "<failed to get bytes>"; }
+    return cstr.fromStringz.idup;
+}
+
+
 /** Ensure no python error is set.
   * Checks python error indicator and throw error if such indicator is set.
   *
@@ -75,10 +143,8 @@ void pyEnsureNoError() {
             if (etraceback) Py_DecRef(etraceback);
         }
 
-        // TODO: Think about avoiding usage of convertPyToD
-        //       to avoid possible infinite recursion
-        string msg = etype.convertPyToD!string;
-        if (evalue) msg ~= ": " ~ evalue.convertPyToD!string;
+        string msg = pyObjectToStringRaw(etype);
+        if (evalue) msg ~= ": " ~ pyObjectToStringRaw(evalue);
         throw new Exception(msg);
     }
 }
@@ -96,8 +162,10 @@ void pyEnsureNoError() {
   *     Exception when python object is not valid and some error occured.
   **/
 auto pyEnforce(PyObject* value) {
-    if (!value)
-       pyEnsureNoError();
+    if (!value) {
+        pyEnsureNoError();
+        throw new Exception("Python returned NULL without setting an error indicator");
+    }
     return value;
 }
 
@@ -143,7 +211,7 @@ if (isArray!T && !isSomeString!T) {
         result ~= convertPyToD!(ElementType!T)(item);
     }
 
-    // Ensure python error indicatori is not set
+    // Ensure python error indicator is not set
     pyEnsureNoError();
 
     return result;
@@ -154,7 +222,7 @@ T convertPyToD(T)(PyObject* o)
 if (isFloatingPoint!T) {
     auto number = PyNumber_Float(o).pyEnforce;
     const double result = PyFloat_AsDouble(number);
-    pyEnsureNoError;
+    pyEnsureNoError();
     return result;
 }
 
@@ -196,9 +264,5 @@ auto callPyFunc(T...)(PyObject* fn, T params) {
         PyTuple_SetItem(args, i, params[i].convertToPy);
     }
 
-    //writefln("Call fn %s with args %s and kwargs %s", convertPyToString(fn), convertPyToString(args), convertPyToString(kwargs));
-    auto res = PyObject_Call(fn, args, kwargs);
-    pyEnforce(res);
-    //writefln("Result: %s", res.convertPyToString);
-    return res;
+    return PyObject_Call(fn, args, kwargs).pyEnforce;
 }

@@ -32,9 +32,9 @@
 {% for addon; changes.notable_changes %}
 #### Addon `{{ addon.name }}`
 
-{% for entrie; addon.changelog %}
-##### Version {{ entrie.ver }}
-{{ entrie.data }}
+{% for entry; addon.changelog %}
+##### Version {{ entry.ver }}
+{{ entry.data }}
 
 {% endfor %}
 

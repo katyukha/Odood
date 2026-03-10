@@ -10,11 +10,10 @@ private import std.format: format;
 private import std.string: toStringz, empty;
 
 private import thepath: Path;
-private import theprocess: Process;
+private import theprocess: Process, systemUserExists;
 private import darktemple: renderFile;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.utils: checkSystemUserExists;
 private import odood.lib.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
 private import odood.lib.project.config: ProjectServerSupervisor;
 
@@ -25,13 +24,13 @@ private import odood.lib.deploy.utils:
     postgresCreateUser;
 
 
-private void deployInitScript(in Project project) {
+private void deployInitScript(in Project project, in DeployConfig config) {
 
     infof("Configuring init script for Odoo...");
 
     // Configure init scripts
     project.odoo.server_init_script_path.writeFile(
-        renderFile!("templates/deploy/systemd.tmpl", project));
+        renderFile!("templates/deploy/init.d.tmpl", project, config));
 
     // Set access rights for init script
     project.odoo.server_init_script_path.setAttributes(octal!755);
@@ -46,13 +45,13 @@ private void deployInitScript(in Project project) {
 }
 
 
-private void deploySystemdConfig(in Project project) {
+private void deploySystemdConfig(in Project project, in DeployConfig config) {
 
     infof("Configuring systemd daemon for Odoo...");
 
     // Configure systemd
     project.odoo.server_systemd_service_path.writeFile(
-        renderFile!("templates/deploy/systemd.tmpl", project));
+        renderFile!("templates/deploy/systemd.tmpl", project, config));
 
     // Set access rights for systemd config
     project.odoo.server_systemd_service_path.setAttributes(octal!755);
@@ -163,8 +162,8 @@ private void deployFail2banConfig(in Project project, in DeployConfig config) {
     config.fail2ban_jail_path.writeFile(
         renderFile!("templates/deploy/fail2ban.jail.tmpl", project));
 
-    // Set access rights for logrotate config
-    config.fail2ban_filter_path.setAttributes(octal!644);
+    // Set access rights for jail config
+    config.fail2ban_jail_path.setAttributes(octal!644);
     config.fail2ban_jail_path.chown("root", "root");
 
     // Reload nginx
@@ -198,7 +197,7 @@ Project deployOdoo(in DeployConfig config) {
         config.install_type);
     project.save(ODOOD_SYSTEM_CONFIG_PATH);
 
-    if (!checkSystemUserExists(project.odoo.server_user))
+    if (!systemUserExists(project.odoo.server_user))
         createSystemUser(project.project_root, project.odoo.server_user);
 
     // Get info about odoo user (that is needed to set up access rights for Odoo files
@@ -260,10 +259,10 @@ Project deployOdoo(in DeployConfig config) {
             // TODO: May be it have sense to create some link in /usr/sbin for Odoo?
             break;
         case ProjectServerSupervisor.InitScript:
-            deployInitScript(project);
+            deployInitScript(project, config);
             break;
         case ProjectServerSupervisor.Systemd:
-            deploySystemdConfig(project);
+            deploySystemdConfig(project, config);
             break;
     }
 

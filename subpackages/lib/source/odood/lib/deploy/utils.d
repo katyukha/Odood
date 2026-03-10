@@ -34,7 +34,7 @@ void createSystemUser(in Path home, in string name) {
 bool postgresCheckUserExists(in string username) {
     // TODO: Use peque for this?
     auto output = Process("psql")
-        .setArgs([
+        .withArgs([
             "-t", "-A", "-c",
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
@@ -69,7 +69,7 @@ void postgresCreateUser(in string username, in string password) {
     // TODO: Use peque for this?
     infof("Creating postgresql user '%s' for Odoo...", username);
     Process("psql")
-        .setArgs([
+        .withArgs([
             "-c",
             i"CREATE USER \"$(username)\" WITH CREATEDB PASSWORD '$(password)'".text,
         ])

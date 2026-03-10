@@ -47,7 +47,7 @@ const struct LOdoo {
 
         auto runner() const {
             auto process = _project.venv.runner()
-                .addArgs("lodoo", "--conf", odoo_conf_path.toString);
+                .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 process.setUser(_project.odoo.server_user);
             return process;
@@ -57,7 +57,7 @@ const struct LOdoo {
           **/
         string[] databaseList() {
             return runner
-                .addArgs("db-list")
+                .withArgs("db-list")
                 .withFlag(Config.stderrPassThrough)
                 .execute()
                 .ensureOk!OdoodException(true)
@@ -69,7 +69,7 @@ const struct LOdoo {
         void databaseCreate(in string name, in bool demo=false,
                             in string lang=null, in string password=null,
                             in string country=null) {
-            auto cmd = runner.addArgs(
+            auto cmd = runner.withArgs(
                 "db-create",
                 demo ? "--demo" : "--no-demo",
             );
@@ -96,7 +96,7 @@ const struct LOdoo {
         void databaseDrop(in string name) {
             infof("Deleting database %s", name);
             runner
-                .addArgs("db-drop", name)
+                .withArgs("db-drop", name)
                 .execute
                 .ensureOk!OdoodException(true);
         }
@@ -105,7 +105,7 @@ const struct LOdoo {
           **/
         bool databaseExists(in string name) {
             return runner
-                .addArgs("db-exists", name)
+                .withArgs("db-exists", name)
                 .execute()
                 .status == 0;
         }
@@ -115,7 +115,7 @@ const struct LOdoo {
         void databaseRename(in string old_name, in string new_name) {
             infof("Renaming database %s to %s", old_name, new_name);
             runner
-                .addArgs("db-rename", old_name, new_name)
+                .withArgs("db-rename", old_name, new_name)
                 .execute
                 .ensureOk!OdoodException(true);
         }
@@ -125,7 +125,7 @@ const struct LOdoo {
         auto databaseCopy(in string old_name, in string new_name) {
             infof("Copying database %s to %s", old_name, new_name);
             runner
-                .addArgs("db-copy", old_name, new_name)
+                .withArgs("db-copy", old_name, new_name)
                 .execute
                 .ensureOk!OdoodException(true);
         }
@@ -135,7 +135,7 @@ const struct LOdoo {
         deprecated void databaseRestore(in string name, in Path backup_path) {
             infof("Restoring database %s from %s", name, backup_path);
             runner
-                .addArgs("db-restore", name, backup_path.toString)
+                .withArgs("db-restore", name, backup_path.toString)
                 .execute
                 .ensureOk!OdoodException(true);
 
@@ -143,7 +143,7 @@ const struct LOdoo {
 
         auto databaseDumpManifest(in string name) {
             return runner
-                .addArgs("db-dump-manifest", name)
+                .withArgs("db-dump-manifest", name)
                 .withFlag(Config.stderrPassThrough)
                 .execute
                 .ensureOk!OdoodException(true)
@@ -161,7 +161,7 @@ const struct LOdoo {
           **/
         void addonsUpdateList(in string dbname, in bool ignore_error=false) {
             auto res = runner
-                .addArgs("addons-update-list", dbname)
+                .withArgs("addons-update-list", dbname)
                 .execute;
             if (!ignore_error)
                 res.ensureOk!OdoodException(true);
@@ -171,7 +171,7 @@ const struct LOdoo {
           **/
         void addonsUninstall(in string dbname, in string[] addon_names) {
             runner
-                .addArgs("addons-uninstall", dbname, addon_names.join(","))
+                .withArgs("addons-uninstall", dbname, addon_names.join(","))
                 .execute
                 .ensureOk!OdoodException(true);
         }
@@ -190,7 +190,7 @@ const struct LOdoo {
             auto sw = StopWatch(AutoStart.yes);
 
             // NOTE: This way, script will print on standard stderr/stdout
-            auto pid = runner.addArgs("run-py-script", dbname, script_path.toString)
+            auto pid = runner.withArgs("run-py-script", dbname, script_path.toString)
                 .spawn;
             // TODO: Find a way to capture script output. Do we need output?
             auto result = pid.wait;
@@ -208,8 +208,8 @@ const struct LOdoo {
         void recomputeField(in string dbname, in string model, in string[] fields) const {
             import std.algorithm.iteration;
             this.runner
-                .addArgs("odoo-recompute", dbname, model)
-                .addArgs(fields.map!(f => ["-f", f]).fold!((a, b) => a ~ b).array)
+                .withArgs("odoo-recompute", dbname, model)
+                .withArgs(fields.map!(f => ["-f", f]).fold!((a, b) => a ~ b).array)
                 .execute
                 .ensureOk!OdoodException(true);
         }
@@ -217,7 +217,7 @@ const struct LOdoo {
         void generatePot(in string dbname, in string addon, in bool remove_dates=false) const {
             infof("Generating POT file for %s database for %s addon", dbname, addon);
             auto runner = this.runner
-                .addArgs("tr-generate-pot-file");
+                .withArgs("tr-generate-pot-file");
             if (remove_dates)
                 runner.addArgs("--remove-dates");
             runner.addArgs(dbname, addon);

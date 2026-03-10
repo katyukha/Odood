@@ -4,21 +4,25 @@
 module odood.lib.odoo.db_manager;
 
 private import std.logger;
+private import std.array: array;
 private import std.json;
 private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
+private import std.algorithm.iteration: filter, map;
 private import std.algorithm.searching: canFind;
-private import std.string: join, startsWith, chompPrefix, empty;
+private import std.string: join, startsWith, chompPrefix, empty, split, strip;
 
 private import thepath;
 private import theprocess;
 private import zipper;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.config: parseOdooDatabaseConfig;
+private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
 private import odood.lib.odoo.db: OdooDatabase;
+private import odood.lib.odoo.db_utils: openPgConnection;
+
 private import odood.utils.odoo: parseServerSerie;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.db: detectDatabaseBackupFormat, BackupFormat;
@@ -43,10 +47,52 @@ struct OdooDatabaseManager {
         _test_mode = test_mode;
     }
 
-    /** Return list of databases available on this odoo instance
+    /** Return list of databases available on this odoo instance.
+      *
+      * Mirrors Odoo's own list_dbs() logic:
+      *
+      * - If db_name is set in odoo.conf, return those names directly without
+      *   querying PostgreSQL.
+      * - Otherwise, query pg_database restricted to databases owned by the
+      *   current PostgreSQL user (datdba = current_user).
+      *
+      * db_filter is intentionally ignored: it is HTTP-specific (used to select
+      * a database based on request hostname).
       **/
     string[] list() const {
-        return _project.lodoo(_test_mode).databaseList();
+        import std.algorithm.sorting: sort;
+
+        auto odoo_conf = _project.server.getConfig;
+
+        // If db_name is configured, use it directly — no PG query needed.
+        auto db_name_conf = odoo_conf.getConfVal("db_name");
+        if (db_name_conf) {
+            auto result = db_name_conf.split(",").map!(s => s.strip).array;
+            result.sort();
+            return result;
+        }
+
+        // Query pg_database scoped to databases owned by the current PG user.
+        auto db_template = odoo_conf.getConfVal("db_template", "template0");
+        auto conn = _project.openPgConnection("postgres");
+        auto res = conn.transaction((ref tx) {
+            return tx.execParams(
+                "SELECT datname FROM pg_database " ~
+                "WHERE datdba = (SELECT usesysid FROM pg_user WHERE usename = current_user) " ~
+                "  AND NOT datistemplate " ~
+                "  AND datallowconn " ~
+                "  AND datname != $1 " ~
+                "  AND datname != $2 " ~
+                "ORDER BY datname",
+                "postgres",
+                db_template
+            );
+        });
+
+        string[] databases;
+        foreach (row; res)
+            databases ~= row[0].as!string;
+        return databases;
     }
 
     /** Create new Odoo database on this odoo instance
@@ -66,11 +112,38 @@ struct OdooDatabaseManager {
     /** Check if database exists
       **/
     bool exists(in string name) const {
-        // TODO: replace with project's db wrapper to check if database exists
-        //       This could improve performance by avoiding call to python
-        //       interpreter. Take into account that database could exist,
-        //       but still could not be visible for Odoo.
-        return _project.lodoo(_test_mode).databaseExists(name);
+        auto conn = _project.openPgConnection("postgres");
+        auto res = conn.transaction((ref tx) {
+            return tx.execParams(
+                "SELECT EXISTS (" ~
+                "    SELECT 1 FROM pg_catalog.pg_database WHERE datname = $1" ~
+                ")",
+                name);
+        });
+        return res[0][0].get!bool;
+    }
+
+    /** Check if database is initialized as an Odoo database.
+      *
+      * Checks for the presence of the ir_module_module table, which is
+      * created during Odoo's database initialization.
+      *
+      * Returns:
+      *     true if the database contains an Odoo installation, false otherwise.
+      **/
+    bool isInitialized(in string name) const {
+        auto conn = _project.openPgConnection(name);
+        auto res = conn.transaction((ref tx) {
+            tx.exec("SET LOCAL lock_timeout = '15s'");
+            return tx.execParams(
+                "SELECT EXISTS (" ~
+                "    SELECT 1 FROM information_schema.tables" ~
+                "    WHERE table_name = 'ir_module_module'" ~
+                "    AND table_schema = 'public'" ~
+                ")"
+            );
+        });
+        return res[0][0].get!bool;
     }
 
     /** Rename database
@@ -83,6 +156,52 @@ struct OdooDatabaseManager {
       **/
     auto copy(in string old_name, in string new_name) const {
         return _project.lodoo(_test_mode).databaseCopy(old_name, new_name);
+    }
+
+    /** Ensure database is initialized as an Odoo database.
+      *
+      * Idempotent: safe to call on every deploy.
+      * - If the PG database does not exist, creates it.
+      * - If the database is not Odoo-initialized, runs Odoo with
+      *   --init=base --stop-after-init to initialize it.
+      * - If the database is already initialized, does nothing.
+      *
+      * Params:
+      *     name = database name
+      *     demo = load demo data (only effective on first initialization)
+      *     lang = language code, e.g. "en_US" (only effective on first initialization)
+      **/
+    void ensureInitialized(
+            in string name,
+            in bool demo = false,
+            in string lang = null) const {
+        if (!exists(name)) {
+            infof("Database '%s' does not exist. Creating...", name);
+            _createEmptyDB(name);
+        }
+
+        if (!isInitialized(name)) {
+            infof("Initializing Odoo database '%s'...", name);
+            auto swm = _project.server.getConfig.getConfVal(
+                "server_wide_modules", "base,web");
+            auto runner = _project.server(_test_mode).getServerRunner(
+                "-d", name,
+                "--max-cron-threads=0",
+                "--stop-after-init",
+                _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
+                "--pidfile=",
+                "--logfile=%s".format(_project.odoo.logfile),
+                "--init=%s".format(swm),
+            );
+            if (!demo)
+                runner.addArgs("--without-demo=all");
+            if (lang)
+                runner.addArgs("--lang=%s".format(lang));
+            runner.execute.ensureOk!OdoodException(true);
+            infof("Database '%s' initialized.", name);
+        } else {
+            infof("Database '%s' is already initialized.", name);
+        }
     }
 
     /** Generate name of backup
@@ -164,8 +283,8 @@ struct OdooDatabaseManager {
                 scope(exit) tmp_dir.remove();
 
                 // Run database backup
+                pg_dump.addArgs("--file=" ~ tmp_dir.join("dump.sql").toString);
                 auto dump_pid = pg_dump
-                    .addArgs("--file=" ~ tmp_dir.join("dump.sql").toString)
                     .spawn(
                         std.stdio.File("/dev/null"),
                         tmp_dir.join("pg_dump.output.log").openFile("wt"),
@@ -196,7 +315,7 @@ struct OdooDatabaseManager {
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
                 pg_dump
-                    .addArgs(
+                    .withArgs(
                         "--format=c",
                         "--file=" ~ dest.toString)
                     .execute
@@ -315,11 +434,11 @@ struct OdooDatabaseManager {
         import std.uni;
         import peque.exception;
         import odood.lib.odoo.config: getConfVal;
-        auto odoo_conf = _project.getOdooConfig();
+        auto odoo_conf = _project.server.getConfig;
         auto db_template = odoo_conf.getConfVal("db_template", "template0");
         auto collate = (db_template == "template0") ? "LC_COLLATE 'C'" : "";
 
-        auto pg_db = this.get("postgres").connection;
+        auto pg_db = _project.openPgConnection("postgres");
         pg_db.exec(
             "CREATE DATABASE \"%s\" ENCODING 'unicode' %s TEMPLATE %s".format(
                 name, collate, db_template));
@@ -498,7 +617,7 @@ struct OdooDatabaseManager {
             "Running 'populate' for database %s for models (%s) with size %s...",
             dbname, models.join(", "), populate_size);
         _project.server(_test_mode).getServerRunner("populate")
-            .addArgs(
+            .withArgs(
                 "-d", dbname,
                 "--models=%s".format(models.join(",")),
                 "--size=%s".format(populate_size),

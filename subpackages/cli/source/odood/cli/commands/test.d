@@ -254,7 +254,7 @@ class CommandTest: OdoodCommand {
         // Handle coverage report
         if (coverage)
             project.venv.runner
-                .addArgs("coverage", "combine")
+                .withArgs("coverage", "combine")
                 .withFlag(std.process.Config.stderrPassThrough)
                 .inWorkDir(Path.current)
                 .execute
