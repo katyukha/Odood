@@ -15,6 +15,8 @@
 - Added new options to `odood addons update`
     - `--installed-only` - install only addons that are not installed in specified db from the list.
     - `--ignore-unfinished-updates` - do not fail on unfinished updates
+- Added `--tls12-compat` flag to `odood deploy` to allow TLS 1.2 in addition
+  to TLS 1.3 for backward compatibility with older clients.
 
 
 ### Changed
@@ -23,6 +25,9 @@
     - Added security headers
     - Database manager (`/web/database`) is blocked by default
     - Bugfixes related to nginx config generation
+- Nginx SSL configuration now defaults to TLS 1.3 only with hardened cipher
+  suites (FIPS 140-2/3 compliant, no CBC/RC4/3DES). Use `--tls12-compat`
+  to enable TLS 1.2 with ECDHE forward secrecy ciphers.
 - Command `odood db list` rewritten in D (no more python / lodoo call)
 - Commands `odood addons install` and `odood addons update` now will
   fail if there are unfinished addon updates before running command or after.

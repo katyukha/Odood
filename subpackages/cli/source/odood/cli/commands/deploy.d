@@ -69,6 +69,11 @@ class CommandDeploy: OdoodCommand {
             null, "local-nginx-ssl-key", "Path to SSL key for local nginx."));
 
         this.add(new Flag(
+            null, "tls12-compat",
+            "Allow TLS 1.2 in addition to TLS 1.3 for backward compatibility with older clients. " ~
+            "By default, only TLS 1.3 is enabled."));
+
+        this.add(new Flag(
             null, "letsencrypt", "Enable Let's Encrypt configuration."));
         this.add(new Option(
             null, "letsencrypt-email", "Email for Let's Encrypt account."));
@@ -153,6 +158,9 @@ class CommandDeploy: OdoodCommand {
 
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
+
+            if (args.flag("tls12-compat"))
+                config.nginx.tls12_compat = true;
         }
         if (args.flag("letsencrypt") || !args.option("letsencrypt-email").empty) {
             config.letsencrypt_enable = true;

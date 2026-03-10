@@ -70,6 +70,7 @@ struct DeployConfigNginx {
 
 
     bool ssl_on = false;
+    bool tls12_compat = false;
     Path ssl_cert = Path("/", "etc", "nginx", "ssl", "server.crt");
     Path ssl_key = Path("/", "etc", "nginx", "ssl", "server.key");
 
