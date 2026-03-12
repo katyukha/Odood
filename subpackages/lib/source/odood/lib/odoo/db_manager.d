@@ -278,8 +278,11 @@ struct OdooDatabaseManager {
 
         final switch (backup_format) {
             case BackupFormat.zip:
-                // Create temp directory
-                const auto tmp_dir = createTempPath();
+                // Create temp directory, using custom temp dir if configured
+                auto tempDir = _project.directories.temp;
+                const auto tmp_dir = tempDir.isNull
+                    ? createTempPath("odood-backup")
+                    : createTempPath(tempDir.get, "odood-backup");
                 scope(exit) tmp_dir.remove();
 
                 // Run database backup

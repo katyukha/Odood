@@ -2,6 +2,7 @@
 module odood.lib.project.config;
 
 private import std.format: format;
+private import std.typecons: Nullable;
 
 private import thepath: Path;
 private static import dyaml;
@@ -214,6 +215,10 @@ struct ProjectConfigDirectories {
     /// Directory for project-related caches
     Path cache;
 
+    /// Optional custom temp directory for large temporary files (e.g. backups).
+    /// When not set, the system default temp directory is used.
+    Nullable!Path temp;
+
     this(in Path root) {
         this.root = root;
         this.conf = root.join("conf");
@@ -240,11 +245,14 @@ struct ProjectConfigDirectories {
             this.cache = Path(config["cache"].as!string);
         else
             this.cache = this.root.join("cache");
+
+        if (config.containsKey("temp"))
+            this.temp = Nullable!Path(Path(config["temp"].as!string));
     }
 
     dyaml.Node toYAML() const {
         import dyaml: Node;
-        return Node([
+        auto result = Node([
             "conf": this.conf.toString,
             "log": this.log.toString,
             "downloads": this.downloads.toString,
@@ -254,6 +262,9 @@ struct ProjectConfigDirectories {
             "repositories": this.repositories.toString,
             "cache": this.cache.toString,
         ]);
+        if (!this.temp.isNull)
+            result["temp"] = this.temp.get.toString;
+        return result;
     }
 
     /** Initialize project directory structure.

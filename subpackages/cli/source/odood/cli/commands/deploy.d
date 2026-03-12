@@ -7,7 +7,7 @@ private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: octal, to;
 private import std.range: empty;
-private import std.typecons: nullable;
+private import std.typecons: nullable, Nullable;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -97,6 +97,11 @@ class CommandDeploy: OdoodCommand {
             null, "use-system-ca-bundle",
             "Set REQUESTS_CA_BUNDLE to the system CA certificate store, " ~
             "so Odoo uses system certificates instead of the bundled certifi CA bundle."));
+
+        this.add(new Option(
+            null, "temp-dir",
+            "Custom directory for large temporary files (e.g. during database backup). " ~
+            "Useful when system temp directory has limited space."));
 
         this.add(new Option(
             null, "assembly-repo",
@@ -202,6 +207,9 @@ class CommandDeploy: OdoodCommand {
             config.odoo.use_system_ca_bundle = true;
             config.odoo.system_ca_bundle_path = detectSystemCABundle();
         }
+
+        if (!args.option("temp-dir").empty)
+            config.temp_dir = Nullable!Path(Path(args.option("temp-dir")));
 
         if (!args.option("assembly-repo").empty)
             config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;

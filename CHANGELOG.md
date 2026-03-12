@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added `--temp-dir` option to `odood deploy` to configure a custom directory
+  for large temporary files (e.g. during database backup). Saved in `odood.yml`
+  as `directories.temp`.
+
+### Changed
+
+- Database backup now uses configurable temp directory (`directories.temp`
+  in `odood.yml`) instead of always using system temp. Useful when `/tmp`
+  has limited space.
+
+---
+
 ## Release 0.6.0 (2026-03-11)
 
 ### Added
@@ -20,6 +36,7 @@
 - Added `--use-system-ca-bundle` flag to `odood deploy` to set
   `REQUESTS_CA_BUNDLE` to the system CA certificate store. Auto-detects
   the CA bundle path across Debian/Ubuntu, RHEL/CentOS/Fedora, and openSUSE.
+
 
 
 ### Changed
