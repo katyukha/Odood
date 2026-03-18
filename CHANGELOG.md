@@ -13,6 +13,8 @@
 - Database backup now uses configurable temp directory (`directories.temp`
   in `odood.yml`) instead of always using system temp. Useful when `/tmp`
   has limited space.
+- Tests now use os-provided available tcp ports to run Odoo,
+  thus it is possible to run few different tests with different databaes in parallel
 
 ---
 
