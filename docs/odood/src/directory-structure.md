@@ -1,6 +1,6 @@
 # Odood Directory Structure
 
-Odood directory structure is similat to that one for [odoo-helper-scripts](https://github.com/katyukha/odoo-helper-scripts),
+Odood directory structure is similar to that one for [odoo-helper-scripts](https://github.com/katyukha/odoo-helper-scripts),
 so most users of `odoo-helper-scripts` will not notice that changes. 
 
 Odood project root directory contains following folders:

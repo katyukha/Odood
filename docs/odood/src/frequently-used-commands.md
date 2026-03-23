@@ -64,7 +64,7 @@ Thus following commands are used to deal with it:
 - `odood assembly init` - initialize new empty assembly for this instance
 - `odood assembly init --repo=git@github.com:my/assembly.git` - initialize this instance with assembly from specified repo
 - `odood assembly upgrade` - pull latest changes from assembly and upgrade server
-- `odood assembly sync` - synchronize assembly according to spec: fetch latest versions of modules from spcified sources and update assembly repo
+- `odood assembly sync` - synchronize assembly according to spec: fetch latest versions of modules from specified sources and update assembly repo
 - `odood assembly link` - relink all addons that are in assembly
 
 ### Virtualenv management

@@ -352,8 +352,8 @@ data volume with the main `odoo` service but only runs on demand via the `upgrad
     command: >
       bash -c "
         odood --config-from-env db backup -a &&
-        odood --config-from-env addons install --missing-only --assembly &&
-        odood --config-from-env addons update --installed-only --assembly
+        odood --config-from-env addons update --installed-only --assembly &&
+        odood --config-from-env addons install --missing-only --assembly
       "
     volumes:
       - odoo-data:/opt/odoo/data
@@ -363,10 +363,11 @@ data volume with the main `odoo` service but only runs on demand via the `upgrad
 What each command in the upgrade sequence does:
 
 - `db backup -a` — backs up every database before any changes are made.
-- `addons install --missing-only --assembly` — installs assembly addons not yet present in any
-  database (handles newly added modules across releases). Applies to all databases by default.
 - `addons update --installed-only --assembly` — updates only addons that are already installed,
   skipping uninstalled ones (safe and idempotent). Applies to all databases by default.
+  Runs first so that existing dependencies are at their new versions before new addons are installed.
+- `addons install --missing-only --assembly` — installs assembly addons not yet present in any
+  database (handles newly added modules across releases). Applies to all databases by default.
 
 `--assembly` works because the generated Dockerfile registers the assembly in `odood.yml`
 via `odood assembly use`, so the container knows where to find the assembly addons.

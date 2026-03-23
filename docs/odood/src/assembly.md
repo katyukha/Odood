@@ -1,6 +1,6 @@
 # Assembly
 
-Assembly is a reposityry that contains all third-party odoo addons needed for certain server,
+Assembly is a repository that contains all third-party odoo addons needed for certain server,
 that is populated with addons from various sources in semi-automatic way.
 
 The main purpose of assembly is to simplify deployment process to production servers.
@@ -63,7 +63,7 @@ spec:
 
 ## Assembly workflow
 
-Typical assembly workflow could be splitted on two parts:
+Typical assembly workflow could be split into two parts:
 - Assembly maintenance
 - Server operations
 
@@ -191,7 +191,7 @@ This is useful to migrate already existing Odood project to use assembly instead
 
 ## Private git sources
 
-Assemblies can clone private git repostitories via access tokens.
+Assemblies can clone private git repositories via access tokens.
 For each source in spec, it is possible to specify `name` or `access-group`,
 that could be used to check environment variables for access credentials to clone specified sources.
 
@@ -221,7 +221,7 @@ The `odood assembly sync` command has option `--changelog`, that enables automat
 When this option passed, then Odood will generate and maintain automatically following files in root directory of repo:
 - `VERSION` - this file will contain assembly version in format `<odoo major>.<odoo minor>.<major>.<minor>.<patch>`.
 - `CHANGELOG.md` - full changelog, that will be updated on each *sync* automatically.
-- `CHANGELOG.latest.md` - changelog of lates update.
+- `CHANGELOG.latest.md` - changelog of latest update.
 
 **Note**, that recommended flow for update process is to create separate branch for each update, and apply each update with merge request.
 
@@ -292,7 +292,7 @@ For example, it could contain information about some feature implemented or some
 This feature expectes that addon developers provide information about notable changes of addon in following way:
 - addon must contain directory `changelog` that will store changelogs for this addon
 - for each version of addon that has *notable changes*, file `changelog/changelog.X.Y.Z.md` have to be added (here `X` - major version of module, `Y` - minor version of module, `Z` - patch version of module; Odoo serie is not taken into account). This file should contain description of notable changes in MarkDown format.
-- **note**, there is limitation for only `h6` headers in `changelog/changelog.X.Y.Z.md` files, becouse all headers larger than `h6` will be used in final assembly changelog.
+- **note**, there is limitation for only `h6` headers in `changelog/changelog.X.Y.Z.md` files, because all headers larger than `h6` will be used in final assembly changelog.
 
 For example (in context of example above (*Sample changelog*)), we have to add `changelog/changelog.1.3.0.md` file inside root directory of module `some_addon` with following content:
 
@@ -332,7 +332,7 @@ jobs:
       contents: write
       pull-requests: write
     container:
-      image: ghcr.io/katyukha/odood/odoo/18.0:0.5.4
+      image: ghcr.io/katyukha/odood/odoo/18.0:latest
     steps:
       - uses: actions/checkout@v4
 
@@ -596,7 +596,7 @@ Sample GitLab CI configuration, that will build assembly automatically:
 
 ```yaml
 build_assembly_on_commit:
-    image: ghcr.io/katyukha/odood/odoo/18.0:0.5.4
+    image: ghcr.io/katyukha/odood/odoo/18.0:latest
     before_script:
         # Add current directory as safe, thus allowing git operations in this dir.
         - git config --global --add safe.directory "$(pwd)"

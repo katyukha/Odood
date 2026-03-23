@@ -2,8 +2,8 @@
 
 ## Overview
 
-Production installation more focuses on security, and stabiltiy.
-Thus, it do following additional tasks:
+Production installation focuses more on security and stability.
+Thus, it does the following additional tasks:
 - Creates separate user to run Odoo
 - Creates systemd service or init script to run Odoo at startup
 - Optionally configures:
@@ -12,7 +12,7 @@ Thus, it do following additional tasks:
   - fail2ban
   - certbot
 
-Also, production installation expectes that it is running on clean system, and no other Odoo installed on same system.
+Also, production installation expects that it is running on a clean system, and no other Odoo is installed on the same system.
 
 ## Indirect dependencies
 
@@ -56,14 +56,14 @@ This way, it is possible to deploy server in following way:
 sudo odood deploy -v 18 \
     --local-postgres \
     --supervisor=systemd \
-    --assembly-repo=htpps://github.com/my/assembly
+    --assembly-repo=https://github.com/my/assembly
 ```
 
-This way, server will be automatically configured to use assembly `htpps://github.com/my/assembly`
+This way, server will be automatically configured to use assembly `https://github.com/my/assembly`
 
-## Complete sample: Pulic server
+## Complete sample: Public server
 
-Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on sever available in public space.
+Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on server available in public space.
 
 This sample, assumes, that you have control over your domain, and already point your domain to server where Odoo have to be installed.
 
@@ -99,13 +99,13 @@ sudo odood deploy \
     --letsencrypt-email=me@my.test.server
 ```
 
-## Complete sample: Private network server with self-signec SSL certificates
+## Complete sample: Private network server with self-signed SSL certificates
 
-Following list of commands will install Odoo with configured nginx, postgresql, on sever private network with self-signed SSL certificates under following paths:
-- /etc/nginx/ssl/my.test.server.int.crt/etc/nginx/ssl/my.test.server.int.crt
+Following list of commands will install Odoo with configured nginx, postgresql, on server in a private network with self-signed SSL certificates under following paths:
+- /etc/nginx/ssl/my.test.server.int.crt
 - /etc/nginx/ssl/my.test.server.int.key
 
-This sample, assumes, that you have already generate self-signed certificates.
+This sample assumes that you have already generated self-signed certificates.
 
 So,
 Let 's run following commands to get complete production ready Odoo installation on **Ubuntu 24.04**:

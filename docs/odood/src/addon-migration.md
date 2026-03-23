@@ -4,7 +4,7 @@ Odood provides ability to migrate addon code to next odoo serie.
 This is implemented via `odood repo migrate-addons` command, that
 under the hood uses [odoo-module-migrator](https://github.com/OCA/odoo-module-migrator) project.
 
-For example, yo have to take following steps to migrate repo from Odoo 17 to Odoo 18:
+For example, you have to take following steps to migrate repo from Odoo 17 to Odoo 18:
 - Add repo to Odood project for Odoo 18
 - Create new branch in repo *18.0* based on stable *17.0*
 - Run `odood repo migrate-addons` inside repo with addons to be migrated.
@@ -25,7 +25,7 @@ cd odoo-18
 odood repo add -b 17.0 git@github.com:myname/myrepo
 ```
 
-After this step, we will have repo clonned in `repositories/myname/myrepo`.
+After this step, we will have repo cloned in `repositories/myname/myrepo`.
 So, let's change directory to that one:
 
 ```bash
@@ -38,7 +38,7 @@ Next, we have to create new `18.0` branch:
 git checkout -b 18.0
 ```
 
-(branch name represnents that version of Odoo, for which addons on this branch expected to work fine)
+(branch name represents the version of Odoo for which addons on this branch are expected to work)
 
 So, next, we have to run migrator to actually migrate code of addons:
 
@@ -46,7 +46,7 @@ So, next, we have to run migrator to actually migrate code of addons:
 odood repo migrate-addons
 ```
 
-Check output of this command, myabe there are some notes or some hits to something that was not migrated automatically.
+Check output of this command, maybe there are some notes or some hints to something that was not migrated automatically.
 Try to fix it. Test if everything works fine. Fix broken things and commit.
 
 That's all.
