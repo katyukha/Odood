@@ -13,6 +13,7 @@ private import thepath: Path, createTempPath;
 private import zipper: Zipper;
 
 private import odood.lib.project: Project;
+private import odood.lib.venv: PyRequirements;
 private import odood.lib.odoo.config: readOdooConfig, getSystemAddonsPaths;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
@@ -207,7 +208,8 @@ struct AddonManager {
             OdooAddon addon,
             in bool force=false,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
+            in bool install_requirements=true) const {
         // TODO: Implement separate struct LinkOptions to handle all link options.
         //       this could simplify the code.
         auto dest = _project.directories.addons.join(addon.name);
@@ -240,16 +242,18 @@ struct AddonManager {
             addon.path.symlink(_project.directories.addons.join(addon.name));
         }
 
-        if (py_requirements && dest.join("requirements.txt").exists) {
-            // Prefere installation from requirements.txt inside addon
-            // and if no requirements.txt found, then try to install from manifest.
-            infof("Installing python requirements for addon '%s'",
-                  addon.name);
-            _project.venv.installPyRequirements(dest.join("requirements.txt"));
-        } else if (manifest_requirements && addon.manifest.python_dependencies.length > 0) {
-            infof("Installing python requirements for addon '%s' from manifest",
-                  addon.name);
-            _project.venv.installPyPackages(addon.manifest.python_dependencies);
+        if (install_requirements) {
+            if (py_requirements && dest.join("requirements.txt").exists) {
+                // Prefer installation from requirements.txt inside addon
+                // and if no requirements.txt found, then try to install from manifest.
+                infof("Installing python requirements for addon '%s'",
+                      addon.name);
+                _project.venv.installPyRequirements(dest.join("requirements.txt"));
+            } else if (manifest_requirements && addon.manifest.python_dependencies.length > 0) {
+                infof("Installing python requirements for addon '%s' from manifest",
+                      addon.name);
+                _project.venv.installPyPackages(addon.manifest.python_dependencies);
+            }
         }
     }
 
@@ -272,16 +276,83 @@ struct AddonManager {
             in bool recursive=false,
             in bool force=false,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
-        foreach(addon; scan(search_path, recursive))
-            link(addon, force, py_requirements, manifest_requirements);
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
+            in bool individual_requirements=false,
+            in bool with_odoo_requirements=false) const {
+        if (individual_requirements) {
+            // Old behavior: install requirements per-addon individually
+            foreach(addon; scan(search_path, recursive))
+                link(addon, force, py_requirements, manifest_requirements, true);
 
-        if (py_requirements && search_path.join("requirements.txt").exists) {
-            infof("Installing python requirements from '%s'",
-                  search_path.join("requirements.txt"));
-            _project.venv.installPyRequirements(
-                search_path.join("requirements.txt"));
+            if (py_requirements && search_path.join("requirements.txt").exists) {
+                infof("Installing python requirements from '%s'",
+                      search_path.join("requirements.txt"));
+                _project.venv.installPyRequirements(
+                    search_path.join("requirements.txt"));
+            }
+        } else {
+            // New behavior: symlink only, then batch install all requirements
+            foreach(addon; scan(search_path, recursive))
+                link(addon, force, py_requirements, manifest_requirements, false);
+
+            if (py_requirements || manifest_requirements) {
+                auto reqs = collectPyRequirements(
+                    search_path, recursive, py_requirements, manifest_requirements);
+
+                if (with_odoo_requirements
+                        && _project.odoo.path.join("requirements.txt").exists) {
+                    reqs.addRequirementsFile(
+                        _project.odoo.path.join("requirements.txt"));
+                }
+
+                if (!reqs.empty) {
+                    infof("Installing python requirements (batched)");
+                    _project.venv.installBatchPyRequirements(reqs);
+                }
+            }
         }
+    }
+
+    /** Collect Python requirements from addons in the given path without installing.
+      *
+      * Scans addons and gathers their requirements.txt file paths and
+      * manifest python_dependencies into a PyRequirements struct for
+      * batch installation.
+      *
+      * Params:
+      *     search_path = path to search for addons in.
+      *         Could be path to single addon.
+      *     recursive = if set to true, search for addons recursively.
+      *     py_requirements = collect from requirements.txt files
+      *     manifest_requirements = collect from manifest python_dependencies
+      *
+      * Returns:
+      *     PyRequirements struct with all gathered requirements
+      **/
+    PyRequirements collectPyRequirements(
+            in Path search_path,
+            in bool recursive=false,
+            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
+        PyRequirements reqs;
+
+        foreach (addon; scan(search_path, recursive)) {
+            auto dest = _project.directories.addons.join(addon.name);
+            auto check_path = (dest.exists && dest.isSymlink) ? dest : addon.path;
+
+            if (py_requirements && check_path.join("requirements.txt").exists) {
+                reqs.addRequirementsFile(check_path.join("requirements.txt"));
+            } else if (manifest_requirements && addon.manifest.python_dependencies.length > 0) {
+                reqs.addPackages(addon.manifest.python_dependencies);
+            }
+        }
+
+        // Directory-level requirements.txt
+        if (py_requirements && search_path.join("requirements.txt").exists) {
+            reqs.addRequirementsFile(search_path.join("requirements.txt"));
+        }
+
+        return reqs;
     }
 
     /// Check if addon is linked or not

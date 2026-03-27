@@ -33,6 +33,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.utils: download;
+private import odood.lib.venv: PyRequirements;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
@@ -43,6 +44,9 @@ public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, Assembl
 
 // Path to version file in assembly repo
 package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
+
+// Path to requirements lock file in assembly repo
+package(odood) immutable ASSEMBLY_REQUIREMENTS_LOCK = Path("requirements.lock.txt");
 
 
 struct Assembly {
@@ -576,6 +580,7 @@ struct Assembly {
         auto assembly = this;
         // TODO: move to template, after darktemple will be ready for this
         auto handle_requirements_txt = path.join("requirements.txt").exists;
+        auto handle_requirements_lock_txt = path.join(ASSEMBLY_REQUIREMENTS_LOCK).exists;
         auto assembly_version = version_path.exists ? version_path.readFileText.strip : "";
         auto assembly_source_url = repo.hasRemoteUrl("origin") ? repo.getRemoteUrl().toString : "";
         if (path.join("Dockerfile").exists) {
@@ -583,11 +588,11 @@ struct Assembly {
                 .readFileText
                 .replaceFirst(
                     regex(".*# ---- ODOOD END DYNAMIC DOCKER CONFIG ----\n", "s"),
-                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, assembly_version, assembly_source_url));
+                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, handle_requirements_lock_txt, assembly_version, assembly_source_url));
             path.join("Dockerfile").writeFile(dockerfile_content);
         } else {
             path.join("Dockerfile").writeFile(
-                renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, assembly_version, assembly_source_url));
+                renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, handle_requirements_lock_txt, assembly_version, assembly_source_url));
         }
         repo.add(path.join("Dockerfile"));
         infof("Assembly: Dockerfile generated/updated!");
@@ -602,8 +607,13 @@ struct Assembly {
     /** Synchronize assembly (sources and addons)
       *
       * Update assembly addons from recent versiones from specified git sources
+      *
+      * Params:
+      *     generate_lock = if set, generate requirements.lock.txt after syncing
+      *     with_odoo_requirements = if set, include Odoo's requirements.txt
+      *         when generating lock file
       **/
-    void sync() {
+    void sync(in bool generate_lock=false, in bool with_odoo_requirements=false) {
         spec.validate;
         if (repo.hasRemoteUrl("origin"))
             // Fetch origin/serie branch if origin repo is configured
@@ -613,34 +623,140 @@ struct Assembly {
         syncSources();
         syncAddons();
         validateAddonsDependencies();
+
+        if (generate_lock)
+            generateRequirementsLock(with_odoo_requirements);
     }
 
     /** Link assembly addons.
       *
       * Remove symlinks that point to this assembly from custom addons,
       * and create only valid symlinks.
+      *
+      * If requirements.lock.txt exists in the assembly root, install only
+      * from that file (skip per-addon requirement scanning). Otherwise,
+      * gather all addon requirements and install in a single pip call.
+      *
+      * Params:
+      *     py_requirements = collect/install from requirements.txt files
+      *     manifest_requirements = collect/install from manifest python_dependencies
+      *     individual_requirements = if set, install requirements per-addon
+      *         instead of batched (old behavior)
+      *     with_odoo_requirements = if set, include Odoo's requirements.txt
+      *         in the batch install
       **/
     void link(
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) const {
+            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
+            in bool individual_requirements=false,
+            in bool with_odoo_requirements=false) const {
         infof("Assembly Link: Cleanup old symlinks.");
-        if (_path.join("requirements.txt").exists) {
-            infof("Installing python requirements from '%s'", _path.join("requirements.txt"));
-            _project.venv.installPyRequirements(_path.join("requirements.txt"));
-        }
+
         // Remove all links in custom addons that point to this assembly
         foreach(p; _project.directories.addons.walk) {
             if (p.isSymlink && p.readLink.isInside(dist_dir))
                 p.remove();
         }
-        infof("Assembly Link: Start linking");
-        _project.addons.link(
-            search_path: dist_dir,
-            recursive: true,
-            force: true,
-            py_requirements: py_requirements,
-            manifest_requirements: manifest_requirements);
+
+        auto lock_path = _path.join(ASSEMBLY_REQUIREMENTS_LOCK);
+        if (lock_path.exists) {
+            // Lock file present: install only from it, skip per-addon scanning
+            infof("Assembly Link: Installing requirements from lock file '%s'", lock_path);
+            _project.venv.installPyRequirements(lock_path);
+
+            // Symlink addons only (no per-addon pip)
+            infof("Assembly Link: Start linking");
+            _project.addons.link(
+                search_path: dist_dir,
+                recursive: true,
+                force: true,
+                py_requirements: false,
+                manifest_requirements: false);
+        } else {
+            // No lock file: use batched (or individual) install
+            infof("Assembly Link: Start linking");
+            PyRequirements reqs;
+
+            // Include assembly-root requirements.txt in the batch
+            if (py_requirements && _path.join("requirements.txt").exists) {
+                reqs.addRequirementsFile(_path.join("requirements.txt"));
+            }
+
+            if (individual_requirements) {
+                // Install assembly-root requirements first, then per-addon
+                if (!reqs.empty)
+                    _project.venv.installBatchPyRequirements(reqs);
+                _project.addons.link(
+                    search_path: dist_dir,
+                    recursive: true,
+                    force: true,
+                    py_requirements: py_requirements,
+                    manifest_requirements: manifest_requirements,
+                    individual_requirements: true);
+            } else {
+                // Symlink only, gather requirements, batch install
+                _project.addons.link(
+                    search_path: dist_dir,
+                    recursive: true,
+                    force: true,
+                    py_requirements: false,
+                    manifest_requirements: false);
+
+                // Gather addon requirements
+                auto addon_reqs = _project.addons.collectPyRequirements(
+                    dist_dir, true, py_requirements, manifest_requirements);
+                reqs.add(addon_reqs);
+
+                if (with_odoo_requirements
+                        && _project.odoo.path.join("requirements.txt").exists) {
+                    reqs.addRequirementsFile(
+                        _project.odoo.path.join("requirements.txt"));
+                }
+
+                if (!reqs.empty) {
+                    infof("Assembly Link: Installing python requirements (batched)");
+                    _project.venv.installBatchPyRequirements(reqs);
+                }
+            }
+        }
         infof("Assembly Link: Completed");
+    }
+
+    /** Generate requirements.lock.txt for this assembly.
+      *
+      * Scans all addons and the assembly root requirements.txt,
+      * installs everything into the venv, then runs pip freeze
+      * to produce a fully pinned lock file. Adds it to the git index.
+      *
+      * Params:
+      *     with_odoo_requirements = if set, include Odoo's requirements.txt
+      *         in the resolved dependency set
+      **/
+    void generateRequirementsLock(in bool with_odoo_requirements=false) {
+        PyRequirements reqs;
+
+        if (_path.join("requirements.txt").exists)
+            reqs.addRequirementsFile(_path.join("requirements.txt"));
+
+        auto addon_reqs = _project.addons.collectPyRequirements(
+            dist_dir, true, true, true);
+        reqs.add(addon_reqs);
+
+        if (with_odoo_requirements
+                && _project.odoo.path.join("requirements.txt").exists) {
+            reqs.addRequirementsFile(
+                _project.odoo.path.join("requirements.txt"));
+        }
+
+        if (!reqs.empty)
+            _project.venv.installBatchPyRequirements(reqs);
+
+        // Freeze current venv state to lock file
+        auto freeze_result = _project.venv.pip("freeze");
+        auto lock_path = _path.join(ASSEMBLY_REQUIREMENTS_LOCK);
+        lock_path.writeFile(freeze_result.output);
+        repo.add(lock_path);
+        infof("Assembly: Generated %s", ASSEMBLY_REQUIREMENTS_LOCK);
     }
 
     void pull() {

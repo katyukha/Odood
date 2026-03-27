@@ -12,7 +12,7 @@ private import colored;
 private import commandr: Argument, Option, Flag, ProgramArgs;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, ASSEMBLY_VERSION_PATH;
+private import odood.lib.assembly: Assembly, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
@@ -131,13 +131,21 @@ class CommandAssemblySync: AssemblyCommandBase {
             null, "changelog", "Generate changelog for assembly."));
         this.add(new Flag(
             null, "dockerfile", "Generate Dockerfile for assembly."));
+        this.add(new Flag(
+            null, "generate-lock",
+            "Generate requirements.lock.txt after syncing"));
+        this.add(new Flag(
+            null, "with-odoo-requirements",
+            "Include Odoo's requirements.txt when generating lock file"));
     }
 
     public override void execute(ProgramArgs args) {
         auto project = loadProject(args);
 
         // Do the sync
-        project.assembly.get.sync();
+        project.assembly.get.sync(
+            generate_lock: args.flag("generate-lock"),
+            with_odoo_requirements: args.flag("with-odoo-requirements"));
 
         if (args.flag("changelog"))
             project.assembly.get.generateChangelog;
@@ -155,6 +163,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                     path_filters: [
                         ":(exclude)dist",
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
+                        ":(exclude)%s".format(ASSEMBLY_REQUIREMENTS_LOCK),
                         ":(exclude)CHANGELOG.md",
                         ":(exclude)CHANGELOG.latest.md",
                         ":(exclude)Dockerfile",
@@ -170,6 +179,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                     path_filters: [
                         "dist",
                         "%s".format(ASSEMBLY_VERSION_PATH),
+                        "%s".format(ASSEMBLY_REQUIREMENTS_LOCK),
                         "Dockerfile",
                         ".dockerignore",
                     ],
@@ -202,6 +212,12 @@ class CommandAssemblyLink: AssemblyCommandBase {
             null, "manifest-requirements",
             "Install python dependencies from manifest's external dependencies"));
         this.add(new Flag(
+            null, "individual-requirements",
+            "Install Python requirements per-addon instead of batched"));
+        this.add(new Flag(
+            null, "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install"));
+        this.add(new Flag(
             null, "ual", "Update addons list for all databases"));
     }
 
@@ -209,6 +225,8 @@ class CommandAssemblyLink: AssemblyCommandBase {
         auto project = loadProject(args);
         project.assembly.get.link(
             manifest_requirements: args.flag("manifest-requirements"),
+            individual_requirements: args.flag("individual-requirements"),
+            with_odoo_requirements: args.flag("with-odoo-requirements"),
         );
         if (args.flag("ual"))
             foreach(dbname; project.databases.list())

@@ -7,6 +7,22 @@
 - Added `--temp-dir` option to `odood deploy` to configure a custom directory
   for large temporary files (e.g. during database backup). Saved in `odood.yml`
   as `directories.temp`.
+- Batch Python requirements installation: when linking addons (via `odood addons link`,
+  `odood assembly link`, or `odood venv reinstall`), all Python requirements are now
+  gathered and installed in a single `pip install` call instead of one call per addon.
+  This improves performance and lets pip resolve the full dependency tree at once.
+    - New flag `--individual-requirements` for `odood addons link` and `odood assembly link`
+      to fall back to per-addon installation (old behavior).
+    - New flag `--with-odoo-requirements` for `odood addons link` and `odood assembly link`
+      to include Odoo's own `requirements.txt` in the batch install.
+- Assembly requirements lock file support: if `requirements.lock.txt` exists in the
+  assembly root, `odood assembly link` installs only from that file and skips per-addon
+  requirement scanning. This gives assembly maintainers full control over the Python
+  dependency tree for reproducible deployments.
+    - New flag `--generate-lock` for `odood assembly sync` to generate the lock file
+      after syncing (runs `pip freeze` to produce pinned versions).
+    - New flag `--with-odoo-requirements` for `odood assembly sync` to include Odoo's
+      requirements when generating the lock file.
 
 ### Changed
 
@@ -15,6 +31,8 @@
   has limited space.
 - Tests now use os-provided available tcp ports to run Odoo,
   thus it is possible to run few different tests with different databaes in parallel
+- `odood venv reinstall` now installs all addon Python requirements in a single
+  batched pip call instead of one per addon.
 
 ---
 

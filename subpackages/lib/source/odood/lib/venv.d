@@ -69,6 +69,40 @@ struct VenvOptions {
  *       Dyaml integration should be kept in lib
  */
 
+/// Collected Python requirements for batch installation.
+///
+/// Gathers requirement file paths and package names from multiple addons
+/// so they can be installed in a single pip invocation.
+struct PyRequirements {
+    /// Paths to requirements.txt files
+    Path[] requirement_files;
+
+    /// Individual package names (e.g. from manifest python_dependencies)
+    string[] packages;
+
+    /// Whether any requirements were collected
+    bool empty() const {
+        return requirement_files.length == 0 && packages.length == 0;
+    }
+
+    /// Add a requirements.txt file path
+    void addRequirementsFile(in Path path) {
+        requirement_files ~= path;
+    }
+
+    /// Add packages from manifest python_dependencies
+    void addPackages(in string[] pkgs) {
+        packages ~= pkgs;
+    }
+
+    /// Merge another PyRequirements into this one
+    void add(in PyRequirements other) {
+        requirement_files ~= other.requirement_files;
+        packages ~= other.packages;
+    }
+}
+
+
 /** VirtualEnv wrapper, to simplify operations within virtual environment
   *
   **/
@@ -227,6 +261,18 @@ const struct VirtualEnv {
       **/
     auto installPyRequirements(in Path requirements) {
         return pip("install", "-r", requirements.toString);
+    }
+
+    /** Install all collected Python requirements in a single pip call.
+      *
+      * Builds: pip install -r file1.txt -r file2.txt pkg1 pkg2 ...
+      **/
+    auto installBatchPyRequirements(in PyRequirements reqs) {
+        string[] pip_args = ["install"];
+        foreach (rf; reqs.requirement_files)
+            pip_args ~= ["-r", rf.toString];
+        pip_args ~= reqs.packages;
+        return pip(pip_args);
     }
 
     /** Run pip, passing all arguments to pip

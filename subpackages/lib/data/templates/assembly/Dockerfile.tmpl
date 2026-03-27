@@ -12,6 +12,9 @@ COPY dist/ /opt/odoo/assembly/dist/
 {% if handle_requirements_txt %}
 COPY requirements.txt /opt/odoo/assembly/requirements.txt
 {% endif %}
+{% if handle_requirements_lock_txt %}
+COPY requirements.lock.txt /opt/odoo/assembly/requirements.lock.txt
+{% endif %}
 
 # Register the assembly with the project, link addons into custom_addons/,
 # install Python requirements (handled automatically by 'assembly link'),

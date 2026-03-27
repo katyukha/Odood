@@ -6,7 +6,7 @@ private import thepath: Path;
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.install;
-private import odood.lib.venv: PyInstallType;
+private import odood.lib.venv: PyInstallType, PyRequirements;
 private import odood.lib.odoo.python: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -196,10 +196,12 @@ class CommandVenvReinstall: OdoodCommand {
         project.installVirtualenv(venv_options);
         project.installOdoo();
 
+        PyRequirements reqs;
         foreach(addon; project.addons.scan())
             if (addon.path.join("requirements.txt").exists())
-                project.venv.installPyRequirements(
-                    addon.path.join("requirements.txt"));
+                reqs.addRequirementsFile(addon.path.join("requirements.txt"));
+        if (!reqs.empty)
+            project.venv.installBatchPyRequirements(reqs);
     }
 
 }
