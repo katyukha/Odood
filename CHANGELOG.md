@@ -23,6 +23,11 @@
       after syncing (runs `pip freeze` to produce pinned versions).
     - New flag `--with-odoo-requirements` for `odood assembly sync` to include Odoo's
       requirements when generating the lock file.
+- New flag `--odoo-helper-compat` for `odood pre-commit init` that generates a
+  pre-commit config compatible with odoo-helper-scripts' default linting style
+  (check-only — no auto-formatting). Useful for migrating projects from odoo-helper.
+- Added bandit security scanner hook to the default pre-commit config.
+- Added `odoolint` catchall check to the default pylintrc
 
 ### Changed
 
