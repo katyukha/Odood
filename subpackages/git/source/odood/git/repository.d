@@ -6,7 +6,7 @@ private import std.string: chompPrefix, strip, empty, splitLines;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith;
 private import std.array: array;
-private import std.regex: ctRegex, matchFirst;
+private import std.regex: ctRegex, matchFirst, regex;
 private import std.conv: to;
 private static import std.process;
 
@@ -187,6 +187,12 @@ class GitRepository {
             .withFlag(std.process.Config.stderrPassThrough)
             .execute
             .isOk;
+    }
+
+    /** Check if current git_ref is commit hash
+      **/
+    bool isCommitHash(in string git_ref) const {
+        return git_ref.matchFirst(regex(r"^[0-9a-f]{7,40}$")).length > 0;
     }
 
     /** Switch repo to specified branch

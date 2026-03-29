@@ -268,7 +268,11 @@ struct Assembly {
                 auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
                 if (source.git_ref) {
                     repo.fetchOrigin(source.git_ref);
-                    repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    if (repo.isCommitHash(source.git_ref)){
+                      repo.switchBranchTo(source.git_ref);
+                    } else {
+                      repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    }
                 } else {
                     repo.pull;
                 }
@@ -281,7 +285,11 @@ struct Assembly {
                     env: getSourceExtraEnv(source));
                 if (source.git_ref)
                     repo.fetchOrigin(source.git_ref);
-                    repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    if (repo.isCommitHash(source.git_ref)){
+                      repo.switchBranchTo(source.git_ref);
+                    } else {
+                      repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    }
             }
             infof("Assembly: source %s synced.", source);
         }
