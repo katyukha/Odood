@@ -1,5 +1,6 @@
 module odood.git.repository;
 
+private import std.logger: infof;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines;
@@ -146,6 +147,7 @@ class GitRepository {
 
     /// ditto
     void fetchOrigin(in string branch) const {
+        infof("Fetching reference (ref=%s)", branch);
         gitCmd
             .withArgs("fetch", "origin", branch)
             .execute()
@@ -198,6 +200,7 @@ class GitRepository {
     /** Switch repo to specified branch
       **/
     void switchBranchTo(in string branch_name, in bool create=false) const {
+        infof("Checkout to (reference=%s, create=%s)", branch_name, create);
         if (create)
             gitCmd
                 .withArgs("checkout", "-b", branch_name)
