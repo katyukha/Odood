@@ -160,11 +160,15 @@ const struct LOdoo {
           *         command addons-update-list failed with non-zero exit code
           **/
         void addonsUpdateList(in string dbname, in bool ignore_error=false) {
+            tracef("Running lodoo.addonsUpdateList for %s dbname, ignore_error=%s", dbname, ignore_error);
             auto res = runner
                 .withArgs("addons-update-list", dbname)
                 .execute;
             if (!ignore_error)
                 res.ensureOk!OdoodException(true);
+            else if (!res.isOk)
+                warningf("Update of list of addons failed for database %s (exit-code=%s):\n%s", dbname, res.status, res.output);
+            tracef("Completed lodoo.addonsUpdateList for %s dbname, ignore_error=%s. Result (output): %s", dbname, ignore_error, res.output);
         }
 
         /** Uninstall addons
