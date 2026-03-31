@@ -71,12 +71,15 @@ repos:
       - id: flake8
         name: flake8
   - repo: https://github.com/OCA/pylint-odoo
-    rev: v8.0.19
+    rev: v10.0.2
     hooks:
       - id: pylint_odoo
         name: pylint with optional checks
         args:
           - --rcfile=.pylintrc
+          # Just to make it work out of the box, we disable `manifest-required-author` odoo check.
+          # In order to make it work, you have to add proper configuration in pylintrc
+          - --disable="manifest-required-author"
         verbose: true
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3
