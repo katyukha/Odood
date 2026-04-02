@@ -9,7 +9,7 @@ private import std.conv: to;
 private import std.regex;
 
 private import dini: Ini;
-private import zipper: Zipper;
+private import darkarchive: DarkArchiveReader, DarkExtractFlags, ExtractParams;
 
 private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
@@ -63,12 +63,15 @@ void installDownloadOdoo(in Project project) {
     infof(
         "Extracting odoo from %s to %s",
         odoo_archive_path, project.odoo.path);
-    Zipper(
-        odoo_archive_path.toAbsolute
-    ).extractTo(
+    auto unfoldPrefix = "%s-%s/".format(repo_name, project.odoo.branch);
+    DarkArchiveReader(odoo_archive_path.toAbsolute.toString).extractTo(
         project.odoo.path,
-        "%s-%s/".format(repo_name, project.odoo.branch),  // unfoldpath
-    );
+        DarkExtractFlags.defaults,
+        (ref ExtractParams params) {
+            if (params.destPath.startsWith(unfoldPrefix))
+                params.destPath = params.destPath[unfoldPrefix.length .. $];
+            return true;
+        });
 }
 
 /** Clone Odoo from Git

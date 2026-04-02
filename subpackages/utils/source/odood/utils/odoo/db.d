@@ -5,7 +5,7 @@ private import std.exception: enforce;
 private import std.json: parseJSON;
 
 private import thepath: Path;
-private import zipper: Zipper;
+private import darkarchive: DarkArchiveReader;
 
 private import odood.exception: OdoodException;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -47,18 +47,21 @@ auto detectDatabaseBackupFormat(in Path path) {
   *
   * Returns: JSONValue that contains parsed database backup manifest
   **/
-auto parseDatabaseBackupManifest(Zipper zip) {
-    enforce!OdoodException(
-        zip.hasEntry("manifest.json"),
+auto parseDatabaseBackupManifest(ref DarkArchiveReader reader) {
+    string manifest_content;
+    auto found = reader.processEntries(["manifest.json"],
+        (const ref entry, scope dataReader) {
+            manifest_content = dataReader.readText();
+        });
+    enforce!OdoodException(found > 0,
         "Cannot locate 'manifest.json' inside database backup!");
-    char[] manifest_content = zip["manifest.json"].readFull!char();
     return parseJSON(manifest_content);
 }
 
 /// ditto
 auto parseDatabaseBackupManifest(in Path path) {
-    auto zip = Zipper(path);
-    return parseDatabaseBackupManifest(zip);
+    auto reader = DarkArchiveReader(path);
+    return parseDatabaseBackupManifest(reader);
 }
 
 

@@ -11,7 +11,7 @@ private import thepath: Path;
 private import theprocess: Process;
 private import dini: Ini;
 private import dyaml;
-private import zipper: Zipper, ZipMode;
+private import darkarchive: DarkArchiveWriter, DarkArchiveFormat;
 
 private import odood.exception: OdoodException;
 
@@ -470,10 +470,9 @@ class Project {
             )
         );
         infof("Saving backup of Odoo sources to %s...", backup_path);
-        Zipper(
-            backup_path,
-            ZipMode.CREATE,
-        ).add(this.odoo.path);
+        DarkArchiveWriter(backup_path, DarkArchiveFormat.zip)
+            .addTree(this.odoo.path)
+            .finish();
         return backup_path;
     }
 

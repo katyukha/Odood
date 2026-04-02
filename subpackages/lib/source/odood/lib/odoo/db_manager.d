@@ -16,7 +16,8 @@ private import std.string: join, startsWith, chompPrefix, empty, split, strip;
 
 private import thepath;
 private import theprocess;
-private import zipper;
+private import darkarchive: DarkArchiveReader, DarkArchiveWriter,
+    DarkArchiveFormat, DarkExtractFlags, ExtractParams;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
@@ -278,42 +279,64 @@ struct OdooDatabaseManager {
 
         final switch (backup_format) {
             case BackupFormat.zip:
-                // Create temp directory, using custom temp dir if configured
-                auto tempDir = _project.directories.temp;
-                const auto tmp_dir = tempDir.isNull
-                    ? createTempPath("odood-backup")
-                    : createTempPath(tempDir.get, "odood-backup");
-                scope(exit) tmp_dir.remove();
+                import std.process : pipe;
 
-                // Run database backup
-                pg_dump.addArgs("--file=" ~ tmp_dir.join("dump.sql").toString);
-                auto dump_pid = pg_dump
-                    .spawn(
-                        std.stdio.File("/dev/null"),
-                        tmp_dir.join("pg_dump.output.log").openFile("wt"),
-                        tmp_dir.join("pg_dump.error.log").openFile("wt"));
+                auto writer = DarkArchiveWriter(dest, DarkArchiveFormat.zip);
+                scope(failure) {
+                    // Remove partial ZIP on any failure
+                    if (dest.exists) dest.remove();
+                }
 
-                // Copy filestore to temporary directory
-                _project.directories.data
-                    .join("filestore", dbname)
-                    .copyTo(tmp_dir.join("filestore"));
+                // Add filestore directly from data directory (no temp copy)
+                auto filestore_path = _project.directories.data
+                    .join("filestore", dbname);
+                if (filestore_path.exists)
+                    writer.addTree(filestore_path, "filestore");
 
-                // Prepare dump manifest
-                tmp_dir.join("manifest.json").writeFile(dumpManifest(dbname));
+                // Add manifest from memory
+                writer.addBuffer("manifest.json",
+                    cast(const(ubyte)[]) dumpManifest(dbname));
 
-                // Wait database backup completed, and ensure it is ok.
-                enforce!OdoodException(
-                    dump_pid.wait == 0,
-                    "Cannot dump postgresql database.\n%s\nOutput: %s\nErrors: %s\n".format(
-                        pg_dump,
-                        tmp_dir.join("pg_dump.output.log").readFileText,
-                        tmp_dir.join("pg_dump.error.log").readFileText));
+                // Stream pg_dump directly into ZIP — no temp file for dump.sql
+                {
+                    auto dump_pipe = pipe();
 
-                // Save it all in Zip archive
-                Zipper(dest, ZipMode.CREATE)
-                    .add(tmp_dir.join("filestore"), "filestore")
-                    .add(tmp_dir.join("manifest.json"))
-                    .add(tmp_dir.join("dump.sql"));
+                    // pg_dump writes SQL to stdout (no --file= arg),
+                    // stderr goes to parent's stderr for visibility
+                    auto dump_pid = pg_dump
+                        .spawn(
+                            std.stdio.File("/dev/null"),
+                            dump_pipe.writeEnd,
+                            std.stdio.stderr);
+
+                    // Close write end in parent so read sees EOF when pg_dump exits
+                    dump_pipe.writeEnd.close();
+
+                    scope(failure) {
+                        dump_pipe.readEnd.close();
+                        dump_pid.wait();
+                    }
+
+                    writer.addStream("dump.sql", (scope sink) {
+                        ubyte[65536] buf;
+                        while (!dump_pipe.readEnd.eof) {
+                            auto got = dump_pipe.readEnd.rawRead(buf[]);
+                            if (got.length > 0)
+                                sink(got);
+                        }
+                    });
+
+                    dump_pipe.readEnd.close();
+
+                    auto dump_exit_code = dump_pid.wait;
+                    if (dump_exit_code != 0) {
+                        throw new OdoodException(
+                            "Cannot dump postgresql database (exit code %s).\n%s"
+                            .format(dump_exit_code, pg_dump));
+                    }
+                }
+
+                writer.finish();
                 break;
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
@@ -366,7 +389,7 @@ struct OdooDatabaseManager {
       *     strict = if set to true, then will raise error if backup
       *         requires addons that are not available in this odoo install.
       **/
-    void _restoreValidateBackupZip(Zipper backup, in bool strict) const {
+    void _restoreValidateBackupZip(ref DarkArchiveReader backup, in bool strict) const {
         import odood.utils.odoo.db: parseDatabaseBackupManifest;
 
         JSONValue manifest;
@@ -472,7 +495,7 @@ struct OdooDatabaseManager {
             in Path backup_path,
             in bool validate_strict=true) const {
         import std.parallelism;
-        auto backup_zip = Zipper(backup_path);
+        auto backup_zip = DarkArchiveReader(backup_path);
         _restoreValidateBackupZip(backup_zip, validate_strict);
 
         infof("Restoring database %s from %s", name, backup_path);
@@ -497,9 +520,6 @@ struct OdooDatabaseManager {
             import std.process: wait, pipe;
             import std.stdio;
 
-            auto zip = Zipper(backup_path);
-            auto dump = zip.entry("dump.sql");
-
             auto psql_pipe = pipe();
             scope(exit) psql_pipe.close();
             auto psql_pid = _project.psql
@@ -515,9 +535,12 @@ struct OdooDatabaseManager {
             scope(exit) psql_pid.wait();
 
             tracef("Restoring database %s dump", name);
-            dump.readByChunk!char(
-                (scope const char[] chunk, in ulong chunk_size) {
-                    psql_pipe.writeEnd.write(chunk[0 .. chunk_size]);
+            auto reader = DarkArchiveReader(backup_path);
+            reader.processEntries(["dump.sql"],
+                (const ref entry, scope dataReader) {
+                    dataReader.readChunks((const(ubyte)[] chunk) {
+                        psql_pipe.writeEnd.rawWrite(chunk);
+                    });
                 });
 
             psql_pipe.writeEnd.flush();
@@ -528,15 +551,15 @@ struct OdooDatabaseManager {
         auto t_restore_fs = scopedTask(() {
             // Restore filestore
             tracef("Restore filestore for database %s", name);
-            auto zip = Zipper(backup_path);
             fs_path.mkdir(true);
-            foreach(entry; zip.entries) {
-                if (entry.name.startsWith("filestore/")) {
-                    entry.unzipTo(
-                        fs_path.join(
-                            entry.name.chompPrefix("filestore/")));
-                }
-            }
+            auto reader = DarkArchiveReader(backup_path);
+            reader.extractTo(fs_path, DarkExtractFlags.defaults,
+                (ref ExtractParams params) {
+                    if (!params.destPath.startsWith("filestore/"))
+                        return false;  // skip non-filestore entries
+                    params.destPath = params.destPath.chompPrefix("filestore/");
+                    return params.destPath.length > 0;
+                });
             if (_project.odoo.server_user) {
                 // Set correct ownership for database's filestore
                 fs_path.chown(username: _project.odoo.server_user, recursive: true);
