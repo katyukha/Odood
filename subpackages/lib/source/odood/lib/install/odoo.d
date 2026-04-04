@@ -33,7 +33,7 @@ void installDownloadOdoo(in Project project) {
 
     auto odoo_archive_path = odoo_cache_dir.get(
         project.directories.downloads).join(
-            "odoo.%s.zip".format(project.odoo.branch));
+            "odoo.%s.tar.gz".format(project.odoo.branch));
     scope(exit) {
         // Automatically remove downloaded odoo archive on extraction
         // completed (if cache not used)
@@ -46,11 +46,10 @@ void installDownloadOdoo(in Project project) {
         "Currently, download of odoo is supported only " ~
         "from github repositories.");
 
-    auto download_url = "%s/archive/%s.zip".format(
+    auto download_url = "%s/archive/%s.tar.gz".format(
         project.odoo.repo.chomp(".git"), project.odoo.branch);
     auto repo_name = project.odoo.repo.chomp(".git").split("/")[$-1];
 
-    // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
         infof(
             "Downloading odoo (%s) from %s to %s",
@@ -58,15 +57,14 @@ void installDownloadOdoo(in Project project) {
         download(download_url, odoo_archive_path);
     }
 
-    // Extract, with unfloding content of odoo-<branch> to
-    // dest folder directly.
+    // Extract, unfolding content of <repo>-<branch>/ into dest directly.
     infof(
         "Extracting odoo from %s to %s",
         odoo_archive_path, project.odoo.path);
     auto unfoldPrefix = "%s-%s/".format(repo_name, project.odoo.branch);
     DarkArchiveReader(odoo_archive_path.toAbsolute.toString).extractTo(
         project.odoo.path,
-        DarkExtractFlags.defaults,
+        DarkExtractFlags.defaults | DarkExtractFlags.symlinks,
         (ref ExtractParams params) {
             if (params.destPath.startsWith(unfoldPrefix))
                 params.destPath = params.destPath[unfoldPrefix.length .. $];
