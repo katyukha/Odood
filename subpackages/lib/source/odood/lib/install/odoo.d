@@ -170,7 +170,7 @@ void installOdoo(in Project project) {
             info("Patching Odoo requirements.txt to avoid usage of old cbor==5.4.2...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
                 .replaceAll(
-                    regex(r"cbor2==5.4.2", "g"),
+                    regex(r"cbor2==5\.4\.2\b", "g"),
                     "cbor2==5.4.6");
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
