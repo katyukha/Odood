@@ -751,7 +751,7 @@ unittest {
     venv2.py_version.shouldEqual(Version(3, 10, 16));
 
     // Check that python 3.10.16 is placed in cache
-    root.join("cache").join("python", "python-3.10.16.tar.xz").exists.shouldBeTrue;
+    root.join("cache").join("python", "python-3.10.16.tgz").exists.shouldBeTrue;
 
     // Create third venv with same python version
     auto venv3 = VirtualEnv(root.join("venv3"), PySerie.py3);
