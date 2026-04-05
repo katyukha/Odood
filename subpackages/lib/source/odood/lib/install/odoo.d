@@ -162,13 +162,16 @@ void installOdoo(in Project project) {
          * See: https://github.com/odoo/odoo/issues/248315
          *
          * We switch to cbor2==5.4.6, that have to work fine and
-         * has official support for python3.11
+         * has official support for python3.11. Also it do not rely on pkg_resources
          */
         if (project.venv.py_version >= Version(3, 10, 0) && project.odoo.serie <= 19) {
             info("Patching Odoo requirements.txt to avoid usage of old cbor==5.4.2...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
                 .replaceAll(
                     regex(r"cbor2==5\.4\.2(?=[\s;])", "g"),
+                    "cbor2==5.4.6")
+                .replaceAll(
+                    regex(r"cbor2==5\.4\.2\.post1(?=[\s;])", "g"),
                     "cbor2==5.4.6");
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
