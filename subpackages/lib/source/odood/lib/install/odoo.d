@@ -9,7 +9,7 @@ private import std.conv: to;
 private import std.regex;
 
 private import dini: Ini;
-private import darkarchive: DarkArchiveReader, DarkExtractFlags, ExtractParams;
+private import darkarchive: DarkArchiveReader, DarkArchiveFormat, DarkExtractFlags, ExtractParams;
 
 private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
@@ -62,7 +62,7 @@ void installDownloadOdoo(in Project project) {
         "Extracting odoo from %s to %s",
         odoo_archive_path, project.odoo.path);
     auto unfoldPrefix = "%s-%s/".format(repo_name, project.odoo.branch);
-    DarkArchiveReader(odoo_archive_path.toAbsolute.toString).extractTo(
+    DarkArchiveReader!(DarkArchiveFormat.tarGz)(odoo_archive_path.toAbsolute).extractTo(
         project.odoo.path,
         DarkExtractFlags.defaults | DarkExtractFlags.symlinks,
         (ref ExtractParams params) {

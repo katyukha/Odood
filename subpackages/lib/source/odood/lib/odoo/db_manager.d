@@ -281,7 +281,7 @@ struct OdooDatabaseManager {
             case BackupFormat.zip:
                 import std.process : pipe;
 
-                auto writer = DarkArchiveWriter(dest, DarkArchiveFormat.zip);
+                auto writer = DarkArchiveWriter!(DarkArchiveFormat.zip)(dest);
                 scope(failure) {
                     // Remove partial ZIP on any failure
                     if (dest.exists) dest.remove();
@@ -389,7 +389,7 @@ struct OdooDatabaseManager {
       *     strict = if set to true, then will raise error if backup
       *         requires addons that are not available in this odoo install.
       **/
-    void _restoreValidateBackupZip(ref DarkArchiveReader backup, in bool strict) const {
+    void _restoreValidateBackupZip(ref DarkArchiveReader!(DarkArchiveFormat.zip) backup, in bool strict) const {
         import odood.utils.odoo.db: parseDatabaseBackupManifest;
 
         JSONValue manifest;
@@ -495,7 +495,7 @@ struct OdooDatabaseManager {
             in Path backup_path,
             in bool validate_strict=true) const {
         import std.parallelism;
-        auto backup_zip = DarkArchiveReader(backup_path);
+        auto backup_zip = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
         _restoreValidateBackupZip(backup_zip, validate_strict);
 
         infof("Restoring database %s from %s", name, backup_path);
@@ -535,10 +535,10 @@ struct OdooDatabaseManager {
             scope(exit) psql_pid.wait();
 
             tracef("Restoring database %s dump", name);
-            auto reader = DarkArchiveReader(backup_path);
+            auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
             reader.processEntries(["dump.sql"],
-                (const ref entry, scope dataReader) {
-                    dataReader.readChunks((const(ubyte)[] chunk) {
+                (scope ref item) {
+                    item.data.readChunks((const(ubyte)[] chunk) {
                         psql_pipe.writeEnd.rawWrite(chunk);
                     });
                 });
@@ -552,7 +552,7 @@ struct OdooDatabaseManager {
             // Restore filestore
             tracef("Restore filestore for database %s", name);
             fs_path.mkdir(true);
-            auto reader = DarkArchiveReader(backup_path);
+            auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
             reader.extractTo(fs_path, DarkExtractFlags.defaults,
                 (ref ExtractParams params) {
                     if (!params.destPath.startsWith("filestore/"))

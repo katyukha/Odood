@@ -470,7 +470,7 @@ class Project {
             )
         );
         infof("Saving backup of Odoo sources to %s...", backup_path);
-        DarkArchiveWriter(backup_path, DarkArchiveFormat.zip)
+        DarkArchiveWriter!(DarkArchiveFormat.zip)(backup_path)
             .addTree(this.odoo.path)
             .finish();
         return backup_path;

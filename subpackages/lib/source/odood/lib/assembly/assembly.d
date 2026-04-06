@@ -18,7 +18,7 @@ private import std.datetime.systime: Clock;
 private import std.parallelism: taskPool;
 
 private import dyaml;
-private import darkarchive: DarkArchiveReader;
+private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 private import thepath: Path, createTempPath;
 private import darktemple: renderFile;
 private import versioned: Version;
@@ -304,7 +304,7 @@ struct Assembly {
                 addon_name, _project.odoo.serie, addon_name),
             download_path);
         infof("Unpacking addon %s from odoo apps...", addon_name);
-        DarkArchiveReader(download_path.toAbsolute.toString).extractTo(temp_dir.join("apps"));
+        DarkArchiveReader!(DarkArchiveFormat.zip)(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
 
 
         enforce!OdoodAssemblyException(

@@ -380,8 +380,8 @@ const struct VirtualEnv {
         if (!python_src_dir.exists) {
             // Extract only if needed
             info("Unpacking python...");
-            import darkarchive: DarkArchiveReader;
-            DarkArchiveReader(python_download_path.toAbsolute.toString)
+            import darkarchive: DarkArchiveReader, DarkArchiveFormat;
+            DarkArchiveReader!(DarkArchiveFormat.tarGz)(python_download_path.toAbsolute)
                 .extractTo(tmp_dir);
         }
 
