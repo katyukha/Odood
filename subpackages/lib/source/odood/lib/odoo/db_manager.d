@@ -298,42 +298,40 @@ struct OdooDatabaseManager {
                     cast(const(ubyte)[]) dumpManifest(dbname));
 
                 // Stream pg_dump directly into ZIP — no temp file for dump.sql
-                {
-                    auto dump_pipe = pipe();
+                auto dump_pipe = pipe();
 
-                    // pg_dump writes SQL to stdout (no --file= arg),
-                    // stderr goes to parent's stderr for visibility
-                    auto dump_pid = pg_dump
-                        .spawn(
-                            std.stdio.File("/dev/null"),
-                            dump_pipe.writeEnd,
-                            std.stdio.stderr);
+                // pg_dump writes SQL to stdout (no --file= arg),
+                // stderr goes to parent's stderr for visibility
+                auto dump_pid = pg_dump
+                    .spawn(
+                        std.stdio.File("/dev/null"),
+                        dump_pipe.writeEnd,
+                        std.stdio.stderr);
 
-                    // Close write end in parent so read sees EOF when pg_dump exits
-                    dump_pipe.writeEnd.close();
+                // Close write end in parent so read sees EOF when pg_dump exits
+                dump_pipe.writeEnd.close();
 
-                    scope(failure) {
-                        dump_pipe.readEnd.close();
-                        dump_pid.wait();
-                    }
-
-                    writer.addStream("dump.sql", (scope sink) {
-                        ubyte[65536] buf;
-                        while (!dump_pipe.readEnd.eof) {
-                            auto got = dump_pipe.readEnd.rawRead(buf[]);
-                            if (got.length > 0)
-                                sink(got);
-                        }
-                    });
-
+                scope(failure) {
                     dump_pipe.readEnd.close();
+                    dump_pid.wait();
+                }
 
-                    auto dump_exit_code = dump_pid.wait;
-                    if (dump_exit_code != 0) {
-                        throw new OdoodException(
-                            "Cannot dump postgresql database (exit code %s).\n%s"
-                            .format(dump_exit_code, pg_dump));
+                writer.addStream("dump.sql", (scope sink) {
+                    ubyte[65536] buf;
+                    while (!dump_pipe.readEnd.eof) {
+                        auto got = dump_pipe.readEnd.rawRead(buf[]);
+                        if (got.length > 0)
+                            sink(got);
                     }
+                });
+
+                dump_pipe.readEnd.close();
+
+                auto dump_exit_code = dump_pid.wait;
+                if (dump_exit_code != 0) {
+                    throw new OdoodException(
+                        "Cannot dump postgresql database (exit code %s).\n%s"
+                        .format(dump_exit_code, pg_dump));
                 }
 
                 writer.finish();
