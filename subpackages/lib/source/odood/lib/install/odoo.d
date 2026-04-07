@@ -9,7 +9,7 @@ private import std.conv: to;
 private import std.regex;
 
 private import dini: Ini;
-private import zipper: Zipper;
+private import darkarchive: DarkArchiveReader, DarkArchiveFormat, DarkExtractFlags, ExtractParams;
 
 private import odood.exception: OdoodException;
 private import odood.lib.project: Project;
@@ -33,7 +33,7 @@ void installDownloadOdoo(in Project project) {
 
     auto odoo_archive_path = odoo_cache_dir.get(
         project.directories.downloads).join(
-            "odoo.%s.zip".format(project.odoo.branch));
+            "odoo.%s.tar.gz".format(project.odoo.branch));
     scope(exit) {
         // Automatically remove downloaded odoo archive on extraction
         // completed (if cache not used)
@@ -46,11 +46,10 @@ void installDownloadOdoo(in Project project) {
         "Currently, download of odoo is supported only " ~
         "from github repositories.");
 
-    auto download_url = "%s/archive/%s.zip".format(
+    auto download_url = "%s/archive/%s.tar.gz".format(
         project.odoo.repo.chomp(".git"), project.odoo.branch);
     auto repo_name = project.odoo.repo.chomp(".git").split("/")[$-1];
 
-    // TODO: Switch to tar.gz, for smaller archives
     if (!odoo_archive_path.exists) {
         infof(
             "Downloading odoo (%s) from %s to %s",
@@ -58,17 +57,19 @@ void installDownloadOdoo(in Project project) {
         download(download_url, odoo_archive_path);
     }
 
-    // Extract, with unfloding content of odoo-<branch> to
-    // dest folder directly.
+    // Extract, unfolding content of <repo>-<branch>/ into dest directly.
     infof(
         "Extracting odoo from %s to %s",
         odoo_archive_path, project.odoo.path);
-    Zipper(
-        odoo_archive_path.toAbsolute
-    ).extractTo(
+    auto unfoldPrefix = "%s-%s/".format(repo_name, project.odoo.branch);
+    DarkArchiveReader!(DarkArchiveFormat.tarGz)(odoo_archive_path.toAbsolute).extractTo(
         project.odoo.path,
-        "%s-%s/".format(repo_name, project.odoo.branch),  // unfoldpath
-    );
+        DarkExtractFlags.defaults | DarkExtractFlags.symlinks,
+        (ref ExtractParams params) {
+            if (params.destPath.startsWith(unfoldPrefix))
+                params.destPath = params.destPath[unfoldPrefix.length .. $];
+            return true;
+        });
 }
 
 /** Clone Odoo from Git
@@ -161,13 +162,16 @@ void installOdoo(in Project project) {
          * See: https://github.com/odoo/odoo/issues/248315
          *
          * We switch to cbor2==5.4.6, that have to work fine and
-         * has official support for python3.11
+         * has official support for python3.11. Also it do not rely on pkg_resources
          */
         if (project.venv.py_version >= Version(3, 10, 0) && project.odoo.serie <= 19) {
             info("Patching Odoo requirements.txt to avoid usage of old cbor==5.4.2...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
                 .replaceAll(
-                    regex(r"cbor2==5.4.2", "g"),
+                    regex(r"cbor2==5\.4\.2(?=[\s;])", "g"),
+                    "cbor2==5.4.6")
+                .replaceAll(
+                    regex(r"cbor2==5\.4\.2\.post1(?=[\s;])", "g"),
                     "cbor2==5.4.6");
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }

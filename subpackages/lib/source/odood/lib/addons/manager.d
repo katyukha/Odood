@@ -10,7 +10,7 @@ private import std.exception: enforce, ErrnoException, basicExceptionCtors;
 private import std.algorithm: map, canFind;
 
 private import thepath: Path, createTempPath;
-private import zipper: Zipper;
+private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 
 private import odood.lib.project: Project;
 private import odood.lib.venv: PyRequirements;
@@ -592,7 +592,7 @@ struct AddonManager {
                 addon_name, _project.odoo.serie, addon_name),
             download_path);
         infof("Unpacking addon %s from odoo apps...", addon_name);
-        Zipper(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
+        DarkArchiveReader!(DarkArchiveFormat.zip)(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
 
 
         enforce!OdoodException(

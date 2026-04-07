@@ -12,7 +12,7 @@ mkdir -p "$TEST_ODOO_TEMP"
 apt-get update
 apt-get -yq upgrade
 apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
-apt-get install --no-install-recommends -yq libzip-dev libpq-dev python3-dev
+apt-get install --no-install-recommends -yq libpq-dev python3-dev
 apt-get install --no-install-recommends -yq build-essential
 apt-get install --no-install-recommends -yq $(cat "${SCRIPT_DIR}/.ci/deps/universal-deb.txt")
 apt-get install --no-install-recommends -yq postgresql sudo
