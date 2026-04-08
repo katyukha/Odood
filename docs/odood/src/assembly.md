@@ -47,6 +47,28 @@ spec:
   - oca: web  # converted to https://github.com/OCA/web
 ```
 
+### Commit pinning
+
+Odood assemblies support commit pinning that could be used for supply-chain hardening.
+A source can be pinned to a specific commit using the `commit` field in source definition.
+`ref` is still required — it is used for an efficient single-branch clone, and `commit` is checked
+out after the fetch.
+
+```yaml
+spec:
+  addons-list:
+    - name: my_addon
+  sources-list:
+    - url: https://github.com/my/repo
+      ref: 18.0
+      commit: a3f9c12bd047  # minimum 12 hex chars
+```
+
+Full 40-character SHAs are accepted as well as abbreviated hashes of at least 12 characters.
+`commit` without `ref` is not allowed and will be rejected during spec validation.
+
+### Odoo Apps addons
+
 Additionally, it is allowed to download addons from [Odoo Apps](https://apps.odoo.com/apps).
 For example, following spec, will download all addons from Odoo Apps. No git sources provided.
 
@@ -204,6 +226,7 @@ spec:
   sources-list:
     - github: my/private-repo
       ref: 18.0
+      commit: a3f9c12bd047   # optional: pin to a specific commit
       access-group: my_repos
 ```
 

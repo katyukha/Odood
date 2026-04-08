@@ -272,17 +272,26 @@ struct Assembly {
                 auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
                 if (source.git_ref) {
                     repo.fetchOrigin(source.git_ref);
-                    repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    if (source.git_commit) {
+                        repo.switchBranchTo(source.git_commit);
+                        repo.ensureAtCommit(source.git_commit);
+                    } else {
+                        repo.switchBranchTo("origin/%s".format(source.git_ref));
+                    }
                 } else {
                     repo.pull;
                 }
             } else {
-                gitClone(
+                auto repo = gitClone(
                     repo: source.git_url,
                     dest: repo_path,
                     branch: source.git_ref ? source.git_ref : serie.toString,
                     single_branch: true,
                     env: getSourceExtraEnv(source));
+                if (source.git_commit) {
+                    repo.switchBranchTo(source.git_commit);
+                    repo.ensureAtCommit(source.git_commit);
+                }
             }
             infof("Assembly: source %s synced.", source);
         }
