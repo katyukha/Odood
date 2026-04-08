@@ -14,7 +14,6 @@
 		"thepath": "2.3.1",
 		"theprocess": "0.1.1",
 		"unit-threaded": "2.2.3",
-		"versioned": "0.1.0",
-		"zipper": "0.0.8"
+		"versioned": "0.1.0"
 	}
 }

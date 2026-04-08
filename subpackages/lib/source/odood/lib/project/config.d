@@ -215,10 +215,6 @@ struct ProjectConfigDirectories {
     /// Directory for project-related caches
     Path cache;
 
-    /// Optional custom temp directory for large temporary files (e.g. backups).
-    /// When not set, the system default temp directory is used.
-    Nullable!Path temp;
-
     this(in Path root) {
         this.root = root;
         this.conf = root.join("conf");
@@ -246,8 +242,6 @@ struct ProjectConfigDirectories {
         else
             this.cache = this.root.join("cache");
 
-        if (config.containsKey("temp"))
-            this.temp = Nullable!Path(Path(config["temp"].as!string));
     }
 
     dyaml.Node toYAML() const {
@@ -262,8 +256,6 @@ struct ProjectConfigDirectories {
             "repositories": this.repositories.toString,
             "cache": this.cache.toString,
         ]);
-        if (!this.temp.isNull)
-            result["temp"] = this.temp.get.toString;
         return result;
     }
 

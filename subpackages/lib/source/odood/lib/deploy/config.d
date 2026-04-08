@@ -134,9 +134,6 @@ struct DeployConfig {
 
     Nullable!GitURL assembly_repo;
 
-    /// Optional custom temp directory for large temporary files
-    Nullable!Path temp_dir;
-
     /** Validate deploy config
       * Throw exception if config is not valid.
       **/
@@ -216,12 +213,6 @@ struct DeployConfig {
                 "SSL enabled, but provided SSL certificate (%s) does not exists!".format(this.nginx.ssl_cert));
         }
 
-        if (!this.temp_dir.isNull)
-            enforce!OdoodDeployException(
-                this.temp_dir.get.exists && this.temp_dir.get.isDir,
-                "Custom temp directory '%s' does not exist or is not a directory.".format(
-                    this.temp_dir.get));
-
         if (this.odoo.use_system_ca_bundle)
             enforce!OdoodDeployException(
                 !this.odoo.system_ca_bundle_path.isNull
@@ -293,8 +284,6 @@ struct DeployConfig {
       **/
     auto prepareOdoodProject() const {
         auto project_directories = ProjectConfigDirectories(this.deploy_path);
-        if (!this.temp_dir.isNull)
-            project_directories.temp = this.temp_dir;
         auto project_odoo = ProjectConfigOdoo(
             this.deploy_path, project_directories, this.odoo.serie);
         project_odoo.server_user = this.odoo.server_user;

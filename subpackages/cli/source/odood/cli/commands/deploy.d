@@ -99,11 +99,6 @@ class CommandDeploy: OdoodCommand {
             "so Odoo uses system certificates instead of the bundled certifi CA bundle."));
 
         this.add(new Option(
-            null, "temp-dir",
-            "Custom directory for large temporary files (e.g. during database backup). " ~
-            "Useful when system temp directory has limited space."));
-
-        this.add(new Option(
             null, "assembly-repo",
             "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine."));
 
@@ -207,9 +202,6 @@ class CommandDeploy: OdoodCommand {
             config.odoo.use_system_ca_bundle = true;
             config.odoo.system_ca_bundle_path = detectSystemCABundle();
         }
-
-        if (!args.option("temp-dir").empty)
-            config.temp_dir = Nullable!Path(Path(args.option("temp-dir")));
 
         if (!args.option("assembly-repo").empty)
             config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;

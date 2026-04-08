@@ -4,9 +4,6 @@
 
 ### Added
 
-- Added `--temp-dir` option to `odood deploy` to configure a custom directory
-  for large temporary files (e.g. during database backup). Saved in `odood.yml`
-  as `directories.temp`.
 - Batch Python requirements installation: when linking addons (via `odood addons link`,
   `odood assembly link`, or `odood venv reinstall`), all Python requirements are now
   gathered and installed in a single `pip install` call instead of one call per addon.
@@ -31,9 +28,6 @@
 
 ### Changed
 
-- Database backup now uses configurable temp directory (`directories.temp`
-  in `odood.yml`) instead of always using system temp. Useful when `/tmp`
-  has limited space.
 - Tests now use os-provided available tcp ports to run Odoo,
   thus it is possible to run few different tests with different databaes in parallel
 - `odood venv reinstall` now installs all addon Python requirements in a single

@@ -24,7 +24,6 @@
 		"theprocess": "0.1.1",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.9",
-		"versioned": "0.1.0",
-		"zipper": "0.0.8"
+		"versioned": "0.1.0"
 	}
 }
