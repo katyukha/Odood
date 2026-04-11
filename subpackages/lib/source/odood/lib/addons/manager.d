@@ -399,12 +399,14 @@ struct AddonManager {
       *     cmd = Command that describes what to do: install or update
       *     env = Extra environment variables to provide for the Odoo
       *           if needed. Used by openupgrade.
+      *     verbose = if set to true, log output will be written to stdout instead of file
       **/
     private void _run_install_update_addons(
             in string database,
             in string[] addon_names,
             in cmdIU cmd,
-            in string[string] env=null) const {
+            in string[string] env=null,
+            in bool verbose=false) const {
 
         // Initialize server runner configuration
         auto runner = _project.server.getServerRunner(
@@ -413,8 +415,14 @@ struct AddonManager {
             "--stop-after-init",
             _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
-            "--logfile=%s".format(_project.odoo.logfile.toString),
         ).withEnv(env);
+
+        // Use stdout for logging in verbose mode, otherwise use logfile
+        if (verbose) {
+            runner.addArgs("--logfile=");  // Empty logfile to use stdout
+        } else {
+            runner.addArgs("--logfile=%s".format(_project.odoo.logfile.toString));
+        }
         if (!_project.dbSQL(database).hasDemoData)
             runner.addArgs("--without-demo=all");
 
@@ -448,18 +456,20 @@ struct AddonManager {
       *     addons = list of addons (or names of addons) to update
       *     database = name of database to update addons in
       *     env = additional environment variables to be used during update
+      *     verbose = if set to true, log output will be written to stdout instead of file
       *     search_path = path to search addons to update
       **/
     void update(
             in string database,
             in OdooAddon[] addons,
-            in string[string] env=null) const {
+            in string[string] env=null,
+            in bool verbose=false) const {
         if (!addons) {
             warning("No addons specified for 'update'.");
             return;
         }
         _run_install_update_addons(
-            database, addons.map!(a => a.name).array, cmdIU.update, env);
+            database, addons.map!(a => a.name).array, cmdIU.update, env, verbose);
     }
 
     /// ditto
@@ -467,29 +477,40 @@ struct AddonManager {
             in string database,
             in string[] addons...) {
         _run_install_update_addons(
-            database, addons, cmdIU.update);
+            database, addons, cmdIU.update, null, false);
     }
 
     /// ditto
     void update(
             in string database,
             in string[] addons,
-            in string[string] env) {
+            in bool verbose=false) {
         _run_install_update_addons(
-            database, addons, cmdIU.update, env);
+            database, addons, cmdIU.update, null, verbose);
+    }
+
+    /// ditto
+    void update(
+            in string database,
+            in string[] addons,
+            in string[string] env,
+            in bool verbose=false) {
+        _run_install_update_addons(
+            database, addons, cmdIU.update, env, verbose);
     }
 
     /// ditto
     void update(
             in string database,
             in Path search_path,
-            in string[string] env=null) const {
-        update(database, scan(search_path), env);
+            in string[string] env=null,
+            in bool verbose=false) const {
+        update(database, scan(search_path), env, verbose);
     }
 
     /// Update all odoo addons for specific database
-    void updateAll(in string database, in string[string] env=null) const {
-        _run_install_update_addons(database, ["all"], cmdIU.update, env);
+    void updateAll(in string database, in string[string] env=null, in bool verbose=false) const {
+        _run_install_update_addons(database, ["all"], cmdIU.update, env, verbose);
     }
 
     /** Install odoo addons
@@ -498,41 +519,53 @@ struct AddonManager {
       *     addons = list of addons (or names of addons) to install
       *     database = name of database to install addons in
       *     env = additional environment variables to be used during install
+      *     verbose = if set to true, log output will be written to stdout instead of file
       *     search_path = path to search addons to install
       **/
     void install(
             in string database,
             in OdooAddon[] addons,
-            in string[string] env=null) {
+            in string[string] env=null,
+            in bool verbose=false) {
         if (!addons) {
             warning("No addons specified for 'install'.");
             return;
         }
         _run_install_update_addons(
-            database, addons.map!(a => a.name).array, cmdIU.install, env);
+            database, addons.map!(a => a.name).array, cmdIU.install, env, verbose);
     }
 
     /// ditto
     void install(
             in string database,
             in string[] addons...) {
-        _run_install_update_addons(database, addons, cmdIU.install);
+        _run_install_update_addons(database, addons, cmdIU.install, null, false);
     }
 
     /// ditto
     void install(
             in string database,
             in string[] addons,
-            in string[string] env) {
-        _run_install_update_addons(database, addons, cmdIU.install, env);
+            in bool verbose=false) {
+        _run_install_update_addons(database, addons, cmdIU.install, null, verbose);
+    }
+
+    /// ditto
+    void install(
+            in string database,
+            in string[] addons,
+            in string[string] env,
+            in bool verbose=false) {
+        _run_install_update_addons(database, addons, cmdIU.install, env, verbose);
     }
 
     /// ditto
     void install(
             in string database,
             in Path search_path,
-            in string[string] env=null) {
-        install(database, scan(search_path), env);
+            in string[string] env=null,
+            in bool verbose=false) {
+        install(database, scan(search_path), env, verbose);
     }
 
     /** Unnstall odoo addons
@@ -541,40 +574,53 @@ struct AddonManager {
       *     addons = list of addons (or names of addons) to uninstall
       *     database = name of database to uninstall addons in
       *     env = additional environment variables to be used during uninstall
+      *     verbose = if set to true, log output will be written to stdout instead of file
       *     search_path = path to search addons to uninstall
       **/
     void uninstall(
             in string database,
             in OdooAddon[] addons,
-            in string[string] env=null) {
+            in string[string] env=null,
+            in bool verbose=false) {
         _run_install_update_addons(
             database,
             addons.map!(a => a.name).array,
             cmdIU.uninstall,
-            env);
+            env,
+            verbose);
     }
 
     /// ditto
     void uninstall(
             in string database,
             in string[] addons...) {
-        _run_install_update_addons(database, addons, cmdIU.uninstall);
+        _run_install_update_addons(database, addons, cmdIU.uninstall, null, false);
     }
 
     /// ditto
     void uninstall(
             in string database,
             in string[] addons,
-            in string[string] env) {
-        _run_install_update_addons(database, addons, cmdIU.uninstall, env);
+            in bool verbose=false) {
+        _run_install_update_addons(database, addons, cmdIU.uninstall, null, verbose);
+    }
+
+    /// ditto
+    void uninstall(
+            in string database,
+            in string[] addons,
+            in string[string] env,
+            in bool verbose=false) {
+        _run_install_update_addons(database, addons, cmdIU.uninstall, env, verbose);
     }
 
     /// ditto
     void uninstall(
             in string database,
             in Path search_path,
-            in string[string] env=null) {
-        uninstall(database, scan(search_path), env);
+            in string[string] env=null,
+            in bool verbose=false) {
+        uninstall(database, scan(search_path), env, verbose);
     }
 
     /// Download from odoo apps

@@ -424,6 +424,8 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             "addon", "Specify names of addons as arguments.").optional.repeating);
 
         // Other flags
+        this.add(new Flag(
+            "v", "verbose", "Enable verbose output"));
         this.add(
             new Flag(
                 null, "skip-errors", "Do not fail on errors during installation."));
@@ -568,13 +570,14 @@ class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+        bool verbose = args.flag("verbose");
 
         applyForDatabases(args, project, (in string dbname) {
             checkUnfinishedUpdates(project, dbname, args);
             if (args.flag("ual"))
                 project.lodoo.addonsUpdateList(dbname, true);
             if (args.flag("all"))
-                project.addons.updateAll(dbname);
+                project.addons.updateAll(dbname, null, verbose);
             else {
                 auto addons = findAddons(args, project);
                 if (args.flag("installed-only"))
@@ -584,7 +587,7 @@ class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
                 if (addons.empty)
                     infof("No installed addons to update in %s, skipping.", dbname);
                 else
-                    project.addons.update(dbname, addons);
+                    project.addons.update(dbname, addons, null, verbose);
             }
             checkUnfinishedUpdates(project, dbname, args);
         });
@@ -607,6 +610,7 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+        bool verbose = args.flag("verbose");
 
         applyForDatabases(args, project, (in string dbname) {
             checkUnfinishedUpdates(project, dbname, args);
@@ -620,7 +624,7 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
             if (addons.empty)
                 infof("All addons already installed in %s, skipping.", dbname);
             else
-                project.addons.install(dbname, addons);
+                project.addons.install(dbname, addons, null, verbose);
             checkUnfinishedUpdates(project, dbname, args);
         });
     }
@@ -634,9 +638,10 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
 
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
+        bool verbose = args.flag("verbose");
 
         applyForDatabases(args, project, (in string dbname) {
-            project.addons.uninstall(dbname, findAddons(args, project));
+            project.addons.uninstall(dbname, findAddons(args, project), null, verbose);
         });
     }
 }
