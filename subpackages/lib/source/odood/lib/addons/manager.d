@@ -420,6 +420,7 @@ struct AddonManager {
         // Use stdout for logging in verbose mode, otherwise use logfile
         if (verbose) {
             runner.addArgs("--logfile=");  // Empty logfile to use stdout
+            // In verbose mode, don't set Config flags to allow stdout to pass through naturally
         } else {
             runner.addArgs("--logfile=%s".format(_project.odoo.logfile.toString));
         }
