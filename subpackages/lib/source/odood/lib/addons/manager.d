@@ -8,6 +8,8 @@ private import std.format: format;
 private import std.file: SpanMode;
 private import std.exception: enforce, ErrnoException, basicExceptionCtors;
 private import std.algorithm: map, canFind;
+private import std.process: Config;
+private static import std.process;
 
 private import thepath: Path, createTempPath;
 private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
@@ -15,6 +17,8 @@ private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 private import odood.lib.project: Project;
 private import odood.lib.venv: PyRequirements;
 private import odood.lib.odoo.config: readOdooConfig, getSystemAddonsPaths;
+private import odood.lib.server.log_pipe: OdooLogPipe;
+private import odood.lib.odoo.log: OdooLogRecord;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
 private import odood.utils.addons.odoo_requirements:
@@ -417,37 +421,92 @@ struct AddonManager {
             "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
         ).withEnv(env);
 
-        // Use stdout for logging in verbose mode, otherwise use logfile
-        if (verbose) {
-            runner.addArgs("--logfile=");  // Empty logfile to use stdout
-            // In verbose mode, don't set Config flags to allow stdout to pass through naturally
-        } else {
-            runner.addArgs("--logfile=%s".format(_project.odoo.logfile.toString));
-        }
-        if (!_project.dbSQL(database).hasDemoData)
-            runner.addArgs("--without-demo=all");
-
         auto addon_names_csv = addon_names.join(",");
-        final switch(cmd) {
-            case cmdIU.install:
-                infof("Installing addons (db=%s): %s", database, addon_names_csv);
-                runner.withArgs("--init=%s".format(addon_names_csv))
-                    .execute.ensureOk!AddonsInstallException(true);
-                infof("Installation of addons for database %s completed!", database);
-                break;
-            case cmdIU.update:
-                infof("Updating addons (db=%s): %s", database, addon_names_csv);
-                runner.withArgs("--update=%s".format(addon_names_csv))
-                    .execute.ensureOk!AddonsUpdateException(true);
-                infof("Update of addons for database %s completed!", database);
-                break;
-            case cmdIU.uninstall:
-                infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
-                _project.lodoo(_test_mode).addonsUninstall(
-                    database,
-                    addon_names);
-                infof("Uninstallation of addons for database %s completed!", database);
-                break;
+
+        if (verbose) {
+            // Verbose mode: use pipe to capture and display logs on the fly
+            runner.addArgs("--logfile=");  // Empty logfile to use stdout
+
+            if (!_project.dbSQL(database).hasDemoData)
+                runner.addArgs("--without-demo=all");
+
+            final switch(cmd) {
+                case cmdIU.install:
+                    infof("Installing addons (db=%s): %s", database, addon_names_csv);
+                    _runInstallUpdateWithPipe(runner, "--init=%s".format(addon_names_csv), cmdIU.install);
+                    infof("Installation of addons for database %s completed!", database);
+                    break;
+                case cmdIU.update:
+                    infof("Updating addons (db=%s): %s", database, addon_names_csv);
+                    _runInstallUpdateWithPipe(runner, "--update=%s".format(addon_names_csv), cmdIU.update);
+                    infof("Update of addons for database %s completed!", database);
+                    break;
+                case cmdIU.uninstall:
+                    infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
+                    _project.lodoo(_test_mode).addonsUninstall(database, addon_names);
+                    infof("Uninstallation of addons for database %s completed!", database);
+                    break;
+            }
+        } else {
+            // Non-verbose mode: use logfile and execute normally
+            runner.addArgs("--logfile=%s".format(_project.odoo.logfile.toString));
+
+            if (!_project.dbSQL(database).hasDemoData)
+                runner.addArgs("--without-demo=all");
+
+            final switch(cmd) {
+                case cmdIU.install:
+                    infof("Installing addons (db=%s): %s", database, addon_names_csv);
+                    runner.withArgs("--init=%s".format(addon_names_csv))
+                        .execute.ensureOk!AddonsInstallException(true);
+                    infof("Installation of addons for database %s completed!", database);
+                    break;
+                case cmdIU.update:
+                    infof("Updating addons (db=%s): %s", database, addon_names_csv);
+                    runner.withArgs("--update=%s".format(addon_names_csv))
+                        .execute.ensureOk!AddonsUpdateException(true);
+                    infof("Update of addons for database %s completed!", database);
+                    break;
+                case cmdIU.uninstall:
+                    infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
+                    _project.lodoo(_test_mode).addonsUninstall(database, addon_names);
+                    infof("Uninstallation of addons for database %s completed!", database);
+                    break;
+            }
+        }
+    }
+
+    /** Helper method to run install/update with pipe and display logs on the fly
+      **/
+    private void _runInstallUpdateWithPipe(T)(T runner, in string addon_arg, in cmdIU cmd) const {
+
+        import std.stdio: writeln;
+        import std.process: ProcessPipes, wait;
+        import odood.lib.odoo.log: OdooLogProcessor;
+
+        auto server_pipes = runner.withArgs(addon_arg)
+            .pipe(std.process.Redirect.all);
+
+        // Create log processor directly from stderr
+        OdooLogProcessor log_processor = OdooLogProcessor(server_pipes.stderr);
+
+        // Process logs on the fly
+        foreach(log_record; log_processor) {
+            // Display the log record
+            writeln(log_record.toString);
+        }
+
+        // Check if there were errors
+        auto exit_code = wait(server_pipes.pid);
+        if (exit_code != 0) {
+            final switch(cmd) {
+                case cmdIU.install:
+                    throw new AddonsInstallException("Addon installation failed!");
+                case cmdIU.update:
+                    throw new AddonsUpdateException("Addon update failed!");
+                case cmdIU.uninstall:
+                    throw new OdoodException("Addon uninstall failed!");
+            }
         }
     }
 
