@@ -375,8 +375,8 @@ class CommandDatabasePopulate: OdoodCommand {
 class CommandDatabaseEnsureInitialized: OdoodCommand {
     this() {
         super("ensure-initialized",
-              "Ensure a database exists and is initialized as an Odoo database. " ~
-              "Idempotent: safe to use in K8s init containers.");
+            "Ensure a database exists and is initialized as an Odoo database. " ~
+            "Idempotent: safe to use in K8s init containers.");
         this.add(new Flag(
             null, "wait-pg",
             "Wait for PostgreSQL to be ready before proceeding."));
@@ -389,6 +389,8 @@ class CommandDatabaseEnsureInitialized: OdoodCommand {
             "l", "lang",
             "Language code, e.g. en_US (only on first initialization).")
             .defaultValue("en_US"));
+        this.add(new Flag(
+            "v", "verbose", "Show database initialization logs in real-time."));
         this.add(new Argument("name", "Name of database.").required());
     }
 
@@ -407,7 +409,8 @@ class CommandDatabaseEnsureInitialized: OdoodCommand {
         project.databases.ensureInitialized(
             args.arg("name"),
             args.flag("demo"),
-            args.option("lang"));
+            args.option("lang"),
+            args.flag("verbose"));
     }
 }
 

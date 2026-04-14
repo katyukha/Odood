@@ -13,6 +13,8 @@ private import std.datetime.systime: Clock;
 private import std.algorithm.iteration: filter, map;
 private import std.algorithm.searching: canFind;
 private import std.string: join, startsWith, chompPrefix, empty, split, strip;
+private import std.stdio: writeln;
+private import std.process: Redirect, wait;
 
 private import thepath;
 private import theprocess;
@@ -23,6 +25,7 @@ private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
 private import odood.lib.odoo.db: OdooDatabase;
 private import odood.lib.odoo.db_utils: openPgConnection;
+private import odood.lib.odoo.log: OdooLogProcessor;
 
 private import odood.utils.odoo: parseServerSerie;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -171,18 +174,61 @@ struct OdooDatabaseManager {
       *     name = database name
       *     demo = load demo data (only effective on first initialization)
       *     lang = language code, e.g. "en_US" (only effective on first initialization)
+      *     verbose = if set to true, show database initialization logs in real-time
       **/
     void ensureInitialized(
             in string name,
             in bool demo = false,
-            in string lang = null) const {
+            in string lang = null,
+            in bool verbose = false) const {
+        if (verbose) {
+            _ensureInitializedWithLogs(name, demo, lang);
+        } else {
+            // Non-verbose mode: original behavior
+            if (!exists(name)) {
+                infof("Database '%s' does not exist. Creating...", name);
+                _createEmptyDB(name);
+            }
+
+            if (!isInitialized(name)) {
+                infof("Initializing Odoo database '%s'...", name);
+                auto swm = _project.server.getConfig.getConfVal(
+                    "server_wide_modules", "base,web");
+                auto runner = _project.server(_test_mode).getServerRunner(
+                    "-d", name,
+                    "--max-cron-threads=0",
+                    "--stop-after-init",
+                    _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
+                    "--pidfile=",
+                    "--logfile=%s".format(_project.odoo.logfile),
+                    "--init=%s".format(swm),
+                );
+                if (!demo)
+                    runner.addArgs("--without-demo=all");
+                if (lang)
+                    runner.addArgs("--lang=%s".format(lang));
+                runner.execute.ensureOk!OdoodException(true);
+                infof("Database '%s' initialized.", name);
+            } else {
+                infof("Database '%s' is already initialized.", name);
+            }
+        }
+    }
+
+    /** Helper method to ensure database is initialized with logs displayed
+      **/
+    private void _ensureInitializedWithLogs(
+            in string name,
+            in bool demo,
+            in string lang) const {
+
         if (!exists(name)) {
-            infof("Database '%s' does not exist. Creating...", name);
+            infof("Creating database '%s'...", name);
             _createEmptyDB(name);
         }
 
         if (!isInitialized(name)) {
-            infof("Initializing Odoo database '%s'...", name);
+            infof("Initializing Odoo database '%s' with logs...", name);
             auto swm = _project.server.getConfig.getConfVal(
                 "server_wide_modules", "base,web");
             auto runner = _project.server(_test_mode).getServerRunner(
@@ -191,15 +237,29 @@ struct OdooDatabaseManager {
                 "--stop-after-init",
                 _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
                 "--pidfile=",
-                "--logfile=%s".format(_project.odoo.logfile),
+                "--logfile=",  // Empty logfile to capture logs via stderr
                 "--init=%s".format(swm),
             );
             if (!demo)
                 runner.addArgs("--without-demo=all");
             if (lang)
                 runner.addArgs("--lang=%s".format(lang));
-            runner.execute.ensureOk!OdoodException(true);
-            infof("Database '%s' initialized.", name);
+
+            auto server_pipes = runner.pipe(Redirect.all);
+            OdooLogProcessor log_processor = OdooLogProcessor(server_pipes.stderr);
+
+            // Process logs on the fly and display them
+            foreach(log_record; log_processor) {
+                writeln(log_record.toString);
+            }
+
+            // Check if there were errors
+            auto exit_code = wait(server_pipes.pid);
+            if (exit_code != 0) {
+                throw new OdoodException("Database initialization failed!");
+            }
+
+            infof("Database '%s' initialized successfully!", name);
         } else {
             infof("Database '%s' is already initialized.", name);
         }
