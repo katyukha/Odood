@@ -45,7 +45,8 @@ Ini initOdooConfig(in Project project) {
 
     odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
     odoo_conf["options"].setKey("data_dir", project.directories.data.toString);
-    odoo_conf["options"].setKey("logfile", project.odoo.logfile.toString);
+    if (!project.odoo.logfile.isNull)
+        odoo_conf["options"].setKey("logfile", project.odoo.logfile.get.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");
 
     if (project.odoo.serie < 8)

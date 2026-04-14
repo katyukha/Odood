@@ -50,6 +50,7 @@ const struct LOdoo {
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 process.setUser(_project.odoo.server_user);
+            process.setStderrPassThrough;
             return process;
         }
 
@@ -58,7 +59,6 @@ const struct LOdoo {
         string[] databaseList() {
             return runner
                 .withArgs("db-list")
-                .withFlag(Config.stderrPassThrough)
                 .execute()
                 .ensureOk!OdoodException(true)
                 .output.split("\n").filter!(db => db && db != "").array;
@@ -144,7 +144,6 @@ const struct LOdoo {
         auto databaseDumpManifest(in string name) {
             return runner
                 .withArgs("db-dump-manifest", name)
-                .withFlag(Config.stderrPassThrough)
                 .execute
                 .ensureOk!OdoodException(true)
                 .output;

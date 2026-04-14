@@ -413,8 +413,9 @@ struct AddonManager {
             "--stop-after-init",
             _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
             "--pidfile=",  // We must not write to pidfile to avoid conflicts with running Odoo
-            "--logfile=%s".format(_project.odoo.logfile.toString),
         ).withEnv(env);
+        if (!_project.odoo.logfile.isNull)
+            runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get.toString));
         if (!_project.dbSQL(database).hasDemoData)
             runner.addArgs("--without-demo=all");
 
@@ -423,12 +424,14 @@ struct AddonManager {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
                 runner.withArgs("--init=%s".format(addon_names_csv))
+                    .withStderrPassThrough
                     .execute.ensureOk!AddonsInstallException(true);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
                 runner.withArgs("--update=%s".format(addon_names_csv))
+                    .withStderrPassThrough
                     .execute.ensureOk!AddonsUpdateException(true);
                 infof("Update of addons for database %s completed!", database);
                 break;

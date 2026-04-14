@@ -191,14 +191,16 @@ struct OdooDatabaseManager {
                 "--stop-after-init",
                 _project.odoo.serie <= OdooSerie(10) ? "--no-xmlrpc" : "--no-http",
                 "--pidfile=",
-                "--logfile=%s".format(_project.odoo.logfile),
                 "--init=%s".format(swm),
             );
+            if (!_project.odoo.logfile.isNull)
+                runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get));
             if (!demo)
                 runner.addArgs("--without-demo=all");
             if (lang)
                 runner.addArgs("--lang=%s".format(lang));
-            runner.execute.ensureOk!OdoodException(true);
+            runner.withStderrPassThrough
+                .execute.ensureOk!OdoodException(true);
             infof("Database '%s' initialized.", name);
         } else {
             infof("Database '%s' is already initialized.", name);

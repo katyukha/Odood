@@ -291,6 +291,8 @@ struct DeployConfig {
         project_odoo.server_systemd_service_path = this.odoo.server_systemd_service_path;
         project_odoo.server_init_script_path = this.odoo.server_init_script_path;
         project_odoo.pidfile = this.odoo.pidfile;
+        if (this.odoo.log_to_stderr)
+            project_odoo.logfile.nullify;
 
         /* On deployment, there is only one config file.
          * There is no need for separate config file for tests,

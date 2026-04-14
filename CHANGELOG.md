@@ -25,7 +25,7 @@
   (check-only — no auto-formatting). Useful for migrating projects from odoo-helper.
 - Added bandit security scanner hook to the default pre-commit config.
 - Added `odoolint` catchall check to the default pylintrc
-- Added support for commit pinning on the assemly spec
+- Added support for commit pinning on the assembly spec
 
 ### Changed
 
