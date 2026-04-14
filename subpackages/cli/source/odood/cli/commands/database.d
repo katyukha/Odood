@@ -49,6 +49,8 @@ class CommandDatabaseCreate: OdoodCommand {
             "r", "recreate", "Recreate database if it already exists."));
         this.add(new Flag(
             null, "tdb", "Automatically generate default name of test database"));
+        this.add(new Flag(
+            "v", "verbose", "Show database creation logs in real-time."));
         this.add(new Option(
             "l", "lang",
             "Language of database, specified as ISO code of language."
@@ -113,10 +115,12 @@ class CommandDatabaseCreate: OdoodCommand {
             args.flag("demo"),
             args.option("lang"),
             args.option("password"),
-            args.option("country"));
+            args.option("country"),
+            args.flag("verbose"));
 
-        if (!to_install.empty)
-            project.addons.install(dbname, to_install);
+        if (!to_install.empty) {
+            project.addons.install(dbname, to_install, null, args.flag("verbose"));
+        }
     }
 }
 

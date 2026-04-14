@@ -174,6 +174,34 @@ void testEnsureInitializedVerbose(in Project project, in string ukey="n") {
     infof("Testing ensure-initialized with verbose logging for %s. Complete: Ok.", project);
 }
 
+/// Test database create with verbose logging
+void testCreateWithVerbose(in Project project, in string ukey="n") {
+    infof("Testing database create with verbose logging for %s", project);
+
+    auto dbname = project.genDbName("test-create-v", ukey);
+
+    // Test 1: Create database with verbose=true
+    project.databases.exists(dbname).shouldBeFalse();
+
+    infof("Test 1: Create database with verbose=true");
+    project.databases.create(dbname, false, "en_US", null, null, true);
+
+    project.databases.exists(dbname).shouldBeTrue();
+
+    // Test 2: Create database with verbose=false (no logs)
+    auto dbname2 = project.genDbName("test-create-nv", ukey);
+    infof("Test 2: Create database with verbose=false");
+    project.databases.create(dbname2, true, "en_US", null, null, false);
+
+    project.databases.exists(dbname2).shouldBeTrue();
+
+    // Cleanup
+    project.databases.drop(dbname);
+    project.databases.drop(dbname2);
+
+    infof("Testing database create with verbose logging for %s. Complete: Ok.", project);
+}
+
 
 /// Test addons manager
 void testAddonsManagementBasic(in Project project, in string ukey="n") {
@@ -390,6 +418,7 @@ void runBasicTests(Project project, in string ukey="n") {
      * - test server management
      * - test database management
      * - test ensure-initialized with verbose logging
+     * - test create with verbose logging
      * - test repo downloading
      * - test addons testing
      */
@@ -402,6 +431,9 @@ void runBasicTests(Project project, in string ukey="n") {
 
     // Test ensure-initialized with verbose logging
     testEnsureInitializedVerbose(project, ukey);
+
+    // Test create with verbose logging
+    testCreateWithVerbose(project, ukey);
 
     // Test basic addons management
     testAddonsManagementBasic(project, ukey);

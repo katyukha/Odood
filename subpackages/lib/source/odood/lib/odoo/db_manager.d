@@ -100,11 +100,62 @@ struct OdooDatabaseManager {
     }
 
     /** Create new Odoo database on this odoo instance
+      *
+      * Params:
+      *     name = database name
+      *     demo = load demo data
+      *     lang = language code, e.g. "en_US"
+      *     password = admin password
+      *     country = country for this db
+      *     verbose = if set to true, show database creation logs in real-time
       **/
     auto create(in string name, in bool demo=false,
                 in string lang=null, in string password=null,
-                in string country=null) const {
-        return _project.lodoo(_test_mode).databaseCreate(name, demo, lang, password, country);
+                in string country=null, in bool verbose=false) const {
+        if (verbose) {
+            _createWithPipeAndLogs(name, demo, lang, password, country);
+            return;  // Return void from lambda
+        } else {
+            return _project.lodoo(_test_mode).databaseCreate(name, demo, lang, password, country);
+        }
+    }
+
+    /** Helper method to create database with logs displayed
+      **/
+    private void _createWithPipeAndLogs(
+            in string name,
+            in bool demo,
+            in string lang,
+            in string password,
+            in string country) const {
+
+        infof("Creating database '%s' with logs...", name);
+
+        auto runner = _project.venv.runner()
+            .inWorkDir(_project.project_root)
+            .withArgs("lodoo", "--conf", _project.odoo.configfile.toString)
+            .withArgs("db-create", demo ? "--demo" : "--no-demo", name);
+
+        if (lang)
+            runner.withArgs("--lang=%s".format(lang));
+        if (password)
+            runner.withArgs("--password=%s".format(password));
+        if (country)
+            runner.withArgs("--country=%s".format(country));
+
+        auto server_pipes = runner.pipe(Redirect.all);
+        OdooLogProcessor log_processor = OdooLogProcessor(server_pipes.stderr);
+
+        foreach(log_record; log_processor) {
+            writeln(log_record.toString);
+        }
+
+        auto exit_code = wait(server_pipes.pid);
+        if (exit_code != 0) {
+            throw new OdoodException("Database creation failed!");
+        }
+
+        infof("Database '%s' created successfully!", name);
     }
 
     /** Drop specified database
