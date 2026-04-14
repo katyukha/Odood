@@ -283,6 +283,8 @@ class CommandDatabaseRestore: OdoodCommand {
             "f", "force", "Enforce restore, even if backup is not valid."));
         this.add(new Flag(
             "r", "recreate", "Recreate database if it already exists."));
+        this.add(new Flag(
+            "v", "verbose", "Show database restore logs in real-time."));
         this.add(new Argument(
             "name", "Name of database to restore.").required());
         this.add(new Argument(
@@ -316,7 +318,7 @@ class CommandDatabaseRestore: OdoodCommand {
             dbname,
             backup_path,
             args.flag("force") ? false : true,  // validate strict
-        );
+            args.flag("verbose"));
 
         // Optionally stun database
         if (args.flag("stun"))
@@ -353,6 +355,8 @@ class CommandDatabasePopulate: OdoodCommand {
         this.add(new Option(
             "s", "size", "Population size"
             ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
+        this.add(new Flag(
+            "v", "verbose", "Show database populate logs in real-time."));
         this.add(
             new Option(
                 null, "repeat", "Repeat population N times."
@@ -370,7 +374,8 @@ class CommandDatabasePopulate: OdoodCommand {
             project.databases.populate(
                 args.option("dbname"),
                 args.options("model"),
-                args.option("size"));
+                args.option("size"),
+                args.flag("verbose"));
         }
     }
 }

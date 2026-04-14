@@ -548,16 +548,41 @@ struct OdooDatabaseManager {
       *     validate_strict = if set to true,
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
+      *     verbose = if set to true, show database restore logs in real-time
       **/
     void _restoreSQL(
             in string name,
             in Path backup_path,
-            in bool validate_strict=true) const {
+            in bool validate_strict=true,
+            in bool verbose=false) const {
 
         // TODO: Detect format, it may be plain SQL or custom SQL format
 
         // Use lodoo to restore backup for now
-        _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+        if (verbose) {
+            // Display logs in real-time
+            infof("Restoring database %s from SQL backup with logs...", name);
+            auto runner = _project.venv.runner()
+                .inWorkDir(_project.project_root)
+                .withArgs("lodoo", "--conf", _project.odoo.configfile.toString)
+                .withArgs("db-restore", name, backup_path.toString);
+
+            auto server_pipes = runner.pipe(Redirect.all);
+            OdooLogProcessor log_processor = OdooLogProcessor(server_pipes.stderr);
+
+            foreach(log_record; log_processor) {
+                writeln(log_record.toString);
+            }
+
+            auto exit_code = wait(server_pipes.pid);
+            if (exit_code != 0) {
+                throw new OdoodException("Database restore failed!");
+            }
+
+            infof("Database %s restored successfully from SQL backup!", name);
+        } else {
+            _project.lodoo(_test_mode).databaseRestore(name, backup_path);
+        }
     }
 
     /** Create empty database before restoration
@@ -598,16 +623,22 @@ struct OdooDatabaseManager {
       *     validate_strict = if set to true,
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
+      *     verbose = if set to true, show database restore logs in real-time
       **/
     void _restoreZIP(
             in string name,
             in Path backup_path,
-            in bool validate_strict=true) const {
+            in bool validate_strict=true,
+            in bool verbose=false) const {
         import std.parallelism;
         auto backup_zip = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
         _restoreValidateBackupZip(backup_zip, validate_strict);
 
-        infof("Restoring database %s from %s", name, backup_path);
+        if (verbose) {
+            infof("Restoring database %s from ZIP backup with logs...", name);
+        } else {
+            infof("Restoring database %s from %s", name, backup_path);
+        }
 
         _createEmptyDB(name);
 
@@ -684,7 +715,11 @@ struct OdooDatabaseManager {
         t_restore_db.yieldForce();
         t_restore_fs.yieldForce();
 
-        infof("Database %s restored from backup %s", name, backup_path);
+        if (verbose) {
+            infof("Database %s restored from backup %s (with logs)", name, backup_path);
+        } else {
+            infof("Database %s restored from backup %s", name, backup_path);
+        }
     }
 
     /** Restore database
@@ -696,11 +731,13 @@ struct OdooDatabaseManager {
       *     validate_strict = if set to true,
       *         then raise error if backup is not valid,
       *         otherwise only warning will be emited to log.
+      *     verbose = if set to true, show database restore logs in real-time
       **/
     void restore(
             in string name,
             in Path backup_path,
-            in bool validate_strict=true) const {
+            in bool validate_strict=true,
+            in bool verbose=false) const {
         enforce!OdoodException(
                 backup_path.exists,
                 "Cannot restore! Backup %s does not exists!".format(backup_path));
@@ -709,10 +746,10 @@ struct OdooDatabaseManager {
 
         final switch(backup_format) {
             case BackupFormat.zip:
-                _restoreZIP(name, backup_path, validate_strict);
+                _restoreZIP(name, backup_path, validate_strict, verbose);
                 break;
             case BackupFormat.sql:
-                _restoreSQL(name, backup_path, validate_strict);
+                _restoreSQL(name, backup_path, validate_strict, verbose);
                 break;
         }
     }
@@ -721,12 +758,13 @@ struct OdooDatabaseManager {
     void restore(
             in string name,
             in string backup_name,
-            in bool validate_strict=true) const {
+            in bool validate_strict=true,
+            in bool verbose=false) const {
         Path backup_path = Path(backup_name);
         if (!backup_path.exists)
             // Try to search for backup in standard backup directory.
             backup_path = _project.directories.backups.join(backup_name);
-        restore(name, backup_path, validate_strict);
+        restore(name, backup_path, validate_strict, verbose);
     }
 
     /** Populate database with automatically generated test data.
@@ -736,8 +774,9 @@ struct OdooDatabaseManager {
       *     dbname = name of database to populate
       *     models = names of models to populate
       *     populate_size = Population size. One of: small, medium, large
+      *     verbose = if set to true, show database populate logs in real-time
       **/
-    void populate(in string dbname, in string[] models, in string populate_size) const {
+    void populate(in string dbname, in string[] models, in string populate_size, in bool verbose=false) const {
         enforce!OdoodException(
             _project.odoo.serie >= 14,
             "'populate' feature is available only for Odoo 14.0+");
@@ -745,22 +784,47 @@ struct OdooDatabaseManager {
             _project.odoo.serie < 18,
             "'populate' feature is not available for Odoo 18.0+, " ~
             "because at this version Odoo switched from generation to duplication of data during population.");
-        enforce!OdoodException(
-            ["small", "medium", "large"].canFind(populate_size),
-            "Populate size could be one of: small, medium, large! Got: %s".format(populate_size));
-        infof(
-            "Running 'populate' for database %s for models (%s) with size %s...",
-            dbname, models.join(", "), populate_size);
-        _project.server(_test_mode).getServerRunner("populate")
-            .withArgs(
-                "-d", dbname,
-                "--models=%s".format(models.join(",")),
-                "--size=%s".format(populate_size),
-            ).execute
-            .ensureOk!OdoodException(true);
-        infof(
-            "Running 'populate' for database %s for models (%s) with size %s. Completed!",
-            dbname, models.join(", "), populate_size);
+
+        if (verbose) {
+            infof("Running 'populate' for database %s for models (%s) with size %s with logs...",
+                  dbname, models.join(", "), populate_size);
+
+            auto runner = _project.server(_test_mode).getServerRunner("populate")
+                .withArgs(
+                    "-d", dbname,
+                    "--models=%s".format(models.join(",")),
+                    "--size=%s".format(populate_size),
+                );
+
+            auto server_pipes = runner.pipe(Redirect.all);
+            OdooLogProcessor log_processor = OdooLogProcessor(server_pipes.stderr);
+
+            foreach(log_record; log_processor) {
+                writeln(log_record.toString);
+            }
+
+            auto exit_code = wait(server_pipes.pid);
+            if (exit_code != 0) {
+                throw new OdoodException("Database populate failed!");
+            }
+
+            infof("Running 'populate' for database %s for models (%s) with size %s. Completed!",
+                  dbname, models.join(", "), populate_size);
+        } else {
+            infof(
+                "Running 'populate' for database %s for models (%s) with size %s...",
+                dbname, models.join(", "), populate_size);
+            _project.server(_test_mode).getServerRunner("populate")
+                .withArgs(
+                    "-d", dbname,
+                    "--models=%s".format(models.join(",")),
+                    "--size=%s".format(populate_size),
+                ).execute
+                .ensureOk!OdoodException(true);
+            infof(
+                "Running 'populate' for database %s for models (%s) with size %s. Completed!",
+                dbname, models.join(", "), populate_size);
+        }
     }
 
     /** Return database wrapper, that allows to interact with database
