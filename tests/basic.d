@@ -136,6 +136,44 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     infof("Testing database management for %s. Complete: Ok.", project);
 }
 
+/// Test database ensure-initialized with verbose logging
+void testEnsureInitializedVerbose(in Project project, in string ukey="n") {
+    infof("Testing ensure-initialized with verbose logging for %s", project);
+
+    auto dbname = project.genDbName("test-ensure-v", ukey);
+
+    // Test 1: Ensure database initialization (verbose mode)
+    project.databases.exists(dbname).shouldBeFalse();
+    project.databases.isInitialized(dbname).shouldBeFalse();
+
+    infof("Test 1: Ensure-initialized with verbose=true");
+    project.databases.ensureInitialized(dbname, false, "en_US", true);
+
+    project.databases.exists(dbname).shouldBeTrue();
+    project.databases.isInitialized(dbname).shouldBeTrue();
+
+    // Test 2: Call ensure-initialized again (should be idempotent)
+    infof("Test 2: Ensure-initialized idempotent call (should do nothing)");
+    project.databases.ensureInitialized(dbname, false, "en_US", true);
+
+    project.databases.exists(dbname).shouldBeTrue();
+    project.databases.isInitialized(dbname).shouldBeTrue();
+
+    // Test 3: Test without verbose mode for comparison
+    auto dbname2 = project.genDbName("test-ensure-nv", ukey);
+    infof("Test 3: Ensure-initialized with verbose=false");
+    project.databases.ensureInitialized(dbname2, false, "en_US", false);
+
+    project.databases.exists(dbname2).shouldBeTrue();
+    project.databases.isInitialized(dbname2).shouldBeTrue();
+
+    // Cleanup
+    project.databases.drop(dbname);
+    project.databases.drop(dbname2);
+
+    infof("Testing ensure-initialized with verbose logging for %s. Complete: Ok.", project);
+}
+
 
 /// Test addons manager
 void testAddonsManagementBasic(in Project project, in string ukey="n") {
@@ -351,6 +389,7 @@ void runBasicTests(Project project, in string ukey="n") {
     /* Plan:
      * - test server management
      * - test database management
+     * - test ensure-initialized with verbose logging
      * - test repo downloading
      * - test addons testing
      */
@@ -360,6 +399,9 @@ void runBasicTests(Project project, in string ukey="n") {
 
     // Test LOdoo Database operations
     testDatabaseManagement(project, ukey);
+
+    // Test ensure-initialized with verbose logging
+    testEnsureInitializedVerbose(project, ukey);
 
     // Test basic addons management
     testAddonsManagementBasic(project, ukey);
