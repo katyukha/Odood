@@ -50,7 +50,8 @@ const struct LOdoo {
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 process.setUser(_project.odoo.server_user);
-            process.setStderrPassThrough;
+            if (_project.odoo.logfile.isNull)
+                process.setStderrPassThrough;
             return process;
         }
 
