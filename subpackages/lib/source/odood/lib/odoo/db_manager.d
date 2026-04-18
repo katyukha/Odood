@@ -199,8 +199,11 @@ struct OdooDatabaseManager {
                 runner.addArgs("--without-demo=all");
             if (lang)
                 runner.addArgs("--lang=%s".format(lang));
-            runner.withStderrPassThrough
-                .execute.ensureOk!OdoodException(true);
+            // In no-logfile mode Odoo logs to stderr; pass it through so the
+            // caller (e.g. a container) can see the output.
+            if (_project.odoo.logfile.isNull)
+                runner.setStderrPassThrough;
+            runner.execute.ensureOk!OdoodException(true);
             infof("Database '%s' initialized.", name);
         } else {
             infof("Database '%s' is already initialized.", name);

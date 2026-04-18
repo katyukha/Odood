@@ -157,10 +157,15 @@ struct DeployConfig {
             enforce!OdoodDeployException(!resolveProgram("pyenv").isNull, "pyenv not available!");
         }
 
-        if (this.logrotate_enable)
+        if (this.logrotate_enable) {
+            enforce!OdoodDeployException(
+                !this.odoo.log_to_stderr,
+                "logrotate cannot be enabled together with --log-to-stderr: " ~
+                "no log file is created when logging to stderr.");
             enforce!OdoodDeployException(
                 !Path("/", "etc", "logrotate.d", "odoo").exists,
                 "It seems that Odoo config for logrotate already exists!");
+        }
 
         final switch(this.odoo.server_supervisor) {
             case ProjectServerSupervisor.Odood:
@@ -274,8 +279,8 @@ struct DeployConfig {
         if (odoo.proxy_mode || nginx.enable)
             odoo_config["options"].setKey("proxy_mode", "True");
 
-        if (odoo.log_to_stderr)
-            odoo_config["options"].removeKey("logfile");
+        // Note: when log_to_stderr is set, project.odoo.logfile is null,
+        // so initOdooConfig already omits the logfile key — nothing to remove.
 
         return odoo_config;
     }

@@ -423,16 +423,22 @@ struct AddonManager {
         final switch(cmd) {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
-                runner.withArgs("--init=%s".format(addon_names_csv))
-                    .withStderrPassThrough
-                    .execute.ensureOk!AddonsInstallException(true);
+                auto install_runner = runner.withArgs("--init=%s".format(addon_names_csv));
+                // In no-logfile mode Odoo logs to stderr; pass it through so the
+                // caller (e.g. a container) can see the output.
+                if (_project.odoo.logfile.isNull)
+                    install_runner.setStderrPassThrough;
+                install_runner.execute.ensureOk!AddonsInstallException(true);
                 infof("Installation of addons for database %s completed!", database);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
-                runner.withArgs("--update=%s".format(addon_names_csv))
-                    .withStderrPassThrough
-                    .execute.ensureOk!AddonsUpdateException(true);
+                auto update_runner = runner.withArgs("--update=%s".format(addon_names_csv));
+                // In no-logfile mode Odoo logs to stderr; pass it through so the
+                // caller (e.g. a container) can see the output.
+                if (_project.odoo.logfile.isNull)
+                    update_runner.setStderrPassThrough;
+                update_runner.execute.ensureOk!AddonsUpdateException(true);
                 infof("Update of addons for database %s completed!", database);
                 break;
             case cmdIU.uninstall:

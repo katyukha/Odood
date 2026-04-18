@@ -26,6 +26,11 @@
 - Added bandit security scanner hook to the default pre-commit config.
 - Added `odoolint` catchall check to the default pylintrc
 - Added support for commit pinning on the assembly spec
+- Added `--log-to-stderr` flag to `odood init` (mirrors `odood deploy`): initialises
+  the project without a log file so all Odoo output goes to stderr/stdout.
+  Recommended for container deployments.
+- Odoo stderr is now forwarded to the caller during addon install/update and
+  database initialisation when no logfile is configured.
 
 ### Changed
 

@@ -233,6 +233,10 @@ struct OdooServer {
             runner.setFlag(std.process.Config.detached);
             if (!_project.odoo.logfile.isNull)
                 runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get));
+            // Note: when logfile is null (container / no-logfile mode) and Odoo
+            // is started detached, its stderr is not redirected anywhere and logs
+            // will be lost.  For container deployments, use `odood server run`
+            // (foreground) instead of relying on detached mode.
         }
 
         if (_project.odoo.pidfile.exists) {
