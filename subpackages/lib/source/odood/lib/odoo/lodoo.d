@@ -60,6 +60,7 @@ const struct LOdoo {
         string[] databaseList() {
             return runner
                 .withArgs("db-list")
+                .withStderrPassThrough
                 .execute()
                 .ensureOk!OdoodException(true)
                 .output.split("\n").filter!(db => db && db != "").array;
@@ -145,6 +146,7 @@ const struct LOdoo {
         auto databaseDumpManifest(in string name) {
             return runner
                 .withArgs("db-dump-manifest", name)
+                .withStderrPassThrough
                 .execute
                 .ensureOk!OdoodException(true)
                 .output;
