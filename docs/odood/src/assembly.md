@@ -201,7 +201,7 @@ This group contains following commands:
   - Remove all addons in `dist` folder of assembly
   - Copy latest versions of addons to `dist` folder
   - Add copied addons to git index of assembly repo
-  - Optionally commit chages to assembly git repo
+  - Optionally commit changes to assembly git repo
   - Optionally generate changelog for assembly
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
 - `odood assembly pull` - pull changes for assembly repo. Useful during server update

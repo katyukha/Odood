@@ -61,6 +61,74 @@ sudo odood deploy -v 18 \
 
 This way, server will be automatically configured to use assembly `https://github.com/my/assembly`
 
+## Backup and restore
+
+### Backing up databases
+
+Odood stores backups in the `backups/` directory of the installation.
+
+```bash
+# Backup a single database
+sudo odood db backup -d mydb
+
+# Backup all databases on this instance
+sudo odood db backup -a
+```
+
+It is good practice to back up before any upgrade or configuration change.
+
+### Restoring from backup
+
+```bash
+sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+```
+
+If the target database already exists, drop it first:
+
+```bash
+sudo odood db drop mydb
+sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+```
+
+## Upgrading
+
+### Upgrading with assembly (recommended)
+
+If the server is configured to use [Assembly](./assembly.md), a single command handles the full upgrade:
+
+```bash
+sudo odood assembly upgrade --backup
+```
+
+This will automatically:
+1. Back up all databases
+2. Pull the latest assembly changes
+3. Relink addons
+4. Update all addons in all databases
+5. Restart the server
+
+### Upgrading without assembly
+
+If you manage third-party repositories directly:
+
+```bash
+# 1. Back up all databases
+sudo odood db backup -a
+
+# 2. Update Odoo itself to the latest revision of the current series
+sudo odood venv update-odoo
+
+# 3. Pull latest changes from all third-party repositories
+sudo odood repo pull-all
+
+# 4. Refresh the addon list and update addons in all databases
+sudo odood addons update-list
+sudo odood addons update --dir custom_addons
+```
+
+For more details on upgrade scenarios — including local development and cross-series
+migration — see [Upgrading Odoo](./upgrading.md).
+
 ## Complete sample: Public server
 
 Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on server available in public space.

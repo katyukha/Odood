@@ -14,6 +14,7 @@
 - [Local Development](./deployment-local.md)
 - [Docker Compose](./deployment-docker-compose.md)
 - [Production (VPS)](./production-deployment.md)
+- [Upgrading Odoo](./upgrading.md)
 - [Assembly](./assembly.md)
 
 # Reference
