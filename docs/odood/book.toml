@@ -7,3 +7,4 @@ title = "Odood - master Odoo magic with ease."
 [output.html]
 git-repository-url = "https://github.com/katyukha/Odood"
 additional-js = ["mermaid-init.js"]
+additional-css = ["custom.css"]

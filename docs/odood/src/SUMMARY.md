@@ -17,6 +17,9 @@
 - [Upgrading Odoo](./upgrading.md)
 - [Assembly](./assembly.md)
 
+# Migration
+- [From odoo-helper-scripts](./migration-from-odoo-helper.md)
+
 # Reference
 - [Directory Structure](./directory-structure.md)
 - [Frequently Used Commands](./frequently-used-commands.md)
