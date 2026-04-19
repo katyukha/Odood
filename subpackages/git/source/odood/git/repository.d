@@ -2,7 +2,7 @@ module odood.git.repository;
 
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
-private import std.string: chompPrefix, strip, empty, splitLines;
+private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith;
 private import std.array: array;
@@ -133,6 +133,22 @@ class GitRepository {
             .execute()
             .ensureStatus(true)
             .output.strip();
+    }
+
+    /** Verify that current HEAD matches the expected commit hash.
+      *
+      * Throws: OdoodException if the hash is too short or HEAD does not match.
+      **/
+    void ensureAtCommit(in string expected) const {
+        enum size_t MIN_COMMIT_LENGTH = 12;
+        enforce!OdoodException(
+            expected.length >= MIN_COMMIT_LENGTH,
+            "Commit hash too short: '%s' (%d chars), minimum %d required".format(
+                expected, expected.length, MIN_COMMIT_LENGTH));
+        auto actual = getCurrCommit();
+        enforce!OdoodException(
+            actual.startsWith(expected.toLower),
+            "Commit mismatch: expected %s, HEAD is %s".format(expected, actual));
     }
 
     /** Fetch remote 'origin'

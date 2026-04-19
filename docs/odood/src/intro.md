@@ -45,9 +45,9 @@ Thanks.
 
 ## Supported OS
 
-Currently *debian-based* operation systems supported.
+Currently *debian-based* operating systems are supported.
 Tested on Ubuntu and Debian.
-Theoretically if should work on MacOS also.
+Theoretically it should work on macOS also.
 
 
 ## Supported Odoo versions

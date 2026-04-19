@@ -5,6 +5,7 @@
 		"bindbc-common": "1.0.5",
 		"bindbc-loader": "1.1.5",
 		"cachetools": "0.4.2",
+		"darkarchive": "0.0.10",
 		"darktemple": "0.0.9",
 		"dini": "2.0.0",
 		"dpq": "0.11.6",
@@ -15,11 +16,10 @@
 		"prettyprint": "1.0.9",
 		"requests": "2.2.0",
 		"test_allocator": "0.3.4",
-		"thepath": "2.2.0",
+		"thepath": "2.3.1",
 		"theprocess": "0.1.1",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.2.3",
-		"versioned": "0.1.0",
-		"zipper": "0.0.8"
+		"versioned": "0.1.0"
 	}
 }

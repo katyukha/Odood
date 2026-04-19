@@ -17,7 +17,7 @@ private import odood.lib.odoo.config: parseOdooDatabaseConfig;
   * Returns:
   *     An open peque Connection.
   **/
-package(odood.lib) Connection openPgConnection(in Project project, in string dbname) {
+public Connection openPgConnection(in Project project, in string dbname) {
     auto db_conf = project.parseOdooDatabaseConfig;
     string[string] params = ["dbname": dbname];
     if (db_conf.host)

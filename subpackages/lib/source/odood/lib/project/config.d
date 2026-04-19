@@ -2,6 +2,7 @@
 module odood.lib.project.config;
 
 private import std.format: format;
+private import std.typecons: Nullable;
 
 private import thepath: Path;
 private static import dyaml;
@@ -39,8 +40,8 @@ struct ProjectConfigOdoo {
       **/
     Path testconfigfile;
 
-    /// Path to log file
-    Path logfile;
+    /// Path to log file. Null means logging to stdout/stderr (no logfile).
+    Nullable!Path logfile;
 
     /// Path to odoo installation
     Path path;
@@ -79,7 +80,7 @@ struct ProjectConfigOdoo {
 
         configfile = directories.conf.join("odoo.conf");
         testconfigfile = directories.conf.join("odoo.test.conf");
-        logfile = directories.log.join("odoo.log");
+        logfile = Nullable!Path(directories.log.join("odoo.log"));
         pidfile = project_root.join("odoo.pid");
         path = project_root.join("odoo");
         serie = odoo_serie;
@@ -109,7 +110,8 @@ struct ProjectConfigOdoo {
          **/
         this.configfile = config["configfile"].as!string;
         this.testconfigfile = config["testconfigfile"].as!string;
-        this.logfile = config["logfile"].as!string;
+        if (config.containsKey("logfile") && config["logfile"].as!string.length > 0)
+            this.logfile = Nullable!Path(Path(config["logfile"].as!string));
         this.pidfile = config["pidfile"].as!string;
         this.path = Path(config["path"].as!string);
         this.serie = OdooSerie(config["version"].as!string);
@@ -156,9 +158,10 @@ struct ProjectConfigOdoo {
             "path": this.path.toString,
             "configfile": this.configfile.toString,
             "testconfigfile": this.testconfigfile.toString,
-            "logfile": this.logfile.toString,
             "pidfile": this.pidfile.toString,
         ]);
+        if (!this.logfile.isNull)
+            result["logfile"] = this.logfile.get.toString;
         if (this.server_user)
             result["server-user"] = this.server_user;
 
@@ -240,11 +243,12 @@ struct ProjectConfigDirectories {
             this.cache = Path(config["cache"].as!string);
         else
             this.cache = this.root.join("cache");
+
     }
 
     dyaml.Node toYAML() const {
         import dyaml: Node;
-        return Node([
+        auto result = Node([
             "conf": this.conf.toString,
             "log": this.log.toString,
             "downloads": this.downloads.toString,
@@ -254,6 +258,7 @@ struct ProjectConfigDirectories {
             "repositories": this.repositories.toString,
             "cache": this.cache.toString,
         ]);
+        return result;
     }
 
     /** Initialize project directory structure.

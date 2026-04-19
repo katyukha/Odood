@@ -9,10 +9,13 @@ private import thepath: Path;
 private import theprocess: resolveProgram, systemUserExists;
 private import commandr: Option, Flag, ProgramArgs, acceptsValues;
 
+private import std.typecons: Nullable;
+
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.venv: VenvOptions, PyInstallType;
 private import odood.lib.odoo.python: guessVenvOptions, suggestPythonVersion;
 private import odood.lib.project: Project, OdooInstallType;
+private import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
 private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -56,6 +59,10 @@ class CommandInit: OdoodCommand {
             null, "http-host", "Http host").defaultValue("0.0.0.0"));
         this.add(new Option(
             null, "http-port", "Http port").defaultValue("8069"));
+        this.add(new Flag(
+            null, "log-to-stderr",
+            "Configure project without a log file (logs to stdout/stderr). " ~
+            "Recommended for container deployments."));
     }
 
     auto prepareOdooConfig(in Project project, ProgramArgs args) {
@@ -81,7 +88,6 @@ class CommandInit: OdoodCommand {
     }
 
     public override void execute(ProgramArgs args) {
-        auto install_dir = Path(args.option("install-dir")).toAbsolute;
         auto odoo_version = OdooSerie(args.option("odoo-version"));
         auto odoo_branch = args.option("odoo-branch", odoo_version.toString());
         auto odoo_repo = args.option(
@@ -110,11 +116,13 @@ class CommandInit: OdoodCommand {
                 assert(0, "Unsupported installation type");
         }
 
-        auto project = new Project(
-            install_dir,
-            odoo_version,
-            odoo_branch,
-            odoo_repo);
+        auto root = Path(args.option("install-dir")).toAbsolute;
+        auto directories = ProjectConfigDirectories(root);
+        auto project_odoo = ProjectConfigOdoo(
+            root, directories, odoo_version, odoo_branch, odoo_repo);
+        if (args.flag("log-to-stderr"))
+            project_odoo.logfile.nullify;
+        auto project = new Project(root, directories, project_odoo);
 
         auto odoo_config = prepareOdooConfig(project, args);
 

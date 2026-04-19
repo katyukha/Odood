@@ -14,6 +14,17 @@ For all patterns, [Assembly](./assembly.md) is the recommended way to manage thi
 
 ## How to choose
 
+```mermaid
+flowchart TD
+    A([Where are you deploying?]) --> B{Developer machine?}
+    B -->|yes| Local[Local Development\nodood init]
+    B -->|no| C{Do you manage\nthe server directly?}
+    C -->|no — hosted / managed| DC[Docker Compose\nprebuilt images]
+    C -->|yes| D{Prefer containers\nover bare-metal?}
+    D -->|yes| DC
+    D -->|no| Prod[Production VPS\nodood deploy]
+```
+
 **Local development** is the fastest way to get Odoo running for day-to-day addon development.
 It installs everything into a single directory, supports multiple isolated instances on one machine (different ports and database users), and requires no special privileges.
 

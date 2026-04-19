@@ -302,9 +302,9 @@ class CommandDatabaseRestore: OdoodCommand {
                     "Dropting database %s before recreating it " ~
                     "(because --recreate option specified).", dbname);
                 project.databases.drop(dbname);
-            } else {
+            } else if (project.databases.isInitialized(dbname)) {
                 throw new OdoodCLIException(
-                    "Database %s already exists!".format(dbname));
+                    "Database %s already exists and is not empty!".format(dbname));
             }
         }
 

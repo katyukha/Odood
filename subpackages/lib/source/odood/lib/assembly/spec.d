@@ -107,6 +107,10 @@ struct AssemblySpecSource {
     /// Reference to fetch (usually branch name)
     string git_ref;
 
+    /// Optional commit hash to pin to after fetching ref.
+    /// Requires git_ref to be set.
+    string git_commit;
+
     /// Access group: name of access credential to apply to this repo
     /// Credentials usually provided via environment variablse
     string access_group=null;
@@ -119,6 +123,8 @@ struct AssemblySpecSource {
         string res = git_url.toString();
         if (git_ref)
             res ~= "@" ~ git_ref;
+        if (git_commit)
+            res ~= "#" ~ git_commit;
         return sha1Of(res).toHexString().idup;
     }
 
@@ -154,6 +160,9 @@ struct AssemblySpecSource {
             // CRND odoo-packager compatibility
             git_ref = yaml_node["branch"].as!string;
 
+        if (yaml_node.containsKey("commit"))
+            git_commit = yaml_node["commit"].as!string;
+
         if (yaml_node.containsKey("access-group"))
             access_group = yaml_node["access-group"].as!string;
         if (yaml_node.containsKey("no-search"))
@@ -166,6 +175,8 @@ struct AssemblySpecSource {
             result["name"] = name;
         if (!git_ref.empty)
             result["ref"] = git_ref;
+        if (!git_commit.empty)
+            result["commit"] = git_commit;
         if (!access_group.empty)
             result["access-group"] = access_group;
 
@@ -183,6 +194,8 @@ struct AssemblySpecSource {
         res ~= git_url.toString;
         if (!git_ref.empty)
             res ~= "@" ~ git_ref;
+        if (!git_commit.empty)
+            res ~= "#" ~ git_commit;
         return res;
     }
 }
@@ -284,6 +297,11 @@ struct AssemblySpec {
             duplicated_addons.length == 0,
             "There are duplicated addons:\n%s".format(
                 duplicated_addons.map!((a) => "%s: %s".format(a[0], a[1])).join(",\n")));
+
+        foreach(source; _sources)
+            enforce!OdoodAssemblyInvalidSpecException(
+                source.git_commit.empty || !source.git_ref.empty,
+                "Source '%s': 'commit' requires 'ref' to be set".format(source.git_url));
     }
 
     auto toYAML() const {

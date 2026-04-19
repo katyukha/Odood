@@ -22,7 +22,7 @@ exclude: |
   (LICENSE.*|COPYING.*)
 default_language_version:
   python: python3
-  node: "20.16.0"  # TODO: make parameter
+  node: "20.16.0"
 repos:
   - repo: local
     hooks:
@@ -36,21 +36,6 @@ repos:
     hooks:
       - id: oca-checks-odoo-module
       #- id: oca-checks-po
-  - repo: https://github.com/myint/autoflake
-    rev: v1.6.1
-    hooks:
-      - id: autoflake
-        args:
-          - --expand-star-imports
-          - --ignore-init-module-imports
-          - --in-place
-          - --remove-all-unused-imports
-          - --remove-duplicate-keys
-          - --remove-unused-variables
-  - repo: https://github.com/psf/black
-    rev: 22.8.0
-    hooks:
-      - id: black
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: v8.56.0
     hooks:
@@ -58,7 +43,6 @@ repos:
         verbose: true
         args:
           - --color
-          - --fix
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0
     hooks:
@@ -81,32 +65,21 @@ repos:
       - id: check-xml
       - id: mixed-line-ending
         args: ["--fix=lf"]
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v2.38.2
-    hooks:
-      - id: pyupgrade
-        args: ["--keep-percent-format"]
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        name: isort except __init__.py
-        args:
-          - --settings=.
-        exclude: /__init__\.py$
   - repo: https://github.com/PyCQA/flake8
     rev: 7.1.0
     hooks:
       - id: flake8
         name: flake8
-        additional_dependencies: ["flake8-bugbear==21.9.2"]
   - repo: https://github.com/OCA/pylint-odoo
-    rev: v8.0.19
+    rev: v10.0.2
     hooks:
       - id: pylint_odoo
         name: pylint with optional checks
         args:
           - --rcfile=.pylintrc
+          # Just to make it work out of the box, we disable `manifest-required-author` odoo check.
+          # In order to make it work, you have to add proper configuration in pylintrc
+          - --disable="manifest-required-author"
         verbose: true
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.3

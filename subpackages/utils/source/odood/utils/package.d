@@ -122,6 +122,47 @@ void download(
 }
 
 
+/** Get a free TCP port by binding to port 0 and letting the OS assign one.
+  *
+  * Returns: a free port number.
+  * Throws: OdoodException if unable to obtain a free port.
+  **/
+ushort getFreePort() {
+    import std.socket: TcpSocket, InternetAddress, SocketOSException;
+
+    TcpSocket sock;
+    try {
+        sock = new TcpSocket();
+        scope(exit) sock.close();
+        sock.bind(new InternetAddress("127.0.0.1", 0));
+        return (cast(InternetAddress) sock.localAddress).port;
+    } catch (SocketOSException e) {
+        throw new OdoodException("Cannot obtain a free port: " ~ e.msg);
+    }
+}
+
+// Test getFreePort
+unittest {
+    import std.socket: TcpSocket, InternetAddress, SocketOSException;
+    import unit_threaded.assertions;
+
+    // Should return a valid port
+    auto port = getFreePort();
+    assert(port > 0);
+
+    // Should return different ports on subsequent calls (not guaranteed, but very likely)
+    auto port2 = getFreePort();
+    // Both should be valid
+    assert(port2 > 0);
+
+    // Verify the port is actually free by binding to it
+    auto sock = new TcpSocket();
+    scope(exit) sock.close();
+    // Should not throw
+    sock.bind(new InternetAddress("127.0.0.1", port));
+}
+
+
 /** Generate random string of specified length
   *
   * Params:

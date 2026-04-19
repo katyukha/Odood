@@ -1,5 +1,47 @@
 # Changelog
 
+## Release 0.6.1 (2026-04-20)
+
+### Added
+
+- Batch Python requirements installation: when linking addons (via `odood addons link`,
+  `odood assembly link`, or `odood venv reinstall`), all Python requirements are now
+  gathered and installed in a single `pip install` call instead of one call per addon.
+  This improves performance and lets pip resolve the full dependency tree at once.
+    - New flag `--individual-requirements` for `odood addons link` and `odood assembly link`
+      to fall back to per-addon installation (old behavior).
+    - New flag `--with-odoo-requirements` for `odood addons link` and `odood assembly link`
+      to include Odoo's own `requirements.txt` in the batch install.
+- Assembly requirements lock file support: if `requirements.lock.txt` exists in the
+  assembly root, `odood assembly link` installs only from that file and skips per-addon
+  requirement scanning. This gives assembly maintainers full control over the Python
+  dependency tree for reproducible deployments.
+    - New flag `--generate-lock` for `odood assembly sync` to generate the lock file
+      after syncing (runs `pip freeze` to produce pinned versions).
+    - New flag `--with-odoo-requirements` for `odood assembly sync` to include Odoo's
+      requirements when generating the lock file.
+- New flag `--odoo-helper-compat` for `odood pre-commit init` that generates a
+  pre-commit config compatible with odoo-helper-scripts' default linting style
+  (check-only — no auto-formatting). Useful for migrating projects from odoo-helper.
+    - Added bandit security scanner hook to the default pre-commit config.
+    - Added `odoolint` catchall check to the default pylintrc
+- Added support for commit pinning on the assembly spec
+- Added `--log-to-stderr` flag to `odood init` (mirrors `odood deploy`): initialises
+  the project without a log file so all Odoo output goes to stderr/stdout.
+  Recommended for container deployments.
+- Odoo stderr is now forwarded to the caller during addon install/update and
+  database initialisation when no logfile is configured.
+- Added ability to restore backup into empty but existing database. Useful in container environments.
+
+### Changed
+
+- Tests now use os-provided available tcp ports to run Odoo,
+  thus it is possible to run few different tests with different databaes in parallel
+- `odood venv reinstall` now installs all addon Python requirements in a single
+  batched pip call instead of one per addon.
+
+---
+
 ## Release 0.6.0 (2026-03-11)
 
 ### Added
@@ -20,6 +62,7 @@
 - Added `--use-system-ca-bundle` flag to `odood deploy` to set
   `REQUESTS_CA_BUNDLE` to the system CA certificate store. Auto-detects
   the CA bundle path across Debian/Ubuntu, RHEL/CentOS/Fedora, and openSUSE.
+
 
 
 ### Changed

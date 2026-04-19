@@ -8,6 +8,7 @@ private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 private import odood.lib.devtools.precommit:
     initPreCommit,
+    initPreCommitOdooHelper,
     setUpPreCommit,
     updatePreCommit;
 
@@ -23,6 +24,10 @@ class CommandPreCommitInit: OdoodCommand {
             null, "no-setup",
             "Do not set up pre-commit. " ~
             "Could be used if pre-commit already set up.")),
+        this.add(new Flag(
+            null, "odoo-helper-compat",
+            "Generate pre-commit config compatible with odoo-helper linting style " ~
+            "(check-only, no auto-formatting)."));
         this.add(new Argument(
             "path", "Path to repository to initialize pre-commit.").optional());
     }
@@ -33,7 +38,10 @@ class CommandPreCommitInit: OdoodCommand {
         auto repo = project.addons.getRepo(
             args.arg("path") ? Path(args.arg("path")) : Path.current);
 
-        project.initPreCommit(repo, args.flag("force"), !args.flag("no-setup"));
+        if (args.flag("odoo-helper-compat"))
+            project.initPreCommitOdooHelper(repo, args.flag("force"), !args.flag("no-setup"));
+        else
+            project.initPreCommit(repo, args.flag("force"), !args.flag("no-setup"));
     }
 
 }

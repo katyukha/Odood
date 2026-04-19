@@ -7,7 +7,7 @@ private import std.format: format;
 private import std.exception: enforce, errnoEnforce;
 private import std.conv: octal, to;
 private import std.range: empty;
-private import std.typecons: nullable;
+private import std.typecons: nullable, Nullable;
 
 private import thepath: Path;
 private import theprocess: Process;

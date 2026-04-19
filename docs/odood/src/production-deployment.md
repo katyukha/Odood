@@ -2,8 +2,8 @@
 
 ## Overview
 
-Production installation more focuses on security, and stabiltiy.
-Thus, it do following additional tasks:
+Production installation focuses more on security and stability.
+Thus, it does the following additional tasks:
 - Creates separate user to run Odoo
 - Creates systemd service or init script to run Odoo at startup
 - Optionally configures:
@@ -12,7 +12,7 @@ Thus, it do following additional tasks:
   - fail2ban
   - certbot
 
-Also, production installation expectes that it is running on clean system, and no other Odoo installed on same system.
+Also, production installation expects that it is running on a clean system, and no other Odoo is installed on the same system.
 
 ## Indirect dependencies
 
@@ -56,14 +56,82 @@ This way, it is possible to deploy server in following way:
 sudo odood deploy -v 18 \
     --local-postgres \
     --supervisor=systemd \
-    --assembly-repo=htpps://github.com/my/assembly
+    --assembly-repo=https://github.com/my/assembly
 ```
 
-This way, server will be automatically configured to use assembly `htpps://github.com/my/assembly`
+This way, server will be automatically configured to use assembly `https://github.com/my/assembly`
 
-## Complete sample: Pulic server
+## Backup and restore
 
-Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on sever available in public space.
+### Backing up databases
+
+Odood stores backups in the `backups/` directory of the installation.
+
+```bash
+# Backup a single database
+sudo odood db backup -d mydb
+
+# Backup all databases on this instance
+sudo odood db backup -a
+```
+
+It is good practice to back up before any upgrade or configuration change.
+
+### Restoring from backup
+
+```bash
+sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+```
+
+If the target database already exists, drop it first:
+
+```bash
+sudo odood db drop mydb
+sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+```
+
+## Upgrading
+
+### Upgrading with assembly (recommended)
+
+If the server is configured to use [Assembly](./assembly.md), a single command handles the full upgrade:
+
+```bash
+sudo odood assembly upgrade --backup
+```
+
+This will automatically:
+1. Back up all databases
+2. Pull the latest assembly changes
+3. Relink addons
+4. Update all addons in all databases
+5. Restart the server
+
+### Upgrading without assembly
+
+If you manage third-party repositories directly:
+
+```bash
+# 1. Back up all databases
+sudo odood db backup -a
+
+# 2. Update Odoo itself to the latest revision of the current series
+sudo odood venv update-odoo
+
+# 3. Pull latest changes from all third-party repositories
+sudo odood repo pull-all
+
+# 4. Refresh the addon list and update addons in all databases
+sudo odood addons update-list
+sudo odood addons update --dir custom_addons
+```
+
+For more details on upgrade scenarios — including local development and cross-series
+migration — see [Upgrading Odoo](./upgrading.md).
+
+## Complete sample: Public server
+
+Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on server available in public space.
 
 This sample, assumes, that you have control over your domain, and already point your domain to server where Odoo have to be installed.
 
@@ -99,13 +167,13 @@ sudo odood deploy \
     --letsencrypt-email=me@my.test.server
 ```
 
-## Complete sample: Private network server with self-signec SSL certificates
+## Complete sample: Private network server with self-signed SSL certificates
 
-Following list of commands will install Odoo with configured nginx, postgresql, on sever private network with self-signed SSL certificates under following paths:
-- /etc/nginx/ssl/my.test.server.int.crt/etc/nginx/ssl/my.test.server.int.crt
+Following list of commands will install Odoo with configured nginx, postgresql, on server in a private network with self-signed SSL certificates under following paths:
+- /etc/nginx/ssl/my.test.server.int.crt
 - /etc/nginx/ssl/my.test.server.int.key
 
-This sample, assumes, that you have already generate self-signed certificates.
+This sample assumes that you have already generated self-signed certificates.
 
 So,
 Let 's run following commands to get complete production ready Odoo installation on **Ubuntu 24.04**:

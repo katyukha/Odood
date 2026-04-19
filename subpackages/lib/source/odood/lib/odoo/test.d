@@ -24,13 +24,10 @@ private import odood.lib.addons.repository: AddonRepository;
 private import odood.lib.server: OdooServer, CoverageOptions;
 private import odood.lib.server.log_pipe: OdooLogPipe;
 private import odood.exception: OdoodException;
-private import odood.utils: generateRandomString;
+private import odood.utils: generateRandomString, getFreePort;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.utils.odoo.serie: OdooSerie;
 
-// TODO: Make randomized ports
-private immutable ODOO_TEST_HTTP_PORT=8269;
-private immutable ODOO_TEST_LONGPOLLING_PORT=8272;
 
 
 /** Generate name of test database for specified Odood project
@@ -799,11 +796,16 @@ struct OdooTestRunner {
         // Configure test database (create if needed)
         getOrCreateTestDb();
 
+        // Get free ports for test run to avoid conflicts with other instances
+        auto testHttpPort = getFreePort();
+        auto testLongpollingPort = getFreePort();
+        infof("Using ports: http=%s, longpolling/gevent=%s", testHttpPort, testLongpollingPort);
+
         // Precompute option for http port
         // (different on different odoo versions)
         auto opt_http_port = _project.odoo.serie > OdooSerie(10) ?
-                "--http-port=%s".format(ODOO_TEST_HTTP_PORT) :
-                "--xmlrpc-port=%s".format(ODOO_TEST_HTTP_PORT);
+                "--http-port=%s".format(testHttpPort) :
+                "--xmlrpc-port=%s".format(testHttpPort);
 
         if (_need_install_addons_before_test) {
             infof("Installing modules before test...");
@@ -818,8 +820,8 @@ struct OdooTestRunner {
                     "--stop-after-init",
                     "--workers=0",
                     _project.odoo.serie < OdooSerie(16) ?
-                        "--longpolling-port=%s".format(ODOO_TEST_LONGPOLLING_PORT) :
-                        "--gevent-port=%s".format(ODOO_TEST_LONGPOLLING_PORT),
+                        "--longpolling-port=%s".format(testLongpollingPort) :
+                        "--gevent-port=%s".format(testLongpollingPort),
                     opt_http_port,
                     "--database=%s".format(_test_db_name),
                 ]

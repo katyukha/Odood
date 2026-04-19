@@ -231,7 +231,12 @@ struct OdooServer {
             "--pidfile=%s".format(_project.odoo.pidfile));
         if (detach) {
             runner.setFlag(std.process.Config.detached);
-            runner.addArgs("--logfile=%s".format(_project.odoo.logfile));
+            if (!_project.odoo.logfile.isNull)
+                runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get));
+            // Note: when logfile is null (container / no-logfile mode) and Odoo
+            // is started detached, its stderr is not redirected anywhere and logs
+            // will be lost.  For container deployments, use `odood server run`
+            // (foreground) instead of relying on detached mode.
         }
 
         if (_project.odoo.pidfile.exists) {
@@ -470,17 +475,17 @@ struct OdooServer {
         Result result;
 
         File log_file;
-        if (_project.odoo.logfile.exists)
+        if (!_project.odoo.logfile.isNull && _project.odoo.logfile.get.exists)
             // Open file only if file exists
-            log_file = _project.odoo.logfile.openFile("rt");
+            log_file = _project.odoo.logfile.get.openFile("rt");
 
         scope(exit) log_file.close();
 
-        if (!log_file.isOpen && _project.odoo.logfile.exists)
+        if (!_project.odoo.logfile.isNull && !log_file.isOpen && _project.odoo.logfile.get.exists)
             // If file is not opened but exists, open it.
             // This is needed to correctly compute starting point
             // for tracking log messages happened during operation (dg)
-            log_file.open(_project.odoo.logfile.toString, "rt");
+            log_file.open(_project.odoo.logfile.get.toString, "rt");
 
         auto log_start = log_file.isOpen ? log_file.size() : 0;
 
@@ -491,11 +496,11 @@ struct OdooServer {
             result.error = e;
             result.has_error = true;
 
-            if (!log_file.isOpen && _project.odoo.logfile.exists)
+            if (!_project.odoo.logfile.isNull && !log_file.isOpen && _project.odoo.logfile.get.exists)
                 // If file is not opened but exists, open it.
                 // This is needed to be able to read log messages
                 // happeded during execution of dg delegate
-                log_file.open(_project.odoo.logfile.toString, "rt");
+                log_file.open(_project.odoo.logfile.get.toString, "rt");
 
             // Search for errors in logfile.
             if (log_file.isOpen && log_file.size > log_start) {

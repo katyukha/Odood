@@ -50,6 +50,8 @@ const struct LOdoo {
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 process.setUser(_project.odoo.server_user);
+            if (_project.odoo.logfile.isNull)
+                process.setStderrPassThrough;
             return process;
         }
 
@@ -58,7 +60,7 @@ const struct LOdoo {
         string[] databaseList() {
             return runner
                 .withArgs("db-list")
-                .withFlag(Config.stderrPassThrough)
+                .withStderrPassThrough
                 .execute()
                 .ensureOk!OdoodException(true)
                 .output.split("\n").filter!(db => db && db != "").array;
@@ -144,7 +146,7 @@ const struct LOdoo {
         auto databaseDumpManifest(in string name) {
             return runner
                 .withArgs("db-dump-manifest", name)
-                .withFlag(Config.stderrPassThrough)
+                .withStderrPassThrough
                 .execute
                 .ensureOk!OdoodException(true)
                 .output;
@@ -160,11 +162,15 @@ const struct LOdoo {
           *         command addons-update-list failed with non-zero exit code
           **/
         void addonsUpdateList(in string dbname, in bool ignore_error=false) {
+            tracef("Running lodoo.addonsUpdateList for %s dbname, ignore_error=%s", dbname, ignore_error);
             auto res = runner
                 .withArgs("addons-update-list", dbname)
                 .execute;
             if (!ignore_error)
                 res.ensureOk!OdoodException(true);
+            else if (!res.isOk)
+                warningf("Update of list of addons failed for database %s (exit-code=%s):\n%s", dbname, res.status, res.output);
+            tracef("Completed lodoo.addonsUpdateList for %s dbname, ignore_error=%s. Result (output): %s", dbname, ignore_error, res.output);
         }
 
         /** Uninstall addons

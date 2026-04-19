@@ -319,6 +319,12 @@ class CommandAddonsLink: OdoodCommand {
             null, "manifest-requirements",
             "Install python dependencies from manifest's external dependencies"));
         this.add(new Flag(
+            null, "individual-requirements",
+            "Install Python requirements per-addon instead of batched"));
+        this.add(new Flag(
+            null, "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install"));
+        this.add(new Flag(
             null, "ual", "Update addons list for all databases"));
         this.add(new Argument(
             "path", "Path to search for addons in.").required());
@@ -333,6 +339,8 @@ class CommandAddonsLink: OdoodCommand {
             args.flag("force"),
             true,  // Install py deps from requirements.txt
             args.flag("manifest-requirements"),
+            args.flag("individual-requirements"),
+            args.flag("with-odoo-requirements"),
         );
 
         if (args.flag("ual"))

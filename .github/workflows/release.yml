@@ -34,7 +34,7 @@ jobs:
       - name: Install system dependencies
         uses: lyricwulf/abc@v1
         with:
-          linux: libzip-dev libpq-dev python3-dev
+          linux: libpq-dev python3-dev
 
       - name: Set version from tag
         run: echo "${{ github.ref_name }}" > ./subpackages/lib/data/ODOOD_VERSION
@@ -96,7 +96,7 @@ jobs:
       - name: Install system dependencies
         uses: lyricwulf/abc@v1
         with:
-          linux: libzip-dev libpq-dev python3-dev
+          linux: libpq-dev python3-dev
 
       - name: Set version from tag
         run: echo "${{ github.ref_name }}" > ./subpackages/lib/data/ODOOD_VERSION

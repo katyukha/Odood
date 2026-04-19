@@ -52,6 +52,36 @@ void initPreCommit(in Project project, in AddonRepository repo, in bool force=fa
 }
 
 
+/** Initialize pre-commit for specified repo with odoo-helper-compatible config.
+  *
+  * Generates check-only linting configuration (no auto-formatting) that matches
+  * odoo-helper-scripts' default linting setup. Useful for migrating projects
+  * from odoo-helper-scripts to Odood.
+  *
+  * Params:
+  *     repo = repository to initialize pre-commit for.
+  *     force = if set to true, rewrite already existing pre-commit config.
+  *     setup = if set to true, then automatically set up pre-commit according to new configuration.
+  **/
+void initPreCommitOdooHelper(in Project project, in AddonRepository repo, in bool force=false, in bool setup=true) {
+    enforce!OdoodException(
+        force || !repo.hasPreCommitConfig,
+        "Cannot init pre-commit. Configuration already exists");
+    infof("Initializing pre-commit (odoo-helper-compat) for %s repo!", repo.path);
+    repo.path.join(".pre-commit-config.yaml").writeFile(
+        renderFile!("pre-commit-odoo-helper/pre-commit-config.yaml", project, repo));
+    repo.path.join(".eslintrc.yml").writeFile(
+        renderFile!("pre-commit-odoo-helper/eslintrc.yml", project, repo));
+    repo.path.join(".flake8").writeFile(
+        renderFile!("pre-commit-odoo-helper/flake8", project, repo));
+    repo.path.join(".pylintrc").writeFile(
+        renderFile!("pre-commit-odoo-helper/pylintrc", project, repo));
+
+    if (setup)
+        project.setUpPreCommit(repo);
+}
+
+
 /** Set up pre-commit for specified repository.
   * This means, installing pre-commit in virtualenv of related project,
   * and running "pre-commit install" command.
