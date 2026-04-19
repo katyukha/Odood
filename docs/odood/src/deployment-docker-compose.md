@@ -384,7 +384,7 @@ docker compose pull
 # 2. Stop Odoo — the DB container keeps running so the upgrade container can connect
 docker compose stop odoo
 
-# 3. Backup all databases, install new assembly addons, update changed addons
+# 3. Backup all databases, update changed addons, install new assembly addons
 docker compose --profile upgrade run --rm odoo-upgrade
 
 # 4a. Exit 0 — start Odoo with the new image
