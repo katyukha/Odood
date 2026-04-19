@@ -23,8 +23,8 @@
 - New flag `--odoo-helper-compat` for `odood pre-commit init` that generates a
   pre-commit config compatible with odoo-helper-scripts' default linting style
   (check-only — no auto-formatting). Useful for migrating projects from odoo-helper.
-- Added bandit security scanner hook to the default pre-commit config.
-- Added `odoolint` catchall check to the default pylintrc
+    - Added bandit security scanner hook to the default pre-commit config.
+    - Added `odoolint` catchall check to the default pylintrc
 - Added support for commit pinning on the assembly spec
 - Added `--log-to-stderr` flag to `odood init` (mirrors `odood deploy`): initialises
   the project without a log file so all Odoo output goes to stderr/stdout.
