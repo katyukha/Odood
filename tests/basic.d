@@ -144,8 +144,7 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.isInitialized(project.genDbName("test-2", ukey)).shouldBeTrue();
 
     // Test restore into an initialized (non-empty) DB — should fail
-    ({ project.databases.restore(project.genDbName("test-2", ukey), backup_path); })
-        .shouldThrow!OdoodException;
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path).shouldThrow!OdoodException;
 
     // Drop databases
     project.databases.drop(project.genDbName("test-1", ukey));
