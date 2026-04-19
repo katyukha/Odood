@@ -19,6 +19,7 @@ import odood.git: GitURL;
 import odood.cli.utils: printLogRecord;
 
 import peque;
+import odood.exception: OdoodException;
 
 
 /// Prepare virtualenv options for test
@@ -127,6 +128,24 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.restore(project.genDbName("test-2", ukey), backup_path.baseName);
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
+
+    // Test restore into pre-existing empty (uninitialized) DB — should succeed
+    project.databases.drop(project.genDbName("test-2", ukey));
+    {
+        // Create a raw empty DB (no Odoo schema) by hand
+        import odood.lib.odoo.db_utils: openPgConnection;
+        auto conn = project.openPgConnection("postgres");
+        conn.exec(
+            "CREATE DATABASE \"%s\"".format(project.genDbName("test-2", ukey)));
+    }
+    project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
+    project.databases.isInitialized(project.genDbName("test-2", ukey)).shouldBeFalse();
+    project.databases.restore(project.genDbName("test-2", ukey), backup_path);
+    project.databases.isInitialized(project.genDbName("test-2", ukey)).shouldBeTrue();
+
+    // Test restore into an initialized (non-empty) DB — should fail
+    ({ project.databases.restore(project.genDbName("test-2", ukey), backup_path); })
+        .shouldThrow!OdoodException;
 
     // Drop databases
     project.databases.drop(project.genDbName("test-1", ukey));

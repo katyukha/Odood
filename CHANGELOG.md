@@ -31,6 +31,7 @@
   Recommended for container deployments.
 - Odoo stderr is now forwarded to the caller during addon install/update and
   database initialisation when no logfile is configured.
+- Added ability to restore backup into empty but existing database. Useful in container environments.
 
 ### Changed
 

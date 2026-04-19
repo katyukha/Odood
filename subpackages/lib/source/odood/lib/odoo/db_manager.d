@@ -503,7 +503,14 @@ struct OdooDatabaseManager {
 
         infof("Restoring database %s from %s", name, backup_path);
 
-        _createEmptyDB(name);
+        if (this.exists(name)) {
+            enforce!OdoodException(
+                !this.isInitialized(name),
+                "Cannot restore: database %s already exists and is not empty. ".format(name) ~
+                "Drop it first with: odood db drop %s".format(name));
+        } else {
+            _createEmptyDB(name);
+        }
 
         // Create and set correct access rights for "filestore" dir if needed
         if (!_project.odoo.server_user.empty && !_project.directories.data.join("filestore").exists) {
