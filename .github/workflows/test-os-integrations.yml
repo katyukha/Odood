@@ -32,6 +32,15 @@ jobs:
         with:
           compiler: ${{ env.ODOOD_DLANG_COMPILER }}
 
+      - name: Cache DUB dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.dub/packages
+          key: dub-${{ runner.os }}-${{ env.ODOOD_DLANG_COMPILER }}-${{ hashFiles('**/dub.selections.json') }}
+          restore-keys: |
+            dub-${{ runner.os }}-${{ env.ODOOD_DLANG_COMPILER }}-
+            dub-${{ runner.os }}-
+
       - name: Install system dependencies
         uses: lyricwulf/abc@v1
         with:
