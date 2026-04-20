@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+---
+
 ## Release 0.6.1 (2026-04-20)
 
 ### Added
@@ -39,6 +43,8 @@
   thus it is possible to run few different tests with different databaes in parallel
 - `odood venv reinstall` now installs all addon Python requirements in a single
   batched pip call instead of one per addon.
+- Switched to `darkarchive` lib to handle archives.
+  Thus, backups do not require temporary files anymore, and could be done in more space-eficient way.
 
 ---
 
