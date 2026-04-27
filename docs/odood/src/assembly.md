@@ -45,7 +45,55 @@ spec:
   sources-list:
   - github: crnd-inc/generic-addons  # converted to https://github.com/crnd-inc/generic-addons
   - oca: web  # converted to https://github.com/OCA/web
+  - crnd: mygroup/my-repo  # converted to ssh://git@gitlab.crnd.pro/mygroup/my-repo
 ```
+
+### Source naming and addon binding
+
+Sources can be given a `name`, which serves two purposes:
+- it allows addons to be explicitly bound to a specific source via the `source` field
+- it is used as the credential lookup key when the source is private (see [Private git sources](#private-git-sources))
+
+```yaml
+spec:
+  addons-list:
+  - name: my_addon
+    source: my_repo      # fetch only from the source named "my_repo"
+  - name: other_addon    # no binding — Odood searches all sources
+  sources-list:
+  - url: https://github.com/my/repo
+    name: my_repo
+    ref: 18.0
+  - url: https://github.com/other/repo
+    ref: 18.0
+```
+
+When `source` is set on an addon, Odood will only look for that addon in the named source.
+This is useful when multiple sources contain a module with the same name.
+
+### no-search flag
+
+By default, Odood searches every source for each addon that has no explicit `source` binding.
+Setting `no-search: true` on a source opts it out of that automatic search — the source is only
+used when an addon explicitly references it by name.
+
+```yaml
+spec:
+  addons-list:
+  - name: my_addon
+    source: private_repo   # will be fetched; explicit binding bypasses no-search
+  - name: shared_addon     # will NOT be found in private_repo (no-search is set)
+  sources-list:
+  - url: https://github.com/public/repo
+    ref: 18.0
+  - url: https://github.com/my/private-repo
+    name: private_repo
+    ref: 18.0
+    no-search: true
+```
+
+This is useful for large repositories where you want precise control over which addons are pulled,
+or for private repositories that should only contribute explicitly listed addons.
 
 ### Commit pinning
 
@@ -82,6 +130,47 @@ spec:
     - name: generic_tag
       odoo_apps: true
 ```
+
+### Known addons
+
+The `known-addons` list tells Odood about addons that are expected to be present on the target
+server but are not managed by this assembly (e.g. modules that ship with Odoo itself, or modules
+installed through a separate mechanism). These addons are excluded from dependency validation
+during sync, so Odood will not report them as missing dependencies.
+
+```yaml
+spec:
+  addons-list:
+    - name: my_addon
+  sources-list:
+    - url: https://github.com/my/repo
+      ref: 18.0
+  known-addons:
+    - sale
+    - account
+    - stock
+```
+
+### Assembly layout
+
+The `layout` field controls where synced addons are placed inside the assembly repository.
+Two values are supported:
+
+- `standard` *(default)* — addons are placed in the `dist/` subdirectory.
+- `flat` — addons are placed directly in the root of the assembly repository.
+
+```yaml
+spec:
+  addons-list:
+    - name: my_addon
+  sources-list:
+    - url: https://github.com/my/repo
+      ref: 18.0
+  layout: flat
+```
+
+The `flat` layout is useful when the assembly repository itself is used directly as an Odoo
+addons path without a `dist/` indirection.
 
 ## Assembly workflow
 
