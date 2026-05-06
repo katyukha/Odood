@@ -98,10 +98,13 @@ class CommandAddonsList: OdoodCommand {
     }
 
     private auto findAddons(ProgramArgs args, in Project project) {
+        enforce!OdoodCLIException(
+            !args.flag("assembly") || project.assembly !is null,
+            "No assembly configured for this project!");
         auto search_path = args.arg("path") ?
             Path(args.arg("path")) :
             args.flag("assembly") ?
-                project.assembly.get.dist_dir :
+                project.assembly.dist_dir :
                 Path.current;
 
         OdooAddon[] addons;
@@ -503,7 +506,10 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             }
         }
         if (args.flag("assembly")) {
-            foreach(addon; project.addons.scan(path: project.assembly.get.dist_dir, recursive:  true)) {
+            enforce!OdoodCLIException(
+                project.assembly !is null,
+                "No assembly configured for this project!");
+            foreach(addon; project.addons.scan(path: project.assembly.dist_dir, recursive:  true)) {
                 if (skip_addons.canFind(addon.name)) continue;
                 if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
                 addons ~= addon;

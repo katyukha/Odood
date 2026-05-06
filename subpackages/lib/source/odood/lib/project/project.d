@@ -60,7 +60,7 @@ class Project {
 
     private VirtualEnv _venv;
 
-    private Nullable!Assembly _assembly;
+    private Assembly _assembly;
 
     /** Try to load project config automaticall. Returns nullable.
       *
@@ -156,12 +156,12 @@ class Project {
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
             in VirtualEnv venv,
-            in Nullable!Assembly assembly=Nullable!Assembly.init) {
+            Assembly assembly=null) {
         this._project_root = project_root.toAbsolute;
         this._directories = directories;
         this._odoo = odoo;
         this._venv = venv;
-        this._assembly = cast(Nullable!Assembly) assembly;
+        this._assembly = assembly;
     }
 
     /// ditto
@@ -261,7 +261,7 @@ class Project {
 
     /** Assembly related to this project.
       **/
-    Nullable!Assembly assembly() const { return cast(Nullable!Assembly)_assembly; }
+    Assembly assembly() const { return cast(Assembly)_assembly; }
 
     /** String representation of Odood project
       **/
@@ -356,8 +356,8 @@ class Project {
             "virtualenv": _venv.toYAML(),
         ]);
 
-        if (!_assembly.isNull)
-            yaml_data["assembly-path"] = _assembly.get.path.toString;
+        if (_assembly !is null)
+            yaml_data["assembly-path"] = _assembly.path.toString;
 
         infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
@@ -434,7 +434,7 @@ class Project {
         _project_root.join("assembly").mkdir(true);
         _assembly = Assembly.initialize(
             project: this,
-            path: _project_root.join("assembly")).nullable;
+            path: _project_root.join("assembly"));
         save();
     }
 
@@ -444,7 +444,7 @@ class Project {
         _assembly = Assembly.initialize(
             project: this,
             path: _project_root.join("assembly"),
-            git_url: git_url).nullable;
+            git_url: git_url);
         save();
     }
 

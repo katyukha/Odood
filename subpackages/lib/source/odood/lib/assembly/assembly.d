@@ -49,7 +49,7 @@ package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
 package(odood) immutable ASSEMBLY_REQUIREMENTS_LOCK = Path("requirements.lock.txt");
 
 
-struct Assembly {
+class Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
     private Project _project;
@@ -123,26 +123,26 @@ struct Assembly {
 
     /** Try to load asembly spec from specified location
       **/
-    static auto maybeLoad(Project project, in Path path) {
+    static Assembly maybeLoad(Project project, in Path path) {
         if (path.exists && path.isFile) {
             dyaml.Node assembly_spec = dyaml.Loader.fromFile(path.toString()).load();
-            return Assembly(project, path.parent, assembly_spec).nullable;
+            return new Assembly(project, path.parent, assembly_spec);
         } else if (path.exists && path.isDir && path.join("odood-assembly.yml").exists) {
             auto load_path = path.join("odood-assembly.yml");
             Node assembly_spec = dyaml.Loader.fromFile(load_path.toString()).load();
-            return Assembly(project, path, assembly_spec).nullable;
+            return new Assembly(project, path, assembly_spec);
         }
-        return Nullable!Assembly.init;
+        return null;
     }
 
     /** Load assembly spec from specified path
       **/
-    static auto load(Project project, in Path path) {
+    static Assembly load(Project project, in Path path) {
         auto assembly = maybeLoad(project, path);
         enforce!OdoodAssemblyException(
-            !assembly.isNull,
+            assembly !is null,
             "Cannot find and load Odood Assembly config at %s!".format(path));
-        return assembly.get();
+        return assembly;
     }
 
     /** Generate YAML configuration for this  assembly
@@ -169,7 +169,7 @@ struct Assembly {
       **/
     static Assembly initialize(Project project, in Path path) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = Assembly(project, path, AssemblySpec.init);
+        Assembly assembly = new Assembly(project, path, AssemblySpec.init);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
