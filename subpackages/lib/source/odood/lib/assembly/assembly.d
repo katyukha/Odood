@@ -339,9 +339,6 @@ struct Assembly {
         OdooAddon[string][string] res;
         foreach(source; spec.sources) {
             auto source_path = getSourceCachePath(source);
-            if (source.no_search)
-                // Skip source, that should not be used to search for addons.
-                continue;
             res[source.hashString] = _project.addons.scan(path: source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
         }
         return res;
@@ -390,7 +387,7 @@ struct Assembly {
                 auto source = spec.getSource(addon.source_name);
                 enforce!OdoodAssemblyException(
                     !source.isNull,
-                    "Cannot find source %s for addon %s!".format(source, addon));
+                    "Cannot find source %s for addon %s!".format(addon.source_name, addon));
 
                 if (addon.name !in sourceScanRes[source.get.hashString]) {
                     errorf("Assembly: Cannot find addon %s!", addon);
