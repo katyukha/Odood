@@ -128,7 +128,7 @@ significant RAM amount to build Odood. Better, download and install it as debian
 If you want to install it locally from source, follow steps below:
 
 0. Clone this repository and checkout in the repository root.
-1. Install system dependencies for this project (you can check lists of depenencies [here](https://github.com/katyukha/Odood/tree/main/.ci/deps)).
+1. Install build dependencies: `libpq-dev python3-dev`. For the full list of system packages required for Odood to operate (install and run Odoo), see [`nfpm.yaml`](https://github.com/katyukha/Odood/blob/main/nfpm.yaml).
 2. Install [DLang compiler](https://dlang.org/download.html)
 3. Build Odood with command `dub build -b release`. After build completed, there will be generated binary `odood` in `build` directory.
 4. Link Odoo binary to bin directory:
