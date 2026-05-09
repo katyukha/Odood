@@ -9,7 +9,7 @@
 		"dshould": "1.8.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
-		"requests": "2.2.0",
+		"requests": "2.2.1",
 		"test_allocator": "0.3.4",
 		"thepath": "2.3.1",
 		"theprocess": "0.1.1",
