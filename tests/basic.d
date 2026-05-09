@@ -280,11 +280,11 @@ void testAssembly(Project project, in string ukey="n") {
             project.project_root.join("assembly").remove();
     }
 
-    project.assembly.isNull.shouldBeTrue;
+    (project.assembly is null).shouldBeTrue;
     project.initializeAssembly;
-    project.assembly.isNull.shouldBeFalse;
+    (project.assembly !is null).shouldBeTrue;
 
-    auto assembly  = project.assembly.get;
+    auto assembly  = project.assembly;
     auto base_commit = assembly.repo.getCurrCommit;
 
     // Add generic_mixin to assembly

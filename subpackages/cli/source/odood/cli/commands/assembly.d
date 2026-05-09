@@ -31,13 +31,13 @@ class CommandAssemblyInit: OdoodCommand {
     public override void execute(ProgramArgs args) {
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
-            project.assembly.isNull,
+            project.assembly is null,
             "Assembly already initialized!");
         if (args.option("repo").empty)
             project.initializeAssembly();
         else {
             project.initializeAssembly(parseGitURL(args.option("repo")));
-            project.assembly.get.link();
+            project.assembly.link();
         }
     }
 }
@@ -54,7 +54,7 @@ class CommandAssemblyUse: OdoodCommand {
         auto path = Path(args.arg("path")).toAbsolute;
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
-            project.assembly.isNull,
+            project.assembly is null,
             "Project already has configured assembly!");
         project.useAssembly(path);
     }
@@ -72,14 +72,14 @@ class CommandAssemblyStatus: OdoodCommand {
             auto assembly_path = Path(args.parent.option("assembly-path"));
             project.useAssembly(assembly_path, save_config: false);
         }
-        if (project.assembly.isNull)
+        if (project.assembly is null)
             writeln("There is no assembly configured for this project!");
         else {
             writefln(
                 "Assembly: %s\nAddons: %s\nSources: %s\n",
-                project.assembly.get.path,
-                project.assembly.get.spec.addons.length,
-                project.assembly.get.spec.sources.length,
+                project.assembly.path,
+                project.assembly.spec.addons.length,
+                project.assembly.spec.sources.length,
             );
         }
     }
@@ -101,7 +101,7 @@ class AssemblyCommandBase: OdoodCommand {
             project.useAssembly(assembly_path, save_config: false);
         }
         enforce!OdoodCLIException(
-            !project.assembly.isNull,
+            project.assembly !is null,
             "Assembly not initialized!");
         return project;
     }
@@ -143,23 +143,23 @@ class CommandAssemblySync: AssemblyCommandBase {
         auto project = loadProject(args);
 
         // Do the sync
-        project.assembly.get.sync(
+        project.assembly.sync(
             generate_lock: args.flag("generate-lock"),
             with_odoo_requirements: args.flag("with-odoo-requirements"));
 
         if (args.flag("changelog"))
-            project.assembly.get.generateChangelog;
+            project.assembly.generateChangelog;
 
         if (args.flag("dockerfile"))
-            project.assembly.get.generateDockerfile;
+            project.assembly.generateDockerfile;
 
         // Commit changes if requested (usually useful in CI flows)
         if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
             enforce!OdoodCLIException(
-                project.assembly.get.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                project.assembly.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
-                project.assembly.get.repo.getChangedFiles(
+                project.assembly.repo.getChangedFiles(
                     path_filters: [
                         ":(exclude)dist",
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
@@ -174,7 +174,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
-                project.assembly.get.repo.getChangedFiles(
+                project.assembly.repo.getChangedFiles(
                     // Changes that have to be commited (expected changes with changelog excluded)
                     path_filters: [
                         "dist",
@@ -186,7 +186,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                     staged: true)
             ) {
                 infof("Assembly Sync: Commiting assembly changes...");
-                project.assembly.get.repo.commit(
+                project.assembly.repo.commit(
                     message: args.option("commit-message") ? args.option("commit-message") : "[SYNC] Assembly synced",
                     username: args.option("commit-user"),
                     useremail: args.option("commit-email"));
@@ -201,7 +201,7 @@ class CommandAssemblySync: AssemblyCommandBase {
 
         // Push changes back
         if (args.flag("push") || args.option("push-to"))
-            project.assembly.get.push(branch_name: args.option("push-to").empty ? null : args.option("push-to"));
+            project.assembly.push(branch_name: args.option("push-to").empty ? null : args.option("push-to"));
     }
 }
 
@@ -223,7 +223,7 @@ class CommandAssemblyLink: AssemblyCommandBase {
 
     public override void execute(ProgramArgs args) {
         auto project = loadProject(args);
-        project.assembly.get.link(
+        project.assembly.link(
             manifest_requirements: args.flag("manifest-requirements"),
             individual_requirements: args.flag("individual-requirements"),
             with_odoo_requirements: args.flag("with-odoo-requirements"),
@@ -245,7 +245,7 @@ class CommandAssemblyPull: AssemblyCommandBase {
 
     public override void execute(ProgramArgs args) {
         auto project = loadProject(args);
-        auto assembly = project.assembly.get;
+        auto assembly = project.assembly;
 
         assembly.pull;
 
@@ -269,7 +269,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 
     public override void execute(ProgramArgs args) {
         auto project = loadProject(args);
-        auto assembly = project.assembly.get;
+        auto assembly = project.assembly;
 
         if (args.flag("backup"))
             foreach(db; project.databases.list)

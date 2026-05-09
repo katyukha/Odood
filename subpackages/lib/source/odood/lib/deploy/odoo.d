@@ -236,7 +236,7 @@ Project deployOdoo(in DeployConfig config) {
     if (!config.assembly_repo.isNull) {
         // TODO: Wrap it in try/catch
         project.initializeAssembly(config.assembly_repo.get);
-        project.assembly.get.link();
+        project.assembly.link();
     }
 
     // Create postgresql user if "local-postgres" is selected and no user exists

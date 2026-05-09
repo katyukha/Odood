@@ -14,7 +14,13 @@ apt-get -yq upgrade
 apt-get install --no-install-recommends -yq xz-utils sudo gpg libxml2 g++ wget ca-certificates libcurl4
 apt-get install --no-install-recommends -yq libpq-dev python3-dev
 apt-get install --no-install-recommends -yq build-essential
-apt-get install --no-install-recommends -yq $(cat "${SCRIPT_DIR}/.ci/deps/universal-deb.txt")
+# Runtime deps needed for Odood to install and run Odoo (see nfpm.yaml for the full list)
+apt-get install --no-install-recommends -yq \
+    python3-virtualenv \
+    libsass-dev libjpeg-dev libyaml-dev libfreetype6-dev zlib1g-dev \
+    libxml2-dev libxslt-dev libbz2-dev libsasl2-dev libldap2-dev \
+    libssl-dev libffi-dev liblzma-dev \
+    fontconfig libmagic1
 apt-get install --no-install-recommends -yq postgresql sudo
 
 /etc/init.d/postgresql start

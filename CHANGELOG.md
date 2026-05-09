@@ -1,5 +1,19 @@
 # Changelog
 
+## Release 0.6.2 (2026-05-09)
+
+### Added
+
+- Added new documentation on assembly spec
+- Updated assembly documentation with more examples
+
+### Fixed
+
+- Correct handling of `no-search` param on assembly spec.
+
+
+---
+
 ## Release 0.6.1 (2026-04-20)
 
 ### Added
@@ -39,6 +53,8 @@
   thus it is possible to run few different tests with different databaes in parallel
 - `odood venv reinstall` now installs all addon Python requirements in a single
   batched pip call instead of one per addon.
+- Switched to `darkarchive` lib to handle archives.
+  Thus, backups do not require temporary files anymore, and could be done in more space-eficient way.
 
 ---
 

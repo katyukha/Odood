@@ -214,8 +214,8 @@ ProjectInfo getInfo(in Project project) {
     info.server_user = project.odoo.server_user;
 
     // Assembly
-    if (!project.assembly.isNull)
-        info.assembly_path = project.assembly.get.path.toString;
+    if (project.assembly !is null)
+        info.assembly_path = project.assembly.path.toString;
 
     return info;
 }
