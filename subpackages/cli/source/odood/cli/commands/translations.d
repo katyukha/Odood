@@ -35,8 +35,8 @@ class CommandTranslationsRegenerate: OdoodCommand {
     bool potUpdate;
     bool missingOnly;
     bool noDropDb;
-    string[] addonDir;
-    string[] addonDirR;
+    Path[] addonDir;
+    Path[] addonDirR;
     string[] addon;
     string[] langFile;
     string[] lang;
@@ -69,14 +69,14 @@ class CommandTranslationsRegenerate: OdoodCommand {
     protected auto findAddons(in Project project) {
         OdooAddon[] addons;
         foreach(search_path; addonDir)
-            foreach(a; project.addons.scan(Path(search_path), false))
+            foreach(a; project.addons.scan(search_path, false))
                 if (project.addons.isLinked(a) && a.manifest.installable)
                     addons ~= a;
                 else
                     warningf("Skip addon %s because it is not linked or not installable", a);
 
         foreach(search_path; addonDirR)
-            foreach(a; project.addons.scan(Path(search_path), true))
+            foreach(a; project.addons.scan(search_path, true))
                 if (project.addons.isLinked(a) && a.manifest.installable)
                     addons ~= a;
                 else

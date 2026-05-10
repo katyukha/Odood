@@ -44,15 +44,15 @@ class CommandTest: OdoodCommand {
     Nullable!string db;
     string[] additionalAddon;
     bool noInstallAddons;
-    string[] dir;
-    string[] dirR;
-    string[] file;
+    Path[] dir;
+    Path[] dirR;
+    Path[] file;
     string[] skip;
     string[] skipRe;
-    string[] skipFile;
+    Path[] skipFile;
     string[] addon;
     Nullable!string migrationStartRef;
-    Nullable!string migrationRepo;
+    Nullable!Path migrationRepo;
     string[] populateModel;
     Nullable!string populateSize;
 
@@ -116,19 +116,19 @@ class CommandTest: OdoodCommand {
         auto skip_regexes = skipRe.map!(r => regex(r)).array;
 
         foreach(path; skipFile)
-            foreach(a; project.addons.parseAddonsList(Path(path)))
+            foreach(a; project.addons.parseAddonsList(path))
                 skip_addons ~= a.name;
 
         OdooAddon[] addons;
         foreach(search_path; dir)
-            foreach(a; project.addons.scan(Path(search_path), false)) {
+            foreach(a; project.addons.scan(search_path, false)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
             }
 
         foreach(search_path; dirR)
-            foreach(a; project.addons.scan(Path(search_path), true)) {
+            foreach(a; project.addons.scan(search_path, true)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
@@ -146,7 +146,7 @@ class CommandTest: OdoodCommand {
         }
 
         foreach(path; file) {
-            foreach(a; project.addons.parseAddonsList(Path(path))) {
+            foreach(a; project.addons.parseAddonsList(path)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
@@ -197,7 +197,7 @@ class CommandTest: OdoodCommand {
         if (migration)
             testRunner.enableMigrationTest();
         if (!migrationRepo.isNull)
-            testRunner.setMigrationRepo(Path(migrationRepo.get));
+            testRunner.setMigrationRepo(migrationRepo.get);
         if (!migrationStartRef.isNull)
             testRunner.setMigrationStartRef(migrationStartRef.get);
 

@@ -12,7 +12,7 @@ private import odood.lib.project.discover: discoverOdooHelper;
 
 class CommandDiscoverOdooHelper: OdoodCommand {
     bool system;
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("odoo-helper", "Discover odoo-helper-scripts project.");
@@ -26,7 +26,7 @@ class CommandDiscoverOdooHelper: OdoodCommand {
         auto search_path = system ?
             Path("/", "etc", "odoo-helper.conf") :
             !path.isNull ?
-                Path(path.get) :
+                path.get :
                 Path.current;
         auto project = discoverOdooHelper(search_path);
         if (system)

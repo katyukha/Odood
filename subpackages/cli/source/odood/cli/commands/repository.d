@@ -76,7 +76,7 @@ class CommandRepositoryAdd: OdoodCommand {
 
 
 class CommandRepositoryFixVersionConflict: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super(
@@ -90,7 +90,7 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get));
+            path.isNull ? Path.current : path.get);
         foreach(addon; repo.addons)
             addon.path.join("__manifest__.py").fixVersionConflict(
                     project.odoo.serie);
@@ -100,7 +100,7 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
 
 
 class CommandRepositoryFixSerie: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super(
@@ -114,7 +114,7 @@ class CommandRepositoryFixSerie: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get));
+            path.isNull ? Path.current : path.get);
         foreach(addon; repo.addons)
             addon.path.join("__manifest__.py").updateManifestSerie(
                     project.odoo.serie);
@@ -124,7 +124,7 @@ class CommandRepositoryFixSerie: OdoodCommand {
 
 
 class CommandRepositoryBumpAddonVersion: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
     bool major;
     bool minor;
     bool patch;
@@ -158,7 +158,7 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
             version_part = VersionPart.PATCH;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get).toAbsolute);
+            path.isNull ? Path.current : path.get.toAbsolute);
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
@@ -210,7 +210,7 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
 
 class CommandRepositoryCheckVersion: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
     bool ignoreTranslations;
 
     this() {
@@ -230,7 +230,7 @@ class CommandRepositoryCheckVersion: OdoodCommand {
         auto end_ref = GIT_REF_WORKTREE;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get).toAbsolute);
+            path.isNull ? Path.current : path.get.toAbsolute);
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
@@ -272,7 +272,7 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 
 
 class CommandRepositoryMigrateAddons: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
     string[] module_;
     bool commit;
 
@@ -291,7 +291,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get).toAbsolute);
+            path.isNull ? Path.current : path.get.toAbsolute);
 
         project.migrateAddonsCode(
             repo: repo,
@@ -303,7 +303,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
 
 
 class CommandRepositoryDoForwardPort: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
     string source;
 
     this() {
@@ -319,7 +319,7 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            path.isNull ? Path.current : Path(path.get).toAbsolute);
+            path.isNull ? Path.current : path.get.toAbsolute);
 
         repo.fetchOrigin(source);
 

@@ -48,7 +48,7 @@ class CommandAssemblyInit: OdoodCommand {
 
 
 class CommandAssemblyUse: OdoodCommand {
-    string path;
+    Path path;
 
     this() {
         super("use", "Use (attach) assembly located at specified path. Mostly useful in CI flows.");
@@ -57,7 +57,7 @@ class CommandAssemblyUse: OdoodCommand {
     }
 
     override int execute() {
-        auto assembly_path = Path(path).toAbsolute;
+        auto assembly_path = path.toAbsolute;
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
@@ -77,7 +77,7 @@ class CommandAssemblyStatus: OdoodCommand {
         auto project = Project.loadProject;
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {
-            project.useAssembly(Path(assemblyPath.get), save_config: false);
+            project.useAssembly(assemblyPath.get, save_config: false);
         }
         if (project.assembly is null)
             writeln("There is no assembly configured for this project!");
@@ -107,7 +107,7 @@ class AssemblyCommandBase: OdoodCommand {
 
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {
-            project.useAssembly(Path(assemblyPath.get), save_config: false);
+            project.useAssembly(assemblyPath.get, save_config: false);
         }
         enforce!OdoodCLIException(
             project.assembly !is null,
@@ -344,7 +344,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 
 
 class CommandAssembly: OdoodCommand {
-    Nullable!string assemblyPath;
+    Nullable!Path assemblyPath;
 
     this() {
         super("assembly", "Manage assembly of this project");

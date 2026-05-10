@@ -55,7 +55,7 @@ class CommandAddonsList: OdoodCommand {
     bool table;
     string[] field;
     Nullable!string color;
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("list", "List addons in specified directory.");
@@ -100,7 +100,7 @@ class CommandAddonsList: OdoodCommand {
             !assembly || project.assembly !is null,
             "No assembly configured for this project!");
         auto search_path = !path.isNull ?
-            Path(path.get) :
+            path.get :
             assembly ?
                 project.assembly.dist_dir :
                 Path.current;
@@ -300,7 +300,7 @@ class CommandAddonsLink: OdoodCommand {
     bool individualRequirements;
     bool withOdooRequirements;
     bool ual;
-    string path;
+    Path path;
 
     this() {
         super("link", "Link addons in specified directory.");
@@ -322,7 +322,7 @@ class CommandAddonsLink: OdoodCommand {
         auto project = Project.loadProject;
 
         project.addons.link(
-            Path(path),
+            path,
             recursive,
             force,
             true,  // Install py deps from requirements.txt
@@ -371,13 +371,13 @@ class CommandAddonsUpdateList: OdoodCommand {
   **/
 class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     string[] db;
-    string[] dir;
-    string[] dirR;
-    string[] file;
+    Path[] dir;
+    Path[] dirR;
+    Path[] file;
     bool assembly;
     string[] skip;
     string[] skipRe;
-    string[] skipFile;
+    Path[] skipFile;
     bool skipErrors;
     bool ignoreUnfinishedUpdates;
     bool start;
@@ -433,19 +433,19 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
         auto skip_regexes = skipRe.map!(r => regex(r)).array;
 
         foreach(path; skipFile)
-            foreach(a; project.addons.parseAddonsList(Path(path)))
+            foreach(a; project.addons.parseAddonsList(path))
                 skip_addons ~= a.name;
 
         OdooAddon[] addons;
         foreach(search_path; dir)
-            foreach(a; project.addons.scan(Path(search_path), false)) {
+            foreach(a; project.addons.scan(search_path, false)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
             }
 
         foreach(search_path; dirR)
-            foreach(a; project.addons.scan(Path(search_path), true)) {
+            foreach(a; project.addons.scan(search_path, true)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
@@ -462,7 +462,7 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             addons ~= a.get;
         }
         foreach(path; file) {
-            foreach(a; project.addons.parseAddonsList(Path(path))) {
+            foreach(a; project.addons.parseAddonsList(path)) {
                 if (skip_addons.canFind(a.name)) continue;
                 if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
                 addons ~= a;
@@ -613,7 +613,7 @@ class CommandAddonsAdd: OdoodCommand {
     bool recursive;
     bool manifestRequirements;
     string[] odooApps;
-    string[] odooRequirements;
+    Path[] odooRequirements;
 
     this() {
         super("add", "Add addons to the project");
@@ -643,7 +643,7 @@ class CommandAddonsAdd: OdoodCommand {
 
         foreach(requirements_path; odooRequirements)
             project.addons.processOdooRequirements(
-                Path(requirements_path),
+                requirements_path,
                 singleBranch,
                 recursive,
                 true,
@@ -682,9 +682,9 @@ class CommandAddonsIsInstalled: OdoodCommand {
 
 
 class CommandAddonsGeneratePyRequirements: OdoodCommand {
-    Nullable!string outFile;
-    string[] dir;
-    string[] dirR;
+    Nullable!Path outFile;
+    Path[] dir;
+    Path[] dirR;
     string[] addon;
 
     this() {
@@ -709,13 +709,13 @@ class CommandAddonsGeneratePyRequirements: OdoodCommand {
 
         string[] dependencies;
 
-        foreach(string search_path; dir)
-            foreach(a; project.addons.scan(Path(search_path), false))
+        foreach(search_path; dir)
+            foreach(a; project.addons.scan(search_path, false))
                 foreach(dependency; a.manifest.python_dependencies)
                     dependencies ~= dependency;
 
-        foreach(string search_path; dirR)
-            foreach(a; project.addons.scan(Path(search_path), true))
+        foreach(search_path; dirR)
+            foreach(a; project.addons.scan(search_path, true))
                 foreach(dependency; a.manifest.python_dependencies)
                     dependencies ~= dependency;
 
@@ -728,7 +728,7 @@ class CommandAddonsGeneratePyRequirements: OdoodCommand {
 
         string requirements_content = dependencies.sort.uniq.join("\n") ~ "\n";
         if (!outFile.isNull)
-            Path(outFile.get).writeFile(requirements_content);
+            outFile.get.writeFile(requirements_content);
         else
             writeln(requirements_content);
         return 0;
@@ -738,7 +738,7 @@ class CommandAddonsGeneratePyRequirements: OdoodCommand {
 
 class CommandAddonsFindInstalled: OdoodCommand {
     string[] db;
-    Nullable!string outFile;
+    Nullable!Path outFile;
     string format_ = "list";
     bool all;
     bool nonSystem;
@@ -832,7 +832,7 @@ class CommandAddonsFindInstalled: OdoodCommand {
             assert(0, "Unsupported format %s".format(format_));
 
         if (!outFile.isNull)
-            Path(outFile.get).writeFile(result);
+            outFile.get.writeFile(result);
         else
             writeln(result);
         return 0;

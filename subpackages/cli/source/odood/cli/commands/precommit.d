@@ -18,7 +18,7 @@ class CommandPreCommitInit: OdoodCommand {
     bool force;
     bool noSetup;
     bool odooHelperCompat;
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("init", "Initialize pre-commit for this repo.");
@@ -38,7 +38,7 @@ class CommandPreCommitInit: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            !path.isNull ? Path(path.get) : Path.current);
+            !path.isNull ? path.get : Path.current);
 
         if (odooHelperCompat)
             project.initPreCommitOdooHelper(repo, force, !noSetup);
@@ -50,7 +50,7 @@ class CommandPreCommitInit: OdoodCommand {
 
 
 class CommandPreCommitSetUp: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("set-up", "Set up pre-commit for specified repo.");
@@ -62,7 +62,7 @@ class CommandPreCommitSetUp: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            !path.isNull ? Path(path.get) : Path.current);
+            !path.isNull ? path.get : Path.current);
 
         project.setUpPreCommit(repo);
         return 0;
@@ -71,7 +71,7 @@ class CommandPreCommitSetUp: OdoodCommand {
 
 
 class CommandPreCommitUpdate: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("update", "Update pre-commit for specified repo.");
@@ -83,7 +83,7 @@ class CommandPreCommitUpdate: OdoodCommand {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            !path.isNull ? Path(path.get) : Path.current);
+            !path.isNull ? path.get : Path.current);
 
         project.updatePreCommit(repo);
         return 0;
@@ -92,7 +92,7 @@ class CommandPreCommitUpdate: OdoodCommand {
 
 
 class CommandPreCommitRun: OdoodCommand {
-    Nullable!string path;
+    Nullable!Path path;
 
     this() {
         super("run", "Run pre-commit for specified repo.");
@@ -102,7 +102,7 @@ class CommandPreCommitRun: OdoodCommand {
 
     override int execute() {
         auto project = Project.loadProject;
-        auto repo_path = !path.isNull ? Path(path.get) : Path.current;
+        auto repo_path = !path.isNull ? path.get : Path.current;
         project.venv.runner
             .withArgs("pre-commit", "run", "--all-files")
             .inWorkDir(repo_path)

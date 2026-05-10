@@ -13,7 +13,7 @@ private import odood.lib.project: Project;
 
 class CommandScriptPy: OdoodCommand {
     string db;
-    string script;
+    Path script;
 
     this() {
         super("py", "Run Python script in this environment.");
@@ -29,7 +29,7 @@ class CommandScriptPy: OdoodCommand {
             project.databases.exists(db),
             "Database %s does not exists!".format(db));
 
-        project.lodoo.runPyScript(db, Path(script));
+        project.lodoo.runPyScript(db, script);
         return 0;
     }
 }
@@ -38,7 +38,7 @@ class CommandScriptPy: OdoodCommand {
 class CommandScriptSQL: OdoodCommand {
     string db;
     bool noCommit;
-    string script;
+    Path script;
 
     this() {
         super("sql", "Run SQL script in this environment.");
@@ -55,7 +55,7 @@ class CommandScriptSQL: OdoodCommand {
             project.databases.exists(db),
             "Database %s does not exists!".format(db));
 
-        project.dbSQL(db).runSQLScript(Path(script), noCommit);
+        project.dbSQL(db).runSQLScript(script, noCommit);
         return 0;
     }
 }

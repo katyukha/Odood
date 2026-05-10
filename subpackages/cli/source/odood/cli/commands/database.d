@@ -46,8 +46,8 @@ class CommandDatabaseCreate: OdoodCommand {
     Nullable!string password;
     Nullable!string country;
     string[] install;
-    string[] installDir;
-    string[] installFile;
+    Path[] installDir;
+    Path[] installFile;
     Nullable!string name;
 
     this() {
@@ -91,10 +91,10 @@ class CommandDatabaseCreate: OdoodCommand {
             to_install ~= addon.get;
         }
         foreach(dir; installDir)
-            to_install ~= project.addons.scan(Path(dir));
+            to_install ~= project.addons.scan(dir);
 
         foreach(ifile; installFile)
-            to_install ~= project.addons.parseAddonsList(Path(ifile));
+            to_install ~= project.addons.parseAddonsList(ifile);
 
         if (project.databases.exists(dbname)) {
             if (recreate) {
@@ -235,7 +235,7 @@ class CommandDatabaseBackup: OdoodCommand {
     bool zip;
     bool sql;
     bool all;
-    Nullable!string dest;
+    Nullable!Path dest;
     string[] name;
 
     this() {
@@ -266,7 +266,7 @@ class CommandDatabaseBackup: OdoodCommand {
         string[] dbnames = all ? project.databases.list : name;
 
         if (!dest.isNull) {
-            auto dest_path = Path(dest.get);
+            auto dest_path = dest.get;
             enforce!OdoodCLIException(
                 dbnames.length <= 1 || (dest_path.exists && dest_path.isDir),
                 "If --dest option specified and it is not directory, then only one database allowed to backup at time!");
@@ -274,7 +274,7 @@ class CommandDatabaseBackup: OdoodCommand {
 
         foreach(db; dbnames)
             if (!dest.isNull)
-                project.databases.backup(db, Path(dest.get), b_format);
+                project.databases.backup(db, dest.get, b_format);
             else
                 project.databases.backup(db, b_format);
         return 0;

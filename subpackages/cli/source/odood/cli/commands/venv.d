@@ -40,7 +40,7 @@ class CommandVenvInstallDevTools: OdoodCommand {
 
 
 class CommandVenvInstallPyPackages: OdoodCommand {
-    Nullable!string requirements;
+    Nullable!Path requirements;
     string[] package_;
 
     this() {
@@ -56,7 +56,7 @@ class CommandVenvInstallPyPackages: OdoodCommand {
         auto project = Project.loadProject;
 
         if (!requirements.isNull)
-            project.venv.installPyRequirements(Path(requirements.get));
+            project.venv.installPyRequirements(requirements.get);
         if (package_.length > 0)
             project.venv.installPyPackages(package_);
         return 0;
