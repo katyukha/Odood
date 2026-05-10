@@ -1,11 +1,6 @@
 module odood.cli.commands.psql;
 
-private import std.logger;
-private import std.format: format;
-private import std.conv: to, ConvException;
-
-private import commandr: Argument, Option, Flag, ProgramArgs;
-
+private import darkcommand;
 private import theprocess: Process;
 
 private import odood.cli.core: OdoodCommand;
@@ -13,16 +8,17 @@ private import odood.lib.project: Project;
 
 
 class CommandPSQL: OdoodCommand {
+    string db;
+
     this() {
         super("psql", "Run psql for specified database");
-        this.add(new Option(
-            "d", "db", "Name of database to connect to.").required);
+        this.addOption!(db)("d", "db", "Name of database to connect to.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         Project.loadProject.psql
-            .withEnv("PGDATABASE", args.option("db"))
+            .withEnv("PGDATABASE", db)
             .execv;
+        return 0;
     }
 }
-

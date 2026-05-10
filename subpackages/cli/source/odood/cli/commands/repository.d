@@ -5,8 +5,7 @@ private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 
-private import commandr: Argument, Option, Flag, ProgramArgs;
-
+private import darkcommand;
 private import thepath: Path;
 private import versioned: VersionPart;
 
@@ -21,161 +20,160 @@ private import odood.git: GIT_REF_WORKTREE, isGitRepo;
 
 
 class CommandRepositoryAdd: OdoodCommand {
+    bool oca;
+    bool github;
+    bool singleBranch;
+    bool recursive;
+    Nullable!string branch;
+    bool ual;
+    string repo;
+
     this() {
         super("add", "Add git repository to Odood project.");
-        this.add(new Flag(
-            null, "oca",
+        this.addFlag!(oca)("", "oca",
             "Add Odoo Community Association (OCA) repository. " ~
             "If set, then 'repo' argument could be specified as " ~
-            "name of repo under 'https://github.com/OCA' organuzation.")),
-        this.add(new Flag(
-            null, "github",
+            "name of repo under 'https://github.com/OCA' organization.");
+        this.addFlag!(github)("", "github",
             "Add github repository. " ~
             "If set, then 'repo' argument could be specified as " ~
             "'owner/name' that will be converted to " ~
-            "'https://github.com/owner/name'.")),
-        this.add(new Flag(
-            null, "single-branch",
-            "Clone repository wihth --single-branch options. " ~
+            "'https://github.com/owner/name'.");
+        this.addFlag!(singleBranch)("", "single-branch",
+            "Clone repository with --single-branch options. " ~
             "This could significantly reduce size of data to be downloaded " ~
-            "and increase performance."));
-        this.add(new Flag(
-            "r", "recursive",
+            "and increase performance.");
+        this.addFlag!(recursive)("r", "recursive",
             "If set, then system will automatically fetch recursively " ~
             "dependencies of this repository, specified in " ~
-            "odoo_requirements.txt file inside clonned repo."));
-        this.add(new Option(
-            "b", "branch", "Branch to clone"));
-        this.add(new Flag(
-            null, "ual", "Update addons list."));
-        this.add(new Argument("repo", "Repository URL to clone from.").required());
+            "odoo_requirements.txt file inside cloned repo.");
+        this.addOption!(branch)("b", "branch", "Branch to clone");
+        this.addFlag!(ual)("", "ual", "Update addons list.");
+        this.addArgument!(repo)("repo", "Repository URL to clone from.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        string git_url = args.arg("repo");
-        if (args.flag("oca"))
-            // TODO: Add validation
+        string git_url = repo;
+        if (oca)
             git_url = "https://github.com/OCA/%s".format(git_url);
-        else if (args.flag("github"))
-            // TODO: Add validation
+        else if (github)
             git_url = "https://github.com/%s".format(git_url);
 
         project.addons.addRepo(
             git_url,
-            args.option("branch") ?
-                args.option("branch") : project.odoo.branch,
-            args.flag("single-branch"),
-            args.flag("recursive"));
+            branch.isNull ? project.odoo.branch : branch.get,
+            singleBranch,
+            recursive);
 
-        if (args.flag("ual"))
+        if (ual)
             foreach(dbname; project.databases.list())
                 project.lodoo.addonsUpdateList(dbname);
+        return 0;
     }
 }
 
 
-// TODO: Move to devtools section
 class CommandRepositoryFixVersionConflict: OdoodCommand {
+    Nullable!string path;
+
     this() {
         super(
             "fix-version-conflict",
             "Fix version conflicts in manifests of addons in this repo.");
-        this.add(new Argument(
-            "path", "Path to repository to fix conflicts in.").optional());
+        this.addArgument!(path)("path", "Path to repository to fix conflicts in.")
+            .acceptsDirectories();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")) : Path.current);
+            path.isNull ? Path.current : Path(path.get));
         foreach(addon; repo.addons)
             addon.path.join("__manifest__.py").fixVersionConflict(
                     project.odoo.serie);
+        return 0;
     }
 }
 
 
-// TODO: Move to devtools section
 class CommandRepositoryFixSerie: OdoodCommand {
+    Nullable!string path;
+
     this() {
         super(
             "fix-series",
             "Fix series in manifests of addons in this repo. Set series to project's serie");
-        this.add(new Argument(
-            "path", "Path to repository to fix conflicts in.").optional());
+        this.addArgument!(path)("path", "Path to repository to fix conflicts in.")
+            .acceptsDirectories();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")) : Path.current);
+            path.isNull ? Path.current : Path(path.get));
         foreach(addon; repo.addons)
             addon.path.join("__manifest__.py").updateManifestSerie(
                     project.odoo.serie);
+        return 0;
     }
 }
 
 
-// TODO: Move to devtools section
-// - Parse git status,
-// - Find changed addons
-// - increment versions of changed addons
 class CommandRepositoryBumpAddonVersion: OdoodCommand {
+    Nullable!string path;
+    bool major;
+    bool minor;
+    bool patch;
+    bool ignoreTranslations;
+
     this() {
         super(
             "bump-versions",
-            "Bump versions for modules that have changes (comparably to stable branch (17.0, 18.0, ...)).");
-        this.add(new Argument(
-            "path", "Path to repository to search for addons to bump versions.").optional());
-        this.add(new Flag(
-            null, "major", "Increase major version for addons."));
-        this.add(new Flag(
-            null, "minor", "Increase minor version for addons."));
-        this.add(new Flag(
-            null, "patch", "Increase patch version for addons."));
-        this.add(new Flag(
-            null, "ignore-translations", "Ignore translations."));
+            "Bump versions for modules that have changes (comparably to stable branch).");
+        this.addArgument!(path)("path",
+            "Path to repository to search for addons to bump versions.")
+            .acceptsDirectories();
+        this.addFlag!(major)("", "major", "Increase major version for addons.");
+        this.addFlag!(minor)("", "minor", "Increase minor version for addons.");
+        this.addFlag!(patch)("", "patch", "Increase patch version for addons.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations", "Ignore translations.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-
 
         auto start_ref = "origin/%s".format(project.odoo.serie);
         auto end_ref = GIT_REF_WORKTREE;
 
         auto version_part = VersionPart.PATCH;
-        if (args.flag("major"))
+        if (major)
             version_part = VersionPart.MAJOR;
-        else if (args.flag("minor"))
+        else if (minor)
             version_part = VersionPart.MINOR;
-        else if (args.flag("patch"))
+        else if (patch)
             version_part = VersionPart.PATCH;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+            path.isNull ? Path.current : Path(path.get).toAbsolute);
 
-        // Fetch changes from origin
         repo.fetchOrigin(project.odoo.serie.toString);
 
         bool has_changes = false;
-        foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
+        foreach(addon; repo.getChangedModules(start_ref, end_ref, ignoreTranslations)) {
             has_changes = true;
             infof("Checking module %s if version bump needed...", addon);
             auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
             if (maybe_start_version.isNull) {
-                // It seemst that this is new addon. Thus, just skip it.
                 warningf("Cannot read start version for %s. May be it is new addon. Skipping", addon);
                 continue;
             }
 
             auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
             if (maybe_end_version.isNull) {
-                // It seems that this is not addon (or it was removed). Thus, skip it.
                 warningf("Cannot read current version for %s. It seems that this is not addon or it was removed. Skipping", addon);
                 continue;
             }
@@ -183,20 +181,17 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
             auto start_version = maybe_start_version.get;
             auto end_version = maybe_end_version.get;
             if (!start_version.isStandard || !end_version.isStandard) {
-                // We cannot work with non-standard versions. thus skip them
                 warningf("Non-standard start (%s) or current (%s) version of addon %s. Skipping", start_version, end_version, addon);
                 continue;
             }
 
             if (start_version.serie != end_version.serie) {
-                // Series differs. Thus skip. Let human deal with it.
                 warningf("Start version serie (%s) != current version serie (%s) for addon %s. Skipping", start_version.serie, end_version.serie, addon);
                 continue;
             }
 
             auto new_version = end_version;
             if (end_version < start_version) {
-                // End version is smaller then start version. Fix it firest.
                 infof("Current version is less then stable version. Swapping first...");
                 new_version = start_version;
             }
@@ -208,62 +203,56 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
             }
         }
         if (!has_changes)
-            infof("Threre are no changes in modules");
+            infof("There are no changes in modules");
+        return 0;
     }
 }
 
 
 class CommandRepositoryCheckVersion: OdoodCommand {
+    Nullable!string path;
+    bool ignoreTranslations;
+
     this() {
         super(
             "check-versions",
             "Check changed addons has updated versions.");
-        this.add(new Argument(
-            "path", "Path to repository to search for addons to bump versions.").optional());
-        this.add(new Flag(
-            null, "ignore-translations", "Ignore translations."));
+        this.addArgument!(path)("path",
+            "Path to repository to search for addons to bump versions.")
+            .acceptsDirectories();
+        this.addFlag!(ignoreTranslations)("", "ignore-translations", "Ignore translations.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-
 
         auto start_ref = "origin/%s".format(project.odoo.serie);
         auto end_ref = GIT_REF_WORKTREE;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+            path.isNull ? Path.current : Path(path.get).toAbsolute);
 
-        // Fetch changes from origin
         repo.fetchOrigin(project.odoo.serie.toString);
 
-        // TODO: Ignore if running on stable branch
-
         bool has_changes = false;
-        foreach(addon; repo.getChangedModules(start_ref, end_ref, args.flag("ignore-translations"))) {
+        foreach(addon; repo.getChangedModules(start_ref, end_ref, ignoreTranslations)) {
             has_changes = true;
             infof("Checking module %s if version bump needed...", addon);
             auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
-            if (maybe_start_version.isNull) {
-                // It seemst that this is new addon. Thus, just skip it.
+            if (maybe_start_version.isNull)
                 continue;
-            }
 
             auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
-            if (maybe_end_version.isNull) {
-                // It seems that this is not addon (or it was removed). Thus, skip it.
+            if (maybe_end_version.isNull)
                 continue;
-            }
 
             auto start_version = maybe_start_version.get;
             auto end_version = maybe_end_version.get;
             enforce!OdoodCLIException(
                 end_version.isStandard,
                 "Non-standard current (%s) version of addon %s. Please, use standard versions for addons in format %s.X.Y.Z".format(end_version, addon.name, project.odoo.serie.toString));
-            if (!start_version.isStandard) {
-                // We cannot work with non-standard versions. thus skip if start version is not standard
+            if (!start_version.isStandard)
                 continue;
-            }
 
             enforce!OdoodCLIException(
                 end_version.serie == project.odoo.serie,
@@ -276,69 +265,69 @@ class CommandRepositoryCheckVersion: OdoodCommand {
                     addon.name, start_version, end_version));
         }
         if (!has_changes)
-            infof("Threre are no changes in modules");
+            infof("There are no changes in modules");
+        return 0;
     }
 }
 
 
 class CommandRepositoryMigrateAddons: OdoodCommand {
+    Nullable!string path;
+    string[] module_;
+    bool commit;
+
     this() {
         super(
             "migrate-addons",
             "Migrate code of addons that has older odoo serie to serie of this project.");
-        this.add(new Argument(
-            "path", "Path to repository to migrate addons in.").optional);
-        this.add(new Option(
-            "m", "module", "Name of module to migrate").repeating);
-        this.add(new Flag(
-            null, "commit", "Commit changes."));
+        this.addArgument!(path)("path", "Path to repository to migrate addons in.")
+            .acceptsDirectories();
+        this.addOption!(module_)("m", "module", "Name of module to migrate");
+        this.addFlag!(commit)("", "commit", "Commit changes.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         import odood.lib.devtools.migrate: migrateAddonsCode;
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
+            path.isNull ? Path.current : Path(path.get).toAbsolute);
 
         project.migrateAddonsCode(
             repo: repo,
-            addon_names: args.options("module"),
-            commit: args.flag("commit"));
+            addon_names: module_,
+            commit: commit);
+        return 0;
     }
 }
 
 
 class CommandRepositoryDoForwardPort: OdoodCommand {
+    Nullable!string path;
+    string source;
+
     this() {
         super(
             "do-forward-port",
             "[Experimental] Do forwardport changes from older branch.");
-        this.add(new Argument(
-            "path", "Path to repository to migrate addons in.").optional);
-        this.add(new Option(
-            "s", "source", "Source branch to forwarport changes from").required);
+        this.addArgument!(path)("path", "Path to repository to migrate addons in.");
+        this.addOption!(source)("s", "source",
+            "Source branch to forwardport changes from");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
-            args.arg("path") ? Path(args.arg("path")).toAbsolute : Path.current);
-        auto source_branch = args.option("source");
+            path.isNull ? Path.current : Path(path.get).toAbsolute);
 
-        // TODO: Ensure that git repo is clean
+        repo.fetchOrigin(source);
 
-        // Fetch source branch changes
-        repo.fetchOrigin(source_branch);
-
-        // Prepare merge
         if (!repo.gitCmd
-                .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source_branch))
+                .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source))
                 .execute.isOk)
             warningf("Merge failed, there are conflicts. Please, resolve them manually");
 
-        // Revert translation changes
         repo.gitCmd
             .withArgs("reset", "-q", "--", "*.po", "*.pot")
             .execute
@@ -355,7 +344,6 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
             .withArgs("add", "*.po", "*.pot")
             .execute;
 
-        // Fix version conflicts
         foreach(addon; repo.addons) {
             addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);
 
@@ -365,9 +353,8 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
             foreach(migration_path; addon.path.join("migrations").walk) {
                 auto migration_version = OdooStdVersion(migration_path.baseName);
                 if (!migration_version.isStandard) {
-                    // We cannot migrate migration that is not standard
                     warningf(
-                        "Cannot migratate migration script that is not in standard format. Skipping migration of %s:%s migration...",
+                        "Cannot migrate migration script that is not in standard format. Skipping migration of %s:%s migration...",
                         addon.name, migration_version.rawVersion);
                     continue;
                 }
@@ -380,9 +367,7 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
                 }
             }
         }
-
-        // TODO: Check if repo is clean (nothing was changed)
-
+        return 0;
     }
 }
 
@@ -403,11 +388,10 @@ class CommandRepositoryPullAll: OdoodCommand {
             else
                 repositories ~= searchRepositories(p);
         }
-
         return repositories;
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         foreach(repo; searchRepositories(project.directories.repositories)) {
             auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
@@ -442,7 +426,7 @@ class CommandRepositoryPullAll: OdoodCommand {
                 warningf("Repo %s: not clean, skipping...", repo_name);
             }
         }
-
+        return 0;
     }
 }
 
@@ -452,8 +436,6 @@ class CommandRepository: OdoodCommand {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositoryPullAll());
-
-        // Dev commands
         this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
@@ -462,5 +444,3 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryDoForwardPort());
     }
 }
-
-

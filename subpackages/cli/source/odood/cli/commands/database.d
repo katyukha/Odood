@@ -10,9 +10,10 @@ private import std.algorithm.iteration: uniq;
 private import std.string: join, empty, isNumeric;
 private import std.range: iota;
 private import std.conv: to;
+private import std.typecons: Nullable;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues, validateEachWith;
+private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
 private import odood.lib.project: Project;
@@ -25,81 +26,80 @@ private import odood.utils.addons.addon: OdooAddon;
 
 class CommandDatabaseList: OdoodCommand {
     this() {
-        this("list");
+        super("list", "Show the databases available for this odoo instance.");
     }
 
-    this(in string name) {
-        super(name, "Show the databases available for this odoo instance.");
-    }
-
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         foreach(db; project.databases.list())
             writeln(db);
+        return 0;
     }
-
 }
 
 
 class CommandDatabaseCreate: OdoodCommand {
+    bool demo;
+    bool recreate;
+    bool tdb;
+    string lang = "en_US";
+    Nullable!string password;
+    Nullable!string country;
+    string[] install;
+    string[] installDir;
+    string[] installFile;
+    Nullable!string name;
+
     this() {
         super("create", "Create new odoo database.");
-        this.add(new Flag("d", "demo", "Load demo data for this db"));
-        this.add(new Flag(
-            "r", "recreate", "Recreate database if it already exists."));
-        this.add(new Flag(
-            null, "tdb", "Automatically generate default name of test database"));
-        this.add(new Option(
-            "l", "lang",
-            "Language of database, specified as ISO code of language."
-        ).defaultValue("en_US"));
-        // TODO: Add ability to ask for password interactively
-        this.add(new Option(
-            null, "password", "Admin password for this database."));
-        this.add(new Option(
-            null, "country", "Country for this db."));
-        this.add(new Option(
-            "i", "install", "Install module specified by name.").repeating);
-        this.add(new Option(
-            null, "install-dir", "Install all modules from directory.")
-                .repeating);
-        this.add(new Option(
-            null, "install-file",
-            "Install all modules listed in specified file.").repeating);
-        this.add(new Argument("name", "Name of database").optional);
-        // TODO: Think about adding flag to create database only if it does not exists yet
+        this.addFlag!(demo)("d", "demo", "Load demo data for this db");
+        this.addFlag!(recreate)("r", "recreate", "Recreate database if it already exists.");
+        this.addFlag!(tdb)("", "tdb", "Automatically generate default name of test database");
+        this.addOption!(lang)("l", "lang",
+            "Language of database, specified as ISO code of language.")
+            .defaultValue("en_US");
+        this.addOption!(password)("", "password", "Admin password for this database.");
+        this.addOption!(country)("", "country", "Country for this db.");
+        this.addOption!(install)("i", "install", "Install module specified by name.");
+        this.addOption!(installDir)("", "install-dir", "Install all modules from directory.")
+            .acceptsDirectories();
+        this.addOption!(installFile)("", "install-file",
+            "Install all modules listed in specified file.")
+            .acceptsFiles();
+        this.addArgument!(name)("name", "Name of database");
     }
 
-    string getDatabaseName(ProgramArgs args, in Project project) {
-        if (args.arg("name"))
-            return args.arg("name");
-        if (args.flag("tdb"))
+    string getDatabaseName(in Project project) {
+        if (!name.isNull)
+            return name.get;
+        if (tdb)
             return generateTestDbName(project);
-        throw new OdoodCLIException("It is required to specify name of database or option --tdb.");
+        throw new OdoodCLIException(
+            "It is required to specify name of database or option --tdb.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        string dbname = getDatabaseName(args, project);
+        string dbname = getDatabaseName(project);
 
         OdooAddon[] to_install;
-        foreach(addon_name; args.options("install")) {
+        foreach(addon_name; install) {
             auto addon = project.addons.getByName(addon_name);
             enforce!OdoodCLIException(
                 !addon.isNull,
                 "Cannot find addon %s".format(addon_name));
             to_install ~= addon.get;
         }
-        foreach(install_dir; args.options("install-dir"))
-            to_install ~= project.addons.scan(Path(install_dir));
+        foreach(dir; installDir)
+            to_install ~= project.addons.scan(Path(dir));
 
-        foreach(install_file; args.options("install-file"))
-            to_install ~= project.addons.parseAddonsList(Path(install_file));
+        foreach(ifile; installFile)
+            to_install ~= project.addons.parseAddonsList(Path(ifile));
 
         if (project.databases.exists(dbname)) {
-            if (args.flag("recreate")) {
+            if (recreate) {
                 warningf(
-                    "Dropting database %s before recreating it " ~
+                    "Dropping database %s before recreating it " ~
                     "(because --recreate option specified).", dbname);
                 project.databases.drop(dbname);
             } else {
@@ -110,185 +110,199 @@ class CommandDatabaseCreate: OdoodCommand {
 
         project.databases.create(
             dbname,
-            args.flag("demo"),
-            args.option("lang"),
-            args.option("password"),
-            args.option("country"));
+            demo,
+            lang,
+            password.isNull ? null : password.get,
+            country.isNull ? null : country.get);
 
         if (!to_install.empty)
             project.addons.install(dbname, to_install);
+        return 0;
     }
 }
 
+
 class CommandDatabaseDrop: OdoodCommand {
+    string[] name;
+
     this() {
         super("drop", "Drop the odoo database.");
-        this.add(new Argument("name", "Name of database").required.repeating);
+        this.addArgument!(name)("name", "Name of database(s) to drop.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        foreach(dbname; args.args("name"))
+        foreach(dbname; name)
             if (project.databases.exists(dbname))
                 project.databases.drop(dbname);
+        return 0;
     }
 }
 
 
 class CommandDatabaseExists: OdoodCommand {
+    bool quiet;
+    string name;
+
     this() {
         super("exists", "Check if database exists.");
-        this.add(new Flag(
-            "-q", "quiet", "Suppress output, just return exit code"));
-        this.add(new Argument("name", "Name of database").required());
+        this.addFlag!(quiet)("q", "quiet", "Suppress output, just return exit code");
+        this.addArgument!(name)("name", "Name of database");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        bool db_exists = project.databases.exists(args.arg("name"));
+        bool db_exists = project.databases.exists(name);
         if (db_exists) {
-            if (!args.flag("quiet"))
-                writeln("Database %s exists!".format(args.arg("name")));
+            if (!quiet)
+                writeln("Database %s exists!".format(name));
             exitWithCode(0, "Database exists");
         } else {
-            if (!args.flag("quiet"))
-                writeln("Database does not %s exists!".format(args.arg("name")));
-            exitWithCode(1, "Database does not exists");
+            if (!quiet)
+                writeln("Database %s does not exist!".format(name));
+            exitWithCode(1, "Database does not exist");
         }
+        return 0;
     }
 }
 
 
 class CommandDatabaseIsInitialized: OdoodCommand {
+    bool quiet;
+    string name;
+
     this() {
         super("is-initialized",
             "Check if database is initialized as an Odoo database.");
-        this.add(new Flag(
-            "q", "quiet", "Suppress output, just return exit code."));
-        this.add(new Argument("name", "Name of database.").required());
+        this.addFlag!(quiet)("q", "quiet", "Suppress output, just return exit code.");
+        this.addArgument!(name)("name", "Name of database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        bool initialized = project.databases.isInitialized(args.arg("name"));
+        bool initialized = project.databases.isInitialized(name);
         if (initialized) {
-            if (!args.flag("quiet"))
-                writeln("Database %s is initialized.".format(args.arg("name")));
+            if (!quiet)
+                writeln("Database %s is initialized.".format(name));
             exitWithCode(0, "Database is initialized");
         } else {
-            if (!args.flag("quiet"))
-                writeln("Database %s is not initialized.".format(args.arg("name")));
+            if (!quiet)
+                writeln("Database %s is not initialized.".format(name));
             exitWithCode(1, "Database is not initialized");
         }
+        return 0;
     }
 }
 
 
 class CommandDatabaseRename: OdoodCommand {
+    string oldName;
+    string newName;
+
     this() {
         super("rename", "Rename database.");
-        this.add(new Argument(
-            "old-name", "Name of original database.").required());
-        this.add(new Argument(
-            "new-name", "New name of database.").required());
+        this.addArgument!(oldName)("old-name", "Name of original database.");
+        this.addArgument!(newName)("new-name", "New name of database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        project.databases.rename(
-            args.arg("old-name"), args.arg("new-name"));
+        project.databases.rename(oldName, newName);
+        return 0;
     }
 }
 
 
 class CommandDatabaseCopy: OdoodCommand {
+    string oldName;
+    string newName;
+
     this() {
         super("copy", "Copy database.");
-        this.add(new Argument(
-            "old-name", "Name of original database.").required());
-        this.add(new Argument(
-            "new-name", "New name of database.").required());
+        this.addArgument!(oldName)("old-name", "Name of original database.");
+        this.addArgument!(newName)("new-name", "New name of database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        project.databases.copy(
-            args.arg("old-name"), args.arg("new-name"));
+        project.databases.copy(oldName, newName);
+        return 0;
     }
 }
 
 
 class CommandDatabaseBackup: OdoodCommand {
+    bool zip;
+    bool sql;
+    bool all;
+    Nullable!string dest;
+    string[] name;
+
     this() {
         super("backup", "Backup database.");
-        this.add(new Flag(
-            null, "zip", "Make ZIP backup with filestore."));
-        this.add(new Flag(
-            null, "sql", "Make SQL-only backup without filestore"));
-        this.add(new Flag(
-            "a", "all", "Backup all databases"));
-        this.add(new Option(
-            "d", "dest",
+        this.addFlag!(zip)("", "zip", "Make ZIP backup with filestore.");
+        this.addFlag!(sql)("", "sql", "Make SQL-only backup without filestore");
+        this.addFlag!(all)("a", "all", "Backup all databases");
+        this.addOption!(dest)("d", "dest",
             "Destination path for backup. " ~
-            "By default will store at project's backup directory."));
-        this.add(new Argument(
-            "name", "Name of database to backup.").optional.repeating);
+            "By default will store at project's backup directory.");
+        this.addArgument!(name)("name", "Name of database(s) to backup.")
+            .defaultValue([]);
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         enforce!OdoodCLIException(
-            args.flag("all") || args.args("name").length > 0,
+            all || name.length > 0,
             "It is required to specify name of database to backup or option -a or --all!");
 
         auto b_format = BackupFormat.zip;
-        if (args.flag("zip"))
+        if (zip)
             b_format = BackupFormat.zip;
-        if (args.flag("sql"))
+        if (sql)
             b_format = BackupFormat.sql;
 
-        string[] dbnames = args.flag("all") ?
-            project.databases.list : args.args("name");
+        string[] dbnames = all ? project.databases.list : name;
 
-        if (!args.option("dest").empty) {
-            auto dest = Path(args.option("dest"));
+        if (!dest.isNull) {
+            auto dest_path = Path(dest.get);
             enforce!OdoodCLIException(
-                dbnames.length <= 1 || (dest.exists && dest.isDir),
+                dbnames.length <= 1 || (dest_path.exists && dest_path.isDir),
                 "If --dest option specified and it is not directory, then only one database allowed to backup at time!");
         }
 
         foreach(db; dbnames)
-            if (args.option("dest"))
-                project.databases.backup(
-                    db, Path(args.option("dest")), b_format);
+            if (!dest.isNull)
+                project.databases.backup(db, Path(dest.get), b_format);
             else
                 project.databases.backup(db, b_format);
+        return 0;
     }
 }
 
 
 class CommandDatabaseRestore: OdoodCommand {
+    bool stun;
+    bool selfish;
+    bool force;
+    bool recreate;
+    string name;
+    string backup;
+
     this() {
         super("restore", "Restore database.");
-        this.add(new Flag(
-            null, "stun", "Stun database (disable cron and mail servers)"));
-        this.add(new Flag(
-            null, "selfish", "Stop the server while database being restored."));
-        this.add(new Flag(
-            "f", "force", "Enforce restore, even if backup is not valid."));
-        this.add(new Flag(
-            "r", "recreate", "Recreate database if it already exists."));
-        this.add(new Argument(
-            "name", "Name of database to restore.").required());
-        this.add(new Argument(
-            "backup", "Path to backup (or name of backup) to restore database from.").required());
+        this.addFlag!(stun)("", "stun", "Stun database (disable cron and mail servers)");
+        this.addFlag!(selfish)("", "selfish", "Stop the server while database being restored.");
+        this.addFlag!(force)("f", "force", "Enforce restore, even if backup is not valid.");
+        this.addFlag!(recreate)("r", "recreate", "Recreate database if it already exists.");
+        this.addArgument!(name)("name", "Name of database to restore.");
+        this.addArgument!(backup)("backup",
+            "Path to backup (or name of backup) to restore database from.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        const auto backup_path = args.arg("backup");
-        const string dbname = args.arg("name");
 
         bool start_server = false;
         if (project.server.isRunning) {
@@ -296,107 +310,116 @@ class CommandDatabaseRestore: OdoodCommand {
             start_server = true;
         }
 
-        if (project.databases.exists(dbname)) {
-            if (args.flag("recreate")) {
+        if (project.databases.exists(name)) {
+            if (recreate) {
                 warningf(
-                    "Dropting database %s before recreating it " ~
-                    "(because --recreate option specified).", dbname);
-                project.databases.drop(dbname);
-            } else if (project.databases.isInitialized(dbname)) {
+                    "Dropping database %s before recreating it " ~
+                    "(because --recreate option specified).", name);
+                project.databases.drop(name);
+            } else if (project.databases.isInitialized(name)) {
                 throw new OdoodCLIException(
-                    "Database %s already exists and is not empty!".format(dbname));
+                    "Database %s already exists and is not empty!".format(name));
             }
         }
 
         project.databases.restore(
-            dbname,
-            backup_path,
-            args.flag("force") ? false : true,  // validate strict
+            name,
+            backup,
+            force ? false : true,  // validate strict
         );
 
-        // Optionally stun database
-        if (args.flag("stun"))
-            project.dbSQL(args.arg("name")).stunDb;
+        if (stun)
+            project.dbSQL(name).stunDb;
 
         if (start_server)
             project.server.start;
+        return 0;
     }
 }
 
 
 class CommandDatabaseStun: OdoodCommand {
+    string name;
+
     this() {
-        super("stun", "Stun (neutralize) database (disable cron and main servers).");
-        this.add(new Argument(
-            "name", "Name of database to stun.").required());
+        super("stun", "Stun (neutralize) database (disable cron and mail servers).");
+        this.addArgument!(name)("name", "Name of database to stun.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-
-        project.dbSQL(args.arg("name")).stunDb;
+        project.dbSQL(name).stunDb;
+        return 0;
     }
 }
 
 
 class CommandDatabasePopulate: OdoodCommand {
+    string dbname;
+    string[] model;
+    string size = "small";
+    int repeat = 1;
+
     this() {
         super("populate", "Populate database with test data.");
-        this.add(new Option(
-            "d", "dbname", "Name of database to populate.").required());
-        this.add(new Option(
-            "m", "model", "Name of model to populate. Could be specified multiple times.").required.repeating);
-        this.add(new Option(
-            "s", "size", "Population size"
-            ).defaultValue("small").acceptsValues(["small", "medium", "large"]));
-        this.add(
-            new Option(
-                null, "repeat", "Repeat population N times."
-            )
-            .defaultValue("1")
-            .validateEachWith(opt => opt.isNumeric, "must be a number.")
-        );
+        this.addOption!(dbname)("d", "dbname", "Name of database to populate.");
+        this.addOption!(model)("m", "model",
+            "Name of model to populate. Could be specified multiple times.");
+        this.addOption!(size)("s", "size", "Population size")
+            .defaultValue("small")
+            .acceptsValues(["small", "medium", "large"]);
+        this.addOption!(repeat)("", "repeat", "Repeat population N times.")
+            .defaultValue(1)
+            .validateEachWith((int v) => v > 0, "must be a positive number.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override protected void validate() {
+        enforce!OdoodCLIException(
+            model.length > 0,
+            "At least one --model must be specified.");
+    }
+
+    override int execute() {
         auto project = Project.loadProject;
 
-        foreach(i; iota(args.option("repeat").to!int)) {
-            infof("Population database... (iteration #%s of %s)", i, args.option("repeat"));
-            project.databases.populate(
-                args.option("dbname"),
-                args.options("model"),
-                args.option("size"));
+        foreach(i; iota(repeat)) {
+            infof("Populating database... (iteration #%s of %s)", i + 1, repeat);
+            project.databases.populate(dbname, model, size);
         }
+        return 0;
     }
 }
 
 
 class CommandDatabaseEnsureInitialized: OdoodCommand {
+    bool waitPg;
+    long waitPgTimeout = 60;
+    bool demo;
+    string lang = "en_US";
+    string name;
+
     this() {
         super("ensure-initialized",
               "Ensure a database exists and is initialized as an Odoo database. " ~
               "Idempotent: safe to use in K8s init containers.");
-        this.add(new Flag(
-            null, "wait-pg",
-            "Wait for PostgreSQL to be ready before proceeding."));
-        this.add(new Option(
-            null, "wait-pg-timeout",
+        this.addFlag!(waitPg)("", "wait-pg",
+            "Wait for PostgreSQL to be ready before proceeding.");
+        this.addOption!(waitPgTimeout)("", "wait-pg-timeout",
             "Maximum time to wait for PostgreSQL in seconds.")
-            .defaultValue("60"));
-        this.add(new Flag("d", "demo", "Load demo data (only on first initialization)."));
-        this.add(new Option(
-            "l", "lang",
+            .defaultValue(60L);
+        this.addFlag!(demo)("d", "demo",
+            "Load demo data (only on first initialization).");
+        this.addOption!(lang)("l", "lang",
             "Language code, e.g. en_US (only on first initialization).")
-            .defaultValue("en_US"));
-        this.add(new Argument("name", "Name of database.").required());
+            .defaultValue("en_US");
+        this.addArgument!(name)("name", "Name of database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        if (args.flag("wait-pg")) {
-            auto pg_timeout = args.option("wait-pg-timeout").to!long.seconds;
+        if (waitPg) {
+            auto pg_timeout = waitPgTimeout.seconds;
             infof("Waiting for PostgreSQL...");
             enforce!OdoodCLIException(
                 project.server.waitForPostgres(pg_timeout),
@@ -404,10 +427,8 @@ class CommandDatabaseEnsureInitialized: OdoodCommand {
             infof("PostgreSQL is ready.");
         }
 
-        project.databases.ensureInitialized(
-            args.arg("name"),
-            args.flag("demo"),
-            args.option("lang"));
+        project.databases.ensureInitialized(name, demo, lang);
+        return 0;
     }
 }
 
@@ -429,5 +450,3 @@ class CommandDatabase: OdoodCommand {
         this.add(new CommandDatabasePopulate());
     }
 }
-
-

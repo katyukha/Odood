@@ -2,45 +2,45 @@ module odood.cli.commands.server;
 
 private import core.time;
 private import std.logger;
-private import std.conv: to;
-private import std.format: format;
 private import std.exception: enforce;
 private import std.algorithm.searching: canFind, startsWith;
 
 private import thepath: Path;
 private import theprocess: Process;
-private import commandr: Option, Flag, ProgramArgs;
+private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
-private import odood.utils.odoo.serie: OdooSerie;
 private import odood.lib.server: DEFAULT_START_TIMEOUT;
 
 
 class CommandServerRun: OdoodCommand {
+    bool ignoreRunning;
+    bool waitPg;
+    long waitPgTimeout = 60;
+
     this() {
         super("run", "Run the server.");
-        this.add(new Flag(
-            null, "ignore-running", "Ingore running Odoo instance. (Do not check/create pidfile)."));
-        this.add(new Flag(
-            null, "wait-pg",
-            "Wait for PostgreSQL to be ready before starting the server."));
-        this.add(new Option(
-            null, "wait-pg-timeout",
+        this.addFlag!(ignoreRunning)(
+            "", "ignore-running",
+            "Ignore running Odoo instance. (Do not check/create pidfile).");
+        this.addFlag!(waitPg)(
+            "", "wait-pg",
+            "Wait for PostgreSQL to be ready before starting the server.");
+        this.addOption!(waitPgTimeout)(
+            "", "wait-pg-timeout",
             "Maximum time to wait for PostgreSQL in seconds.")
-            .defaultValue("60"));
+            .defaultValue(60L);
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         auto runner = project.server.getServerRunner();
 
-        runner.addArgs(args.argsRest);
+        runner.addArgs(argsRest);
 
-        if (args.flag("ignore-running")) {
-            // if no --pidfile option specified, enforce no pidfile.
-            // This is needed to avoid messing up pid of running app.
-            if (!args.argsRest.canFind!((e) => e.startsWith("--pidfile")))
+        if (ignoreRunning) {
+            if (!argsRest.canFind!((e) => e.startsWith("--pidfile")))
                 runner.addArgs("--pidfile=");
         } else {
             enforce!OdoodCLIException(
@@ -48,8 +48,8 @@ class CommandServerRun: OdoodCommand {
                 "Odoo server already running!");
         }
 
-        if (args.flag("wait-pg")) {
-            auto pg_timeout = args.option("wait-pg-timeout").to!long.seconds;
+        if (waitPg) {
+            auto pg_timeout = waitPgTimeout.seconds;
             infof("Waiting for PostgreSQL...");
             enforce!OdoodCLIException(
                 project.server.waitForPostgres(pg_timeout),
@@ -59,25 +59,27 @@ class CommandServerRun: OdoodCommand {
 
         debug tracef("Running Odoo: %s", runner);
         runner.execv;
+        return 0;
     }
 }
 
 
 class CommandServerStart: OdoodCommand {
+    long timeout;
+
     this() {
         super("start", "Run the server in background.");
-        this.add(new Option(
-            "t", "timeout", "Timeout to wait while server starts (in seconds).").defaultValue(DEFAULT_START_TIMEOUT.total!"seconds".to!string));
+        this.addOption!(timeout)(
+            "t", "timeout",
+            "Timeout to wait while server starts (in seconds).")
+            .defaultValue(DEFAULT_START_TIMEOUT.total!"seconds");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        auto timeout = args.option("timeout") ?
-            args.option("timeout").to!long.seconds :
-            Duration.zero;
-        project.server.start(timeout);
+        project.server.start(timeout.seconds);
+        return 0;
     }
-
 }
 
 
@@ -86,16 +88,15 @@ class CommandServerStatus: OdoodCommand {
         super("status", "Check if server is running");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         import std.stdio;
         auto project = Project.loadProject;
-        if (project.server.isRunning) {
+        if (project.server.isRunning)
             writeln("The server is running");
-        } else {
+        else
             writeln("The server is stopped");
-        }
+        return 0;
     }
-
 }
 
 
@@ -104,33 +105,34 @@ class CommandServerStop: OdoodCommand {
         super("stop", "Stop the server");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         project.server.stop();
+        return 0;
     }
 }
 
 
 class CommandServerRestart: OdoodCommand {
+    long timeout;
+
     this() {
         super("restart", "Restart the server running in background.");
-        this.add(new Option(
-            "t", "timeout", "Timeout to wait while server starts (in seconds).").defaultValue(DEFAULT_START_TIMEOUT.total!"seconds".to!string));
+        this.addOption!(timeout)(
+            "t", "timeout",
+            "Timeout to wait while server starts (in seconds).")
+            .defaultValue(DEFAULT_START_TIMEOUT.total!"seconds");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-
-        auto timeout = args.option("timeout") ?
-            args.option("timeout").to!long.seconds :
-            Duration.zero;
 
         if (project.server.isRunning)
             project.server.stop();
 
-        project.server.start(timeout);
+        project.server.start(timeout.seconds);
+        return 0;
     }
-
 }
 
 
@@ -140,7 +142,7 @@ class CommandServerBrowse: OdoodCommand {
         super("browse", "Open odoo in browser");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         import std.process;
         auto project = Project.loadProject;
         if (!project.server.isRunning)
@@ -149,8 +151,8 @@ class CommandServerBrowse: OdoodCommand {
         auto url = project.server.getConfigHTTP.url;
         infof("Opening %s in browse....", url);
         std.process.browse(url);
+        return 0;
     }
-
 }
 
 
@@ -159,8 +161,7 @@ class CommandServerLogView: OdoodCommand {
         super("log", "View server logs.");
     }
 
-    public override void execute(ProgramArgs args) {
-        import std.process;
+    override int execute() {
         auto project = Project.loadProject;
         tracef("Viewing logfile: %s", project.odoo.logfile.toString);
         Process("less").withArgs(
@@ -168,59 +169,61 @@ class CommandServerLogView: OdoodCommand {
             "--",
             project.odoo.logfile.toString
         ).execv;
+        return 0;
     }
 }
 
 
 class CommandServerHealthcheck: OdoodCommand {
+    long timeout = 10;
+
     this() {
         super("healthcheck",
             "Check if the Odoo HTTP server is healthy.\n" ~
             "Exits 0 if healthy, 1 if not.\n");
-        this.add(new Option(
+        this.addOption!(timeout)(
             "t", "timeout",
             "HTTP request timeout in seconds.")
-            .defaultValue("10"));
+            .defaultValue(10L);
     }
 
-    public override void execute(ProgramArgs args) {
-        import std.stdio: writeln;
-        import core.time: seconds;
-
+    override int execute() {
         auto project = Project.loadProject;
-        auto timeout = args.option("timeout").to!long.seconds;
 
-        if (project.server.healthcheck(timeout))
+        if (project.server.healthcheck(timeout.seconds))
             infof("Odoo server is healthy.");
         else
             throw new OdoodCLIException("Odoo server is not healthy!");
+        return 0;
     }
 }
 
 
 class CommandServerWaitPg: OdoodCommand {
+    long timeout = 60;
+    long interval = 2;
+
     this() {
         super("wait-pg", "Wait for PostgreSQL to become available.");
-        this.add(new Option(
+        this.addOption!(timeout)(
             "t", "timeout",
             "Maximum time to wait in seconds.")
-            .defaultValue("60"));
-        this.add(new Option(
-            null, "interval",
+            .defaultValue(60L);
+        this.addOption!(interval)(
+            "", "interval",
             "Time between connection attempts in seconds.")
-            .defaultValue("2"));
+            .defaultValue(2L);
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        auto timeout = args.option("timeout").to!long.seconds;
-        auto interval = args.option("interval").to!long.seconds;
 
         infof("Waiting for PostgreSQL...");
         enforce!OdoodCLIException(
-            project.server.waitForPostgres(timeout, interval),
+            project.server.waitForPostgres(timeout.seconds, interval.seconds),
             "PostgreSQL did not become available within the timeout.");
         infof("PostgreSQL is ready.");
+        return 0;
     }
 }
 
@@ -239,4 +242,3 @@ class CommandServer: OdoodCommand {
         this.add(new CommandServerWaitPg());
     }
 }
-

@@ -11,7 +11,7 @@ private import std.typecons: nullable, Nullable;
 
 private import thepath: Path;
 private import theprocess: Process;
-private import commandr: Option, Flag, ProgramArgs, acceptsValues;
+private import darkcommand;
 private import dini: Ini;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -30,212 +30,196 @@ private import odood.lib.deploy.config: detectSystemCABundle;
 
 
 class CommandDeploy: OdoodCommand {
+    string odooVersion = "17.0";
+    Nullable!string pyVersion;
+    Nullable!string nodeVersion;
+    string dbHost = "localhost";
+    string dbPort = "False";
+    string dbUser = "odoo";
+    Nullable!string dbPassword;
+    bool localPostgres;
+    string workers = "0";
+    bool proxyMode;
+    bool localNginx;
+    Nullable!string localNginxServerName;
+    bool localNginxSsl;
+    Nullable!string localNginxSslCert;
+    Nullable!string localNginxSslKey;
+    bool tls12Compat;
+    bool letsencrypt;
+    Nullable!string letsencryptEmail;
+    bool enableLogrotate;
+    bool enableFail2ban;
+    string supervisor = "systemd";
+    bool logToStderr;
+    bool useSystemCaBundle;
+    Nullable!string assemblyRepo;
+
     this() {
         super("deploy", "Deploy production-ready Odoo.");
-        this.add(new Option("v", "odoo-version", "Version of Odoo to install")
-            .required().defaultValue("17.0"));
-        this.add(new Option(
-            null, "py-version", "Install specific python version."));
-        this.add(new Option(
-            null, "node-version", "Install specific node version."));
+        this.addOption!(odooVersion)("v", "odoo-version", "Version of Odoo to install")
+            .defaultValue("17.0");
+        this.addOption!(pyVersion)("", "py-version", "Install specific python version.");
+        this.addOption!(nodeVersion)("", "node-version", "Install specific node version.");
 
-        this.add(new Option(
-            null, "db-host", "Database host").defaultValue("localhost"));
-        this.add(new Option(
-            null, "db-port", "Database port").defaultValue("False"));
-        this.add(new Option(
-            null, "db-user", "Database port").defaultValue("odoo"));
-        this.add(new Option(
-            null, "db-password", "Database password"));
-        this.add(new Flag(
-            null, "local-postgres", "Configure local postgresql server (requires PostgreSQL installed)"));
+        this.addOption!(dbHost)("", "db-host", "Database host").defaultValue("localhost");
+        this.addOption!(dbPort)("", "db-port", "Database port").defaultValue("False");
+        this.addOption!(dbUser)("", "db-user", "Database user").defaultValue("odoo");
+        this.addOption!(dbPassword)("", "db-password", "Database password");
+        this.addFlag!(localPostgres)("", "local-postgres",
+            "Configure local postgresql server (requires PostgreSQL installed)");
 
-        this.add(new Option(
-            "w", "workers",
+        this.addOption!(workers)("w", "workers",
             "Number of workers to apply for this instance. If set to 0, then Odoo will be started in threaded mode. Default: 0")
-                .defaultValue("0"));
+            .defaultValue("0");
 
-        this.add(new Flag(
-            null, "proxy-mode", "Enable proxy-mode in odoo config"));
+        this.addFlag!(proxyMode)("", "proxy-mode", "Enable proxy-mode in odoo config");
 
-        this.add(new Flag(
-            null, "local-nginx", "Autoconfigure local nginx (requires nginx installed)"));
-        this.add(new Option(
-            null, "local-nginx-server-name", "Servername for nginx config."));
-        this.add(new Flag(
-            null, "local-nginx-ssl", "Enable SSL for local nginx"));
-        this.add(new Option(
-            null, "local-nginx-ssl-cert", "Path to SSL certificate for local nginx."));
-        this.add(new Option(
-            null, "local-nginx-ssl-key", "Path to SSL key for local nginx."));
+        this.addFlag!(localNginx)("", "local-nginx",
+            "Autoconfigure local nginx (requires nginx installed)");
+        this.addOption!(localNginxServerName)("", "local-nginx-server-name",
+            "Servername for nginx config.");
+        this.addFlag!(localNginxSsl)("", "local-nginx-ssl", "Enable SSL for local nginx");
+        this.addOption!(localNginxSslCert)("", "local-nginx-ssl-cert",
+            "Path to SSL certificate for local nginx.")
+            .acceptsFiles();
+        this.addOption!(localNginxSslKey)("", "local-nginx-ssl-key",
+            "Path to SSL key for local nginx.")
+            .acceptsFiles();
 
-        this.add(new Flag(
-            null, "tls12-compat",
+        this.addFlag!(tls12Compat)("", "tls12-compat",
             "Allow TLS 1.2 in addition to TLS 1.3 for backward compatibility with older clients. " ~
-            "By default, only TLS 1.3 is enabled."));
+            "By default, only TLS 1.3 is enabled.");
 
-        this.add(new Flag(
-            null, "letsencrypt", "Enable Let's Encrypt configuration."));
-        this.add(new Option(
-            null, "letsencrypt-email", "Email for Let's Encrypt account."));
+        this.addFlag!(letsencrypt)("", "letsencrypt",
+            "Enable Let's Encrypt configuration.");
+        this.addOption!(letsencryptEmail)("", "letsencrypt-email",
+            "Email for Let's Encrypt account.");
 
-        this.add(new Flag(
-            null, "enable-logrotate", "Enable logrotate for Odoo."));
+        this.addFlag!(enableLogrotate)("", "enable-logrotate",
+            "Enable logrotate for Odoo.");
 
-        this.add(new Flag(
-            null, "enable-fail2ban", "Enable fail2ban for Odoo (requires fail2ban installed)."));
+        this.addFlag!(enableFail2ban)("", "enable-fail2ban",
+            "Enable fail2ban for Odoo (requires fail2ban installed).");
 
-        this.add(new Option(
-            null, "supervisor", "What superwisor to use for deployment. One of: odood, init-script, systemd. Default: systemd.")
-                .defaultValue("systemd")
-                .acceptsValues(["odood", "init-script", "systemd"]));
+        this.addOption!(supervisor)("", "supervisor",
+            "What supervisor to use for deployment. One of: odood, init-script, systemd. Default: systemd.")
+            .defaultValue("systemd")
+            .acceptsValues(["odood", "init-script", "systemd"]);
 
-        this.add(new Flag(
-            null, "log-to-stderr", "Log to stderr. Useful when running inside docker."));
+        this.addFlag!(logToStderr)("", "log-to-stderr",
+            "Log to stderr. Useful when running inside docker.");
 
-        this.add(new Flag(
-            null, "use-system-ca-bundle",
+        this.addFlag!(useSystemCaBundle)("", "use-system-ca-bundle",
             "Set REQUESTS_CA_BUNDLE to the system CA certificate store, " ~
-            "so Odoo uses system certificates instead of the bundled certifi CA bundle."));
+            "so Odoo uses system certificates instead of the bundled certifi CA bundle.");
 
-        this.add(new Option(
-            null, "assembly-repo",
-            "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine."));
-
-        // TODO: Add option to automatically install extra dependencies (including wktmltopdf)
-        //       Ensure that Odood can do it automatically
-        // TODO: Think about adding option that will define place for configuration file
-        //       may be implement only for docker builds.
+        this.addOption!(assemblyRepo)("", "assembly-repo",
+            "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine.");
     }
 
-    DeployConfig parseDeployOptions(ProgramArgs args) {
+    DeployConfig parseDeployOptions() {
         DeployConfig config;
-        config.odoo.serie = OdooSerie(args.option("odoo-version"));
+        config.odoo.serie = OdooSerie(odooVersion);
 
         config.venv_options = config.odoo.serie.guessVenvOptions;
 
-        if (args.option("py-version")) {
-            config.venv_options.py_version = args.option("py-version");
+        if (!pyVersion.isNull) {
+            config.venv_options.py_version = pyVersion.get;
             config.venv_options.install_type = PyInstallType.Build;
         }
-        if (args.options("node-version")) {
-            config.venv_options.node_version = args.option("node-version");
-        }
+        if (!nodeVersion.isNull)
+            config.venv_options.node_version = nodeVersion.get;
 
-        if (args.option("db-host"))
-            config.database.host = args.option("db-host");
-        if (args.option("db-port"))
-            config.database.port = args.option("db-port");
-        if (args.option("db-user"))
-            config.database.user = args.option("db-user");
-        if (args.option("db-password"))
-            config.database.password = args.option("db-password");
+        config.database.host = dbHost;
+        config.database.port = dbPort;
+        config.database.user = dbUser;
+        if (!dbPassword.isNull)
+            config.database.password = dbPassword.get;
 
-        if (args.flag("proxy-mode"))
+        if (proxyMode)
             config.odoo.proxy_mode = true;
 
-        if (args.option("workers"))
-            config.odoo.workers = args.option("workers").to!uint;
+        config.odoo.workers = workers.to!uint;
 
-        if (args.flag("local-postgres"))
+        if (localPostgres)
             config.database.local_postgres = true;
 
         if (config.database.local_postgres && config.database.password.empty)
-            /* Generate default password.
-             * Here we assume that new user will be created in local postgres.
-             * Most likely case.
-             */
-            config.database.password = generateRandomString(
-                    DEFAULT_PASSWORD_LEN);
+            config.database.password = generateRandomString(DEFAULT_PASSWORD_LEN);
 
-        if (args.flag("enable-logrotate"))
+        if (enableLogrotate)
             config.logrotate_enable = true;
 
-        if (args.flag("local-nginx") || !args.option("local-nginx-server-name").empty) {
+        if (localNginx || !localNginxServerName.isNull) {
             config.nginx.enable = true;
-            config.nginx.server_name = args.option("local-nginx-server-name");
-            config.nginx.ssl_on = args.flag("local-nginx-ssl");
+            config.nginx.server_name = localNginxServerName.isNull ? "" : localNginxServerName.get;
+            config.nginx.ssl_on = localNginxSsl;
 
-            if (config.nginx.ssl_on && !args.option("local-nginx-ssl-cert").empty)
-                config.nginx.ssl_cert = Path(args.option("local-nginx-ssl-cert"));
+            if (config.nginx.ssl_on && !localNginxSslCert.isNull)
+                config.nginx.ssl_cert = Path(localNginxSslCert.get);
 
-            if (config.nginx.ssl_on && !args.option("local-nginx-ssl-key").empty)
-                config.nginx.ssl_key = Path(args.option("local-nginx-ssl-key"));
+            if (config.nginx.ssl_on && !localNginxSslKey.isNull)
+                config.nginx.ssl_key = Path(localNginxSslKey.get);
 
             config.odoo.proxy_mode = true;
             config.odoo.http_host = "127.0.0.1";
 
-            if (args.flag("tls12-compat"))
+            if (tls12Compat)
                 config.nginx.tls12_compat = true;
         }
-        if (args.flag("letsencrypt") || !args.option("letsencrypt-email").empty) {
+        if (letsencrypt || !letsencryptEmail.isNull) {
             config.letsencrypt_enable = true;
-            config.letsencrypt_email = args.option("letsencrypt-email");
+            config.letsencrypt_email = letsencryptEmail.isNull ? "" : letsencryptEmail.get;
             config.nginx.enable = true;
             config.nginx.ssl_on = true;
             config.nginx.ssl_key = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "privkey.pem");
             config.nginx.ssl_cert = Path("/", "etc", "letsencrypt", "live", config.nginx.server_name, "fullchain.pem");
         }
 
-        if (args.flag("enable-fail2ban"))
+        if (enableFail2ban)
             config.fail2ban_enable = true;
 
-        if (args.option("supervisor"))
-            switch(args.option("supervisor")) {
-                case "odood":
-                    config.odoo.server_supervisor = ProjectServerSupervisor.Odood;
-                    break;
-                case "init-script":
-                    config.odoo.server_supervisor = ProjectServerSupervisor.InitScript;
-                    break;
-                case "systemd":
-                    config.odoo.server_supervisor = ProjectServerSupervisor.Systemd;
-                    break;
-                default:
-                    assert(0, "Not supported supervisor");
-            }
+        switch(supervisor) {
+            case "odood":
+                config.odoo.server_supervisor = ProjectServerSupervisor.Odood;
+                break;
+            case "init-script":
+                config.odoo.server_supervisor = ProjectServerSupervisor.InitScript;
+                break;
+            case "systemd":
+                config.odoo.server_supervisor = ProjectServerSupervisor.Systemd;
+                break;
+            default:
+                assert(0, "Not supported supervisor");
+        }
 
-        if (args.flag("log-to-stderr"))
+        if (logToStderr)
             config.odoo.log_to_stderr = true;
 
-        if (args.flag("use-system-ca-bundle")) {
+        if (useSystemCaBundle) {
             config.odoo.use_system_ca_bundle = true;
             config.odoo.system_ca_bundle_path = detectSystemCABundle();
         }
 
-        if (!args.option("assembly-repo").empty)
-            config.assembly_repo = GitURL(args.option("assembly-repo")).nullable;
+        if (!assemblyRepo.isNull)
+            config.assembly_repo = GitURL(assemblyRepo.get).nullable;
 
         return config;
     }
 
-    void validateDeploy(ProgramArgs args, in DeployConfig deploy_config) {
-        // TODO: move to odood.lib.deploy
+    void validateDeploy(in DeployConfig deploy_config) {
         enforce!OdoodCLIException(
             geteuid == 0 && getegid == 0,
             "This command must be ran as root!");
         deploy_config.ensureValid();
     }
 
-    public override void execute(ProgramArgs args) {
-        /* Plan:
-         * 0. Update locales
-         * 1. Deploy Odoo in /opt/odoo
-         * 2. Create system user
-         * 3. Set access rights for Odoo
-         * 4. Prepare systemd configuration for Odoo
-         * 5. Install postgres if needed
-         * 6. Create postgres user if needed
-         * 7. Configure logrotate
-         * 8. Install nginx if needed
-         * 9. Configure Odoo
-         */
-        auto deploy_config = parseDeployOptions(args);
-        validateDeploy(args, deploy_config);
+    override int execute() {
+        auto deploy_config = parseDeployOptions();
+        validateDeploy(deploy_config);
 
         auto project = deployOdoo(deploy_config);
+        return 0;
     }
-
 }
-
-

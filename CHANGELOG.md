@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+---
+
 ## Release 0.6.2 (2026-05-09)
 
 ### Added

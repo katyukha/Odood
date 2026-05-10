@@ -9,9 +9,10 @@ private import std.conv: to;
 private import std.string: capitalize, strip, join;
 private import std.regex;
 private import std.array: array, empty;
+private import std.typecons: Nullable;
 
 private import thepath: Path;
-private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
+private import darkcommand;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -24,8 +25,7 @@ private import odood.lib.addons.manager: AddonsInstallUpdateException;
 private import odood.git: isGitRepo, GitRepository, GitURL;
 
 
-/** This exception could be throwed when install/update/uninstall command
-  * failed.
+/** This exception could be thrown when install/update/uninstall command failed.
   **/
 class AddonsInstallUpdateUninstallFailed : OdoodCLIException {
     mixin basicExceptionCtors;
@@ -40,104 +40,100 @@ enum AddonDisplayType {
 
 
 class CommandAddonsList: OdoodCommand {
-    this() {
-        this("list");
-    }
+    bool byPath;
+    bool byName;
+    bool byNameVersion;
+    bool system;
+    bool recursive;
+    bool installable;
+    bool notInstallable;
+    bool linked;
+    bool notLinked;
+    bool withPrice;
+    bool withoutPrice;
+    bool assembly;
+    bool table;
+    string[] field;
+    Nullable!string color;
+    Nullable!string path;
 
-    this(in string name) {
-        super(name, "List addons in specified directory.");
-        this.add(new Flag(
-            null, "by-path", "Display addons by paths."));
-        this.add(new Flag(
-            null, "by-name", "Display addons by name (default)."));
-        this.add(new Flag(
-            null, "by-name-version", "Display addon name with addon version"));
-        this.add(new Flag(
-            "s", "system", "Search for all addons available for Odoo."));
-        this.add(new Flag(
-            "r", "recursive", "Search for addons recursively."));
-        this.add(new Flag(
-            null, "installable", "Filter only installable addons."));
-        this.add(new Flag(
-            null, "not-installable", "Filter only not-installable addons."));
-        this.add(new Flag(
-            null, "linked", "Filter only linked addons."));
-        this.add(new Flag(
-            null, "not-linked", "Filter only addons that are not linked."));
-        this.add(new Flag(
-            null, "with-price", "Filter only addons that has price defined."));
-        this.add(new Flag(
-            null, "without-price",
-            "Filter only addons that does not have price defined."));
-        this.add(new Flag(
-            null, "assembly",
-            "Show addons available in assembly"));
-        this.add(new Flag(
-            "t", "table", "Display list of addons as table"));
-        this.add(new Option(
-            "f", "field",
+    this() {
+        super("list", "List addons in specified directory.");
+        this.addFlag!(byPath)("", "by-path", "Display addons by paths.");
+        this.addFlag!(byName)("", "by-name", "Display addons by name (default).");
+        this.addFlag!(byNameVersion)("", "by-name-version",
+            "Display addon name with addon version");
+        this.addFlag!(system)("s", "system", "Search for all addons available for Odoo.");
+        this.addFlag!(recursive)("r", "recursive", "Search for addons recursively.");
+        this.addFlag!(installable)("", "installable", "Filter only installable addons.");
+        this.addFlag!(notInstallable)("", "not-installable",
+            "Filter only not-installable addons.");
+        this.addFlag!(linked)("", "linked", "Filter only linked addons.");
+        this.addFlag!(notLinked)("", "not-linked",
+            "Filter only addons that are not linked.");
+        this.addFlag!(withPrice)("", "with-price",
+            "Filter only addons that has price defined.");
+        this.addFlag!(withoutPrice)("", "without-price",
+            "Filter only addons that does not have price defined.");
+        this.addFlag!(assembly)("", "assembly",
+            "Show addons available in assembly");
+        this.addFlag!(table)("t", "table", "Display list of addons as table");
+        this.addOption!(field)("f", "field",
             "Display provided field in table. " ~
-            "This have to be valid field from manifest.").repeating);
-        this.add(new Option(
-            "c", "color",
+            "This have to be valid field from manifest.");
+        this.addOption!(color)("c", "color",
             "Color output by selected scheme: " ~
             "link - color addons by link status, " ~
-            "installable - color addons by installable state."));
-        this.add(new Argument(
-            "path", "Path to search for addons in.").optional);
+            "installable - color addons by installable state.");
+        this.addArgument!(path)("path", "Path to search for addons in.")
+            .acceptsDirectories();
     }
 
-    private auto parseDisplayType(ProgramArgs args) {
-        if (args.flag("by-path"))
-            return AddonDisplayType.by_path;
-        if (args.flag("by-name"))
-            return AddonDisplayType.by_name;
-        if (args.flag("by-name-version"))
-            return AddonDisplayType.by_name_version;
+    private auto parseDisplayType() {
+        if (byPath) return AddonDisplayType.by_path;
+        if (byNameVersion) return AddonDisplayType.by_name_version;
         return AddonDisplayType.by_name;
     }
 
-    private auto findAddons(ProgramArgs args, in Project project) {
+    private auto findAddons(in Project project) {
         enforce!OdoodCLIException(
-            !args.flag("assembly") || project.assembly !is null,
+            !assembly || project.assembly !is null,
             "No assembly configured for this project!");
-        auto search_path = args.arg("path") ?
-            Path(args.arg("path")) :
-            args.flag("assembly") ?
+        auto search_path = !path.isNull ?
+            Path(path.get) :
+            assembly ?
                 project.assembly.dist_dir :
                 Path.current;
 
         OdooAddon[] addons;
-        if (args.flag("system")) {
+        if (system) {
             info("Listing all addons available for Odoo");
             addons = project.addons.scan();
-        } else  {
+        } else {
             infof("Listing addons in %s", search_path.toString.yellow);
-            addons = project.addons.scan(search_path, args.flag("recursive"));
+            addons = project.addons.scan(search_path, recursive);
         }
 
         return addons
             .sort!((a, b) => a.name < b.name)
             .filter!((addon) {
-                if (args.flag("installable") && !addon.manifest.installable)
+                if (installable && !addon.manifest.installable)
                     return false;
-                if (args.flag("not-installable") && addon.manifest.installable)
+                if (notInstallable && addon.manifest.installable)
                     return false;
-                if (args.flag("linked") && !project.addons.isLinked(addon))
+                if (linked && !project.addons.isLinked(addon))
                     return false;
-                if (args.flag("not-linked") && project.addons.isLinked(addon))
+                if (notLinked && project.addons.isLinked(addon))
                     return false;
-                if (args.flag("with-price") && !addon.manifest.price.is_set)
+                if (withPrice && !addon.manifest.price.is_set)
                     return false;
-                if (args.flag("without-price") && addon.manifest.price.is_set)
+                if (withoutPrice && addon.manifest.price.is_set)
                     return false;
                 return true;
             });
     }
 
-    private string getAddonDisplayName(
-            OdooAddon addon,
-            in AddonDisplayType display_type) {
+    private string getAddonDisplayName(OdooAddon addon, in AddonDisplayType display_type) {
         final switch(display_type) {
             case AddonDisplayType.by_name:
                 return addon.name;
@@ -150,16 +146,16 @@ class CommandAddonsList: OdoodCommand {
     }
 
     private auto getColoredAddonLine(
-            ProgramArgs args,
             in Project project,
             OdooAddon addon,
             in AddonDisplayType display_type) {
 
-        // Choose the way to display addon line
         auto addon_line = StyledString(getAddonDisplayName(addon, display_type));
 
-        // Color the addon line to be displayed
-        switch(args.option("color")) {
+        if (color.isNull)
+            return addon_line;
+
+        switch(color.get) {
             case "link":
                 return project.addons.isLinked(addon) ?
                     addon_line.green : addon_line.red;
@@ -170,30 +166,22 @@ class CommandAddonsList: OdoodCommand {
                 return addon.manifest.price.is_set ?
                     addon_line.yellow : addon_line.blue;
             default:
-                // Do nothing in case of wrong color or no color
-                warningf(
-                    args.option("color").length > 0,
-                    "Unknown color option '%s'", args.option("color"));
+                warningf("Unknown color option '%s'", color.get);
                 break;
         }
         return addon_line;
     }
 
-    /** Display addons as plain list
-      **/
-    private void displayAddonsList(ProgramArgs args, in Project project) {
-        auto display_type = parseDisplayType(args);
-        foreach(addon; findAddons(args, project))
-            writeln(
-                getColoredAddonLine(args, project, addon, display_type));
+    private void displayAddonsList(in Project project) {
+        auto display_type = parseDisplayType();
+        foreach(addon; findAddons(project))
+            writeln(getColoredAddonLine(project, addon, display_type));
     }
 
-    private string[] prepareAddonsTableHeader(
-            ProgramArgs args,
-            in string[] fields) {
+    private string[] prepareAddonsTableHeader(in string[] fields) {
         string[] header = ["Name".bold.to!string];
-        foreach(field; fields)
-            switch(field) {
+        foreach(f; fields)
+            switch(f) {
                 case "version":
                     header ~= ["Version".bold.to!string];
                     break;
@@ -204,24 +192,22 @@ class CommandAddonsList: OdoodCommand {
                     ];
                     break;
                 default:
-                    header ~= [field.capitalize.bold.to!string];
+                    header ~= [f.capitalize.bold.to!string];
                     break;
             }
         return header;
     }
 
     private string[] prepareAddonsTableRow(
-            ProgramArgs args,
             in string[] fields,
             in Project project,
             OdooAddon addon,
             in AddonDisplayType display_type) {
         string[] row = [
-            getColoredAddonLine(
-                args, project, addon, display_type).to!string,
+            getColoredAddonLine(project, addon, display_type).to!string,
         ];
-        foreach(field; fields) {
-            switch(field) {
+        foreach(f; fields) {
+            switch(f) {
                 case "name":
                     row ~= [addon.manifest.name];
                     break;
@@ -265,27 +251,24 @@ class CommandAddonsList: OdoodCommand {
                         row ~= ["", ""];
                     break;
                 default:
-                    throw new OdoodCLIException("Unsupported manifest field %s".format(field));
+                    throw new OdoodCLIException("Unsupported manifest field %s".format(f));
             }
         }
         return row;
     }
 
-    /** Display addons as table
-      **/
-    private void displayAddonsTable(ProgramArgs args, in Project project) {
+    private void displayAddonsTable(in Project project) {
         import tabletool;
         string[][] table_data;
-        auto display_type = parseDisplayType(args);
+        auto display_type = parseDisplayType();
 
-        string[] fields = args.options("field").length > 0 ?
-            args.options("field") : ["version", "price", "installable"];
+        string[] fields = field.length > 0 ?
+            field : ["version", "price", "installable"];
 
-        table_data ~= prepareAddonsTableHeader(args, fields);
+        table_data ~= prepareAddonsTableHeader(fields);
 
-        foreach(addon; findAddons(args, project))
-            table_data ~= prepareAddonsTableRow(
-                    args, fields, project, addon, display_type);
+        foreach(addon; findAddons(project))
+            table_data ~= prepareAddonsTableRow(fields, project, addon, display_type);
         writeln(
             tabulate(
                 table_data,
@@ -298,156 +281,138 @@ class CommandAddonsList: OdoodCommand {
         );
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        if (args.flag("table"))
-            displayAddonsTable(args, project);
+        if (table)
+            displayAddonsTable(project);
         else
-            displayAddonsList(args, project);
+            displayAddonsList(project);
+        return 0;
     }
-
 }
 
 
 class CommandAddonsLink: OdoodCommand {
+    bool force;
+    bool recursive;
+    bool manifestRequirements;
+    bool individualRequirements;
+    bool withOdooRequirements;
+    bool ual;
+    string path;
+
     this() {
         super("link", "Link addons in specified directory.");
-        this.add(new Flag(
-            "f", "force", "Rewrite already linked/existing addon."));
-        this.add(new Flag(
-            "r", "recursive",
-            "Search for addons in this directory recursively."));
-        this.add(new Flag(
-            null, "manifest-requirements",
-            "Install python dependencies from manifest's external dependencies"));
-        this.add(new Flag(
-            null, "individual-requirements",
-            "Install Python requirements per-addon instead of batched"));
-        this.add(new Flag(
-            null, "with-odoo-requirements",
-            "Include Odoo's requirements.txt in the batch install"));
-        this.add(new Flag(
-            null, "ual", "Update addons list for all databases"));
-        this.add(new Argument(
-            "path", "Path to search for addons in.").required());
+        this.addFlag!(force)("f", "force", "Rewrite already linked/existing addon.");
+        this.addFlag!(recursive)("r", "recursive",
+            "Search for addons in this directory recursively.");
+        this.addFlag!(manifestRequirements)("", "manifest-requirements",
+            "Install python dependencies from manifest's external dependencies");
+        this.addFlag!(individualRequirements)("", "individual-requirements",
+            "Install Python requirements per-addon instead of batched");
+        this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install");
+        this.addFlag!(ual)("", "ual", "Update addons list for all databases");
+        this.addArgument!(path)("path", "Path to search for addons in.")
+            .acceptsDirectories();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         project.addons.link(
-            Path(args.arg("path")),
-            args.flag("recursive"),
-            args.flag("force"),
+            Path(path),
+            recursive,
+            force,
             true,  // Install py deps from requirements.txt
-            args.flag("manifest-requirements"),
-            args.flag("individual-requirements"),
-            args.flag("with-odoo-requirements"),
+            manifestRequirements,
+            individualRequirements,
+            withOdooRequirements,
         );
 
-        if (args.flag("ual"))
+        if (ual)
             foreach(dbname; project.databases.list())
                 project.lodoo.addonsUpdateList(dbname);
+        return 0;
     }
-
 }
 
 
 class CommandAddonsUpdateList: OdoodCommand {
+    string[] db;
+    bool all;
+
     this() {
-        this("update-list");
+        super("update-list", "Update list of addons.");
+        this.addFlag!(all)("a", "all", "Update all databases.");
+        this.addArgument!(db)("database", "Database(s) to update addons list for.")
+            .defaultValue([]);
     }
 
-    this(in string name) {
-        super(name, "Update list of addons.");
-        this.add(
-            new Argument(
-                "database", "Path to search for addons in."
-            ).optional().repeating());
-        this.add(new Flag("a", "all", "Update all databases."));
-    }
-
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        string[] dbnames = args.flag("all") ?
-            project.databases.list() : args.args("database");
+        string[] dbnames = all ? project.databases.list() : db;
 
         if (!dbnames)
             errorf("No databases specified.");
 
-        foreach(db; dbnames) {
-            infof("Updating list of addons for database %s", db);
-            project.lodoo.addonsUpdateList(db);
+        foreach(dbname; dbnames) {
+            infof("Updating list of addons for database %s", dbname);
+            project.lodoo.addonsUpdateList(dbname);
         }
+        return 0;
     }
-
 }
 
 
 /** Base command class for addons install/update/uninstall commands.
-  * This class configures base options and provides unified method to parse
-  * options and arguments responsible for searching addons
   **/
 class CommandAddonsUpdateInstallUninstall: OdoodCommand {
+    string[] db;
+    string[] dir;
+    string[] dirR;
+    string[] file;
+    bool assembly;
+    string[] skip;
+    string[] skipRe;
+    string[] skipFile;
+    bool skipErrors;
+    bool ignoreUnfinishedUpdates;
+    bool start;
+    string[] addonNames;
+
     this(T...)(auto ref T args) {
         super(args);
 
-        // Select databases to run command for
-        this.add(
-            new Option(
-                "d", "db", "Database(s) to apply operation to."
-            ).repeating());
-
-        // Search for addons options
-        this.add(new Option(
-            null, "dir", "Directory to search for addons").repeating);
-        this.add(new Option(
-            null, "dir-r",
-            "Directory to recursively search for addons").repeating);
-        this.add(
-            new Option(
-                "f", "file",
-                "Read addons names from file (addon names must be separated by new lines)"
-            ).optional().repeating());
-        this.add(new Flag(
-            null, "assembly",
-            "Search for addons available in assembly"));
-        this.add(new Option(
-            null, "skip", "Skip addon specified by name.").repeating);
-        this.add(new Option(
-            null, "skip-re", "Skip addon specified by regex.").repeating);
-        this.add(
-            new Option(
-                null, "skip-file",
-                "Skip addons listed in specified file (addon names must be separated by new lines)"
-            ).optional().repeating());
-        this.add(new Argument(
-            "addon", "Specify names of addons as arguments.").optional.repeating);
-
-        // Other flags
-        this.add(
-            new Flag(
-                null, "skip-errors", "Do not fail on errors during installation."));
-        this.add(
-            new Flag(
-                null, "ignore-unfinished-updates",
-                "Do not fail if there are unfinished addon install/update/uninstall operations."));
-
-        // Start server after update (if everythign is ok)
-        this.add(
-            new Flag(
-                null, "start", "Start server after update (if everything is ok)"));
+        this.addOption!(db)("d", "db", "Database(s) to apply operation to.");
+        this.addOption!(dir)("", "dir", "Directory to search for addons")
+            .acceptsDirectories();
+        this.addOption!(dirR)("", "dir-r",
+            "Directory to recursively search for addons")
+            .acceptsDirectories();
+        this.addOption!(file)("f", "file",
+            "Read addons names from file (addon names must be separated by new lines)")
+            .acceptsFiles();
+        this.addFlag!(assembly)("", "assembly",
+            "Search for addons available in assembly");
+        this.addOption!(skip)("", "skip", "Skip addon specified by name.");
+        this.addOption!(skipRe)("", "skip-re", "Skip addon specified by regex.");
+        this.addOption!(skipFile)("", "skip-file",
+            "Skip addons listed in specified file (addon names must be separated by new lines)")
+            .acceptsFiles();
+        this.addFlag!(skipErrors)("", "skip-errors",
+            "Do not fail on errors during installation.");
+        this.addFlag!(ignoreUnfinishedUpdates)("", "ignore-unfinished-updates",
+            "Do not fail if there are unfinished addon install/update/uninstall operations.");
+        this.addFlag!(start)("", "start",
+            "Start server after update (if everything is ok)");
+        this.addArgument!(addonNames)("addon", "Names of addons to operate on.")
+            .defaultValue([]);
     }
 
-    /** Check for unfinished addon operations in the database.
-      * By default throws if any are found; pass --ignore-unfinished-updates to warn only.
-      **/
-    protected void checkUnfinishedUpdates(
-            in Project project,
-            in string dbname,
-            ProgramArgs args) {
+    protected void checkUnfinishedUpdates(in Project project, in string dbname) {
         auto unfinished = project.databases[dbname].getUnfinishedUpdates();
         if (unfinished.length == 0)
             return;
@@ -457,94 +422,89 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             unfinished.length,
             unfinished.map!(u => "%s (state=%s, available=%s)".format(
                 u.addon_name, u.addon_state, u.is_available)).join(", "));
-        if (!args.flag("ignore-unfinished-updates"))
+        if (!ignoreUnfinishedUpdates)
             throw new OdoodCLIException(
                 "Database '%s' has unfinished addon operations. ".format(dbname) ~
                 "Use --ignore-unfinished-updates to proceed anyway.");
     }
 
-    /** Find addons
-      **/
-    protected auto findAddons(ProgramArgs args, in Project project) {
-        string[] skip_addons = args.options("skip");
-        auto skip_regexes = args.options("skip-re").map!(r => regex(r)).array;
+    protected auto findAddons(in Project project) {
+        string[] skip_addons = skip;
+        auto skip_regexes = skipRe.map!(r => regex(r)).array;
 
-        foreach(path; args.options("skip-file"))
-            foreach(addon; project.addons.parseAddonsList(Path(path)))
-                skip_addons ~= addon.name;
+        foreach(path; skipFile)
+            foreach(a; project.addons.parseAddonsList(Path(path)))
+                skip_addons ~= a.name;
 
         OdooAddon[] addons;
-        foreach(search_path; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(search_path), false)) {
-                if (skip_addons.canFind(addon.name)) continue;
-                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
-                addons ~= addon;
+        foreach(search_path; dir)
+            foreach(a; project.addons.scan(Path(search_path), false)) {
+                if (skip_addons.canFind(a.name)) continue;
+                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
+                addons ~= a;
             }
 
-        foreach(search_path; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(search_path), true)) {
-                if (skip_addons.canFind(addon.name)) continue;
-                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
-                addons ~= addon;
+        foreach(search_path; dirR)
+            foreach(a; project.addons.scan(Path(search_path), true)) {
+                if (skip_addons.canFind(a.name)) continue;
+                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
+                addons ~= a;
             }
 
-        foreach(addon_name; args.args("addon")) {
+        foreach(addon_name; addonNames) {
             if (skip_addons.canFind(addon_name)) continue;
-            if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon_name)) continue;
+            if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(addon_name)) continue;
 
-            auto addon = project.addons.getByString(addon_name);
+            auto a = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
-                !addon.isNull,
+                !a.isNull,
                 "Cannot find addon %s!".format(addon_name));
-            addons ~= addon.get;
+            addons ~= a.get;
         }
-        foreach(path; args.options("file")) {
-            foreach(addon; project.addons.parseAddonsList(Path(path))) {
-                if (skip_addons.canFind(addon.name)) continue;
-                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
-                addons ~= addon;
+        foreach(path; file) {
+            foreach(a; project.addons.parseAddonsList(Path(path))) {
+                if (skip_addons.canFind(a.name)) continue;
+                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
+                addons ~= a;
             }
         }
-        if (args.flag("assembly")) {
+        if (assembly) {
             enforce!OdoodCLIException(
                 project.assembly !is null,
                 "No assembly configured for this project!");
-            foreach(addon; project.addons.scan(path: project.assembly.dist_dir, recursive:  true)) {
-                if (skip_addons.canFind(addon.name)) continue;
-                if (skip_regexes.canFind!((re, addon) => !addon.matchFirst(re).empty)(addon.name)) continue;
-                addons ~= addon;
+            foreach(a; project.addons.scan(path: project.assembly.dist_dir, recursive: true)) {
+                if (skip_addons.canFind(a.name)) continue;
+                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
+                addons ~= a;
             }
         }
 
         return addons;
     }
 
-    /** Apply delegate for each database
-      **/
-    protected auto applyForDatabases(ProgramArgs args, in Project project, void delegate (in string dbname) dg) {
-        string[] dbnames = args.options("db") ?
-            args.options("db") : project.databases.list();
+    protected auto applyForDatabases(in Project project, void delegate (in string dbname) dg) {
+        string[] dbnames = db.length > 0 ? db : project.databases.list();
 
-        auto start_again=args.flag("start");
+        auto start_again = start;
         if (project.server.isRunning) {
             project.server.stop;
-            start_again=true;
+            start_again = true;
         }
 
         bool error = false;
 
-        foreach(db; dbnames) {
-            auto error_info = project.server.catchOdooErrors(() => dg(db));
+        foreach(dbname; dbnames) {
+            auto error_info = project.server.catchOdooErrors(() => dg(dbname));
             if (error_info.has_error) {
                 error = true;
                 if (error_info.log.length > 0)
-                    writeln("Following errors detected during install/update/uninstall for database %s:".format(db.yellow).red);
+                    writeln("Following errors detected during install/update/uninstall for database %s:".format(dbname.yellow).red);
                 foreach(log_line; error_info.log)
                     printLogRecordSimplified(log_line);
 
-                if (!args.flag("skip-errors"))
+                if (!skipErrors)
                     throw new AddonsInstallUpdateUninstallFailed(
-                        "Addon installation for database %s failed!".format(db));
+                        "Addon installation for database %s failed!".format(dbname));
             }
         }
 
@@ -557,33 +517,32 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
     }
 }
 
+
 class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
+    bool ual;
+    bool all;
+    bool installedOnly;
+
     this() {
         super("update", "Update specified addons.");
-        this.add(
-            new Flag(
-                null, "ual", "Update addons list before install.")),
-        this.add(
-            new Flag(
-                "a", "all", "Update all modules"));
-        this.add(
-            new Flag(
-                null, "installed-only",
-                "Skip addons that are not installed in the database."));
+        this.addFlag!(ual)("", "ual", "Update addons list before update.");
+        this.addFlag!(all)("a", "all", "Update all modules");
+        this.addFlag!(installedOnly)("", "installed-only",
+            "Skip addons that are not installed in the database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        applyForDatabases(args, project, (in string dbname) {
-            checkUnfinishedUpdates(project, dbname, args);
-            if (args.flag("ual"))
+        applyForDatabases(project, (in string dbname) {
+            checkUnfinishedUpdates(project, dbname);
+            if (ual)
                 project.lodoo.addonsUpdateList(dbname, true);
-            if (args.flag("all"))
+            if (all)
                 project.addons.updateAll(dbname);
             else {
-                auto addons = findAddons(args, project);
-                if (args.flag("installed-only"))
+                auto addons = findAddons(project);
+                if (installedOnly)
                     addons = addons
                         .filter!(a => project.addons.isInstalled(dbname, a))
                         .array;
@@ -592,34 +551,33 @@ class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
                 else
                     project.addons.update(dbname, addons);
             }
-            checkUnfinishedUpdates(project, dbname, args);
+            checkUnfinishedUpdates(project, dbname);
         });
+        return 0;
     }
-
 }
 
 
 class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
+    bool ual;
+    bool missingOnly;
+
     this() {
         super("install", "Install specified addons.");
-        this.add(
-            new Flag(
-                null, "ual", "Update addons list before install."));
-        this.add(
-            new Flag(
-                null, "missing-only",
-                "Skip addons that are already installed in the database."));
+        this.addFlag!(ual)("", "ual", "Update addons list before install.");
+        this.addFlag!(missingOnly)("", "missing-only",
+            "Skip addons that are already installed in the database.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        applyForDatabases(args, project, (in string dbname) {
-            checkUnfinishedUpdates(project, dbname, args);
-            if (args.flag("ual"))
+        applyForDatabases(project, (in string dbname) {
+            checkUnfinishedUpdates(project, dbname);
+            if (ual)
                 project.lodoo.addonsUpdateList(dbname, true);
-            auto addons = findAddons(args, project);
-            if (args.flag("missing-only"))
+            auto addons = findAddons(project);
+            if (missingOnly)
                 addons = addons
                     .filter!(a => !project.addons.isInstalled(dbname, a))
                     .array;
@@ -627,8 +585,9 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
                 infof("All addons already installed in %s, skipping.", dbname);
             else
                 project.addons.install(dbname, addons);
-            checkUnfinishedUpdates(project, dbname, args);
+            checkUnfinishedUpdates(project, dbname);
         });
+        return 0;
     }
 }
 
@@ -638,185 +597,180 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
         super("uninstall", "Uninstall specified addons.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        applyForDatabases(args, project, (in string dbname) {
-            project.addons.uninstall(dbname, findAddons(args, project));
+        applyForDatabases(project, (in string dbname) {
+            project.addons.uninstall(dbname, findAddons(project));
         });
+        return 0;
     }
 }
 
 
-/* TODO: implement command 'autoupdate' with following logic:
- *       1. Create mapping {addon_name: version} for all addons available in
- *          filesystem.
- *       2. For each database, check if there are addons on disk that are not
- *          mentioned in database. If such addons found,
- *          update list of addons in database. This stage ma fail and its ok.
- *          This stage needed to ensure that dependencies of modules updated.
- *       3. for each database find installed addons that have different
- *          versions then in addons on disk. And update them
- *
- *       This command should be useful on servers to automatically update server
- *       if needed. But this will require control over module versions.
- */
-
-
 class CommandAddonsAdd: OdoodCommand {
+    bool singleBranch;
+    bool recursive;
+    bool manifestRequirements;
+    string[] odooApps;
+    string[] odooRequirements;
+
     this() {
         super("add", "Add addons to the project");
-        this.add(new Flag(
-            null, "single-branch",
+        this.addFlag!(singleBranch)("", "single-branch",
             "Clone repository with --single-branch options. " ~
             "This could significantly reduce size of data to be downloaded " ~
-            "and increase performance."));
-        this.add(new Flag(
-            "r", "recursive",
+            "and increase performance.");
+        this.addFlag!(recursive)("r", "recursive",
             "Recursively process odoo_requirements.txt. " ~
             "If set, then Odood will automatically process " ~
             "odoo_requirements.txt file inside repositories mentioned in " ~
-            "provided odoo_requirements.txt"));
-        this.add(new Flag(
-            null, "manifest-requirements",
-            "Install python dependencies from manifest's external dependencies"));
-        this.add(new Option(
-            null, "odoo-apps", "Add addon from odoo apps.").repeating);
-        this.add(new Option(
-            null, "odoo-requirements",
+            "provided odoo_requirements.txt");
+        this.addFlag!(manifestRequirements)("", "manifest-requirements",
+            "Install python dependencies from manifest's external dependencies");
+        this.addOption!(odooApps)("", "odoo-apps", "Add addon from odoo apps.");
+        this.addOption!(odooRequirements)("", "odoo-requirements",
             "Add modules (repos) from odoo_requirements.txt file, " ~
-            "that is used by odoo-helper-scripts.").repeating);
+            "that is used by odoo-helper-scripts.")
+            .acceptsFiles();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        foreach(app; args.options("odoo-apps"))
+        foreach(app; odooApps)
             project.addons.downloadFromOdooApps(app);
 
-        foreach(requirements_path; args.options("odoo-requirements"))
+        foreach(requirements_path; odooRequirements)
             project.addons.processOdooRequirements(
                 Path(requirements_path),
-                args.flag("single-branch"),
-                args.flag("recursive"),
-                true, // Install python deps from requirements.txt file if exists
-                args.flag("manifest-requirements")
+                singleBranch,
+                recursive,
+                true,
+                manifestRequirements
             );
+        return 0;
     }
-
 }
 
 
 class CommandAddonsIsInstalled: OdoodCommand {
+    string addon;
+
     this() {
         super(
             "is-installed",
-            "Print list of databases wehre specified addon is installed.");
-        this.add(new Argument(
-            "addon", "Name of addon or path to addon to check."));
+            "Print list of databases where specified addon is installed.");
+        this.addArgument!(addon)("addon", "Name of addon or path to addon to check.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        auto addon_n = project.addons.getByString(args.arg("addon"));
+        auto addon_n = project.addons.getByString(addon);
         enforce!OdoodCLIException(
             !addon_n.isNull,
-            "Cannot find addon %s".format(args.arg("addon")));
-        auto addon = addon_n.get();
+            "Cannot find addon %s".format(addon));
+        auto a = addon_n.get();
 
         foreach(dbname; project.databases.list)
-            if (project.addons.isInstalled(dbname, addon))
+            if (project.addons.isInstalled(dbname, a))
                 writeln(dbname);
+        return 0;
     }
 }
 
 
 class CommandAddonsGeneratePyRequirements: OdoodCommand {
+    Nullable!string outFile;
+    string[] dir;
+    string[] dirR;
+    string[] addon;
+
     this() {
         super(
             "generate-py-requirements",
             "Generate python's requirements.txt from addon's manifests. " ~
             "By default, it prints requirements to stdout.");
-        this.add(new Option(
-            "o", "out-file", "Path to file where to store generated requirements"));
-        this.add(new Option(
-            null, "dir",
-            "Directory to search for addons to generate requirements.txt for.").repeating);
-        this.add(new Option(
-            null, "dir-r",
-            "Directory to recursively search for addons to generate requirements.txt for.").repeating);
-        this.add(new Argument(
-            "addon", "Name of addon to generate manifest for.").repeating.optional);
+        this.addOption!(outFile)("o", "out-file",
+            "Path to file where to store generated requirements");
+        this.addOption!(dir)("", "dir",
+            "Directory to search for addons to generate requirements.txt for.")
+            .acceptsDirectories();
+        this.addOption!(dirR)("", "dir-r",
+            "Directory to recursively search for addons to generate requirements.txt for.")
+            .acceptsDirectories();
+        this.addArgument!(addon)("addon", "Name of addon to generate requirements for.")
+            .defaultValue([]);
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-
-        Path output_path;
-        bool print_to_file = false;
-        if (args.option("out-file")) {
-            output_path = Path(args.option("out-file"));
-            print_to_file = true;
-        }
 
         string[] dependencies;
 
-        foreach(string search_path; args.options("dir"))
-            foreach(addon; project.addons.scan(Path(search_path), false))
-                foreach(dependency; addon.manifest.python_dependencies)
+        foreach(string search_path; dir)
+            foreach(a; project.addons.scan(Path(search_path), false))
+                foreach(dependency; a.manifest.python_dependencies)
                     dependencies ~= dependency;
 
-        foreach(string search_path; args.options("dir-r"))
-            foreach(addon; project.addons.scan(Path(search_path), true))
-                foreach(dependency; addon.manifest.python_dependencies)
+        foreach(string search_path; dirR)
+            foreach(a; project.addons.scan(Path(search_path), true))
+                foreach(dependency; a.manifest.python_dependencies)
                     dependencies ~= dependency;
 
-        foreach(addon_name; args.args("addon")) {
-            auto addon = project.addons.getByString(addon_name);
-            if (!addon.isNull)
-                foreach(dependency; addon.get.manifest.python_dependencies)
+        foreach(addon_name; addon) {
+            auto a = project.addons.getByString(addon_name);
+            if (!a.isNull)
+                foreach(dependency; a.get.manifest.python_dependencies)
                     dependencies ~= dependency;
         }
 
         string requirements_content = dependencies.sort.uniq.join("\n") ~ "\n";
-        if (print_to_file)
-            output_path.writeFile(requirements_content);
+        if (!outFile.isNull)
+            Path(outFile.get).writeFile(requirements_content);
         else
             writeln(requirements_content);
+        return 0;
     }
 }
 
+
 class CommandAddonsFindInstalled: OdoodCommand {
+    string[] db;
+    Nullable!string outFile;
+    string format_ = "list";
+    bool all;
+    bool nonSystem;
+
     this() {
         super(
             "find-installed",
             "List addons installed in specified databases");
-        this.add(new Option(
-            "d", "db", "Name of database to to check for addons.").repeating);
-        this.add(new Option(
-            "o", "out-file", "Path to file where to store generated requirements"));
-        this.add(new Option(
-            "f", "format", "Output format. One of: list, assembnly-spec. Default: list."
-            ).defaultValue("list").acceptsValues(["list", "assembly-spec"]));
-        this.add(new Flag(
-            "a", "all", "Check all databases"));
-        this.add(new Flag(
-            null, "non-system", "List only custom addons, that are not default Odoo addons."));
+        this.addOption!(db)("d", "db", "Name of database to check for addons.");
+        this.addOption!(outFile)("o", "out-file",
+            "Path to file where to store result");
+        this.addOption!(format_)("f", "format",
+            "Output format. One of: list, assembly-spec. Default: list.")
+            .defaultValue("list")
+            .acceptsValues(["list", "assembly-spec"]);
+        this.addFlag!(all)("a", "all", "Check all databases");
+        this.addFlag!(nonSystem)("", "non-system",
+            "List only custom addons, that are not default Odoo addons.");
     }
 
-    auto findInstalledAddons(in Project project, ProgramArgs args) {
-        string[] dbnames = args.flag("all") ? project.databases.list() : args.options("db");
+    auto findInstalledAddons(in Project project) {
+        string[] dbnames = all ? project.databases.list() : db;
 
         string[] ignore_addon_names;
-        if (args.flag("non-system")) {
+        if (nonSystem) {
             ignore_addon_names ~= project.addons.getSystemAddonsList().map!((a) => a.name).array;
         }
 
         string[] addon_names;
         foreach(dbname; dbnames) {
-            auto db = project.dbSQL(dbname);
-            auto res = db.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
+            auto db_conn = project.dbSQL(dbname);
+            auto res = db_conn.runSQLQuery("SELECT array_agg(name) FROM ir_module_module WHERE state = 'installed'")[0][0].get!(string[]);
             addon_names ~= res.filter!(
                 (aname) => !ignore_addon_names.canFind(aname) && !addon_names.canFind(aname)
             ).array;
@@ -864,31 +818,24 @@ class CommandAddonsFindInstalled: OdoodCommand {
         return output[];
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        Path output_path;
-        bool print_to_file = false;
-        if (args.option("out-file")) {
-            output_path = Path(args.option("out-file"));
-            print_to_file = true;
-        }
-
-        string[] addon_names = findInstalledAddons(project, args).array;
+        string[] addon_names = findInstalledAddons(project).array;
 
         string result;
-        if (args.option("format") == "list")
+        if (format_ == "list")
             result = displayInstalledAddonsAsList(project, addon_names);
-        else if (args.option("format") == "assembly-spec")
+        else if (format_ == "assembly-spec")
             result = displayInstalledAddonsAsAssemblySpec(project, addon_names);
         else
-            assert(0, "Unsupported format %s".format(args.option("format")));
+            assert(0, "Unsupported format %s".format(format_));
 
-        if (print_to_file)
-            output_path.writeFile(result);
+        if (!outFile.isNull)
+            Path(outFile.get).writeFile(result);
         else
             writeln(result);
-
+        return 0;
     }
 }
 
@@ -908,4 +855,3 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsFindInstalled());
     }
 }
-
