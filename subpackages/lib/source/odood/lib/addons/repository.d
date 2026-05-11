@@ -5,14 +5,36 @@ private import std.algorithm: canFind, map;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
+private import std.array: appender;
 
 private import thepath: Path;
 
 private import odood.utils.addons.addon: OdooAddon, findAddons;
 private import odood.utils.odoo.std_version: OdooStdVersion;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.exception: OdoodException;
 private import odood.git: GitRepository, GIT_REF_WORKTREE;
+
+
+struct AddonCheckError {
+    string addon_name;
+    string[] messages;
+}
+
+/** Result of a version-check run across changed addons in a repository. **/
+struct AddonVersionCheckResult {
+    bool ok = true;           /// true if all changed addons passed all checks
+    bool has_changes;         /// true if at least one changed addon was found
+    AddonCheckError[] errors; /// one entry per failing addon, possibly with multiple messages
+
+    void addError(in string addon_name, in string message) {
+        ok = false;
+        foreach(ref e; errors)
+            if (e.addon_name == addon_name) { e.messages ~= message; return; }
+        errors ~= AddonCheckError(addon_name, [message]);
+    }
+}
 
 
 // TODO: Do we need this class?
@@ -109,6 +131,77 @@ class AddonRepository : GitRepository{
             end_ref: GIT_REF_WORKTREE,
             ignore_translations: ignore_translations);
     }
+
+    /** Check that all addons changed between start_ref and end_ref have
+      * properly bumped their version numbers.
+      *
+      * For each changed addon:
+      * - Skips new addons (not present in start_ref).
+      * - Skips removed addons (not present in end_ref).
+      * - Fails if the current version is non-standard.
+      * - Skips if the origin version is non-standard.
+      * - Fails if the addon serie doesn't match expected_serie
+      *   (only when expected_serie.isValid).
+      * - Fails if current version is not greater than the origin version.
+      *
+      * Params:
+      *     expected_serie = Odoo serie to validate addon versions against.
+      *         Pass OdooSerie.init to skip the serie check.
+      *     start_ref      = Git ref to compare against (e.g. "origin/16.0").
+      *     end_ref        = Git ref for the current state. Defaults to worktree.
+      *     ignore_translations = Exclude .po/.pot files when detecting changes.
+      *
+      * Returns: AddonVersionCheckResult with ok=false and errors populated
+      *          for each failing addon.
+      **/
+    AddonVersionCheckResult checkVersions(
+            in OdooSerie expected_serie,
+            in string start_ref,
+            in string end_ref = GIT_REF_WORKTREE,
+            in bool ignore_translations = true) const {
+        AddonVersionCheckResult result;
+
+        foreach(addon; getChangedModules(start_ref, end_ref, ignore_translations)) {
+            result.has_changes = true;
+
+            auto maybe_start_version = getAddonVersion(addon, start_ref);
+            if (maybe_start_version.isNull)
+                continue;  // new addon — no prior version to compare
+
+            auto maybe_end_version = getAddonVersion(addon, end_ref);
+            if (maybe_end_version.isNull)
+                continue;  // addon removed — nothing to check
+
+            auto start_version = maybe_start_version.get;
+            auto end_version   = maybe_end_version.get;
+
+            if (!end_version.isStandard) {
+                result.addError(
+                    addon.name,
+                    ("Non-standard current version (%s). " ~
+                     "Please use standard versions in format %s.X.Y.Z.").format(
+                        end_version,
+                        expected_serie.isValid ? expected_serie.toString : "M.m"));
+                continue;
+            }
+
+            if (!start_version.isStandard)
+                continue;
+
+            if (expected_serie.isValid && end_version.serie != expected_serie)
+                result.addError(
+                    addon.name,
+                    "Serie (%s) does not match expected serie (%s).".format(
+                        end_version.serie, expected_serie));
+
+            if (start_version >= end_version)
+                result.addError(
+                    addon.name,
+                    "Current version (%s) must be greater than stable version (%s).".format(
+                        end_version, start_version));
+        }
+        return result;
+    }
 }
 
 unittest {
@@ -176,5 +269,54 @@ unittest {
 
     // getChangedModules — nothing changed since v2
     repo.getChangedModules(rev_v2).array.length.should == 0;
+
+    // checkVersions — no changes since v2: ok, no errors, has_changes=false
+    auto res_no_changes = repo.checkVersions(OdooSerie("17.0"), rev_v2);
+    res_no_changes.ok.shouldBeTrue;
+    res_no_changes.has_changes.shouldBeFalse;
+    res_no_changes.errors.length.should == 0;
+
+    // checkVersions — changes v1..v2: addon_a bumped (pass), addon_b not bumped (fail)
+    auto res_v1_v2 = repo.checkVersions(OdooSerie("17.0"), rev_v1, rev_v2);
+    res_v1_v2.has_changes.shouldBeTrue;
+    res_v1_v2.ok.shouldBeFalse;     // addon_b has same version
+    res_v1_v2.errors.length.should == 1;
+    res_v1_v2.errors[0].addon_name.should == "addon_b";
+    res_v1_v2.errors[0].messages.length.should == 1;
+
+    // checkVersions — bump addon_b version and commit; now both pass
+    repo_path.join("addon_b", "__manifest__.py").writeFile(
+        `{"name": "addon_b", "version": "17.0.1.0.1", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_b", "__manifest__.py"));
+    repo.commit("Bump addon_b version");
+    auto rev_v3 = repo.getCurrCommit();
+
+    auto res_v1_v3 = repo.checkVersions(OdooSerie("17.0"), rev_v1, rev_v3);
+    res_v1_v3.has_changes.shouldBeTrue;
+    res_v1_v3.ok.shouldBeTrue;
+    res_v1_v3.errors.length.should == 0;
+
+    // checkVersions — wrong serie fails
+    auto res_wrong_serie = repo.checkVersions(OdooSerie("16.0"), rev_v1, rev_v3);
+    res_wrong_serie.ok.shouldBeFalse;
+    res_wrong_serie.errors.length.should == 2;  // both addons fail serie check, one entry per addon
+
+    // checkVersions — OdooSerie.init skips serie check
+    auto res_no_serie = repo.checkVersions(OdooSerie.init, rev_v1, rev_v3);
+    res_no_serie.ok.shouldBeTrue;
+    res_no_serie.errors.length.should == 0;
+
+    // checkVersions — addon with wrong serie AND version not bumped gets two messages
+    repo_path.join("addon_b", "__manifest__.py").writeFile(
+        `{"name": "addon_b", "version": "15.0.1.0.1", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_b", "__manifest__.py"));
+    repo.commit("Set addon_b to wrong serie and low version");
+    auto rev_v4 = repo.getCurrCommit();
+
+    auto res_multi = repo.checkVersions(OdooSerie("17.0"), rev_v3, rev_v4);
+    res_multi.ok.shouldBeFalse;
+    res_multi.errors.length.should == 1;          // one addon failed
+    res_multi.errors[0].addon_name.should == "addon_b";
+    res_multi.errors[0].messages.length.should == 2;  // serie mismatch + version not bumped both reported
 }
 

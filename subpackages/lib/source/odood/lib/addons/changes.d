@@ -1,4 +1,4 @@
-module odood.lib.assembly.changes;
+module odood.lib.addons.changes;
 
 private import std.algorithm: canFind;
 
@@ -28,30 +28,32 @@ struct NotableChanges {
 }
 
 
-/** AssemblyChanges - struct that handles changes related to assembly.
+/** Tracks addon-level changes between two states (assembly versions, repo releases, etc.)
+  * and computes the appropriate version bump for the containing artifact.
+  *
   * Includes:
   * - Added addons
   * - Removed addons
   * - Updated addons
   **/
-class AssemblyChanges {
-    OdooStdVersion assembly_version;
+class AddonRepositoryChanges {
+    OdooStdVersion repo_version;
     AddonAdded[] addons_added;
     string[] addons_removed;
     AddonUpdated[] addons_updated;
     NotableChanges[] notable_changes;
 
-    this(in OdooStdVersion assembly_version) {
-        this.assembly_version = assembly_version;
+    this(in OdooStdVersion repo_version) {
+        this.repo_version = repo_version;
     }
 
-    /** Add info about addon removed from assembly
+    /** Add info about addon removed
       **/
     void logAddonRemoved(in string name) {
         addons_removed ~= name;
     }
 
-    /** Add info about addon added to assembly
+    /** Add info about addon added
       **/
     void logAddonAdded(in string name, in OdooStdVersion addon_version) {
         addons_added ~= AddonAdded(name, addon_version);
@@ -69,47 +71,35 @@ class AssemblyChanges {
             notable_changes ~= NotableChanges(name, old_version, new_version, changelog.dup);
     }
 
-    /** Complete changes processing
+    /** Compute and apply the version bump based on recorded changes.
+      *
+      * Rules:
+      * - Any added or removed addon → MAJOR bump.
+      * - Otherwise, take the minimum VersionPart across all updated addons
+      *   (MAJOR=0 < MINOR=1 < PATCH=2), i.e. the highest-severity change wins.
+      * - Addons with non-standard versions count as MINOR.
+      * - No changes → version unchanged.
       **/
     void postProcess() {
         if (addons_added.length > 0 || addons_removed.length > 0)
-            assembly_version = assembly_version.incMajor;
+            repo_version = repo_version.incMajor;
         else if (addons_updated.length > 0) {
-            // Check addon versions only if there are changed addons and
-            // no addons were added or removed
             auto vpart = VersionPart.PATCH;
             foreach(addon; addons_updated) {
                 if ((!addon.old_version.isStandard() || !addon.new_version.isStandard()) && vpart > VersionPart.MINOR) {
-                    /* If vpart is PATCH or PRERELEASE or BUILD, that we change it to MINOR.
-                     * Addon has incorect version, thus we cannot determine exactly, how we have to update repo version,
-                     * but we can assume that in average that are minor changes.
-                     **/
                     vpart = VersionPart.MINOR;
                     continue;
                 }
                 if (addon.old_version == addon.new_version)
-                    // Addons did not changed version, thus we assume that it is patch update.
-                    // Thus nothing to do at this step.
                     continue;
 
                 auto diff = addon.old_version.differAt(addon.new_version);
                 if (diff < vpart)
-                    /* Here we update vpart to highest priority.
-                     * because in `versioned` lib following is true:
-                     * - VersionPart.MAJOR < VersionPart.MINOR
-                     * - VersionPart.MINOR < VersionPart.PATCH
-                     * Thus we can do it in this way
-                     */
                     vpart = diff;
                 if (vpart == VersionPart.MAJOR)
-                    /* We already detect, that we need to update major part of version,
-                     * thus, there is no need for further processing.
-                     * Let's break the loop.
-                     */
                     break;
             }
-            assembly_version = assembly_version.incVersion(vpart);
+            repo_version = repo_version.incVersion(vpart);
         }
     }
 }
-

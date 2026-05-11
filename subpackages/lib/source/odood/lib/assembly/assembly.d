@@ -38,7 +38,7 @@ private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
 private import odood.lib.addons.repository: AddonRepository;
-private import odood.lib.assembly.changes: AssemblyChanges;
+private import odood.lib.addons.changes: AddonRepositoryChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
 
@@ -457,7 +457,7 @@ class Assembly {
             assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
                 .withSerie(project.odoo.serie);
 
-        AssemblyChanges changes = new AssemblyChanges(assembly_version);
+        AddonRepositoryChanges changes = new AddonRepositoryChanges(assembly_version);
 
         /** Get name of addon, based on path
           *
@@ -563,7 +563,7 @@ class Assembly {
         repo.add(changelog_path);
 
         // Update assembly version
-        version_path.writeFile(changes.assembly_version.toString ~ "\n");
+        version_path.writeFile(changes.repo_version.toString ~ "\n");
         repo.add(version_path);
 
         infof("Assembly: Changelog generated");

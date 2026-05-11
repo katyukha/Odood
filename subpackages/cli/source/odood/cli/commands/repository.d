@@ -226,46 +226,27 @@ class CommandRepositoryCheckVersion: OdoodCommand {
     override int execute() {
         auto project = Project.loadProject;
 
-        auto start_ref = "origin/%s".format(project.odoo.serie);
-        auto end_ref = GIT_REF_WORKTREE;
-
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
-        bool has_changes = false;
-        foreach(addon; repo.getChangedModules(start_ref, end_ref, ignoreTranslations)) {
-            has_changes = true;
-            infof("Checking module %s if version bump needed...", addon);
-            auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
-            if (maybe_start_version.isNull)
-                continue;
+        auto result = repo.checkVersions(
+            expected_serie: project.odoo.serie,
+            start_ref: "origin/%s".format(project.odoo.serie),
+            ignore_translations: ignoreTranslations);
 
-            auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
-            if (maybe_end_version.isNull)
-                continue;
-
-            auto start_version = maybe_start_version.get;
-            auto end_version = maybe_end_version.get;
-            enforce!OdoodCLIException(
-                end_version.isStandard,
-                "Non-standard current (%s) version of addon %s. Please, use standard versions for addons in format %s.X.Y.Z".format(end_version, addon.name, project.odoo.serie.toString));
-            if (!start_version.isStandard)
-                continue;
-
-            enforce!OdoodCLIException(
-                end_version.serie == project.odoo.serie,
-                "Addon (%s) serie (%s) does not match project serie (%s)!".format(
-                    addon.name, end_version.serie, project.odoo.serie));
-
-            enforce!OdoodCLIException(
-                start_version < end_version,
-                "Addon (%s) current version (%s) must be greater then addon stable version (%s).".format(
-                    addon.name, start_version, end_version));
-        }
-        if (!has_changes)
+        if (!result.has_changes) {
             infof("There are no changes in modules");
+            return 0;
+        }
+
+        foreach(addon_err; result.errors)
+            foreach(msg; addon_err.messages)
+                enforce!OdoodCLIException(
+                    false,
+                    "Addon %s: %s".format(addon_err.addon_name, msg));
+
         return 0;
     }
 }
