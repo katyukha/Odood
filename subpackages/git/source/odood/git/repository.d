@@ -4,7 +4,7 @@ private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
-private import std.algorithm: map, canFind, startsWith;
+private import std.algorithm: map, canFind, startsWith, filter;
 private import std.array: array;
 private import std.regex: ctRegex, matchFirst;
 private import std.conv: to;
@@ -274,6 +274,22 @@ class GitRepository {
         cmd.execute.ensureOk(true);
     }
 
+    /** List all tag names visible on the given remote. **/
+    string[] listRemoteTags(in string remote = "origin") const {
+        import odood.git: gitListRemoteTags;
+        return gitListRemoteTags(getRemoteUrl(remote).toString);
+    }
+
+    /** List all local tag names in the repository. **/
+    string[] listLocalTags() const {
+        auto output = gitCmd
+            .withArgs("tag", "--list")
+            .execute
+            .ensureOk(true)
+            .output;
+        return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
+    }
+
     /** Set annotation tag on current commit in repo
       **/
     void setTag(in string tag_name, in string message = null)  const
@@ -286,6 +302,62 @@ class GitRepository {
                 "-m", message.length > 0 ? message : tag_name)
             .execute()
             .ensureOk(true);
+    }
+
+    /** Push a specific tag to a remote (default: origin). **/
+    void pushTag(in string tag_name, in string remote = "origin") const
+    in (tag_name.length > 0) {
+        gitCmd
+            .withArgs("push", remote, tag_name)
+            .execute
+            .ensureOk("Cannot push tag %s to %s".format(tag_name, remote), true);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Create a bare "remote" repo and a local clone
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto local_path = root.join("local");
+        auto repo = GitRepository.initialize(local_path);
+        local_path.join("file.txt").writeFile("hello");
+        repo.add(local_path.join("file.txt"));
+        repo.commit("Init");
+
+        // Point origin at the bare remote and push the initial branch
+        repo.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+
+        // No tags yet
+        repo.listLocalTags().should == cast(string[])[];
+
+        // Create two annotated tags
+        repo.setTag("17.0.1.0.0");
+        repo.setTag("17.0.1.0.1");
+        repo.listLocalTags().length.should == 2;
+        repo.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
+        repo.listLocalTags().canFind("17.0.1.0.1").shouldBeTrue;
+
+        // pushTag sends a tag to the remote
+        repo.pushTag("17.0.1.0.0");
+
+        // Verify the remote sees the tag via gitListRemoteTags
+        import odood.git: gitListRemoteTags;
+        auto remote_tags = gitListRemoteTags(remote_path.toString);
+        remote_tags.canFind("17.0.1.0.0").shouldBeTrue;
+        remote_tags.canFind("17.0.1.0.1").shouldBeFalse;  // not pushed yet
+
+        // Push the second tag and verify
+        repo.pushTag("17.0.1.0.1");
+        auto remote_tags2 = gitListRemoteTags(remote_path.toString);
+        remote_tags2.canFind("17.0.1.0.1").shouldBeTrue;
+        remote_tags2.length.should == 2;
     }
 
     /** Pull repository
@@ -538,8 +610,8 @@ class GitRepository {
         git_repo.getContent(Path("test_file.txt")).should == "Hello world!\nSome extra text.\n";
     }
 
-    /// Push changes optionally to specific branch
-    void push(in string branch_name=null) const {
+    /// Push current branch to a remote, optionally to a different branch name.
+    void push(in string branch_name=null, in string remote="origin") const {
         auto current_branch = getCurrBranch();
         enforce!OdoodException(
             !current_branch.isNull,
@@ -548,13 +620,13 @@ class GitRepository {
         if (branch_name)
             gitCmd
                 .withArgs(
-                    "push", "origin", "%s:%s".format(current_branch.get, branch_name))
+                    "push", remote, "%s:%s".format(current_branch.get, branch_name))
                 .execute
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
         else
             gitCmd
                 .withArgs(
-                    "push", "origin", current_branch.get)
+                    "push", remote, current_branch.get)
                 .execute
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
