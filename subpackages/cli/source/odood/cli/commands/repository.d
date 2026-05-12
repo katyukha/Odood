@@ -147,7 +147,6 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
         auto project = Project.loadProject;
 
         auto start_ref = "origin/%s".format(project.odoo.serie);
-        auto end_ref = GIT_REF_WORKTREE;
 
         auto version_part = VersionPart.PATCH;
         if (major)
@@ -162,48 +161,44 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
-        bool has_changes = false;
-        foreach(addon; repo.getChangedModules(start_ref, end_ref, ignoreTranslations)) {
-            has_changes = true;
-            infof("Checking module %s if version bump needed...", addon);
-            auto maybe_start_version = repo.getAddonVersion(addon, start_ref);
-            if (maybe_start_version.isNull) {
-                warningf("Cannot read start version for %s. May be it is new addon. Skipping", addon);
-                continue;
-            }
+        auto changes = repo.collectChanges(start_ref, ignore_translations: ignoreTranslations);
 
-            auto maybe_end_version = repo.getAddonVersion(addon, GIT_REF_WORKTREE);
-            if (maybe_end_version.isNull) {
-                warningf("Cannot read current version for %s. It seems that this is not addon or it was removed. Skipping", addon);
-                continue;
-            }
+        if (!changes.has_changes) {
+            infof("There are no changes in modules");
+            return 0;
+        }
 
-            auto start_version = maybe_start_version.get;
-            auto end_version = maybe_end_version.get;
+        foreach(addon; changes.addons_updated) {
+            infof("Checking module %s if version bump needed...", addon.name);
+
+            auto start_version = addon.old_version;
+            auto end_version = addon.new_version;
+
             if (!start_version.isStandard || !end_version.isStandard) {
-                warningf("Non-standard start (%s) or current (%s) version of addon %s. Skipping", start_version, end_version, addon);
+                warningf("Non-standard start (%s) or current (%s) version of addon %s. Skipping",
+                    start_version, end_version, addon.name);
                 continue;
             }
 
             if (start_version.serie != end_version.serie) {
-                warningf("Start version serie (%s) != current version serie (%s) for addon %s. Skipping", start_version.serie, end_version.serie, addon);
+                warningf("Start version serie (%s) != current version serie (%s) for addon %s. Skipping",
+                    start_version.serie, end_version.serie, addon.name);
                 continue;
             }
 
             auto new_version = end_version;
             if (end_version < start_version) {
-                infof("Current version is less then stable version. Swapping first...");
+                infof("Current version is less than stable version. Swapping first...");
                 new_version = start_version;
             }
 
             if (new_version == start_version || new_version.differAt(start_version) > version_part) {
                 new_version = new_version.incVersion(version_part);
                 infof("Updating manifest version: %s -> %s", end_version, new_version);
-                addon.path.join("__manifest__.py").updateManifestVersion(new_version);
+                repo.path.join(addon.new_path).join("__manifest__.py")
+                    .updateManifestVersion(new_version);
             }
         }
-        if (!has_changes)
-            infof("There are no changes in modules");
         return 0;
     }
 }
@@ -412,6 +407,109 @@ class CommandRepositoryPullAll: OdoodCommand {
 }
 
 
+class CommandRepositoryRelease: OdoodCommand {
+    Nullable!Path path;
+    bool initial;
+    bool major;
+    bool minor;
+    bool patch;
+    bool ignoreTranslations;
+    bool failNothingToRelease;
+    bool push;
+
+    this() {
+        super(
+            "release",
+            "Release addon repository: auto-version, tag, and optionally push.");
+        this.addArgument!(path)("path",
+            "Path to repository to release (default: current directory).")
+            .acceptsDirectories();
+        this.addFlag!(initial)("", "initial",
+            "Create the first release for a repository with no prior tags "
+            ~ "at version <serie>.1.0.0. Skips change detection and version checking.");
+        this.addFlag!(major)("", "major", "Force a major version bump.");
+        this.addFlag!(minor)("", "minor", "Force a minor version bump.");
+        this.addFlag!(patch)("", "patch", "Force a patch version bump.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Ignore translation files (.po/.pot) when detecting changes.");
+        this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
+            "Exit with code 1 when no changed addons are detected.");
+        this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            path.isNull ? Path.current : path.get.toAbsolute);
+
+        immutable serie_str = project.odoo.serie.toString;
+        auto current_branch = repo.getCurrBranch();
+        if (push) {
+            enforce!OdoodCLIException(
+                !current_branch.isNull && current_branch.get == serie_str,
+                "Releases with --push must be made from branch '%s'. "
+                ~ "Current: %s. Run 'git checkout %s' first.".format(
+                    serie_str,
+                    current_branch.isNull ? "detached HEAD" : current_branch.get,
+                    serie_str));
+        } else if (!current_branch.isNull && current_branch.get != serie_str) {
+            warningf(
+                "Releasing from branch '%s', not the stable branch '%s'.",
+                current_branch.get, serie_str);
+        }
+
+        if (initial) {
+            enforce!OdoodCLIException(
+                !major && !minor && !patch,
+                "--major/--minor/--patch are not valid with --initial.");
+
+            auto new_version = repo.initialRelease(project.odoo.serie);
+            repo.setTag(new_version.toString);
+            infof("Created tag: %s", new_version);
+
+            if (push) {
+                repo.pushTag(new_version.toString);
+                infof("Pushed tag to origin.");
+            }
+            return 0;
+        }
+
+        repo.fetchOrigin(serie_str);
+
+        Nullable!VersionPart override_part;
+        if (major)
+            override_part = VersionPart.MAJOR.nullable;
+        else if (minor)
+            override_part = VersionPart.MINOR.nullable;
+        else if (patch)
+            override_part = VersionPart.PATCH.nullable;
+
+        auto new_version = repo.prepareRelease(
+            serie: project.odoo.serie,
+            override_part: override_part,
+            ignore_translations: ignoreTranslations);
+
+        if (new_version.isNull) {
+            infof("Nothing to release: no changed addons detected.");
+            if (failNothingToRelease)
+                exitWith(1);
+            return 0;
+        }
+
+        repo.setTag(new_version.get.toString);
+        infof("Created tag: %s", new_version.get);
+
+        if (push) {
+            repo.push();
+            repo.pushTag(new_version.get.toString);
+            infof("Pushed branch and tag to origin.");
+        }
+        return 0;
+    }
+}
+
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -423,5 +521,6 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryCheckVersion());
         this.add(new CommandRepositoryMigrateAddons());
         this.add(new CommandRepositoryDoForwardPort());
+        this.add(new CommandRepositoryRelease());
     }
 }

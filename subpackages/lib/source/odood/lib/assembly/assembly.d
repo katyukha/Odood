@@ -508,17 +508,21 @@ class Assembly {
                 auto version_new = addon.manifest.module_version;
                 changes.logAddonAdded(
                     addon_name,
+                    addon_path.relativeTo(repo.path),
                     version_new,
                 );
             } else {
                 auto addon = new OdooAddon(addon_path);
                 auto version_old = repo.getAddonVersion(addon, rev: base_rev).get;
                 auto version_new = addon.manifest.module_version;
+                auto rel_path = addon_path.relativeTo(repo.path);
                 auto changelog = addon.readChangelogEntries(
                     start_ver: cast(Nullable!Version)version_old.semver.nullable,
                 );
                 changes.logAddonUpdated(
                     addon_name,
+                    rel_path,
+                    rel_path,
                     version_old,
                     version_new,
                     changelog,
