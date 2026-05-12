@@ -504,6 +504,60 @@ class GitRepository {
         git_repo.hasChanges.shouldBeTrue();
     }
 
+    /** Walk up the directory tree from `path`, looking for a file named `name`
+      * at each level. Checks existence in `rev` (defaults to worktree).
+      *
+      * Returns: path relative to repo root of the first match, or null.
+      **/
+    Nullable!Path searchFileUp(in Path path, in string name, in string rev = GIT_REF_WORKTREE) const {
+        auto current = _makeRelPath(path);
+        while (current.toString != ".") {
+            auto candidate = current.join(name);
+            if (isFileExists(candidate, rev))
+                return candidate.nullable;
+            current = current.parent(false);
+        }
+        return Nullable!Path.init;
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto git_root = root.join("test-repo");
+        auto repo = GitRepository.initialize(git_root);
+
+        // Set up: addon_a/models/sale.py, addon_a/__manifest__.py
+        git_root.join("addon_a").mkdir(false);
+        git_root.join("addon_a", "models").mkdir(false);
+        git_root.join("addon_a", "__manifest__.py").writeFile("{}");
+        git_root.join("addon_a", "models", "sale.py").writeFile("# model");
+        repo.add(git_root.join("addon_a"));
+        repo.commit("Init");
+        auto rev_v1 = repo.getCurrCommit();
+
+        // Worktree: finds manifest walking up from models/
+        auto found = repo.searchFileUp(Path("addon_a/models"), "__manifest__.py");
+        found.isNull.shouldBeFalse;
+        found.get.should == Path("addon_a/__manifest__.py");
+
+        // Worktree: not found when starting above the addon
+        repo.searchFileUp(Path("addon_a"), "nonexistent.txt").isNull.shouldBeTrue;
+
+        // Historical ref: finds manifest in rev_v1
+        auto found_rev = repo.searchFileUp(Path("addon_a/models"), "__manifest__.py", rev_v1);
+        found_rev.isNull.shouldBeFalse;
+        found_rev.get.should == Path("addon_a/__manifest__.py");
+
+        // Historical ref: file removed in worktree but still found in old ref
+        git_root.join("addon_a", "__manifest__.py").remove();
+        repo.searchFileUp(Path("addon_a/models"), "__manifest__.py").isNull.shouldBeTrue;
+        repo.searchFileUp(Path("addon_a/models"), "__manifest__.py", rev_v1).isNull.shouldBeFalse;
+    }
+
     /** Check if file specified by path exists in rev
       **/
     auto isFileExists(in Path path, in string rev) const {
