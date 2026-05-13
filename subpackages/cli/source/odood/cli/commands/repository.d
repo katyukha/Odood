@@ -417,7 +417,7 @@ class CommandRepositoryRelease: OdoodCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
-    string commitMessage;
+    Nullable!string commitMessage;
     Nullable!string commitUser;
     Nullable!string commitEmail;
 
@@ -514,9 +514,9 @@ class CommandRepositoryRelease: OdoodCommand {
 
         if (changelog) {
             repo.generateChangelog(result.get);
-            auto msg = commitMessage.length > 0
-                ? commitMessage
-                : "Release %s".format(result.get.new_version);
+            auto msg = commitMessage.isNull
+                ? "Release %s".format(result.get.new_version)
+                : commitMessage.get;
             repo.commit(
                 msg,
                 commitUser.isNull ? null : commitUser.get,
