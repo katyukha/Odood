@@ -69,7 +69,6 @@ private struct AddonInfo {
 
 
 
-// TODO: Do we need this class?
 class AddonRepository : GitRepository{
 
     @disable this();

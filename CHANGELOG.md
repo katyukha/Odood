@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- Run `msguniq` before `msgmerge` when regenerating translations,
+  because AI too frequently generate duplicateg translatios and `msgmerge` fails
+
 ---
 
 ## Release 0.6.2 (2026-05-09)

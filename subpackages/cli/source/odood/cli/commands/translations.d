@@ -171,6 +171,14 @@ class CommandTranslationsRegenerate: OdoodCommand {
 
                 if (missingOnly && i18n_file.exists && potUpdate && i18n_pot_file.exists) {
                     infof("translation file %s already exists. Updating translations based on .pot file.", i18n_file);
+                    // We have to uniquify translations first.
+                    // Because AI frequently duplicates transaltions, and people do not care on that
+                    auto msguniq = Process("msguniq")
+                        .withArgs(
+                            i18n_file.toString,
+                            "--output-file=%s".format(i18n_file));
+                    tracef("Running %s", msguniq);
+                    msguniq.execute.ensureOk!OdoodException(true);
                     auto msgmerge = Process("msgmerge")
                         .withArgs(
                             "--quiet", "-N", "-U",
