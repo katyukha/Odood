@@ -248,9 +248,13 @@ struct AssemblySpec {
     }
 
     /// Addons that have to be present in this assembly
+    @property ref auto addons() => _addons;
+    /// ditto
     @property auto addons() const => _addons;
 
     /// Git repositories to fetch addons from
+    @property ref auto sources() => _sources;
+    /// ditto
     @property auto sources() const => _sources;
 
     /// Assembly layout

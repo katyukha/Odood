@@ -13,7 +13,7 @@ private import colored;
 private import darkcommand;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
+private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
@@ -343,6 +343,67 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 }
 
 
+class CommandAssemblyUpgradeSources: AssemblyCommandBase {
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("upgrade-sources", "Upgrade assembly source refs to the latest version tags on their remotes.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+    }
+
+    override int execute() {
+        auto project = loadProject;
+        auto results = project.assembly.upgradeSourceRefs();
+
+        bool any_changed = false;
+        foreach(result; results) {
+            if (result.changed) {
+                writefln("  %-40s  %s  →  %s",
+                    result.source_name,
+                    result.old_ref.empty ? "(none)" : result.old_ref,
+                    result.new_ref);
+                any_changed = true;
+            } else {
+                writefln("  %-40s  %s (no change)",
+                    result.source_name,
+                    result.new_ref.empty ? "(none)" : result.new_ref);
+            }
+        }
+
+        if (!any_changed) {
+            writeln("All sources are already at the latest version.");
+            return 0;
+        }
+
+        project.assembly.save();
+
+        if (commit || push || !pushTo.isNull) {
+            project.assembly.repo.commit(
+                message: commitMessage.isNull ?
+                    "[UPGRADE] Upgrade assembly source refs" : commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+        }
+
+        if (push || !pushTo.isNull)
+            project.assembly.push(
+                branch_name: pushTo.isNull ? null : pushTo.get);
+
+        return 0;
+    }
+}
+
+
 class CommandAssembly: OdoodCommand {
     Nullable!Path assemblyPath;
 
@@ -359,5 +420,6 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyLink());
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
+        this.add(new CommandAssemblyUpgradeSources());
     }
 }

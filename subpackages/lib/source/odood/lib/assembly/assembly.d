@@ -8,7 +8,7 @@ private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable, tuple;
 private import std.array: empty, join, array, split, assocArray;
-private import std.algorithm: map, canFind, uniq, startsWith;
+private import std.algorithm: map, filter, canFind, uniq, startsWith, maxElement;
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
 private import std.string: strip;
@@ -26,7 +26,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
-private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo;
+private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo, gitListRemoteTags;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
@@ -39,6 +39,14 @@ private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResul
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
+
+/// Result of upgrading a single assembly source ref
+struct SourceUpgradeResult {
+    string source_name;
+    string old_ref;
+    string new_ref;
+    bool changed;
+}
 
 // Path to version file in assembly repo
 package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
@@ -269,10 +277,17 @@ class Assembly {
             if (repo_path.exists) {
                 auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
                 if (source.git_ref) {
-                    repo.fetchOrigin(source.git_ref);
+                    immutable is_tag = OdooStdVersion(source.git_ref).isStandard;
+                    if (is_tag)
+                        repo.fetchTag(source.git_ref);
+                    else
+                        repo.fetchOrigin(source.git_ref);
+
                     if (source.git_commit) {
                         repo.switchBranchTo(source.git_commit);
                         repo.ensureAtCommit(source.git_commit);
+                    } else if (is_tag) {
+                        repo.switchBranchTo(source.git_ref);
                     } else {
                         repo.switchBranchTo("origin/%s".format(source.git_ref));
                     }
@@ -280,6 +295,7 @@ class Assembly {
                     repo.pull;
                 }
             } else {
+                // git clone -b accepts both branch names and tag names.
                 auto repo = gitClone(
                     repo: source.git_url,
                     dest: repo_path,
@@ -704,6 +720,67 @@ class Assembly {
     /// Add addon to assembly
     void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+    }
+
+    /** For each source, query the remote for tags matching the project's Odoo serie,
+      * pick the highest OdooStdVersion tag, and update the source's git_ref in place.
+      *
+      * The caller must call save() after this to persist spec changes.
+      * Returns one SourceUpgradeResult per source.
+      **/
+    SourceUpgradeResult[] upgradeSourceRefs() {
+        immutable serie = _project.odoo.serie;
+        SourceUpgradeResult[] results;
+
+        foreach(ref source; _spec.sources) {
+            immutable src_name = source.name.empty ? source.git_url.toString : source.name;
+            immutable old_ref = source.git_ref;
+
+            if (!OdooStdVersion(old_ref).isStandard) {
+                tracef("Assembly: Skipping %s — ref '%s' is not a version tag.", src_name, old_ref);
+                continue;
+            }
+
+            infof("Assembly: Checking %s for new version tags ...", src_name);
+            auto versions = gitListRemoteTags(
+                    source.git_url.toString,
+                    getSourceExtraEnv(source))
+                .map!(t => OdooStdVersion(t))
+                .filter!(v => v.isStandard && v.serie == serie)
+                .array;
+
+            if (versions.empty) {
+                infof("Assembly: No version tags found for %s.", src_name);
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: old_ref,
+                    changed: false);
+                continue;
+            }
+
+            immutable newest = versions.maxElement;
+            immutable new_ref = newest.toString;
+
+            if (new_ref == old_ref) {
+                infof("Assembly: %s is already at latest (%s).", src_name, new_ref);
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: new_ref,
+                    changed: false);
+            } else {
+                infof("Assembly: Upgrading %s: %s → %s.", src_name, old_ref.empty ? "(none)" : old_ref, new_ref);
+                source.git_ref = new_ref;
+                source.git_commit = null;
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: new_ref,
+                    changed: true);
+            }
+        }
+        return results;
     }
 
 }
