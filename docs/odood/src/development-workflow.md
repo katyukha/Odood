@@ -80,27 +80,8 @@ odood test -t --migration --dir .
 
 ### Translation Management
 
-After adding new translatable strings, regenerate translation files with:
-
-```bash
-odood tr regenerate \
-    --pot-remove-dates \
-    --pot \
-    --pot-update \
-    --missing-only \
-    -l uk_UA \
-    --addon-dir .
-```
-
-Key flags:
-- `--pot` — regenerate `.pot` template files.
-- `--pot-update` — update existing `.po` files from the regenerated `.pot`.
-- `--missing-only` — only add new strings; do not overwrite existing translations.
-- `--pot-remove-dates` — strip timestamps from `.pot` headers to reduce noise in git diffs.
-- `-l <lang>` — language code (e.g. `uk_UA`, `de_DE`). Repeat for multiple languages.
-- `--addon-dir <path>` — process all installable addons under the given path.
-
-Commit the resulting `.pot` and `.po` changes alongside your code changes.
+See the dedicated [Translation Management](./translations.md) page for the full workflow,
+flag reference, and guidance on using AI assistants for translations.
 
 ### Module Versioning
 

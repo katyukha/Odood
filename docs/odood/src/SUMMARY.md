@@ -8,6 +8,7 @@
 
 # Development
 - [Development Workflow](./development-workflow.md)
+- [Translation Management](./translations.md)
 
 # Deployment
 - [Deployment Overview](./deployment.md)
