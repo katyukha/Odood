@@ -7,6 +7,11 @@ private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 private import std.array: appender, array;
 private import std.string: strip, join;
+private import std.regex: replaceFirst, regex;
+private import std.datetime.date: DateTime;
+private import std.datetime.systime: Clock;
+
+private import darktemple: renderFile;
 
 private import versioned: Version, VersionPart;
 private import thepath: Path;
@@ -42,6 +47,17 @@ struct AddonVersionCheckResult {
             if (e.addon_name == addon_name) { e.messages ~= message; return; }
         errors ~= AddonCheckError(addon_name, [message]);
     }
+}
+
+/** Result of a successful prepareRelease call.
+  *
+  * Carries the new version, the full changes object (for changelog generation),
+  * and the start_ref used (needed to restore CHANGELOG.md history).
+  **/
+struct PrepareReleaseResult {
+    OdooStdVersion new_version;
+    AddonRepositoryChanges addon_changes;
+    string start_ref;
 }
 
 /// Addon identity at a specific git ref: path relative to repo root, name, version.
@@ -368,7 +384,7 @@ class AddonRepository : GitRepository{
       *
       * Returns: null if no changed addons detected; the new version otherwise.
       **/
-    Nullable!OdooStdVersion prepareRelease(
+    Nullable!PrepareReleaseResult prepareRelease(
             in OdooSerie serie,
             in Nullable!VersionPart override_part = Nullable!VersionPart.init,
             in bool ignore_translations = true) const {
@@ -409,7 +425,7 @@ class AddonRepository : GitRepository{
         }
 
         if (!check.has_changes)
-            return Nullable!OdooStdVersion.init;
+            return Nullable!PrepareReleaseResult.init;
 
         // 3. Reuse changes already collected by checkVersions; seed the repo version.
         auto changes = check.changes;
@@ -420,7 +436,51 @@ class AddonRepository : GitRepository{
         else
             changes.postProcess();
 
-        return changes.repo_version.nullable;
+        return PrepareReleaseResult(changes.repo_version, changes, start_ref).nullable;
+    }
+
+    /** Generate CHANGELOG.md and CHANGELOG.latest.md for a repo release.
+      *
+      * Restores CHANGELOG.md from result.start_ref (if present) before
+      * prepending the new release section, so history is preserved.
+      * Stages both files; does NOT commit — the caller decides.
+      *
+      * Params:
+      *     result = The PrepareReleaseResult returned by prepareRelease.
+      **/
+    void generateChangelog(in PrepareReleaseResult result) {
+        infof("Generating changelog for release %s ...", result.new_version);
+
+        // Local alias required: darktemple binds template arg names to template vars.
+        // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
+        auto changes = result.addon_changes;
+        auto release_date = cast(DateTime)Clock.currTime();
+        auto changelog_text = renderFile!(
+            "templates/repository/changelog.md.tmpl",
+            changes, release_date);
+
+        auto changelog_path = path.join("CHANGELOG.md");
+        auto changelog_latest_path = path.join("CHANGELOG.latest.md");
+
+        changelog_latest_path.writeFile(changelog_text);
+        add(changelog_latest_path);
+
+        // Restore CHANGELOG.md from start_ref so we prepend, not overwrite.
+        if (isFileExists(changelog_path, result.start_ref))
+            checkoutFile(result.start_ref, true, changelog_path);
+        else
+            remove(changelog_path, force: true, ignore_unmatch: true);
+
+        if (changelog_path.exists) {
+            auto existing = changelog_path.readFileText
+                .replaceFirst(regex("# Changelog\n"), changelog_text);
+            changelog_path.writeFile(existing);
+        } else {
+            changelog_path.writeFile(changelog_text);
+        }
+
+        add(changelog_path);
+        infof("Changelog generated.");
     }
 }
 
@@ -664,9 +724,11 @@ unittest {
     repo.add(repo_path.join("addon_a", "__manifest__.py"));
     repo.commit("Bump addon_a to 17.0.1.1.0");
 
-    auto ver1 = repo.prepareRelease(OdooSerie("17.0"));
-    ver1.isNull.shouldBeFalse;
-    ver1.get.toString.should == "17.0.1.1.0";
+    auto res1 = repo.prepareRelease(OdooSerie("17.0"));
+    res1.isNull.shouldBeFalse;
+    res1.get.new_version.toString.should == "17.0.1.1.0";
+    res1.get.addon_changes.shouldNotBeNull;
+    res1.get.start_ref.should == "17.0.1.0.0";     // latest tag was used as start_ref
     repo.getChangedFiles(staged: true).length.should == 0;  // nothing staged by prepareRelease
 
     // Tag and move on to override_part test
@@ -678,9 +740,10 @@ unittest {
     repo.add(repo_path.join("addon_a", "__manifest__.py"));
     repo.commit("Patch bump addon_a to 17.0.1.1.1");
 
-    auto ver2 = repo.prepareRelease(
+    auto res2 = repo.prepareRelease(
         serie: OdooSerie("17.0"),
         override_part: VersionPart.MAJOR.nullable);
-    ver2.isNull.shouldBeFalse;
-    ver2.get.toString.should == "17.0.2.0.0";
+    res2.isNull.shouldBeFalse;
+    res2.get.new_version.toString.should == "17.0.2.0.0";
+    res2.get.start_ref.should == "17.0.1.1.0";
 }

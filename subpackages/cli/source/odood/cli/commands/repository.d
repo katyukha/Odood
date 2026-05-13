@@ -14,7 +14,7 @@ private import odood.lib.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
 
@@ -416,6 +416,10 @@ class CommandRepositoryRelease: OdoodCommand {
     bool ignoreTranslations;
     bool failNothingToRelease;
     bool push;
+    bool changelog;
+    string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
 
     this() {
         super(
@@ -435,6 +439,14 @@ class CommandRepositoryRelease: OdoodCommand {
         this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
             "Exit with code 1 when no changed addons are detected.");
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
+        this.addFlag!(changelog)("", "changelog",
+            "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addOption!(commitMessage)("", "commit-message",
+            "Commit message for the changelog commit (default: 'Release <version>').");
+        this.addOption!(commitUser)("", "commit-user",
+            "Git author name for the changelog commit.");
+        this.addOption!(commitEmail)("", "commit-email",
+            "Git author email for the changelog commit.");
     }
 
     override int execute() {
@@ -463,6 +475,9 @@ class CommandRepositoryRelease: OdoodCommand {
             enforce!OdoodCLIException(
                 !major && !minor && !patch,
                 "--major/--minor/--patch are not valid with --initial.");
+            enforce!OdoodCLIException(
+                !changelog,
+                "--changelog is not valid with --initial (no changes to report).");
 
             auto new_version = repo.initialRelease(project.odoo.serie);
             repo.setTag(new_version.toString);
@@ -485,24 +500,36 @@ class CommandRepositoryRelease: OdoodCommand {
         else if (patch)
             override_part = VersionPart.PATCH.nullable;
 
-        auto new_version = repo.prepareRelease(
+        auto result = repo.prepareRelease(
             serie: project.odoo.serie,
             override_part: override_part,
             ignore_translations: ignoreTranslations);
 
-        if (new_version.isNull) {
+        if (result.isNull) {
             infof("Nothing to release: no changed addons detected.");
             if (failNothingToRelease)
                 exitWith(1);
             return 0;
         }
 
-        repo.setTag(new_version.get.toString);
-        infof("Created tag: %s", new_version.get);
+        if (changelog) {
+            repo.generateChangelog(result.get);
+            auto msg = commitMessage.length > 0
+                ? commitMessage
+                : "Release %s".format(result.get.new_version);
+            repo.commit(
+                msg,
+                commitUser.isNull ? null : commitUser.get,
+                commitEmail.isNull ? null : commitEmail.get);
+            infof("Changelog committed.");
+        }
+
+        repo.setTag(result.get.new_version.toString);
+        infof("Created tag: %s", result.get.new_version);
 
         if (push) {
             repo.push();
-            repo.pushTag(new_version.get.toString);
+            repo.pushTag(result.get.new_version.toString);
             infof("Pushed branch and tag to origin.");
         }
         return 0;

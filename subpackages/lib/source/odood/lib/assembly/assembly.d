@@ -13,8 +13,6 @@ private import std.range: chain;
 private import std.regex: replaceFirst, regex;
 private import std.string: strip;
 private import std.process: environment;
-private import std.datetime.date: DateTime;
-private import std.datetime.systime: Clock;
 private import std.parallelism: taskPool;
 
 private import dyaml;
@@ -37,7 +35,7 @@ private import odood.lib.venv: PyRequirements;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
-private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
@@ -474,31 +472,9 @@ class Assembly {
         infof("Assembly: Generating changelog.");
 
         auto changes = getChanges(base_rev: base_rev);
-        auto release_date = cast(DateTime)Clock.currTime();
-        auto new_changes_description = renderFile!("templates/assembly/changelog.md.tmpl", changes, release_date);
+        repo.generateChangelog(PrepareReleaseResult(changes.repo_version, changes, base_rev));
 
-        // Write latest changelog
-        changelog_latest_path.writeFile(new_changes_description);
-        repo.add(changelog_latest_path);
-
-        // Update main changelog. At first, we have to switch CHANGELOG.md
-        // to original version from series branch
-        if (repo.isFileExists(changelog_path, base_rev))
-            repo.checkoutFile(base_rev, true, changelog_path);
-        else
-            repo.remove(changelog_path, force: true, ignore_unmatch: true);
-
-        if (changelog_path.exists) {
-            string changelog_content = changelog_path
-                .readFileText
-                .replaceFirst(regex("# Changelog\n"), new_changes_description);
-            changelog_path.writeFile(changelog_content);
-        } else
-            changelog_path.writeFile(new_changes_description);
-
-        repo.add(changelog_path);
-
-        // Update assembly version
+        // Assembly-specific: persist the version number in VERSION file.
         version_path.writeFile(changes.repo_version.toString ~ "\n");
         repo.add(version_path);
 
