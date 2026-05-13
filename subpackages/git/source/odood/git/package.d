@@ -100,12 +100,12 @@ unittest {
   * Returns tag names only (the `refs/tags/` prefix is stripped).
   * Peeled dereference lines (`tag^{}`) are excluded by `--refs`.
   **/
-string[] gitListRemoteTags(in string url) {
-    auto output = Process("git")
-        .withArgs("ls-remote", "--refs", "--tags", url)
-        .execute
-        .ensureOk(true)
-        .output;
+string[] gitListRemoteTags(in string url, in string[string] env = null) {
+    auto proc = Process("git")
+        .withArgs("ls-remote", "--refs", "--tags", url);
+    if (env !is null && env.length > 0)
+        proc = proc.withEnv(env);
+    auto output = proc.execute.ensureOk(true).output;
 
     auto tags = appender!(string[]);
     foreach(line; output.splitLines) {
