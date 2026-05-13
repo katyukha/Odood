@@ -168,6 +168,57 @@ class GitRepository {
             .ensureStatus(true);
     }
 
+    /** Fetch a specific tag from origin into the local repo.
+      *
+      * Uses an explicit refspec so it works reliably in single-branch clones
+      * where the default fetch config only covers one branch and tags are not
+      * automatically mirrored.
+      **/
+    void fetchTag(in string tag_name) const {
+        immutable refspec = "refs/tags/%s:refs/tags/%s".format(tag_name, tag_name);
+        gitCmd
+            .withArgs("fetch", "origin", refspec)
+            .execute()
+            .ensureStatus(true);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import std.algorithm: canFind;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Create a bare remote, a source repo with a tag, push both branch and tag.
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial");
+        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        src.setTag("17.0.1.0.0");
+        src.pushTag("17.0.1.0.0");
+
+        // Clone with --single-branch --no-tags — tags are NOT fetched automatically.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", "--single-branch", "--no-tags", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.listLocalTags().canFind("17.0.1.0.0").shouldBeFalse;
+
+        // fetchTag must bring the tag in via explicit refspec.
+        clone.fetchTag("17.0.1.0.0");
+
+        clone.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
+    }
+
     /** Check if repo has configured remote url with specified name
       **/
     auto hasRemoteUrl(in string name) const {
