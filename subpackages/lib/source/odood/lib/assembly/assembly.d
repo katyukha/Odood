@@ -28,7 +28,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
-private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
+private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
@@ -452,83 +452,15 @@ class Assembly {
         auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
 
         if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev))
-            // If assembly uses version, then we have to update assembly version from serie branch,
-            // and it will be automatically updated after change analysis completed.
-            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
+            assembly_version = OdooStdVersion(
+                repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
                 .withSerie(project.odoo.serie);
 
-        AddonRepositoryChanges changes = new AddonRepositoryChanges(assembly_version);
-
-        /** Get name of addon, based on path
-          *
-          **/
-        Nullable!string getAddonName(in Path path) {
-            Path ipath = path;
-            if (ipath.baseName == "__manifest__")
-                return ipath.parent.baseName.nullable;
-
-            while(ipath.parent(false).toString != ".") {
-                ipath = ipath.parent(false);
-
-                if (repo.isFileExists(ipath.join("__manifest__.py")))
-                    return ipath.baseName.nullable;
-
-                if (repo.isFileExists(ipath.join("__manifest__.py"), rev: base_rev))
-                    return ipath.baseName.nullable;
-            }
-            return Nullable!string.init;
-        }
-
-        // Here we expect, that all addons are placed in `dist` folder inside assembly,
-        // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
-        string[] addon_names;
-        foreach(addon_path; repo.getChangedFiles(start_rev: base_rev)) {
-            auto addon_name = getAddonName(addon_path);
-            if (addon_name.isNull)
-                // Skip things that are not related to addons.
-                continue;
-
-            if (!addon_names.canFind(addon_name.get))
-                addon_names ~= addon_name.get;
-        }
-
-        // Iterate over changed addons, and determine changes for changelog
-        foreach(addon_name; addon_names) {
-            auto addon_path = dist_dir.join(addon_name);
-            auto manifest_path = addon_path.join("__manifest__.py");
-            if (repo.isFileExists(manifest_path, rev: base_rev)
-                   && !repo.isFileExists(manifest_path))
-                // When addon was removed, then we track only its name,
-                // because there is no addon in directory.
-                changes.logAddonRemoved(addon_name);
-            else if (!repo.isFileExists(manifest_path, rev: base_rev)
-                   && repo.isFileExists(manifest_path)) {
-                // Addon exists in current version, thus we can work with it as with normal addon
-                auto addon = new OdooAddon(addon_path);
-                auto version_new = addon.manifest.module_version;
-                changes.logAddonAdded(
-                    addon_name,
-                    addon_path.relativeTo(repo.path),
-                    version_new,
-                );
-            } else {
-                auto addon = new OdooAddon(addon_path);
-                auto version_old = repo.getAddonVersion(addon, rev: base_rev).get;
-                auto version_new = addon.manifest.module_version;
-                auto rel_path = addon_path.relativeTo(repo.path);
-                auto changelog = addon.readChangelogEntries(
-                    start_ver: cast(Nullable!Version)version_old.semver.nullable,
-                );
-                changes.logAddonUpdated(
-                    addon_name,
-                    rel_path,
-                    rel_path,
-                    version_old,
-                    version_new,
-                    changelog,
-                );
-            }
-        }
+        auto changes = repo.collectChanges(
+            base_rev,
+            GIT_REF_WORKTREE,
+            ignore_translations: false,
+            initial_version: assembly_version);
         changes.postProcess();
         return changes;
     }
