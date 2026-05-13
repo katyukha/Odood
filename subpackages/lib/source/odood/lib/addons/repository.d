@@ -161,7 +161,7 @@ class AddonRepository : GitRepository{
             if (!parsed.isNull)
                 return AddonInfo(
                     mpath.get.parent(false),
-                    parsed.get.name,
+                    mpath.get.parent(false).baseName,  // directory name = Odoo module technical name
                     parsed.get.module_version).nullable;
             // Manifest file found but unparseable — stop.
             return Nullable!AddonInfo.init;
@@ -599,6 +599,18 @@ unittest {
     auto res_with_changes = repo.checkVersions(OdooSerie("17.0"), rev_v1, rev_v2);
     res_with_changes.changes.shouldNotBeNull;
     res_with_changes.changes.addons_updated.length.should == 2;
+
+    // collectChanges — addon keyed by directory name, not manifest 'name' field
+    // Set manifest name to something different from the directory name
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "My Addon A (Display Name)", "version": "17.0.1.3.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_a", "__manifest__.py"));
+    repo.commit("Set addon_a display name differs from dir name");
+    auto rev_v8 = repo.getCurrCommit();
+
+    auto cc_dir_name = repo.collectChanges(rev_v7, rev_v8);
+    cc_dir_name.addons_updated.length.should == 1;
+    cc_dir_name.addons_updated[0].name.should == "addon_a";  // directory name, not "My Addon A (Display Name)"
 }
 
 
