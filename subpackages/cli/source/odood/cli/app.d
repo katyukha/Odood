@@ -144,10 +144,19 @@ class App: Program {
     }
 
     override protected int onError(Exception e) {
-        if (enable_debug)
-            error("Exception catched:\n%s".format(e));
-        else
-            error("%s".format(e.msg));
+        import std.stdio: stderr;
+
+        if (enable_debug) {
+            error("Exception caught:\n%s".format(e));
+            return 1;
+        }
+        if (cast(DarkCommandException) e) {
+            auto code = super.onError(e);
+            if (cast(UnknownCommandException) e)
+                stderr.writeln("Run 'odood --help' for a list of available commands.");
+            return code;
+        }
+        error("%s".format(e.msg));
         return 1;
     }
 }
