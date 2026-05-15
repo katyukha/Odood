@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Support for `--test-tag` option for `odood test` command
+
 ### Fixed
 
 - Run `msguniq` before `msgmerge` when regenerating translations,

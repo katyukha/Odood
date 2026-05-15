@@ -430,6 +430,9 @@ struct OdooTestRunner {
     private string[] _populate_models=[];
     private string _populate_size="small";
 
+    // Test tags (--test-tags, Odoo 12.0+)
+    private string[] _test_tags;
+
     // Other configuration
     private bool _need_install_addons_before_test=true;
 
@@ -534,6 +537,16 @@ struct OdooTestRunner {
       **/
     auto ref setCoverage(in bool coverage) {
         _coverage = coverage;
+        return this;
+    }
+
+    /** Add a test tag filter (--test-tags). Requires Odoo 12.0+.
+      * May be specified multiple times; all values are joined with commas.
+      * Supports Odoo's full tag syntax: plain tags, /module, /module:Class.method,
+      * and -tag exclusions.
+      **/
+    auto ref addTestTag(in string tag) {
+        _test_tags ~= tag;
         return this;
     }
 
@@ -707,7 +720,7 @@ struct OdooTestRunner {
       * Returns: true if command successful, otherwise false.
       **/
     private bool runServerCommand(ref OdooTestResult result, in string[] options) {
-        auto res =_server.pipeServerLog(
+        auto res = _server.pipeServerLog(
             getCoverageOptions(),
             options,
         ).processLogs!true((log_record) {
@@ -888,17 +901,21 @@ struct OdooTestRunner {
         scope(exit) result.setDurationTests(watch_tests.peek());
 
         infof("Running tests for modules: %s", getModuleList);
-        auto cmd_res = runServerCommand(
-            result,
-            [
-                "--update=%s".format(getModuleList),
-                "--log-level=info",
-                "--stop-after-init",
-                "--workers=0",
-                "--test-enable",
-                "--database=%s".format(_test_db_name),
-            ],
-        );
+        auto test_args = [
+            "--update=%s".format(getModuleList),
+            "--log-level=info",
+            "--stop-after-init",
+            "--workers=0",
+            "--test-enable",
+            "--database=%s".format(_test_db_name),
+        ];
+        if (!_test_tags.empty) {
+            enforce!OdoodException(
+                _project.odoo.serie >= OdooSerie(12),
+                "--test-tags requires Odoo 12.0 or later");
+            test_args ~= "--test-tags=%s".format(_test_tags.join(","));
+        }
+        auto cmd_res = runServerCommand(result, test_args);
         if (!cmd_res) return result;
 
         if (!result.errors.empty)

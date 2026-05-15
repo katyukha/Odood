@@ -55,6 +55,7 @@ class CommandTest: OdoodCommand {
     Nullable!Path migrationRepo;
     string[] populateModel;
     Nullable!string populateSize;
+    string[] testTag;
 
     this() {
         super("test", "Run tests for modules.");
@@ -107,6 +108,9 @@ class CommandTest: OdoodCommand {
             "Name of model to populate. Could be specified multiple times.");
         this.addOption!(populateSize)("", "populate-size", "Population size.")
             .acceptsValues(["small", "medium", "large"]);
+        this.addOption!(testTag)("", "test-tag",
+            "Filter tests by tag (Odoo 12.0+). Repeatable. Supports Odoo tag syntax: " ~
+            "plain tags, /module, /module:Class.method, -tag to exclude.");
         this.addArgument!(addon)("addon", "Names of addons to run tests for.")
             .defaultValue([]);
     }
@@ -211,6 +215,9 @@ class CommandTest: OdoodCommand {
             testRunner.setPopulateModels(populateModel);
         if (!populateSize.isNull)
             testRunner.setPopulateSize(populateSize.get);
+
+        foreach(tag; testTag)
+            testRunner.addTestTag(tag);
 
         auto res = testRunner.run();
 
