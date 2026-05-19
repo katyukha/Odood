@@ -630,9 +630,10 @@ class CommandAddonsAdd: OdoodCommand {
             "Install python dependencies from manifest's external dependencies");
         this.addOption!(odooApps)("", "odoo-apps", "Add addon from odoo apps.");
         this.addOption!(odooRequirements)("", "odoo-requirements",
-            "Add modules (repos) from odoo_requirements.txt file, " ~
+            "Add modules (repos) from odoo_requirements.txt file (or directory " ~
+            "containing odoo_requirements.txt), " ~
             "that is used by odoo-helper-scripts.")
-            .acceptsFiles();
+            .acceptsPath();
     }
 
     override int execute() {
