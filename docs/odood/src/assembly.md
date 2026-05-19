@@ -228,6 +228,38 @@ We can do it using following command:
 odood assembly sync
 ```
 
+### Upgrading pinned sources
+
+By default the examples above use a branch name as the source `ref` (e.g. `ref: 18.0`).
+`odood assembly sync` will always clone or pull from the tip of that branch.
+
+An alternative is to pin each source to a specific **version tag**:
+
+```yaml
+spec:
+  addons-list:
+    - name: my_addon
+  sources-list:
+    - url: https://github.com/my/repo
+      ref: 18.0.1.2.3   # pinned to a release tag
+```
+
+Pinning to a tag makes the assembly fully reproducible — every sync produces the same result — and enables supply-chain hardening with commit pinning. The trade-off is that you must explicitly advance the pin when a new release is available.
+
+`odood assembly upgrade-sources` automates that step. It queries each source's remote for the newest version tag matching the project's Odoo series, updates the spec, and (optionally) commits and pushes:
+
+```bash
+# Preview what would change (no commit):
+odood assembly upgrade-sources
+
+# Update spec, commit and push:
+odood assembly upgrade-sources --commit --push
+```
+
+Sources whose `ref` is a branch name (e.g. `18.0`) are silently skipped — they are already always-latest and need no upgrade step.
+
+After running `upgrade-sources`, follow up with `odood assembly sync` to pull the new addon versions into the `dist/` directory.
+
 After this command, specified addons will be located (updated) in `dist` folder inside assembly, and ready to commit.
 Also, we have to manually add `odood-assembly.yml` to git index before commit, to make sure spec is committed too.
 
@@ -295,6 +327,7 @@ This group contains following commands:
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
 - `odood assembly pull` - pull changes for assembly repo. Useful during server update
 - `odood assembly upgrade` - simple way to upgrade server that is configured to use assembly.
+- `odood assembly upgrade-sources` - scan each source whose `ref` is a version tag and update the spec to the newest matching tag found on the remote. See [Upgrading pinned sources](#upgrading-pinned-sources).
 - `odood addons update --assembly` - this option could be used for `odood addons install/update/uninstall` commands to install/update/uninstall addons contained in assembly.
 
 Also, command `odood addons find-installed` could be used to generate spec for assembly based on third-party addons installed in specified database(s).
