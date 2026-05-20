@@ -131,6 +131,8 @@ If you want to install it locally from source, follow steps below:
 1. Install build dependencies: `libpq-dev python3-dev`. For the full list of system packages required for Odood to operate (install and run Odoo), see [`nfpm.yaml`](https://github.com/katyukha/Odood/blob/main/nfpm.yaml).
 2. Install [DLang compiler](https://dlang.org/download.html)
 3. Build Odood with command `dub build -b release`. After build completed, there will be generated binary `odood` in `build` directory.
+   > **Note:** Use [LDC](https://github.com/ldc-developers/ldc) (`ldc2`) for release builds — DMD has a known CTFE regression that causes release builds to fail.
+   > Install LDC via the D installer or your system package manager, then build with: `dub build -b release --compiler=ldc2`
 4. Link Odoo binary to bin directory:
     - Assume that current working directory is Odood source code root.
     - `mkdir -p ~/bin`
