@@ -340,6 +340,12 @@ struct OdooDatabaseManager {
                 }
 
                 writer.finish();
+
+                // Check non-empty file
+                enforce!OdoodException(
+                    dest.getSize() > 0,
+                    "Backup file is empty: %s".format(dest));
+
                 break;
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
@@ -349,6 +355,11 @@ struct OdooDatabaseManager {
                         "--file=" ~ dest.toString)
                     .execute
                     .ensureOk(true);
+
+                // Check non-empty file
+                enforce!OdoodException(
+                    dest.getSize() > 0,
+                    "Backup file is empty: %s".format(dest));
                 break;
         }
         sw.stop();
