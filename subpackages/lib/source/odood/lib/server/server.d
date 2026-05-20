@@ -92,6 +92,13 @@ struct OdooServer {
         return getConfigPath.readOdooConfig;
     }
 
+    /// Get data_dir from odoo.conf (single source of truth at runtime)
+    Path getConfigDataDir() const {
+        return Path(getConfig.getConfVal(
+            "data_dir",
+            _project.project_root.join("data").toString));
+    }
+
     /// Get HTTP url for the server
     auto getConfigHTTP() const {
         const struct ServerHTTPInfo {

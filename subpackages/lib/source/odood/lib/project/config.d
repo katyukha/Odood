@@ -204,9 +204,6 @@ struct ProjectConfigDirectories {
     /// Directory for custom addons, managed by odood
     Path addons;
 
-    /// Directory for odoo data-files
-    Path data;
-
     /// Backups dir, that will be used to store backups made by odood
     Path backups;
 
@@ -223,7 +220,6 @@ struct ProjectConfigDirectories {
         this.log = root.join("logs");
         this.downloads = root.join("downloads");
         this.addons = root.join("custom_addons");
-        this.data = root.join("data");
         this.backups = root.join("backups");
         this.repositories = root.join("repositories");
         this.cache = root.join("cache");
@@ -235,7 +231,6 @@ struct ProjectConfigDirectories {
         this.log = Path(config["log"].as!string);
         this.downloads = Path(config["downloads"].as!string);
         this.addons = Path(config["addons"].as!string);
-        this.data = Path(config["data"].as!string);
         this.backups = Path(config["backups"].as!string);
         this.repositories = Path(config["repositories"].as!string);
 
@@ -253,7 +248,6 @@ struct ProjectConfigDirectories {
             "log": this.log.toString,
             "downloads": this.downloads.toString,
             "addons": this.addons.toString,
-            "data": this.data.toString,
             "backups": this.backups.toString,
             "repositories": this.repositories.toString,
             "cache": this.cache.toString,
@@ -269,7 +263,6 @@ struct ProjectConfigDirectories {
         this.log.mkdir(true);
         this.downloads.mkdir(true);
         this.addons.mkdir(true);
-        this.data.mkdir(true);
         this.backups.mkdir(true);
         this.repositories.mkdir(true);
         this.cache.mkdir(true);

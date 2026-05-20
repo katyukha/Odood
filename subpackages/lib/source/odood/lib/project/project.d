@@ -400,6 +400,7 @@ class Project {
         // Initialize project directories
         this.project_root.mkdir(true);
         this.directories.initializeDirecotires();
+        this.project_root.join("data").mkdir(true);
 
         // Initialize project (install everything needed)
         // TODO: parallelize download of Odoo and installation of virtualenv

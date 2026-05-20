@@ -293,7 +293,7 @@ struct OdooDatabaseManager {
                 }
 
                 // Add filestore directly from data directory (no temp copy)
-                auto filestore_path = _project.directories.data
+                auto filestore_path = _project.server.getConfigDataDir
                     .join("filestore", dbname);
                 if (filestore_path.exists)
                     writer.addTree(filestore_path, "filestore");
@@ -513,12 +513,13 @@ struct OdooDatabaseManager {
         }
 
         // Create and set correct access rights for "filestore" dir if needed
-        if (!_project.odoo.server_user.empty && !_project.directories.data.join("filestore").exists) {
-            _project.directories.data.join("filestore").mkdir(true);
-            _project.directories.data.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
+        auto data_dir = _project.server.getConfigDataDir;
+        if (!_project.odoo.server_user.empty && !data_dir.join("filestore").exists) {
+            data_dir.join("filestore").mkdir(true);
+            data_dir.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
         }
 
-        auto fs_path = _project.directories.data.join("filestore", name);
+        auto fs_path = data_dir.join("filestore", name);
         scope(failure) {
             // TODO: Use pure SQL to check if db exists and for cleanup
             if (this.exists(name)) this.drop(name);
