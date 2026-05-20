@@ -113,7 +113,28 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
+    // Capture row count for restore integrity check (#5)
+    auto lang_count = project.databases.get(
+        project.genDbName("test-2", ukey)
+    ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string;
+
     auto backup_path = project.databases.backup(project.genDbName("test-2", ukey));
+
+    // Test #1: Verify ZIP backup integrity — non-empty file, contains required entries
+    (backup_path.getSize > 0).shouldBeTrue;
+    {
+        import darkarchive: DarkArchiveReader, DarkArchiveFormat;
+        import odood.utils.odoo.db: parseDatabaseBackupManifest;
+
+        parseDatabaseBackupManifest(backup_path);  // throws if manifest.json missing or unparseable
+
+        auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
+        auto e = reader.entries();
+        bool hasDumpSql = false;
+        foreach (i; 0 .. e.length)
+            if (e[i].meta.pathname == "dump.sql") { hasDumpSql = true; break; }
+        hasDumpSql.shouldBeTrue;
+    }
 
     project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
@@ -123,11 +144,34 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
+    // Test #5: Restore integrity — row count must match pre-backup value
+    project.databases.get(
+        project.genDbName("test-2", ukey)
+    ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string.shouldEqual(lang_count);
+
     // Drop restored database and try to restore database by backup name
     project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.restore(project.genDbName("test-2", ukey), backup_path.baseName);
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
+
+    // Test #2: SQL format backup/restore cycle
+    {
+        import odood.utils.odoo.db: BackupFormat;
+        auto sql_backup = project.databases.backup(
+            project.genDbName("test-2", ukey), BackupFormat.sql);
+        scope(exit) if (sql_backup.exists) sql_backup.remove();
+
+        sql_backup.exists.shouldBeTrue;
+        (sql_backup.getSize > 0).shouldBeTrue;
+
+        project.databases.drop(project.genDbName("test-2", ukey));
+        project.databases.restore(project.genDbName("test-2", ukey), sql_backup);
+        project.databases.isInitialized(project.genDbName("test-2", ukey)).shouldBeTrue;
+        project.databases.get(
+            project.genDbName("test-2", ukey)
+        ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string.shouldEqual(lang_count);
+    }
 
     // Test restore into pre-existing empty (uninitialized) DB — should succeed
     project.databases.drop(project.genDbName("test-2", ukey));
@@ -145,6 +189,22 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
 
     // Test restore into an initialized (non-empty) DB — should fail
     project.databases.restore(project.genDbName("test-2", ukey), backup_path).shouldThrow!OdoodException;
+
+    // Test #4: getConfigDataDir reads from odoo.conf, not a hardcoded path
+    {
+        project.server.getConfigDataDir.shouldEqual(project.project_root.join("data"));
+
+        auto alt_data_dir = project.project_root.join("data-alt");
+        auto conf = project.server.getConfig;
+        conf["options"].setKey("data_dir", alt_data_dir.toString);
+        conf.save(project.odoo.configfile.toString);
+        project.server.getConfigDataDir.shouldEqual(alt_data_dir);
+
+        // Restore original
+        conf["options"].setKey("data_dir", project.project_root.join("data").toString);
+        conf.save(project.odoo.configfile.toString);
+        project.server.getConfigDataDir.shouldEqual(project.project_root.join("data"));
+    }
 
     // Drop databases
     project.databases.drop(project.genDbName("test-1", ukey));
