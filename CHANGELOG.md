@@ -8,10 +8,18 @@
 - **Experimental** `odood repo release` command, that could automatically tag repo and generate changelogs.
 - **Experimental** `odood assembly upgrade-sources` command, that  allows to bump pinned releases on repository.
 
+### Changed
+
+- Switched to [DarkCommand](https://code.dlang.org/packages/darkcommand) CLI lib:
+    - better autocomplete (file paths when needed)
+    - better automatic documentation (CLI Ref)
+
 ### Fixed
 
 - Run `msguniq` before `msgmerge` when regenerating translations,
   because AI too frequently generate duplicateg translatios and `msgmerge` fails
+- Use `data_dir` from `odoo.conf` for backup/restore to ensure backups are correct when `data_dir` changed to non-standard location.
+  Before fix, it was required to modify data dir on both places: `odood.yml` and `odoo.conf`
 
 ---
 
