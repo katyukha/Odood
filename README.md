@@ -75,6 +75,7 @@ Thanks.
 ## Prebuild docker-images with preinstalled Odoo and Odood
 
 You can use on of [prebuilt images](https://github.com/katyukha?tab=packages&repo_name=Odood) to run Odoo managed by Odood in containers:
+- [Odoo 19](https://ghcr.io/katyukha/odood/odoo/19.0) (experimental)
 - [Odoo 18](https://ghcr.io/katyukha/odood/odoo/18.0)
 - [Odoo 17](https://ghcr.io/katyukha/odood/odoo/17.0)
 - [Odoo 16](https://ghcr.io/katyukha/odood/odoo/16.0)

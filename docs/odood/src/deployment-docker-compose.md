@@ -422,6 +422,35 @@ docker compose up -d odoo
 > **`--no-deps`** starts the upgrade container without attempting to start its declared
 > dependencies — safe to use in recovery when the DB container is already running.
 
+## Health checks and startup ordering
+
+### Container health check
+
+The Odood base image already defines a `HEALTHCHECK` using `odood server healthcheck`.
+This command hits Odoo's `/web/health` endpoint (Odoo 14+) or `/web/` (older versions) and exits 0 only when Odoo is responding correctly.
+No `healthcheck:` block is needed in your `docker-compose.yml` — the image provides it.
+
+You can run it manually at any time:
+
+```bash
+docker compose exec odood-example-odoo \
+    odood --config-from-env server healthcheck
+```
+
+### Waiting for PostgreSQL
+
+The base Odood image's entrypoint already calls `odood server run --wait-pg` before starting Odoo,
+so the container waits for PostgreSQL to accept connections before launching Odoo.
+The `depends_on: condition: service_healthy` in the examples provides an additional layer — Docker
+won't start the Odoo container at all until PostgreSQL passes its own health check.
+
+If you build a custom entrypoint, use `odood server wait-pg` explicitly:
+
+```bash
+odood --config-from-env server wait-pg --timeout 120
+odood --config-from-env server run
+```
+
 ## Scaling caveat
 
 Running multiple Odoo replicas requires that `/opt/odoo/data` is stored on shared, RWX-capable storage (e.g. NFS or a cloud file share) so that all replicas can read and write session files and filestore. Without this, session state will be inconsistent across replicas.

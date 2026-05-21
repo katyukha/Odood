@@ -12,6 +12,8 @@ just call if with `-h` option.
 - `odood stop` - stop odoo server
 - `odood log` - see odoo server logs
 - `odood browse` - open running odoo installation in browser
+- `odood server healthcheck` - check if the Odoo HTTP server is responding; exits 0 if healthy, 1 if not. Useful as a Docker/K8s health probe.
+- `odood server wait-pg` - wait for PostgreSQL to become available before proceeding. Useful in container entrypoints when the DB container may not be ready yet.
 
 ### Addons management
 - `odood addons list <path>` - list odoo addons in specified directory
