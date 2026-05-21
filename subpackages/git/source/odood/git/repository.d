@@ -6,7 +6,7 @@ private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith, filter;
 private import std.array: array;
-private import std.regex: ctRegex, matchFirst;
+private import std.regex: regex, matchFirst;
 private import std.conv: to;
 private static import std.process;
 
@@ -762,7 +762,7 @@ class GitRepository {
          *
          * Sample: ## main...origin/main [ahead 1, behind 2]
          */
-        auto headerRegex = ctRegex!(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
+        auto headerRegex = regex(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
 
         if (auto m = lines[0].matchFirst(headerRegex)) {
             status.localBranch = m["local"];
