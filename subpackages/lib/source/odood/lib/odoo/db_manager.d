@@ -17,7 +17,8 @@ private import std.string: join, startsWith, chompPrefix, empty, split, strip;
 private import thepath;
 private import theprocess;
 private import darkarchive: DarkArchiveReader, DarkArchiveWriter,
-    DarkArchiveFormat, DarkExtractFlags, ExtractParams;
+    DarkArchiveFormat, DarkExtractFlags, ExtractParams,
+    probeArchive, DarkArchiveException;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
@@ -619,6 +620,19 @@ struct OdooDatabaseManager {
                 "Cannot restore! Backup %s does not exists!".format(backup_path));
 
         auto backup_format = backup_path.detectDatabaseBackupFormat;
+
+        if (backup_format == BackupFormat.zip) {
+            try {
+                auto probed = probeArchive(backup_path.toString);
+                enforce!OdoodException(
+                    probed == DarkArchiveFormat.zip,
+                    "Backup %s has .zip extension but is not a ZIP archive".format(backup_path));
+            } catch (DarkArchiveException e) {
+                throw new OdoodException(
+                    "Backup %s has .zip extension but is not a valid ZIP archive: %s"
+                    .format(backup_path, e.msg));
+            }
+        }
 
         final switch(backup_format) {
             case BackupFormat.zip:
