@@ -17,7 +17,7 @@ private static import dyaml;
 
 private import odood.exception: OdoodException;
 private import odood.utils;
-private import odood.utils.versioned: Version;
+private import versioned: Version;
 
 // TODO: May be it have sense to move this to utils subpackage.
 
