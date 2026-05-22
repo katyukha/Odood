@@ -16,8 +16,8 @@ private import odood.lib.project:
     Project,
     ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.lib.venv: VirtualEnv;
-private import odood.lib.odoo.python: guessPySerie;
+private import odood.lib.python.venv: VirtualEnv;
+private import odood.lib.python.odoo: guessPySerie;
 private import odood.exception: OdoodException;
 
 

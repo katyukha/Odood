@@ -16,10 +16,10 @@ private import darkarchive: DarkArchiveWriter, DarkArchiveFormat;
 private import odood.exception: OdoodException;
 
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig, getConfVal;
-private import odood.lib.odoo.python: guessPySerie, guessVenvOptions;
+private import odood.lib.python.odoo: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
-private import odood.lib.venv: VirtualEnv, VenvOptions;
+private import odood.lib.python.venv: VirtualEnv, VenvOptions;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;

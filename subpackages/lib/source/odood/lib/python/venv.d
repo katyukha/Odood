@@ -1,4 +1,4 @@
-module odood.lib.venv;
+module odood.lib.python.venv;
 
 private import std.logger;
 private import std.format: format;
@@ -6,7 +6,6 @@ private import std.typecons: Nullable;
 private import std.exception: enforce;
 private import std.conv: to;
 private import std.parallelism: totalCPUs;
-private import std.regex: ctRegex, matchFirst;
 private import std.string: strip;
 
 private static import std.process;
@@ -19,7 +18,6 @@ private static import dyaml;
 private import odood.exception: OdoodException;
 private import odood.utils;
 private import odood.utils.versioned: Version;
-private import odood.lib.odoo.python: getSystemPythonVersion;
 
 // TODO: May be it have sense to move this to utils subpackage.
 
@@ -62,6 +60,25 @@ struct VenvOptions {
         case PySerie.py3:
             return "python3";
     }
+}
+
+
+/** Find version of system python interpreter for specified PySerie.
+  *
+  * Params:
+  *     py_serie = Python major version series to look up
+  * Returns: Version of the system python interpreter, or 0.0.0 if not found
+  **/
+Version getSystemPythonVersion(in PySerie py_serie) {
+    /* If system python is not available, then return version 0.0.0.
+     * In this case, system python will not be suitable, and thus
+     * Odood will try to build python from sources.
+     */
+    auto python_interpreter = resolveProgram(py_serie.getPyInterpreterName);
+    if (python_interpreter.isNull)
+        return Version(0, 0, 0);
+
+    return parsePythonVersion(python_interpreter.get);
 }
 
 
@@ -152,7 +169,7 @@ const struct VirtualEnv {
         return parsePythonVersion(_path.join("bin", py_interpreter_name));
     }
 
-    package dyaml.Node toYAML() const {
+    package(odood.lib) dyaml.Node toYAML() const {
         return dyaml.Node([
             "path": dyaml.Node(_path.toString),
             "python_serie": dyaml.Node(_py_serie),

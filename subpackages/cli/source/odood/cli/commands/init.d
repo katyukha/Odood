@@ -11,8 +11,8 @@ private import theprocess: resolveProgram, systemUserExists;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.venv: VenvOptions, PyInstallType;
-private import odood.lib.odoo.python: guessVenvOptions, suggestPythonVersion;
+private import odood.lib.python.venv: VenvOptions, PyInstallType;
+private import odood.lib.python.odoo: guessVenvOptions, suggestPythonVersion;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
 private import odood.lib.odoo.config: initOdooConfig;

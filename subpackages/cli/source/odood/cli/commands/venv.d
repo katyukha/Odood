@@ -8,8 +8,8 @@ private import darkcommand;
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.install;
-private import odood.lib.venv: PyInstallType, PyRequirements;
-private import odood.lib.odoo.python: guessVenvOptions;
+private import odood.lib.python.venv: PyInstallType, PyRequirements;
+private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 
 

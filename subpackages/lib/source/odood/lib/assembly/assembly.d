@@ -31,7 +31,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.utils: download;
-private import odood.lib.venv: PyRequirements;
+private import odood.lib.python.venv: PyRequirements;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
