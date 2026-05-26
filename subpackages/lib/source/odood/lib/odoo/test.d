@@ -422,6 +422,7 @@ struct OdooTestRunner {
     private bool _test_migration=false;
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
+    private bool _test_migration_use_last_release=false;
 
     // Populate data before test (useful for migration testing)
     // TODO: Also handle case, when addon is not available on start ref
@@ -522,6 +523,15 @@ struct OdooTestRunner {
       **/
     auto ref setMigrationRepo(in Path path) {
         _test_migration_repo = _project.addons(true).getRepo(path);
+        _test_migration = true;
+        return this;
+    }
+
+    /** Use the latest release tag as migration start ref.
+      * Fails at run time if no release tags exist for the project's Odoo serie.
+      **/
+    auto ref setMigrationUseLastRelease() {
+        _test_migration_use_last_release = true;
         _test_migration = true;
         return this;
     }
@@ -765,7 +775,21 @@ struct OdooTestRunner {
             initial_git_ref = _test_migration_repo.getCurrBranch.get(
                 _test_migration_repo.getCurrCommit);
 
-            if (_test_migration_start_ref) {
+            if (_test_migration_use_last_release) {
+                auto latest = _test_migration_repo.getLatestRelease(
+                    _project.odoo.serie);
+                enforce!OdoodException(
+                    !latest.isNull,
+                    "No release tags found for serie %s. "
+                    ~ "Create a release first or use --migration-start-ref.".format(
+                        _project.odoo.serie));
+                auto tag = latest.get.toString;
+                infof(
+                    "Switching to last release tag %s before migration tests...",
+                    tag);
+                _test_migration_repo.fetchTag(tag);
+                _test_migration_repo.switchBranchTo(tag);
+            } else if (_test_migration_start_ref) {
                 infof(
                     "Switching to %s ref before running migration tests...",
                     _test_migration_start_ref);

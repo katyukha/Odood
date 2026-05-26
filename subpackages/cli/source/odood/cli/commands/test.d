@@ -53,6 +53,7 @@ class CommandTest: OdoodCommand {
     string[] addon;
     Nullable!string migrationStartRef;
     Nullable!Path migrationRepo;
+    bool migrationLastRelease;
     string[] populateModel;
     Nullable!string populateSize;
     string[] testTag;
@@ -104,6 +105,9 @@ class CommandTest: OdoodCommand {
             "git reference (branch/commit/tag) to start migration from");
         this.addOption!(migrationRepo)("", "migration-repo",
             "run migration tests for repo specified by path");
+        this.addFlag!(migrationLastRelease)("", "migration-last-release",
+            "Start migration test from the latest release tag. "
+            ~ "Fails if no release tags exist for the current Odoo serie.");
         this.addOption!(populateModel)("", "populate-model",
             "Name of model to populate. Could be specified multiple times.");
         this.addOption!(populateSize)("", "populate-size", "Population size.")
@@ -204,6 +208,8 @@ class CommandTest: OdoodCommand {
             testRunner.setMigrationRepo(migrationRepo.get);
         if (!migrationStartRef.isNull)
             testRunner.setMigrationStartRef(migrationStartRef.get);
+        if (migrationLastRelease)
+            testRunner.setMigrationUseLastRelease();
 
         if (testRunner.test_migration && !testRunner.migration_repo)
             testRunner.setMigrationRepo(Path.current);

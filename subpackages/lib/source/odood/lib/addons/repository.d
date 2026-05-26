@@ -327,6 +327,35 @@ class AddonRepository : GitRepository{
         return result;
     }
 
+    /** Get the latest release tag for a given Odoo serie.
+      *
+      * Checks both local and remote tags (same as prepareRelease).
+      * Returns null if no release tags exist for this serie.
+      *
+      * Params:
+      *     serie = Odoo serie (e.g. OdooSerie("18.0")).
+      **/
+    Nullable!OdooStdVersion getLatestRelease(in OdooSerie serie) const {
+        string[] all_tags = listLocalTags();
+        if (hasRemoteUrl("origin")) {
+            try {
+                all_tags ~= listRemoteTags("origin");
+            } catch (Exception e) {
+                warningf("Cannot list remote tags (using local only): %s", e.msg);
+            }
+        }
+
+        auto matching = all_tags
+            .map!(t => OdooStdVersion(t))
+            .filter!(v => v.isStandard && v.serie == serie)
+            .array;
+
+        if (matching.length == 0)
+            return Nullable!OdooStdVersion.init;
+
+        return matching.maxElement.nullable;
+    }
+
     /** Return the version for the very first release of this repository.
       *
       * Throws if a matching release tag already exists locally or on the
@@ -341,25 +370,12 @@ class AddonRepository : GitRepository{
       * Returns: OdooStdVersion(serie, 1, 0, 0).
       **/
     OdooStdVersion initialRelease(in OdooSerie serie) const {
-        string[] all_tags = listLocalTags();
-        if (hasRemoteUrl("origin")) {
-            try {
-                all_tags ~= listRemoteTags("origin");
-            } catch (Exception e) {
-                warningf("Cannot list remote tags (using local only): %s", e.msg);
-            }
-        }
-
-        auto existing = all_tags
-            .map!(t => OdooStdVersion(t))
-            .filter!(v => v.isStandard && v.serie == serie)
-            .array;
-
+        auto existing = getLatestRelease(serie);
         enforce!OdoodException(
-            existing.length == 0,
+            existing.isNull,
             ("Repository already has release tags for serie %s (latest: %s). "
             ~ "Use 'odood repo release' for subsequent releases.").format(
-                serie, existing.maxElement));
+                serie, existing.get));
 
         return OdooStdVersion(serie, 1, 0, 0);
     }
