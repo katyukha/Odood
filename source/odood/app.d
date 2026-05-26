@@ -27,7 +27,8 @@ version(OdoodUnittestIntegrationUT) {
         return 0;
     } else version(odood_docs_command_ref_generator) {
         import std.stdio: stdout;
-        program.generateMarkdownDocs(stdout);
+        import darkcommand.docs.markdown: generateMarkdownDocs;
+        generateMarkdownDocs(program, stdout, "Odood Command Reference");
         return 0;
     } else {
         // Just run the program
