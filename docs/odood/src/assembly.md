@@ -48,6 +48,22 @@ spec:
   - crnd: mygroup/my-repo  # converted to ssh://git@gitlab.crnd.pro/mygroup/my-repo
 ```
 
+### SSH for local development
+
+The `url:`, `github:`, and `oca:` shortcuts produce HTTPS URLs, which is the right default for
+CI environments that use token-based authentication (see [Private git sources](#private-git-sources)).
+If you prefer SSH on your developer machine — to use your SSH keys and avoid credential prompts —
+configure git's built-in URL rewriting once in your global git config:
+
+```bash
+git config --global url."git@github.com:".insteadOf "https://github.com/"
+git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+```
+
+This transparently rewrites HTTPS URLs to SSH at the `git` level whenever Odood runs
+`git clone` or `git fetch`. The `odood-assembly.yml` spec stays unchanged, so CI keeps working
+with HTTPS while you get SSH locally.
+
 ### Source naming and addon binding
 
 Sources can be given a `name`, which serves two purposes:
