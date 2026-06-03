@@ -182,9 +182,7 @@ class Assembly {
         assembly.path.join(".gitignore").writeFile(
             renderFile!("templates/assembly/gitignore.tmpl", assembly));
         assembly.initializeRepo();
-        assembly.repo.switchBranchTo(
-            branch_name: assembly.serie.toString,
-            create: true);
+        assembly.repo.createBranch(assembly.serie.toString);
         assembly.repo.add(assembly.path.join(".gitignore"));
         assembly.repo.add(assembly.spec_path);
         assembly.repo.commit("Assembly initialized");

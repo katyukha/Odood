@@ -256,19 +256,28 @@ class GitRepository {
             .isOk;
     }
 
-    /** Switch repo to specified branch
+    /** Switch repo to an existing branch.
       **/
-    void switchBranchTo(in string branch_name, in bool create=false) const {
-        if (create)
-            gitCmd
-                .withArgs("checkout", "-b", branch_name)
-                .execute()
-                .ensureStatus(true);
-        else
-            gitCmd
-                .withArgs("checkout", branch_name)
-                .execute()
-                .ensureStatus(true);
+    void switchBranchTo(in string branch_name) const {
+        gitCmd
+            .withArgs("checkout", branch_name)
+            .execute()
+            .ensureStatus(true);
+    }
+
+    /** Create a new branch and switch to it.
+      *
+      * When start_point is null (default), the branch is created from the
+      * current HEAD. When provided, the branch starts at that ref (tag,
+      * commit SHA, or branch name).
+      *
+      * Equivalent to: git checkout -b <branch_name> [start_point]
+      **/
+    void createBranch(in string branch_name, in string start_point = null) const {
+        auto cmd = gitCmd.withArgs("checkout", "-b", branch_name);
+        if (start_point !is null)
+            cmd.addArgs(start_point);
+        cmd.execute().ensureStatus(true);
     }
 
     /** Checkout specific files to specific version
