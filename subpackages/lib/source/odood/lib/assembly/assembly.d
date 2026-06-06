@@ -19,7 +19,7 @@ private import dyaml;
 private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 private import thepath: Path, createTempPath;
 private import darktemple: renderFile;
-private import versioned: Version;
+private import versioned: Version, VersionPart;
 
 private import odood.lib.assembly.exception:
     OdoodAssemblyException,
@@ -473,7 +473,9 @@ class Assembly {
             GIT_REF_WORKTREE,
             ignore_translations: false,
             initial_version: assembly_version);
-        changes.postProcess();
+        // Assemblies have no reserved hotfix segment, so the bump floors to
+        // PATCH (releases floor to MINOR to keep PATCH free for hotfixes).
+        changes.postProcess(VersionPart.PATCH);
         return changes;
     }
 

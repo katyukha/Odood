@@ -113,44 +113,106 @@ class AddonRepositoryChanges {
 
     /** Compute and apply the version bump based on recorded changes.
       *
-      * Repo versions follow semver-like semantics over the aggregate of addon
-      * changes, so authors can spot potentially breaking changes at a glance.
-      * The most significant signal wins:
-      * - Removed addon                     → MAJOR (breaking).
-      * - Updated addon with a major diff    → MAJOR.
-      * - Updated addon with a minor/patch diff → MINOR.
-      * - Added addon                        → MINOR (purely additive).
-      * - Addon with a non-standard version  → MINOR.
-      *
-      * Standard releases never touch the patch segment (Z) — it is reserved
-      * for hotfix releases — so the computed bump is floored to MINOR.
+      * Starting from `floor` (the least significant bump the caller allows),
+      * the most significant signal wins:
+      * - Removed addon                       → MAJOR (breaking).
+      * - Added addon                         → MINOR (purely additive).
+      * - Updated addon                       → escalated to its addon-version
+      *                                         diff (MAJOR / MINOR / PATCH).
+      * - Addon with a non-standard version   → floored to MINOR (cannot diff).
       *
       * No changes → version unchanged.
+      *
+      * Params:
+      *     floor = least significant version part to bump
+      *             (MAJOR / MINOR / PATCH); defaults to MINOR.
       **/
-    void postProcess() {
+    void postProcess(in VersionPart floor = VersionPart.MINOR)
+    in (floor == VersionPart.MAJOR
+            || floor == VersionPart.MINOR
+            || floor == VersionPart.PATCH) {
         if (!has_changes)
             return;
 
-        // VersionPart severity: MAJOR=0 < MINOR=1 < PATCH=2. MINOR is the
-        // floor (covers added addons, non-standard versions, and minor/patch
-        // updates alike); only a breaking change escalates it to MAJOR.
-        auto vpart = VersionPart.MINOR;
+        // VersionPart severity: MAJOR=0 < MINOR=1 < PATCH=2. Start at the floor
+        // and escalate toward MAJOR by the strongest signal.
+        VersionPart vpart = floor;
 
+        // A removal is breaking (MAJOR). An addition is additive: it floors the
+        // bump to MINOR (a no-op when the floor is already MINOR or coarser).
         if (addons_removed.length > 0)
             vpart = VersionPart.MAJOR;
+        else if (addons_added.length > 0 && vpart > VersionPart.MINOR)
+            vpart = VersionPart.MINOR;
 
+        // Updated addons escalate the bump to their most significant diff.
         foreach(addon; addons_updated) {
             if (vpart == VersionPart.MAJOR)
                 break;
-            if (!addon.old_version.isStandard || !addon.new_version.isStandard)
-                continue;  // non-standard → MINOR (already the floor)
+            if (!addon.old_version.isStandard || !addon.new_version.isStandard) {
+                // Non-standard versions cannot be diffed; floor at MINOR.
+                if (vpart > VersionPart.MINOR)
+                    vpart = VersionPart.MINOR;
+                continue;
+            }
             if (addon.old_version == addon.new_version)
                 continue;
-            if (addon.old_version.differAt(addon.new_version) == VersionPart.MAJOR)
-                vpart = VersionPart.MAJOR;
+            auto diff = addon.old_version.differAt(addon.new_version);
+            if (diff < vpart)
+                vpart = diff;
         }
 
         repo_version = repo_version.incVersion(vpart);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath: Path;
+        import odood.utils.odoo.std_version: OdooStdVersion;
+
+        // Assembly versioning seeds at <serie>.0.0.0.
+        auto base = OdooStdVersion("18.0.0.0.0");
+
+        // No changes → version unchanged.
+        auto a_none = new AddonRepositoryChanges(base);
+        a_none.postProcess(VersionPart.PATCH);
+        a_none.repo_version.toString.should == "18.0.0.0.0";
+
+        // Added addon → MINOR (purely additive, same as release).
+        auto a_add = new AddonRepositoryChanges(base);
+        a_add.logAddonAdded("a", Path("a"), OdooStdVersion("18.0.1.0.0"));
+        a_add.postProcess(VersionPart.PATCH);
+        a_add.repo_version.toString.should == "18.0.0.1.0";
+
+        // Removed addon → MAJOR.
+        auto a_rem = new AddonRepositoryChanges(base);
+        a_rem.logAddonRemoved("a");
+        a_rem.postProcess(VersionPart.PATCH);
+        a_rem.repo_version.toString.should == "18.0.1.0.0";
+
+        // Updated addon, patch-level diff → PATCH (no reserved hotfix lane).
+        auto a_patch = new AddonRepositoryChanges(base);
+        a_patch.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.0.1"), []);
+        a_patch.postProcess(VersionPart.PATCH);
+        a_patch.repo_version.toString.should == "18.0.0.0.1";
+
+        // Updated addon, minor-level diff → MINOR.
+        auto a_minor = new AddonRepositoryChanges(base);
+        a_minor.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.1.0"), []);
+        a_minor.postProcess(VersionPart.PATCH);
+        a_minor.repo_version.toString.should == "18.0.0.1.0";
+
+        // Updated addon, major-level diff → MAJOR.
+        auto a_major = new AddonRepositoryChanges(base);
+        a_major.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.2.0.0"), []);
+        a_major.postProcess(VersionPart.PATCH);
+        a_major.repo_version.toString.should == "18.0.1.0.0";
     }
 
     unittest {
