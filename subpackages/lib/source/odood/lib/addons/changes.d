@@ -263,4 +263,101 @@ class AddonRepositoryChanges {
         c_major.postProcess();
         c_major.repo_version.toString.should == "17.0.2.0.0";
     }
+
+    // Edge cases: non-standard versions, mixed/multiple changes, MAJOR floor.
+    unittest {
+        import unit_threaded.assertions;
+        import thepath: Path;
+        import odood.utils.odoo.std_version: OdooStdVersion;
+
+        auto base = OdooStdVersion("18.0.0.0.0");
+        // A non-standard version has fewer than the 5 standard parts.
+        auto NONSTD = OdooStdVersion("1.0.0");
+        NONSTD.isStandard.shouldBeFalse;
+
+        // ── Item 1: non-standard updates floor at MINOR (cannot diff) ──
+
+        // Lone non-standard update, release floor (MINOR) → MINOR.
+        auto ns_rel = new AddonRepositoryChanges(base);
+        ns_rel.logAddonUpdated(
+            "a", Path("a"), Path("a"), OdooStdVersion("18.0.1.0.0"), NONSTD, []);
+        ns_rel.postProcess();
+        ns_rel.repo_version.toString.should == "18.0.0.1.0";
+
+        // Lone non-standard update, assembly floor (PATCH) → lifted to MINOR.
+        auto ns_asm = new AddonRepositoryChanges(base);
+        ns_asm.logAddonUpdated(
+            "a", Path("a"), Path("a"), OdooStdVersion("18.0.1.0.0"), NONSTD, []);
+        ns_asm.postProcess(VersionPart.PATCH);
+        ns_asm.repo_version.toString.should == "18.0.0.1.0";
+
+        // Regression: a standard minor-diff update raises vpart to MINOR, then a
+        // non-standard update follows. The old assembly logic called differAt on
+        // the non-standard version (violating its in(isStandard) contract); this
+        // must instead stay at MINOR without crashing.
+        auto ns_mix = new AddonRepositoryChanges(base);
+        ns_mix.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.1.0"), []);
+        ns_mix.logAddonUpdated(
+            "b", Path("b"), Path("b"), OdooStdVersion("18.0.1.0.0"), NONSTD, []);
+        ns_mix.postProcess(VersionPart.PATCH);
+        ns_mix.repo_version.toString.should == "18.0.0.1.0";
+
+        // ── Item 2: mixed / multiple changes ──
+
+        // Added + removed: removal is breaking → MAJOR under both floors.
+        auto mix_rel = new AddonRepositoryChanges(base);
+        mix_rel.logAddonAdded("a", Path("a"), OdooStdVersion("18.0.1.0.0"));
+        mix_rel.logAddonRemoved("b");
+        mix_rel.postProcess();
+        mix_rel.repo_version.toString.should == "18.0.1.0.0";
+
+        auto mix_asm = new AddonRepositoryChanges(base);
+        mix_asm.logAddonAdded("a", Path("a"), OdooStdVersion("18.0.1.0.0"));
+        mix_asm.logAddonRemoved("b");
+        mix_asm.postProcess(VersionPart.PATCH);
+        mix_asm.repo_version.toString.should == "18.0.1.0.0";
+
+        // Assembly: an addition (→ MINOR) is not undone by a later patch update.
+        auto add_patch = new AddonRepositoryChanges(base);
+        add_patch.logAddonAdded("a", Path("a"), OdooStdVersion("18.0.1.0.0"));
+        add_patch.logAddonUpdated(
+            "b", Path("b"), Path("b"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.0.1"), []);
+        add_patch.postProcess(VersionPart.PATCH);
+        add_patch.repo_version.toString.should == "18.0.0.1.0";
+
+        // Two updates of differing severity: the most significant wins (MAJOR).
+        auto two_upd = new AddonRepositoryChanges(base);
+        two_upd.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.0.1"), []);
+        two_upd.logAddonUpdated(
+            "b", Path("b"), Path("b"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.2.0.0"), []);
+        two_upd.postProcess(VersionPart.PATCH);
+        two_upd.repo_version.toString.should == "18.0.1.0.0";
+
+        // ── Item 3: MAJOR floor ──
+
+        // No changes → version unchanged regardless of floor.
+        auto maj_none = new AddonRepositoryChanges(base);
+        maj_none.postProcess(VersionPart.MAJOR);
+        maj_none.repo_version.toString.should == "18.0.0.0.0";
+
+        // MAJOR floor + a mere patch update → still MAJOR.
+        auto maj_patch = new AddonRepositoryChanges(base);
+        maj_patch.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("18.0.1.0.0"), OdooStdVersion("18.0.1.0.1"), []);
+        maj_patch.postProcess(VersionPart.MAJOR);
+        maj_patch.repo_version.toString.should == "18.0.1.0.0";
+
+        // MAJOR floor + an addition → still MAJOR (the MINOR lift never lowers it).
+        auto maj_add = new AddonRepositoryChanges(base);
+        maj_add.logAddonAdded("a", Path("a"), OdooStdVersion("18.0.1.0.0"));
+        maj_add.postProcess(VersionPart.MAJOR);
+        maj_add.repo_version.toString.should == "18.0.1.0.0";
+    }
 }
