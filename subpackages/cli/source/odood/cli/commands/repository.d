@@ -16,6 +16,7 @@ private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.utils.odoo.std_version: OdooStdVersion;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
 
 
@@ -204,9 +205,40 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 }
 
 
+/** Run a version check of `repo` against `start_ref` and report results.
+  *
+  * Shared by `repo check-versions` and `repo hotfix check`. Returns 0 when all
+  * changed addons have bumped versions; throws on the first violation.
+  **/
+private int runVersionCheck(
+        AddonRepository repo,
+        in OdooSerie serie,
+        in string start_ref,
+        in bool ignore_translations) {
+    auto result = repo.checkVersions(
+        expected_serie: serie,
+        start_ref: start_ref,
+        ignore_translations: ignore_translations);
+
+    if (!result.has_changes) {
+        infof("There are no changes in modules");
+        return 0;
+    }
+
+    foreach(addon_err; result.errors)
+        foreach(msg; addon_err.messages)
+            enforce!OdoodCLIException(
+                false,
+                "Addon %s: %s".format(addon_err.addon_name, msg));
+
+    return 0;
+}
+
+
 class CommandRepositoryCheckVersion: OdoodCommand {
     Nullable!Path path;
     bool ignoreTranslations;
+    bool sinceLastRelease;
 
     this() {
         super(
@@ -216,6 +248,9 @@ class CommandRepositoryCheckVersion: OdoodCommand {
             "Path to repository to search for addons to bump versions.")
             .acceptsDirectories();
         this.addFlag!(ignoreTranslations)("", "ignore-translations", "Ignore translations.");
+        this.addFlag!(sinceLastRelease)("", "since-last-release",
+            "Compare against the latest release tag instead of the stable branch tip. "
+            ~ "Shows exactly what 'odood repo release' will verify.");
     }
 
     override int execute() {
@@ -226,23 +261,23 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
-        auto result = repo.checkVersions(
-            expected_serie: project.odoo.serie,
-            start_ref: "origin/%s".format(project.odoo.serie),
-            ignore_translations: ignoreTranslations);
-
-        if (!result.has_changes) {
-            infof("There are no changes in modules");
-            return 0;
+        string start_ref;
+        if (sinceLastRelease) {
+            auto latest = repo.getLatestRelease(project.odoo.serie);
+            if (latest.isNull) {
+                infof("No release tags found; comparing against origin/%s.",
+                    project.odoo.serie);
+                start_ref = "origin/%s".format(project.odoo.serie);
+            } else {
+                infof("Comparing against latest release tag: %s", latest.get);
+                start_ref = latest.get.toString;
+            }
+        } else {
+            start_ref = "origin/%s".format(project.odoo.serie);
         }
 
-        foreach(addon_err; result.errors)
-            foreach(msg; addon_err.messages)
-                enforce!OdoodCLIException(
-                    false,
-                    "Addon %s: %s".format(addon_err.addon_name, msg));
-
-        return 0;
+        return runVersionCheck(
+            repo, project.odoo.serie, start_ref, ignoreTranslations);
     }
 }
 
@@ -457,18 +492,28 @@ class CommandRepositoryRelease: OdoodCommand {
 
         immutable serie_str = project.odoo.serie.toString;
         auto current_branch = repo.getCurrBranch();
-        if (push) {
-            enforce!OdoodCLIException(
-                !current_branch.isNull && current_branch.get == serie_str,
-                "Releases with --push must be made from branch '%s'. "
-                ~ "Current: %s. Run 'git checkout %s' first.".format(
-                    serie_str,
+        immutable on_stable = !current_branch.isNull && current_branch.get == serie_str;
+
+        // A patch release (Z bump) requires the explicit --patch flag, so it is
+        // always a conscious choice and is allowed from any branch. It is the
+        // mainline patch — a small fix on top of the latest serie release.
+        // Patching an *older* release while stable has moved on is the hotfix
+        // flow instead ('odood repo hotfix'). Other release levels keep the
+        // safety guards below.
+        if (!patch) {
+            if (push)
+                enforce!OdoodCLIException(
+                    on_stable,
+                    ("Releases with --push must be made from branch '%s'. "
+                    ~ "Current: %s. Run 'git checkout %s' first.").format(
+                        serie_str,
+                        current_branch.isNull ? "detached HEAD" : current_branch.get,
+                        serie_str));
+            else if (!on_stable)
+                warningf(
+                    "Releasing from branch '%s', not the stable branch '%s'.",
                     current_branch.isNull ? "detached HEAD" : current_branch.get,
-                    serie_str));
-        } else if (!current_branch.isNull && current_branch.get != serie_str) {
-            warningf(
-                "Releasing from branch '%s', not the stable branch '%s'.",
-                current_branch.get, serie_str);
+                    serie_str);
         }
 
         if (initial) {
@@ -537,6 +582,267 @@ class CommandRepositoryRelease: OdoodCommand {
 }
 
 
+/** Parse a 'hotfix/A.B.X.Y.x' branch name into the chain's primary version.
+  *
+  * Returns the primary release of the chain (`A.B.X.Y.0`), or null when the
+  * branch is not a hotfix branch for `serie`.
+  **/
+private Nullable!OdooStdVersion parseHotfixChain(in string branch, in OdooSerie serie) {
+    import std.string: startsWith, endsWith;
+    enum prefix = "hotfix/";
+    enum suffix = ".x";
+    if (!branch.startsWith(prefix) || !branch.endsWith(suffix))
+        return Nullable!OdooStdVersion.init;
+
+    // middle = "A.B.X.Y"; appending ".0" yields the primary version string.
+    auto middle = branch[prefix.length .. $ - suffix.length];
+    auto primary = OdooStdVersion(middle ~ ".0");
+    if (!primary.isStandard || primary.serie != serie)
+        return Nullable!OdooStdVersion.init;
+    return primary.nullable;
+}
+
+
+/** Base for hotfix subcommands that operate on the current hotfix branch
+  * ('check', 'release'). Provides the repo accessor and resolves the patch
+  * chain base from the 'hotfix/A.B.X.Y.x' branch the command is run on.
+  **/
+class HotfixBranchCommand: OdoodCommand {
+    Nullable!Path path;
+
+    this(in string name, in string description) {
+        super(name, description);
+        this.addArgument!(path)("path",
+            "Path to repository (default: current directory).")
+            .acceptsDirectories();
+    }
+
+    protected AddonRepository getRepo(Project project) {
+        return project.addons.getRepo(
+            path.isNull ? Path.current : path.get.toAbsolute);
+    }
+
+    /** Ensure we are on a hotfix branch and return the latest tag in its chain.
+      *
+      * Fetches origin first so remote chain tags are visible. Throws if the
+      * current branch is not a hotfix branch, or the chain has no tags.
+      **/
+    protected OdooStdVersion resolveChainBase(Project project, AddonRepository repo) {
+        auto branch = repo.getCurrBranch();
+        enforce!OdoodCLIException(
+            !branch.isNull,
+            "Not on a hotfix branch (detached HEAD). "
+            ~ "Run 'odood repo hotfix start --from=<version>' first.");
+
+        auto chain = parseHotfixChain(branch.get, project.odoo.serie);
+        enforce!OdoodCLIException(
+            !chain.isNull,
+            ("Current branch '%s' is not a hotfix branch. Expected "
+            ~ "'hotfix/%s.X.Y.x' — create it with "
+            ~ "'odood repo hotfix start --from=<version>'.").format(
+                branch.get, project.odoo.serie));
+
+        repo.fetchOrigin(project.odoo.serie.toString);
+
+        auto base = repo.getLatestPatch(chain.get);
+        enforce!OdoodCLIException(
+            !base.isNull,
+            ("No tags found in the %s.%d.%d.* chain locally or on remote.").format(
+                chain.get.serie, chain.get.major, chain.get.minor));
+        return base.get;
+    }
+}
+
+
+class CommandRepositoryHotfixStart: OdoodCommand {
+    Nullable!Path path;
+    string fromVersion;
+
+    this() {
+        super(
+            "start",
+            "Set up a hotfix branch from a primary release tag. "
+            ~ "Run this before 'odood repo hotfix release'.");
+        this.addArgument!(path)("path",
+            "Path to repository (default: current directory).")
+            .acceptsDirectories();
+        this.addOption!(fromVersion)("", "from",
+            "Primary release tag to patch (e.g. 18.0.2.1.0). Must have Z == 0.");
+    }
+
+    override int execute() {
+        import std.stdio: writeln, writefln;
+
+        auto project = Project.loadProject;
+        auto repo = project.addons.getRepo(
+            path.isNull ? Path.current : path.get.toAbsolute);
+
+        enforce!OdoodCLIException(
+            fromVersion.length > 0,
+            "--from is required (e.g. --from=18.0.2.1.0).");
+
+        auto primary = OdooStdVersion(fromVersion);
+        enforce!OdoodCLIException(
+            primary.isStandard,
+            "--from '%s' is not a valid standard version tag.".format(fromVersion));
+        enforce!OdoodCLIException(
+            primary.patch == 0,
+            ("--from must be a primary release tag (Z == 0), got: '%s'. "
+            ~ "Always pass the primary release, not an existing hotfix.").format(fromVersion));
+        enforce!OdoodCLIException(
+            primary.serie == project.odoo.serie,
+            "--from series (%s) does not match project series (%s).".format(
+                primary.serie, project.odoo.serie));
+
+        repo.fetchOrigin(project.odoo.serie.toString);
+
+        // Find the latest tag in the A.B.X.Y.* chain — this is the actual
+        // branch base (may be Z>0 if hotfixes already exist on this primary).
+        auto base_version = repo.getLatestPatch(primary);
+        enforce!OdoodCLIException(
+            !base_version.isNull,
+            "Primary release tag '%s' not found locally or on remote.".format(fromVersion));
+
+        immutable branch_name = "hotfix/%s.%d.%d.x".format(
+            primary.serie, primary.major, primary.minor);
+
+        if (repo.hasLocalBranch(branch_name)) {
+            infof("Branch '%s' already exists locally; switching to it.", branch_name);
+            repo.switchBranchTo(branch_name);
+        } else if (repo.hasRemoteUrl("origin") && repo.hasRemoteBranch(branch_name)) {
+            infof("Branch '%s' exists on origin; checking out a tracking branch.",
+                branch_name);
+            repo.checkoutTrackingBranch(branch_name);
+        } else {
+            repo.createBranch(branch_name, base_version.get.toString);
+            infof("Created branch '%s' from tag '%s'.", branch_name, base_version.get);
+        }
+
+        writeln();
+        writeln("Next steps:");
+        writefln("  1. Apply the fix and commit.");
+        writefln("  2. Bump affected addon versions.");
+        writefln("  3. Release the patch:");
+        writefln("       odood repo hotfix release --changelog --push");
+        writefln("  4. Cherry-pick the fix back to %s:", project.odoo.serie);
+        writefln("       git checkout %s", project.odoo.serie);
+        writefln("       git cherry-pick <fix-commit-hash>");
+
+        return 0;
+    }
+}
+
+
+class CommandRepositoryHotfixCheck: HotfixBranchCommand {
+    bool ignoreTranslations;
+
+    this() {
+        super(
+            "check",
+            "Check addon versions on the current hotfix branch against the "
+            ~ "latest tag in its patch chain. Previews what "
+            ~ "'odood repo hotfix release' will verify.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Ignore translation files (.po/.pot) when detecting changes.");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+        auto repo = getRepo(project);
+        auto base = resolveChainBase(project, repo);
+
+        infof("Comparing against latest patch in chain: %s", base);
+        return runVersionCheck(
+            repo, project.odoo.serie, base.toString, ignoreTranslations);
+    }
+}
+
+
+class CommandRepositoryHotfixRelease: HotfixBranchCommand {
+    bool ignoreTranslations;
+    bool failNothingToRelease;
+    bool push;
+    bool changelog;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+
+    this() {
+        super(
+            "release",
+            "Release a hotfix (patch) on the current hotfix branch: bump Z on "
+            ~ "top of the chain's latest tag, tag, and optionally push.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Ignore translation files (.po/.pot) when detecting changes.");
+        this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
+            "Exit with code 1 when no changed addons are detected.");
+        this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
+        this.addFlag!(changelog)("", "changelog",
+            "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addOption!(commitMessage)("", "commit-message",
+            "Commit message for the changelog commit (default: 'Release <version>').");
+        this.addOption!(commitUser)("", "commit-user",
+            "Git author name for the changelog commit.");
+        this.addOption!(commitEmail)("", "commit-email",
+            "Git author email for the changelog commit.");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+        auto repo = getRepo(project);
+        auto base = resolveChainBase(project, repo);
+
+        infof("Releasing hotfix on chain base: %s", base);
+
+        auto result = repo.prepareRelease(
+            serie: project.odoo.serie,
+            override_part: VersionPart.PATCH.nullable,
+            ignore_translations: ignoreTranslations,
+            base_version: base.nullable);
+
+        if (result.isNull) {
+            infof("Nothing to release: no changed addons detected.");
+            if (failNothingToRelease)
+                exitWith(1);
+            return 0;
+        }
+
+        if (changelog) {
+            repo.generateChangelog(result.get);
+            auto msg = commitMessage.isNull
+                ? "Release %s".format(result.get.new_version)
+                : commitMessage.get;
+            repo.commit(
+                msg,
+                commitUser.isNull ? null : commitUser.get,
+                commitEmail.isNull ? null : commitEmail.get);
+            infof("Changelog committed.");
+        }
+
+        repo.setTag(result.get.new_version.toString);
+        infof("Created tag: %s", result.get.new_version);
+
+        if (push) {
+            repo.push();
+            repo.pushTag(result.get.new_version.toString);
+            infof("Pushed branch and tag to origin.");
+        }
+        return 0;
+    }
+}
+
+
+class CommandRepositoryHotfix: OdoodCommand {
+    this() {
+        super("hotfix",
+            "Manage hotfix (patch) releases on dedicated hotfix branches.");
+        this.add(new CommandRepositoryHotfixStart());
+        this.add(new CommandRepositoryHotfixCheck());
+        this.add(new CommandRepositoryHotfixRelease());
+    }
+}
+
+
 class CommandRepository: OdoodCommand {
     this() {
         super("repo", "Manage git repositories.");
@@ -549,5 +855,6 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryMigrateAddons());
         this.add(new CommandRepositoryDoForwardPort());
         this.add(new CommandRepositoryRelease());
+        this.add(new CommandRepositoryHotfix());
     }
 }

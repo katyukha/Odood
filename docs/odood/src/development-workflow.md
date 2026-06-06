@@ -147,87 +147,25 @@ When you run `odood assembly sync --changelog`, it aggregates per-addon changelo
 
 ### Releasing a Repository
 
-Once your changes are committed and versions are bumped, `odood repo release` automates the release:
+Once your changes are committed and versions are bumped, cut a release with
+`odood repo release`. The full release strategy — version conventions, the
+standard release flow, the hotfix flow, and CI setup — is documented on a
+dedicated page: **[Release Management](./release-management.md)**.
 
-1. It finds the latest release tag (checking both local and remote tags).
-2. It runs a version check on every addon changed since that tag — if any changed addon has not had its version bumped, the command errors out.
-3. It computes the next repo-level version (auto-detected from the set of changes, or forced by a flag).
-4. Optionally generates `CHANGELOG.md` / `CHANGELOG.latest.md` and commits them.
-5. Creates a git tag at the new version.
-6. Optionally pushes the branch and tag to `origin`.
-
-#### First release
-
-For a repository that has never been tagged:
+In short:
 
 ```bash
+# Auto-detect the bump level from changed addons, verify versions,
+# generate the changelog, tag, and push:
+odood repo release --changelog --push
+
+# First release of a never-tagged repository:
 odood repo release --initial
 ```
 
-This creates tag `<serie>.1.0.0` without inspecting changes. `--initial` is incompatible with `--changelog` (there is no prior baseline to diff against).
-
-#### Subsequent releases
-
-```bash
-odood repo release
-```
-
-Odood auto-detects the bump level from the changed addons:
-- any addon with a **major** bump → repo version gets a major bump
-- any addon with a **minor** bump → repo version gets a minor bump
-- patch-only changes → repo version gets a patch bump
-
-To override auto-detection:
-
-```bash
-odood repo release --major   # force major bump
-odood repo release --minor   # force minor bump
-odood repo release --patch   # force patch bump
-```
-
-#### Generating a CHANGELOG
-
-Pass `--changelog` to generate `CHANGELOG.md` and `CHANGELOG.latest.md` before tagging.
-Odood restores `CHANGELOG.md` from the previous release tag first, then prepends the new release section — so history is preserved across releases.
-Per-addon `changelog/changelog.X.Y.Z.md` files are included under "Notable changes" if present.
-
-```bash
-odood repo release --changelog
-```
-
-The commit message defaults to `Release <version>`. Override it:
-
-```bash
-odood repo release --changelog --commit-message "chore: release 18.0.2.1.0"
-```
-
-#### Pushing the release
-
-`--push` pushes the current branch **and** the new tag to `origin`. Requires that the current branch matches the project's Odoo series (e.g. `18.0`):
-
-```bash
-odood repo release --changelog --push
-```
-
-#### Ignoring translation changes
-
-Translation-only commits (`.po`/`.pot`) do not require a version bump by convention. Pass `--ignore-translations` to exclude them from change detection:
-
-```bash
-odood repo release --ignore-translations
-```
-
-#### CI integration
-
-In CI pipelines, use `--fail-nothing-to-release` to exit with code 1 when there are no changed addons — useful for skipping downstream steps that only make sense when a real release happened:
-
-```bash
-odood repo release \
-    --ignore-translations \
-    --changelog \
-    --push \
-    --fail-nothing-to-release
-```
+To patch an already-released version while the stable branch has moved on, use
+the hotfix flow (`odood repo hotfix`) — see
+[Release Management → Hotfix flow](./release-management.md#hotfix-flow).
 
 ---
 

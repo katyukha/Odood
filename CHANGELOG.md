@@ -6,6 +6,7 @@
 
 - Support for `--test-tag` option for `odood test` command
 - **Experimental** `odood repo release` command, that could automatically tag repo and generate changelogs.
+- **Experimental** `odood repo hotfix` command, that could be used to manage hotfixes of repositories.
 - **Experimental** `odood assembly upgrade-sources` command, that allows to bump pinned releases on repository.
 - **Experimental** `odood test --migration-last-release` option, that allows to test repo migration against latest release.
 

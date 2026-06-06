@@ -219,6 +219,47 @@ class GitRepository {
         clone.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
     }
 
+    /// Test hasRemoteBranch + checkoutTrackingBranch
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Bare remote + source repo; push the default branch, then a hotfix branch.
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial");
+        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+
+        src.createBranch("hotfix/18.0.1.0.x");
+        src.gitCmd.withArgs("push", "-u", "origin", "hotfix/18.0.1.0.x").execute.ensureOk(true);
+
+        // Single-branch clone: only the default branch is tracked locally; the
+        // hotfix branch exists on the remote but not in the clone.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", "--single-branch", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.hasLocalBranch("hotfix/18.0.1.0.x").shouldBeFalse;
+        clone.hasRemoteBranch("hotfix/18.0.1.0.x").shouldBeTrue;
+        clone.hasRemoteBranch("hotfix/99.0.1.0.x").shouldBeFalse;
+
+        // checkoutTrackingBranch creates the branch locally and switches to it.
+        clone.checkoutTrackingBranch("hotfix/18.0.1.0.x");
+        clone.hasLocalBranch("hotfix/18.0.1.0.x").shouldBeTrue;
+        clone.getCurrBranch().get.should == "hotfix/18.0.1.0.x";
+    }
+
     /** Check if repo has configured remote url with specified name
       **/
     auto hasRemoteUrl(in string name) const {
@@ -278,6 +319,46 @@ class GitRepository {
         if (start_point !is null)
             cmd.addArgs(start_point);
         cmd.execute().ensureStatus(true);
+    }
+
+    /** Check whether `remote` has a branch named `name`.
+      *
+      * Queries the remote directly via `git ls-remote`, so the result does not
+      * depend on what has been fetched locally (works in single-branch clones).
+      * Returns false when the remote is unreachable or has no such branch.
+      **/
+    bool hasRemoteBranch(in string name, in string remote = "origin") const {
+        return gitCmd
+            .withArgs(
+                "ls-remote", "--heads", "--exit-code",
+                remote, "refs/heads/%s".format(name))
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
+    /** Create a local branch tracking `remote`'s branch of the same name and
+      * switch to it.
+      *
+      * Fetches the branch explicitly first (with a refspec that creates the
+      * remote-tracking ref) so it works in single-branch clones where the
+      * default fetch config would not cover it.
+      *
+      * Equivalent to:
+      *   git fetch <remote> <name>:refs/remotes/<remote>/<name>
+      *   git checkout -b <name> <remote>/<name>
+      **/
+    void checkoutTrackingBranch(in string name, in string remote = "origin") const {
+        gitCmd
+            .withArgs(
+                "fetch", remote,
+                "%s:refs/remotes/%s/%s".format(name, remote, name))
+            .execute
+            .ensureStatus(true);
+        gitCmd
+            .withArgs("checkout", "-b", name, "%s/%s".format(remote, name))
+            .execute
+            .ensureStatus(true);
     }
 
     /** Checkout specific files to specific version

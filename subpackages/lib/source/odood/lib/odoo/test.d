@@ -780,8 +780,8 @@ struct OdooTestRunner {
                     _project.odoo.serie);
                 enforce!OdoodException(
                     !latest.isNull,
-                    "No release tags found for serie %s. "
-                    ~ "Create a release first or use --migration-start-ref.".format(
+                    ("No release tags found for serie %s. "
+                    ~ "Create a release first or use --migration-start-ref.").format(
                         _project.odoo.serie));
                 auto tag = latest.get.toString;
                 infof(

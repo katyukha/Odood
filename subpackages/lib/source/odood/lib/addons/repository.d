@@ -224,8 +224,8 @@ class AddonRepository : GitRepository{
                 enforce!OdoodException(
                     end_name !in end_map
                         || end_map[end_name].path == in_end.get.path,
-                    "Addon '%s' found at two paths in end ref '%s': %s and %s. "
-                    ~ "A repository must not contain duplicate addon names.".format(
+                    ("Addon '%s' found at two paths in end ref '%s': %s and %s. "
+                    ~ "A repository must not contain duplicate addon names.").format(
                         end_name, end_ref,
                         end_map[end_name].path, in_end.get.path));
                 end_map[end_name] = in_end.get;
@@ -356,22 +356,26 @@ class AddonRepository : GitRepository{
         return matching.maxElement.nullable;
     }
 
-    /** Find the latest existing tag in the hotfix chain for a given primary release.
+    /** Find the latest existing tag in the patch chain that `chain_version`
+      * belongs to.
       *
-      * A "patch chain" is all tags A.B.X.Y.* where A.B, X, and Y match the
-      * primary release. Includes the primary release itself (Z == 0) and any
-      * subsequent hotfixes (Z > 0).
+      * A "patch chain" is all tags A.B.X.Y.* sharing the same serie, major, and
+      * minor. It includes the primary release (Z == 0) and any subsequent
+      * patches/hotfixes (Z > 0). The patch segment of `chain_version` is
+      * ignored — any member of the chain identifies it, so passing the primary
+      * (`18.0.2.1.0`) or an existing patch (`18.0.2.1.3`) selects the same chain.
       *
-      * Returns null if no tag in the chain exists (including the primary itself),
-      * indicating the primary release tag was never created.
+      * Returns null if no tag in the chain exists (not even the primary),
+      * indicating the chain was never released.
       *
       * Checks both local and remote tags.
       *
       * Params:
-      *     primary = A primary release version (patch == 0).
+      *     chain_version = Any standard version identifying the chain (its `Z`
+      *                     is ignored).
       **/
-    Nullable!OdooStdVersion getLatestPatch(in OdooStdVersion primary) const
-    in (primary.isStandard && primary.patch == 0) {
+    Nullable!OdooStdVersion getLatestPatch(in OdooStdVersion chain_version) const
+    in (chain_version.isStandard) {
         string[] all_tags = listLocalTags();
         if (hasRemoteUrl("origin")) {
             try {
@@ -384,9 +388,9 @@ class AddonRepository : GitRepository{
         auto matching = all_tags
             .map!(t => OdooStdVersion(t))
             .filter!(v => v.isStandard
-                       && v.serie == primary.serie
-                       && v.major == primary.major
-                       && v.minor == primary.minor)
+                       && v.serie == chain_version.serie
+                       && v.major == chain_version.major
+                       && v.minor == chain_version.minor)
             .array;
 
         if (matching.length == 0)
@@ -435,36 +439,48 @@ class AddonRepository : GitRepository{
       *     override_part       = When set, force this bump level instead of
       *                           auto-detecting from changes.
       *     ignore_translations = Exclude .po/.pot files when detecting changes.
+      *     base_version        = When set, use this exact version as both the
+      *                           comparison base and the version to bump from,
+      *                           instead of the latest-serie-tag lookup. Used by
+      *                           the hotfix flow to pin a specific patch chain.
       *
       * Returns: null if no changed addons detected; the new version otherwise.
       **/
     Nullable!PrepareReleaseResult prepareRelease(
             in OdooSerie serie,
             in Nullable!VersionPart override_part = Nullable!VersionPart.init,
-            in bool ignore_translations = true) const {
-        // 1. Union of local and remote tags — see initialRelease for rationale.
-        string[] all_tags = listLocalTags();
-        if (hasRemoteUrl("origin")) {
-            try {
-                all_tags ~= listRemoteTags("origin");
-            } catch (Exception e) {
-                warningf("Cannot list remote tags (using local only): %s", e.msg);
-            }
-        }
-
-        auto matching_versions = all_tags
-            .map!(t => OdooStdVersion(t))
-            .filter!(v => v.isStandard && v.serie == serie)
-            .array;
-
-        // Bootstrap: no prior tags — compare against origin branch.
+            in bool ignore_translations = true,
+            in Nullable!OdooStdVersion base_version = Nullable!OdooStdVersion.init) const {
+        // Defaults cover the bootstrap case (no prior tags): compare against the
+        // origin branch and seed the version at <serie>.1.0.0.
         string start_ref = "origin/%s".format(serie);
         auto initial_version = OdooStdVersion(serie, 1, 0, 0);
 
-        if (matching_versions.length > 0) {
-            auto latest = matching_versions.maxElement;
-            start_ref = latest.toString;
-            initial_version = latest;  // tag name is the authoritative version
+        if (!base_version.isNull) {
+            // Explicit base (hotfix chain): compare against and bump from it.
+            initial_version = base_version.get;
+            start_ref = base_version.get.toString;
+        } else {
+            // 1. Union of local and remote tags — see initialRelease for rationale.
+            string[] all_tags = listLocalTags();
+            if (hasRemoteUrl("origin")) {
+                try {
+                    all_tags ~= listRemoteTags("origin");
+                } catch (Exception e) {
+                    warningf("Cannot list remote tags (using local only): %s", e.msg);
+                }
+            }
+
+            auto matching_versions = all_tags
+                .map!(t => OdooStdVersion(t))
+                .filter!(v => v.isStandard && v.serie == serie)
+                .array;
+
+            if (matching_versions.length > 0) {
+                auto latest = matching_versions.maxElement;
+                start_ref = latest.toString;
+                initial_version = latest;  // tag name is the authoritative version
+            }
         }
 
         // 2. Verify all changed addons have bumped versions.
@@ -800,4 +816,22 @@ unittest {
     res2.isNull.shouldBeFalse;
     res2.get.new_version.toString.should == "17.0.2.0.0";
     res2.get.start_ref.should == "17.0.1.1.0";
+
+    // ── getLatestPatch (chain resolution) ──
+
+    // Build a patch chain on top of 17.0.1.1.0 (multiple tags on HEAD is fine —
+    // getLatestPatch reads tag names, not commits).
+    repo.setTag("17.0.1.1.1");
+    repo.setTag("17.0.1.1.2");
+
+    // Resolve from the primary (Z == 0) → latest in the 17.0.1.1.* chain.
+    repo.getLatestPatch(OdooStdVersion("17.0.1.1.0"))
+        .get.toString.should == "17.0.1.1.2";
+
+    // Resolve from an existing patch member (Z > 0) → same chain, Z ignored.
+    repo.getLatestPatch(OdooStdVersion("17.0.1.1.1"))
+        .get.toString.should == "17.0.1.1.2";
+
+    // A chain with no tags → null.
+    repo.getLatestPatch(OdooStdVersion("17.0.9.9.0")).isNull.shouldBeTrue;
 }
