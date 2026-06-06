@@ -24,8 +24,8 @@ import odood.exception: OdoodException;
 
 /// Prepare virtualenv options for test
 auto getVenvOptions(in OdooSerie serie) {
-    import odood.lib.venv: PyInstallType;
-    import odood.lib.odoo.python: guessVenvOptions;
+    import odood.lib.python.venv: PyInstallType;
+    import odood.lib.python.odoo: guessVenvOptions;
 
     auto venv_options = serie.guessVenvOptions;
 
@@ -793,7 +793,7 @@ unittest {
     import std.process;
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
-    import odood.lib.venv;
+    import odood.lib.python.venv;
     import odood.utils.versioned: Version;
 
     auto save_env = environment.toAA;
