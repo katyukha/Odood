@@ -10,6 +10,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
+private import std.datetime.date: DateTime;
 private import std.algorithm.iteration: filter, map;
 private import std.algorithm.searching: canFind;
 private import std.string: join, startsWith, chompPrefix, empty, split, strip;
@@ -217,13 +218,12 @@ struct OdooDatabaseManager {
             in string dbname,
             in string prefix,
             in BackupFormat backup_format) const {
-        return "%s-%s-%s.%s.%s".format(
+        const auto now = cast(DateTime) Clock.currTime;
+        return "%s-%s-%s-%s.%s.%s".format(
             prefix,
             dbname,
-            "%s-%s-%s".format(
-                Clock.currTime.year,
-                Clock.currTime.month,
-                Clock.currTime.day),
+            now.date.toISOExtString,    // e.g. 2026-06-06
+            now.timeOfDay.toISOString,  // e.g. 143002
             generateRandomString(4),
             (() {
                 final switch (backup_format) {
@@ -266,6 +266,16 @@ struct OdooDatabaseManager {
                 generateBackupName(dbname, prefix, backup_format)) :
             backup_path;
 
+        // Write the backup to a temporary name in the *same* directory, then
+        // atomically rename it to its final name only after it is complete and
+        // validated.
+        // Keeping the temp file in the same directory ensures rename() is a true
+        // atomic same-filesystem operation.
+        Path dest_tmp = dest.withExt(".tmp-" ~ generateRandomString(8));
+        scope(failure) {
+            if (dest_tmp.exists) dest_tmp.remove();
+        }
+
         infof("Backing up database %s into %s", dbname, dest);
 
         auto sw = StopWatch(AutoStart.yes);
@@ -287,11 +297,7 @@ struct OdooDatabaseManager {
             case BackupFormat.zip:
                 import std.process : pipe;
 
-                auto writer = DarkArchiveWriter!(DarkArchiveFormat.zip)(dest);
-                scope(failure) {
-                    // Remove partial ZIP on any failure
-                    if (dest.exists) dest.remove();
-                }
+                auto writer = DarkArchiveWriter!(DarkArchiveFormat.zip)(dest_tmp);
 
                 // Add filestore directly from data directory (no temp copy)
                 auto filestore_path = _project.server.getConfigDataDir
@@ -341,28 +347,26 @@ struct OdooDatabaseManager {
                 }
 
                 writer.finish();
-
-                // Check non-empty file
-                enforce!OdoodException(
-                    dest.getSize() > 0,
-                    "Backup file is empty: %s".format(dest));
-
                 break;
             case BackupFormat.sql:
                 // In case of SQL backups, just call pg_dump and let it do its job.
                 pg_dump
                     .withArgs(
                         "--format=c",
-                        "--file=" ~ dest.toString)
+                        "--file=" ~ dest_tmp.toString)
                     .execute
                     .ensureOk(true);
-
-                // Check non-empty file
-                enforce!OdoodException(
-                    dest.getSize() > 0,
-                    "Backup file is empty: %s".format(dest));
                 break;
         }
+
+        // Check non-empty file before publishing it under its final name.
+        enforce!OdoodException(
+            dest_tmp.getSize() > 0,
+            "Backup file is empty: %s".format(dest));
+
+        // Atomically publish the completed backup under its final name.
+        dest_tmp.rename(dest);
+
         sw.stop();
         infof("Back up of database %s into %s completed in %s", dbname, dest, sw.peek);
         return dest;
@@ -549,6 +553,10 @@ struct OdooDatabaseManager {
                 .withArgs(
                     "--file=-",
                     "-q",
+                    // Abort on the first SQL error and exit non-zero, so a
+                    // broken/incomplete dump can never produce a silently
+                    // half-restored database that is reported as success.
+                    "-v", "ON_ERROR_STOP=1",
                     "--dbname=%s".format(name))
                 .spawn(
                     psql_pipe.readEnd,
@@ -565,9 +573,15 @@ struct OdooDatabaseManager {
                         psql_pipe.writeEnd.rawWrite(chunk);
                     });
                 });
-
             psql_pipe.writeEnd.flush();
             psql_pipe.writeEnd.close();
+
+            auto psql_exit_code = psql_pid.wait();
+            enforce!OdoodException(
+                psql_exit_code == 0,
+                "Cannot restore database %s: psql exited with status %s. ".format(
+                    name, psql_exit_code) ~
+                "The database dump could not be applied cleanly.");
             tracef("Dump of database %s successfully restored!", name);
         });
 
