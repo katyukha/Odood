@@ -356,6 +356,45 @@ class AddonRepository : GitRepository{
         return matching.maxElement.nullable;
     }
 
+    /** Find the latest existing tag in the hotfix chain for a given primary release.
+      *
+      * A "patch chain" is all tags A.B.X.Y.* where A.B, X, and Y match the
+      * primary release. Includes the primary release itself (Z == 0) and any
+      * subsequent hotfixes (Z > 0).
+      *
+      * Returns null if no tag in the chain exists (including the primary itself),
+      * indicating the primary release tag was never created.
+      *
+      * Checks both local and remote tags.
+      *
+      * Params:
+      *     primary = A primary release version (patch == 0).
+      **/
+    Nullable!OdooStdVersion getLatestPatch(in OdooStdVersion primary) const
+    in (primary.isStandard && primary.patch == 0) {
+        string[] all_tags = listLocalTags();
+        if (hasRemoteUrl("origin")) {
+            try {
+                all_tags ~= listRemoteTags("origin");
+            } catch (Exception e) {
+                warningf("Cannot list remote tags (using local only): %s", e.msg);
+            }
+        }
+
+        auto matching = all_tags
+            .map!(t => OdooStdVersion(t))
+            .filter!(v => v.isStandard
+                       && v.serie == primary.serie
+                       && v.major == primary.major
+                       && v.minor == primary.minor)
+            .array;
+
+        if (matching.length == 0)
+            return Nullable!OdooStdVersion.init;
+
+        return matching.maxElement.nullable;
+    }
+
     /** Return the version for the very first release of this repository.
       *
       * Throws if a matching release tag already exists locally or on the
