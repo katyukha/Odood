@@ -236,6 +236,7 @@ class CommandDatabaseBackup: OdoodCommand {
     bool sql;
     bool all;
     Nullable!Path dest;
+    Nullable!int nice;
     string[] name;
 
     this() {
@@ -246,11 +247,57 @@ class CommandDatabaseBackup: OdoodCommand {
         this.addOption!(dest)("d", "dest",
             "Destination path for backup. " ~
             "By default will store at project's backup directory.");
+        this.addOption!(nice)(null, "nice",
+            "Lower the CPU priority of the backup by the given nice " ~
+            "increment (1-19, higher = lower priority).");
         this.addArgument!(name)("name", "Name of database(s) to backup.")
             .defaultValue([]);
     }
 
+    /** Lower the CPU scheduling priority (niceness) of the current process by
+      * the requested increment.
+      *
+      * Only lowering the priority is supported (no privileges required); the
+      * increment is clamped so the resulting niceness never exceeds the maximum
+      * of 19.
+      **/
+    private void applyNice(in int increment) const {
+        version(Posix) {
+            import core.sys.posix.sys.resource: setpriority, getpriority, PRIO_PROCESS;
+            import core.stdc.errno: errno;
+
+            // getpriority may legitimately return -1, so reset errno first and
+            // check it to distinguish a real error from a -1 niceness value.
+            errno = 0;
+            immutable current = getpriority(PRIO_PROCESS, 0);
+            enforce!OdoodCLIException(
+                !(current == -1 && errno != 0),
+                "Cannot read current process priority (errno=%s).".format(errno));
+
+            int target = current + increment;
+            if (target > 19) target = 19;
+
+            errno = 0;
+            enforce!OdoodCLIException(
+                setpriority(PRIO_PROCESS, 0, target) == 0,
+                "Cannot lower process priority to nice=%s (errno=%s).".format(
+                    target, errno));
+            infof("Running backup at lowered CPU priority (nice=%s).", target);
+        } else {
+            warningf(
+                "The --nice option is not supported on this platform; ignoring.");
+        }
+    }
+
     override int execute() {
+        if (!nice.isNull) {
+            enforce!OdoodCLIException(
+                nice.get >= 1 && nice.get <= 19,
+                "--nice must be in range 1..19 (only lowering priority is supported). Got: %s".format(
+                    nice.get));
+            applyNice(nice.get);
+        }
+
         auto project = Project.loadProject;
 
         enforce!OdoodCLIException(

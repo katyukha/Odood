@@ -9,6 +9,7 @@
 - **Experimental** `odood repo hotfix` command, that could be used to manage hotfixes of repositories.
 - **Experimental** `odood assembly upgrade-sources` command, that allows to bump pinned releases on repository.
 - **Experimental** `odood test --migration-last-release` option, that allows to test repo migration against latest release.
+- Added option `odood db backup --nice` that allows to lower cpu priority of backup task
 
 ### Changed
 
