@@ -10,6 +10,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.typecons;
 private import std.datetime.systime: Clock;
+private import std.datetime.date: DateTime;
 private import std.algorithm.iteration: filter, map;
 private import std.algorithm.searching: canFind;
 private import std.string: join, startsWith, chompPrefix, empty, split, strip;
@@ -17,7 +18,8 @@ private import std.string: join, startsWith, chompPrefix, empty, split, strip;
 private import thepath;
 private import theprocess;
 private import darkarchive: DarkArchiveReader, DarkArchiveWriter,
-    DarkArchiveFormat, DarkExtractFlags, ExtractParams;
+    DarkArchiveFormat, DarkExtractFlags, ExtractParams,
+    probeArchive, DarkArchiveException;
 
 private import odood.lib.project: Project;
 private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
@@ -216,13 +218,12 @@ struct OdooDatabaseManager {
             in string dbname,
             in string prefix,
             in BackupFormat backup_format) const {
-        return "%s-%s-%s.%s.%s".format(
+        const auto now = cast(DateTime) Clock.currTime;
+        return "%s-%s-%s-%s.%s.%s".format(
             prefix,
             dbname,
-            "%s-%s-%s".format(
-                Clock.currTime.year,
-                Clock.currTime.month,
-                Clock.currTime.day),
+            now.date.toISOExtString,    // e.g. 2026-06-06
+            now.timeOfDay.toISOString,  // e.g. 143002
             generateRandomString(4),
             (() {
                 final switch (backup_format) {
@@ -265,6 +266,16 @@ struct OdooDatabaseManager {
                 generateBackupName(dbname, prefix, backup_format)) :
             backup_path;
 
+        // Write the backup to a temporary name in the *same* directory, then
+        // atomically rename it to its final name only after it is complete and
+        // validated.
+        // Keeping the temp file in the same directory ensures rename() is a true
+        // atomic same-filesystem operation.
+        Path dest_tmp = dest.withExt(".tmp-" ~ generateRandomString(8));
+        scope(failure) {
+            if (dest_tmp.exists) dest_tmp.remove();
+        }
+
         infof("Backing up database %s into %s", dbname, dest);
 
         auto sw = StopWatch(AutoStart.yes);
@@ -286,14 +297,10 @@ struct OdooDatabaseManager {
             case BackupFormat.zip:
                 import std.process : pipe;
 
-                auto writer = DarkArchiveWriter!(DarkArchiveFormat.zip)(dest);
-                scope(failure) {
-                    // Remove partial ZIP on any failure
-                    if (dest.exists) dest.remove();
-                }
+                auto writer = DarkArchiveWriter!(DarkArchiveFormat.zip)(dest_tmp);
 
                 // Add filestore directly from data directory (no temp copy)
-                auto filestore_path = _project.directories.data
+                auto filestore_path = _project.server.getConfigDataDir
                     .join("filestore", dbname);
                 if (filestore_path.exists)
                     writer.addTree(filestore_path, "filestore");
@@ -346,11 +353,20 @@ struct OdooDatabaseManager {
                 pg_dump
                     .withArgs(
                         "--format=c",
-                        "--file=" ~ dest.toString)
+                        "--file=" ~ dest_tmp.toString)
                     .execute
                     .ensureOk(true);
                 break;
         }
+
+        // Check non-empty file before publishing it under its final name.
+        enforce!OdoodException(
+            dest_tmp.getSize() > 0,
+            "Backup file is empty: %s".format(dest));
+
+        // Atomically publish the completed backup under its final name.
+        dest_tmp.rename(dest);
+
         sw.stop();
         infof("Back up of database %s into %s completed in %s", dbname, dest, sw.peek);
         return dest;
@@ -513,12 +529,13 @@ struct OdooDatabaseManager {
         }
 
         // Create and set correct access rights for "filestore" dir if needed
-        if (!_project.odoo.server_user.empty && !_project.directories.data.join("filestore").exists) {
-            _project.directories.data.join("filestore").mkdir(true);
-            _project.directories.data.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
+        auto data_dir = _project.server.getConfigDataDir;
+        if (!_project.odoo.server_user.empty && !data_dir.join("filestore").exists) {
+            data_dir.join("filestore").mkdir(true);
+            data_dir.join("filestore").chown(username: _project.odoo.server_user, recursive: true);
         }
 
-        auto fs_path = _project.directories.data.join("filestore", name);
+        auto fs_path = data_dir.join("filestore", name);
         scope(failure) {
             // TODO: Use pure SQL to check if db exists and for cleanup
             if (this.exists(name)) this.drop(name);
@@ -536,6 +553,10 @@ struct OdooDatabaseManager {
                 .withArgs(
                     "--file=-",
                     "-q",
+                    // Abort on the first SQL error and exit non-zero, so a
+                    // broken/incomplete dump can never produce a silently
+                    // half-restored database that is reported as success.
+                    "-v", "ON_ERROR_STOP=1",
                     "--dbname=%s".format(name))
                 .spawn(
                     psql_pipe.readEnd,
@@ -552,9 +573,15 @@ struct OdooDatabaseManager {
                         psql_pipe.writeEnd.rawWrite(chunk);
                     });
                 });
-
             psql_pipe.writeEnd.flush();
             psql_pipe.writeEnd.close();
+
+            auto psql_exit_code = psql_pid.wait();
+            enforce!OdoodException(
+                psql_exit_code == 0,
+                "Cannot restore database %s: psql exited with status %s. ".format(
+                    name, psql_exit_code) ~
+                "The database dump could not be applied cleanly.");
             tracef("Dump of database %s successfully restored!", name);
         });
 
@@ -607,6 +634,19 @@ struct OdooDatabaseManager {
                 "Cannot restore! Backup %s does not exists!".format(backup_path));
 
         auto backup_format = backup_path.detectDatabaseBackupFormat;
+
+        if (backup_format == BackupFormat.zip) {
+            try {
+                auto probed = probeArchive(backup_path.toString);
+                enforce!OdoodException(
+                    probed == DarkArchiveFormat.zip,
+                    "Backup %s has .zip extension but is not a ZIP archive".format(backup_path));
+            } catch (DarkArchiveException e) {
+                throw new OdoodException(
+                    "Backup %s has .zip extension but is not a valid ZIP archive: %s"
+                    .format(backup_path, e.msg));
+            }
+        }
 
         final switch(backup_format) {
             case BackupFormat.zip:

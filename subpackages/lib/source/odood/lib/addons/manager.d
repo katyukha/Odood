@@ -13,7 +13,7 @@ private import thepath: Path, createTempPath;
 private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 
 private import odood.lib.project: Project;
-private import odood.lib.venv: PyRequirements;
+private import odood.lib.python.venv: PyRequirements;
 private import odood.lib.odoo.config: readOdooConfig, getSystemAddonsPaths;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
@@ -650,7 +650,11 @@ struct AddonManager {
             in bool recursive=false,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
-        foreach(line; parseOdooRequirements(path))
+        auto req_path = path.exists && path.isDir ? path.join("odoo_requirements.txt") : path;
+        enforce!OdoodException(
+            req_path.exists,
+            "odoo_requirements.txt not found: %s".format(req_path));
+        foreach(line; parseOdooRequirements(req_path))
             // TODO: In case when only single module requested,
             //       add only single module
             final switch (line.type) {

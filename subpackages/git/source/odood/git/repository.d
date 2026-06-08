@@ -4,9 +4,9 @@ private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
-private import std.algorithm: map, canFind, startsWith;
+private import std.algorithm: map, canFind, startsWith, filter;
 private import std.array: array;
-private import std.regex: ctRegex, matchFirst;
+private import std.regex: regex, matchFirst;
 private import std.conv: to;
 private static import std.process;
 
@@ -168,6 +168,102 @@ class GitRepository {
             .ensureStatus(true);
     }
 
+    /** Fetch a specific tag from origin into the local repo.
+      *
+      * Uses an explicit refspec so it works reliably in single-branch clones
+      * where the default fetch config only covers one branch and tags are not
+      * automatically mirrored.
+      **/
+    void fetchTag(in string tag_name) const {
+        immutable refspec = "refs/tags/%s:refs/tags/%s".format(tag_name, tag_name);
+        gitCmd
+            .withArgs("fetch", "origin", refspec)
+            .execute()
+            .ensureStatus(true);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import std.algorithm: canFind;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Create a bare remote, a source repo with a tag, push both branch and tag.
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial");
+        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        src.setTag("17.0.1.0.0");
+        src.pushTag("17.0.1.0.0");
+
+        // Clone with --single-branch --no-tags — tags are NOT fetched automatically.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", "--single-branch", "--no-tags", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.listLocalTags().canFind("17.0.1.0.0").shouldBeFalse;
+
+        // listRemoteTags resolves the remote by name (credentials/env via
+        // gitCmd, no URL in argv) and sees tags that are not present locally.
+        clone.listRemoteTags().canFind("17.0.1.0.0").shouldBeTrue;
+
+        // fetchTag must bring the tag in via explicit refspec.
+        clone.fetchTag("17.0.1.0.0");
+
+        clone.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
+    }
+
+    /// Test hasRemoteBranch + checkoutTrackingBranch
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Bare remote + source repo; push the default branch, then a hotfix branch.
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial");
+        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+
+        src.createBranch("hotfix/18.0.1.0.x");
+        src.gitCmd.withArgs("push", "-u", "origin", "hotfix/18.0.1.0.x").execute.ensureOk(true);
+
+        // Single-branch clone: only the default branch is tracked locally; the
+        // hotfix branch exists on the remote but not in the clone.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", "--single-branch", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.hasLocalBranch("hotfix/18.0.1.0.x").shouldBeFalse;
+        clone.hasRemoteBranch("hotfix/18.0.1.0.x").shouldBeTrue;
+        clone.hasRemoteBranch("hotfix/99.0.1.0.x").shouldBeFalse;
+
+        // checkoutTrackingBranch creates the branch locally and switches to it.
+        clone.checkoutTrackingBranch("hotfix/18.0.1.0.x");
+        clone.hasLocalBranch("hotfix/18.0.1.0.x").shouldBeTrue;
+        clone.getCurrBranch().get.should == "hotfix/18.0.1.0.x";
+    }
+
     /** Check if repo has configured remote url with specified name
       **/
     auto hasRemoteUrl(in string name) const {
@@ -205,19 +301,68 @@ class GitRepository {
             .isOk;
     }
 
-    /** Switch repo to specified branch
+    /** Switch repo to an existing branch.
       **/
-    void switchBranchTo(in string branch_name, in bool create=false) const {
-        if (create)
-            gitCmd
-                .withArgs("checkout", "-b", branch_name)
-                .execute()
-                .ensureStatus(true);
-        else
-            gitCmd
-                .withArgs("checkout", branch_name)
-                .execute()
-                .ensureStatus(true);
+    void switchBranchTo(in string branch_name) const {
+        gitCmd
+            .withArgs("checkout", branch_name)
+            .execute()
+            .ensureStatus(true);
+    }
+
+    /** Create a new branch and switch to it.
+      *
+      * When start_point is null (default), the branch is created from the
+      * current HEAD. When provided, the branch starts at that ref (tag,
+      * commit SHA, or branch name).
+      *
+      * Equivalent to: git checkout -b <branch_name> [start_point]
+      **/
+    void createBranch(in string branch_name, in string start_point = null) const {
+        auto cmd = gitCmd.withArgs("checkout", "-b", branch_name);
+        if (start_point !is null)
+            cmd.addArgs(start_point);
+        cmd.execute().ensureStatus(true);
+    }
+
+    /** Check whether `remote` has a branch named `name`.
+      *
+      * Queries the remote directly via `git ls-remote`, so the result does not
+      * depend on what has been fetched locally (works in single-branch clones).
+      * Returns false when the remote is unreachable or has no such branch.
+      **/
+    bool hasRemoteBranch(in string name, in string remote = "origin") const {
+        return gitCmd
+            .withArgs(
+                "ls-remote", "--heads", "--exit-code",
+                remote, "refs/heads/%s".format(name))
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .isOk;
+    }
+
+    /** Create a local branch tracking `remote`'s branch of the same name and
+      * switch to it.
+      *
+      * Fetches the branch explicitly first (with a refspec that creates the
+      * remote-tracking ref) so it works in single-branch clones where the
+      * default fetch config would not cover it.
+      *
+      * Equivalent to:
+      *   git fetch <remote> <name>:refs/remotes/<remote>/<name>
+      *   git checkout -b <name> <remote>/<name>
+      **/
+    void checkoutTrackingBranch(in string name, in string remote = "origin") const {
+        gitCmd
+            .withArgs(
+                "fetch", remote,
+                "%s:refs/remotes/%s/%s".format(name, remote, name))
+            .execute
+            .ensureStatus(true);
+        gitCmd
+            .withArgs("checkout", "-b", name, "%s/%s".format(remote, name))
+            .execute
+            .ensureStatus(true);
     }
 
     /** Checkout specific files to specific version
@@ -274,6 +419,34 @@ class GitRepository {
         cmd.execute.ensureOk(true);
     }
 
+    /** List all tag names visible on the given remote.
+      *
+      * Runs `git ls-remote` inside the repository using the remote NAME (not a
+      * resolved URL), so the repository's configured credential helper and its
+      * env (`_env`, which may carry access tokens) apply — consistent with
+      * every other method here — and no credentials embedded in a remote URL
+      * leak into the process argv.
+      **/
+    string[] listRemoteTags(in string remote = "origin") const {
+        import odood.git: parseLsRemoteTags;
+        return parseLsRemoteTags(
+            gitCmd
+                .withArgs("ls-remote", "--refs", "--tags", remote)
+                .execute
+                .ensureOk(true)
+                .output);
+    }
+
+    /** List all local tag names in the repository. **/
+    string[] listLocalTags() const {
+        auto output = gitCmd
+            .withArgs("tag", "--list")
+            .execute
+            .ensureOk(true)
+            .output;
+        return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
+    }
+
     /** Set annotation tag on current commit in repo
       **/
     void setTag(in string tag_name, in string message = null)  const
@@ -286,6 +459,62 @@ class GitRepository {
                 "-m", message.length > 0 ? message : tag_name)
             .execute()
             .ensureOk(true);
+    }
+
+    /** Push a specific tag to a remote (default: origin). **/
+    void pushTag(in string tag_name, in string remote = "origin") const
+    in (tag_name.length > 0) {
+        gitCmd
+            .withArgs("push", remote, tag_name)
+            .execute
+            .ensureOk("Cannot push tag %s to %s".format(tag_name, remote), true);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        // Create a bare "remote" repo and a local clone
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto local_path = root.join("local");
+        auto repo = GitRepository.initialize(local_path);
+        local_path.join("file.txt").writeFile("hello");
+        repo.add(local_path.join("file.txt"));
+        repo.commit("Init");
+
+        // Point origin at the bare remote and push the initial branch
+        repo.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+
+        // No tags yet
+        repo.listLocalTags().should == cast(string[])[];
+
+        // Create two annotated tags
+        repo.setTag("17.0.1.0.0");
+        repo.setTag("17.0.1.0.1");
+        repo.listLocalTags().length.should == 2;
+        repo.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
+        repo.listLocalTags().canFind("17.0.1.0.1").shouldBeTrue;
+
+        // pushTag sends a tag to the remote
+        repo.pushTag("17.0.1.0.0");
+
+        // Verify the remote sees the tag via gitListRemoteTags
+        import odood.git: gitListRemoteTags;
+        auto remote_tags = gitListRemoteTags(remote_path.toString);
+        remote_tags.canFind("17.0.1.0.0").shouldBeTrue;
+        remote_tags.canFind("17.0.1.0.1").shouldBeFalse;  // not pushed yet
+
+        // Push the second tag and verify
+        repo.pushTag("17.0.1.0.1");
+        auto remote_tags2 = gitListRemoteTags(remote_path.toString);
+        remote_tags2.canFind("17.0.1.0.1").shouldBeTrue;
+        remote_tags2.length.should == 2;
     }
 
     /** Pull repository
@@ -432,6 +661,60 @@ class GitRepository {
         git_repo.hasChanges.shouldBeTrue();
     }
 
+    /** Walk up the directory tree from `path`, looking for a file named `name`
+      * at each level. Checks existence in `rev` (defaults to worktree).
+      *
+      * Returns: path relative to repo root of the first match, or null.
+      **/
+    Nullable!Path searchFileUp(in Path path, in string name, in string rev = GIT_REF_WORKTREE) const {
+        auto current = _makeRelPath(path);
+        while (current.toString != ".") {
+            auto candidate = current.join(name);
+            if (isFileExists(candidate, rev))
+                return candidate.nullable;
+            current = current.parent(false);
+        }
+        return Nullable!Path.init;
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto git_root = root.join("test-repo");
+        auto repo = GitRepository.initialize(git_root);
+
+        // Set up: addon_a/models/sale.py, addon_a/__manifest__.py
+        git_root.join("addon_a").mkdir(false);
+        git_root.join("addon_a", "models").mkdir(false);
+        git_root.join("addon_a", "__manifest__.py").writeFile("{}");
+        git_root.join("addon_a", "models", "sale.py").writeFile("# model");
+        repo.add(git_root.join("addon_a"));
+        repo.commit("Init");
+        auto rev_v1 = repo.getCurrCommit();
+
+        // Worktree: finds manifest walking up from models/
+        auto found = repo.searchFileUp(Path("addon_a/models"), "__manifest__.py");
+        found.isNull.shouldBeFalse;
+        found.get.should == Path("addon_a/__manifest__.py");
+
+        // Worktree: not found when starting above the addon
+        repo.searchFileUp(Path("addon_a"), "nonexistent.txt").isNull.shouldBeTrue;
+
+        // Historical ref: finds manifest in rev_v1
+        auto found_rev = repo.searchFileUp(Path("addon_a/models"), "__manifest__.py", rev_v1);
+        found_rev.isNull.shouldBeFalse;
+        found_rev.get.should == Path("addon_a/__manifest__.py");
+
+        // Historical ref: file removed in worktree but still found in old ref
+        git_root.join("addon_a", "__manifest__.py").remove();
+        repo.searchFileUp(Path("addon_a/models"), "__manifest__.py").isNull.shouldBeTrue;
+        repo.searchFileUp(Path("addon_a/models"), "__manifest__.py", rev_v1).isNull.shouldBeFalse;
+    }
+
     /** Check if file specified by path exists in rev
       **/
     auto isFileExists(in Path path, in string rev) const {
@@ -538,8 +821,8 @@ class GitRepository {
         git_repo.getContent(Path("test_file.txt")).should == "Hello world!\nSome extra text.\n";
     }
 
-    /// Push changes optionally to specific branch
-    void push(in string branch_name=null) const {
+    /// Push current branch to a remote, optionally to a different branch name.
+    void push(in string branch_name=null, in string remote="origin") const {
         auto current_branch = getCurrBranch();
         enforce!OdoodException(
             !current_branch.isNull,
@@ -548,13 +831,13 @@ class GitRepository {
         if (branch_name)
             gitCmd
                 .withArgs(
-                    "push", "origin", "%s:%s".format(current_branch.get, branch_name))
+                    "push", remote, "%s:%s".format(current_branch.get, branch_name))
                 .execute
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
         else
             gitCmd
                 .withArgs(
-                    "push", "origin", current_branch.get)
+                    "push", remote, current_branch.get)
                 .execute
                 .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
     }
@@ -585,7 +868,7 @@ class GitRepository {
          *
          * Sample: ## main...origin/main [ahead 1, behind 2]
          */
-        auto headerRegex = ctRegex!(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
+        auto headerRegex = regex(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
 
         if (auto m = lines[0].matchFirst(headerRegex)) {
             status.localBranch = m["local"];

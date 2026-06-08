@@ -80,27 +80,8 @@ odood test -t --migration --dir .
 
 ### Translation Management
 
-After adding new translatable strings, regenerate translation files with:
-
-```bash
-odood tr regenerate \
-    --pot-remove-dates \
-    --pot \
-    --pot-update \
-    --missing-only \
-    -l uk_UA \
-    --addon-dir .
-```
-
-Key flags:
-- `--pot` — regenerate `.pot` template files.
-- `--pot-update` — update existing `.po` files from the regenerated `.pot`.
-- `--missing-only` — only add new strings; do not overwrite existing translations.
-- `--pot-remove-dates` — strip timestamps from `.pot` headers to reduce noise in git diffs.
-- `-l <lang>` — language code (e.g. `uk_UA`, `de_DE`). Repeat for multiple languages.
-- `--addon-dir <path>` — process all installable addons under the given path.
-
-Commit the resulting `.pot` and `.po` changes alongside your code changes.
+See the dedicated [Translation Management](./translations.md) page for the full workflow,
+flag reference, and guidance on using AI assistants for translations.
 
 ### Module Versioning
 
@@ -163,6 +144,28 @@ The file content is free-form markdown — describe what changed from an end-use
 
 Odood reads these files when generating the assembly-level changelog.
 When you run `odood assembly sync --changelog`, it aggregates per-addon changelogs across all updated modules into a single `CHANGELOG.md` (and `CHANGELOG.latest.md`) at the assembly root — useful for release notes and communicating changes to end users.
+
+### Releasing a Repository
+
+Once your changes are committed and versions are bumped, cut a release with
+`odood repo release`. The full release strategy — version conventions, the
+standard release flow, the hotfix flow, and CI setup — is documented on a
+dedicated page: **[Release Management](./release-management.md)**.
+
+In short:
+
+```bash
+# Auto-detect the bump level from changed addons, verify versions,
+# generate the changelog, tag, and push:
+odood repo release --changelog --push
+
+# First release of a never-tagged repository:
+odood repo release --initial
+```
+
+To patch an already-released version while the stable branch has moved on, use
+the hotfix flow (`odood repo hotfix`) — see
+[Release Management → Hotfix flow](./release-management.md#hotfix-flow).
 
 ---
 

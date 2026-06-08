@@ -1,15 +1,16 @@
 module odood.cli.commands.venv;
 
-private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
+private import std.typecons: Nullable;
+
 private import thepath: Path;
+private import darkcommand;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project, OdooInstallType;
 private import odood.lib.install;
-private import odood.lib.venv: PyInstallType, PyRequirements;
-private import odood.lib.odoo.python: guessVenvOptions;
+private import odood.lib.python.venv: PyInstallType, PyRequirements;
+private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
-
 
 
 class CommandVenvInstallDevTools: OdoodCommand {
@@ -18,7 +19,7 @@ class CommandVenvInstallDevTools: OdoodCommand {
         super("install-dev-tools", "Install Dev Tools");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         project.venv.installPyPackages(
@@ -33,31 +34,33 @@ class CommandVenvInstallDevTools: OdoodCommand {
 
         project.venv.installJSPackages("eslint");
         project.venv.installPyPackages("git+https://github.com/OCA/odoo-module-migrator@master");
+        return 0;
     }
-
 }
 
 
 class CommandVenvInstallPyPackages: OdoodCommand {
+    Nullable!Path requirements;
+    string[] package_;
 
     this() {
         super("install-py-packages", "Install Python packages");
-        this.add(new Option(
-            "r", "requirements", "Path to requirements.txt to install python packages from"));
-        this.add(new Argument(
-            "package", "Python package specification to install").repeating.optional);
-
+        this.addOption!(requirements)("r", "requirements",
+            "Path to requirements.txt to install python packages from")
+            .acceptsFiles();
+        this.addArgument!(package_)("package", "Python package specification to install.")
+            .defaultValue([]);
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        if (args.option("requirements"))
-            project.venv.installPyRequirements(Path(args.option("requirements")));
-        if (args.args("package").length > 0)
-            project.venv.installPyPackages(args.args("package"));
+        if (!requirements.isNull)
+            project.venv.installPyRequirements(requirements.get);
+        if (package_.length > 0)
+            project.venv.installPyPackages(package_);
+        return 0;
     }
-
 }
 
 
@@ -67,13 +70,13 @@ class CommandVenvPIP: OdoodCommand {
         super("pip", "Run pip for this environment. All arguments after '--' will be forwarded directly to pip.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         Project.loadProject.venv.runner
             .withArgs("pip")
-            .withArgs(args.argsRest)
+            .withArgs(argsRest)
             .execv;
+        return 0;
     }
-
 }
 
 
@@ -83,13 +86,13 @@ class CommandVenvNPM: OdoodCommand {
         super("npm", "Run npm for this environment. All arguments after '--' will be forwarded directly to npm.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         Project.loadProject.venv.runner
             .withArgs("npm")
-            .withArgs(args.argsRest)
+            .withArgs(argsRest)
             .execv;
+        return 0;
     }
-
 }
 
 
@@ -99,17 +102,17 @@ class CommandVenvIPython: OdoodCommand {
         super("ipython", "Run ipython in this environment. All arguments after '--' will be forwarded directly to IPython.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        // If ipython not installed, install it automatically
         if (!project.venv.path.join("bin", "ipython").exists)
             project.venv.installPyPackages("ipython");
 
         project.venv.runner
             .withArgs("ipython")
-            .withArgs(args.argsRest)
+            .withArgs(argsRest)
             .execv;
+        return 0;
     }
 }
 
@@ -120,14 +123,14 @@ class CommandVenvPython: OdoodCommand {
         super("python", "Run python for this environment. All arguments after '--' will be forwarded directly to python.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         project.venv.runner
             .withArgs("python")
-            .withArgs(args.argsRest)
+            .withArgs(argsRest)
             .execv;
+        return 0;
     }
-
 }
 
 
@@ -137,16 +140,16 @@ class CommandVenvLOdoo: OdoodCommand {
         super("lodoo", "Run lodoo in this environment. All arguments after '--' will be forwarded directly to lodoo.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        // If lodoo not installed, install it automatically
         if (!project.venv.path.join("bin", "lodoo").exists)
             project.venv.installPyPackages("lodoo");
 
         project.lodoo.runner
-            .withArgs(args.argsRest)
+            .withArgs(argsRest)
             .execv;
+        return 0;
     }
 }
 
@@ -161,34 +164,34 @@ class CommandVenvRun: OdoodCommand {
         super("run", description);
     }
 
-    public override void execute(ProgramArgs args) {
-        Project.loadProject.venv.runner.withArgs(args.argsRest).execv;
+    override int execute() {
+        Project.loadProject.venv.runner.withArgs(argsRest).execv;
+        return 0;
     }
-
 }
 
+
 class CommandVenvReinstall: OdoodCommand {
+    Nullable!string pyVersion;
+    Nullable!string nodeVersion;
 
     this() {
         super("reinstall", "Reinstall virtualenv.");
-        this.add(new Option(
-            null, "py-version", "Install specific python version."));
-        this.add(new Option(
-            null, "node-version", "Install specific node version."));
+        this.addOption!(pyVersion)("", "py-version", "Install specific python version.");
+        this.addOption!(nodeVersion)("", "node-version", "Install specific node version.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         auto venv_options = project.odoo.serie.guessVenvOptions;
 
-        if (args.option("py-version")) {
-            venv_options.py_version = args.option("py-version");
+        if (!pyVersion.isNull) {
+            venv_options.py_version = pyVersion.get;
             venv_options.install_type = PyInstallType.Build;
         }
-        if (args.options("node-version")) {
-            venv_options.node_version = args.option("node-version");
-        }
+        if (!nodeVersion.isNull)
+            venv_options.node_version = nodeVersion.get;
 
         if (project.venv.path.exists)
             project.venv.path.remove();
@@ -202,20 +205,20 @@ class CommandVenvReinstall: OdoodCommand {
                 reqs.addRequirementsFile(addon.path.join("requirements.txt"));
         if (!reqs.empty)
             project.venv.installBatchPyRequirements(reqs);
+        return 0;
     }
-
 }
 
 
 class CommandVenvUpdateOdoo: OdoodCommand {
+    bool backup;
 
     this() {
         super("update-odoo", "Update Odoo itself.");
-        this.add(new Flag(
-            "b", "backup", "Backup Odoo before update."));
+        this.addFlag!(backup)("b", "backup", "Backup Odoo before update.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
@@ -223,36 +226,37 @@ class CommandVenvUpdateOdoo: OdoodCommand {
             project.server.stop();
         }
 
-        project.updateOdoo(args.flag("backup"));
+        project.updateOdoo(backup);
 
         if (start_server)
             project.server.start;
+        return 0;
     }
-
 }
 
 
 class CommandVenvReinstallOdoo: OdoodCommand {
+    bool backup;
+    bool noBackup;
+    Nullable!string venvPyVersion;
+    Nullable!string venvNodeVersion;
+    string installType = "archive";
+    Nullable!string version_;
 
     this() {
         super("reinstall-odoo", "Reinstall Odoo to different Odoo version.");
-        this.add(new Flag(
-            "b", "backup", "Backup Odoo before update."));
-        this.add(new Flag(
-            null, "no-backup", "Do not take backup of Odoo and venv."));
-        this.add(new Option(
-            null, "venv-py-version", "Install specific python version."));
-        this.add(new Option(
-            null, "venv-node-version", "Install specific node version."));
-        this.add(new Option(
-            null, "install-type", "Installation type. Accept values: git, archive. Default: archive.")
-                .defaultValue("archive")
-                .acceptsValues(["git", "archive"]));
-        this.add(new Option(
-            "v", "version", "Odoo version to install."));
+        this.addFlag!(backup)("b", "backup", "Backup Odoo before update.");
+        this.addFlag!(noBackup)("", "no-backup", "Do not take backup of Odoo and venv.");
+        this.addOption!(venvPyVersion)("", "venv-py-version", "Install specific python version.");
+        this.addOption!(venvNodeVersion)("", "venv-node-version", "Install specific node version.");
+        this.addOption!(installType)("", "install-type",
+            "Installation type. Accept values: git, archive. Default: archive.")
+            .defaultValue("archive")
+            .acceptsValues(["git", "archive"]);
+        this.addOption!(version_)("v", "version", "Odoo version to install.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
@@ -261,7 +265,7 @@ class CommandVenvReinstallOdoo: OdoodCommand {
         }
 
         OdooInstallType install_type = OdooInstallType.Archive;
-        switch(args.option("install-type")) {
+        switch(installType) {
             case "git":
                 install_type = OdooInstallType.Git;
                 break;
@@ -273,30 +277,29 @@ class CommandVenvReinstallOdoo: OdoodCommand {
                 break;
         }
 
-        auto reinstall_version = args.option("version") ?
-            OdooSerie(args.option("version")) : project.odoo.serie;
+        auto reinstall_version = version_.isNull ?
+            project.odoo.serie : OdooSerie(version_.get);
 
         auto venv_options = reinstall_version.guessVenvOptions;
 
-        if (args.option("venv-py-version")) {
-            venv_options.py_version = args.option("venv-py-version");
+        if (!venvPyVersion.isNull) {
+            venv_options.py_version = venvPyVersion.get;
             venv_options.install_type = PyInstallType.Build;
         }
-        if (args.options("venv-node-version")) {
-            venv_options.node_version = args.option("venv-node-version");
-        }
+        if (!venvNodeVersion.isNull)
+            venv_options.node_version = venvNodeVersion.get;
 
         project.reinstallOdoo(
             reinstall_version,
             install_type,
             venv_options,
-            !args.flag("no-backup") || args.flag("backup"),
+            !noBackup || backup,
         );
 
         if (start_server)
             project.server.start;
+        return 0;
     }
-
 }
 
 
@@ -316,5 +319,3 @@ class CommandVenv: OdoodCommand {
         this.add(new CommandVenvRun());
     }
 }
-
-

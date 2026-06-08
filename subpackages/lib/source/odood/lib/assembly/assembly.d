@@ -8,39 +8,45 @@ private import std.format: format;
 private import std.logger: infof, errorf, warningf, tracef;
 private import std.typecons: Nullable, nullable, tuple;
 private import std.array: empty, join, array, split, assocArray;
-private import std.algorithm: map, canFind, uniq, startsWith;
+private import std.algorithm: map, filter, canFind, uniq, startsWith, maxElement;
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
 private import std.string: strip;
 private import std.process: environment;
-private import std.datetime.date: DateTime;
-private import std.datetime.systime: Clock;
 private import std.parallelism: taskPool;
 
 private import dyaml;
 private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 private import thepath: Path, createTempPath;
 private import darktemple: renderFile;
-private import versioned: Version;
+private import versioned: Version, VersionPart;
 
 private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.project: Project;
-private import odood.git: GitURL, gitClone, GitRepository, isGitRepo;
+private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo, gitListRemoteTags;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.utils: download;
-private import odood.lib.venv: PyRequirements;
+private import odood.lib.python.venv: PyRequirements;
 private import odood.lib.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
-private import odood.lib.addons.repository: AddonRepository;
-private import odood.lib.assembly.changes: AssemblyChanges;
+private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
+private import odood.lib.addons.changes: AddonRepositoryChanges;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
+
+/// Result of upgrading a single assembly source ref
+struct SourceUpgradeResult {
+    string source_name;
+    string old_ref;
+    string new_ref;
+    bool changed;
+}
 
 // Path to version file in assembly repo
 package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
@@ -176,9 +182,7 @@ class Assembly {
         assembly.path.join(".gitignore").writeFile(
             renderFile!("templates/assembly/gitignore.tmpl", assembly));
         assembly.initializeRepo();
-        assembly.repo.switchBranchTo(
-            branch_name: assembly.serie.toString,
-            create: true);
+        assembly.repo.createBranch(assembly.serie.toString);
         assembly.repo.add(assembly.path.join(".gitignore"));
         assembly.repo.add(assembly.spec_path);
         assembly.repo.commit("Assembly initialized");
@@ -271,10 +275,17 @@ class Assembly {
             if (repo_path.exists) {
                 auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
                 if (source.git_ref) {
-                    repo.fetchOrigin(source.git_ref);
+                    immutable is_tag = OdooStdVersion(source.git_ref).isStandard;
+                    if (is_tag)
+                        repo.fetchTag(source.git_ref);
+                    else
+                        repo.fetchOrigin(source.git_ref);
+
                     if (source.git_commit) {
                         repo.switchBranchTo(source.git_commit);
                         repo.ensureAtCommit(source.git_commit);
+                    } else if (is_tag) {
+                        repo.switchBranchTo(source.git_ref);
                     } else {
                         repo.switchBranchTo("origin/%s".format(source.git_ref));
                     }
@@ -282,6 +293,7 @@ class Assembly {
                     repo.pull;
                 }
             } else {
+                // git clone -b accepts both branch names and tag names.
                 auto repo = gitClone(
                     repo: source.git_url,
                     dest: repo_path,
@@ -452,80 +464,18 @@ class Assembly {
         auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
 
         if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev))
-            // If assembly uses version, then we have to update assembly version from serie branch,
-            // and it will be automatically updated after change analysis completed.
-            assembly_version = OdooStdVersion(repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
+            assembly_version = OdooStdVersion(
+                repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
                 .withSerie(project.odoo.serie);
 
-        AssemblyChanges changes = new AssemblyChanges(assembly_version);
-
-        /** Get name of addon, based on path
-          *
-          **/
-        Nullable!string getAddonName(in Path path) {
-            Path ipath = path;
-            if (ipath.baseName == "__manifest__")
-                return ipath.parent.baseName.nullable;
-
-            while(ipath.parent(false).toString != ".") {
-                ipath = ipath.parent(false);
-
-                if (repo.isFileExists(ipath.join("__manifest__.py")))
-                    return ipath.baseName.nullable;
-
-                if (repo.isFileExists(ipath.join("__manifest__.py"), rev: base_rev))
-                    return ipath.baseName.nullable;
-            }
-            return Nullable!string.init;
-        }
-
-        // Here we expect, that all addons are placed in `dist` folder inside assembly,
-        // thus, we expect following file structure `dist/my_addon/__manifest__.py` to detect module name.
-        string[] addon_names;
-        foreach(addon_path; repo.getChangedFiles(start_rev: base_rev)) {
-            auto addon_name = getAddonName(addon_path);
-            if (addon_name.isNull)
-                // Skip things that are not related to addons.
-                continue;
-
-            if (!addon_names.canFind(addon_name.get))
-                addon_names ~= addon_name.get;
-        }
-
-        // Iterate over changed addons, and determine changes for changelog
-        foreach(addon_name; addon_names) {
-            auto addon_path = dist_dir.join(addon_name);
-            auto manifest_path = addon_path.join("__manifest__.py");
-            if (repo.isFileExists(manifest_path, rev: base_rev)
-                   && !repo.isFileExists(manifest_path))
-                // When addon was removed, then we track only its name,
-                // because there is no addon in directory.
-                changes.logAddonRemoved(addon_name);
-            else if (!repo.isFileExists(manifest_path, rev: base_rev)
-                   && repo.isFileExists(manifest_path)) {
-                // Addon exists in current version, thus we can work with it as with normal addon
-                auto addon = new OdooAddon(addon_path);
-                auto version_new = addon.manifest.module_version;
-                changes.logAddonAdded(
-                    addon_name,
-                    version_new,
-                );
-            } else {
-                auto addon = new OdooAddon(addon_path);
-                auto version_old = repo.getAddonVersion(addon, rev: base_rev).get;
-                auto version_new = addon.manifest.module_version;
-                auto changelog = addon.readChangelogEntries(
-                    start_ver: cast(Nullable!Version)version_old.semver.nullable,
-                );
-                changes.logAddonUpdated(
-                    addon_name,
-                    version_old,
-                    version_new,
-                    changelog,
-                );
-            }
-        }
-        changes.postProcess();
+        auto changes = repo.collectChanges(
+            base_rev,
+            GIT_REF_WORKTREE,
+            ignore_translations: false,
+            initial_version: assembly_version);
+        // Assemblies have no reserved hotfix segment, so the bump floors to
+        // PATCH (releases floor to MINOR to keep PATCH free for hotfixes).
+        changes.postProcess(VersionPart.PATCH);
         return changes;
     }
 
@@ -538,32 +488,10 @@ class Assembly {
         infof("Assembly: Generating changelog.");
 
         auto changes = getChanges(base_rev: base_rev);
-        auto release_date = cast(DateTime)Clock.currTime();
-        auto new_changes_description = renderFile!("templates/assembly/changelog.md.tmpl", changes, release_date);
+        repo.generateChangelog(PrepareReleaseResult(changes.repo_version, changes, base_rev));
 
-        // Write latest changelog
-        changelog_latest_path.writeFile(new_changes_description);
-        repo.add(changelog_latest_path);
-
-        // Update main changelog. At first, we have to switch CHANGELOG.md
-        // to original version from series branch
-        if (repo.isFileExists(changelog_path, base_rev))
-            repo.checkoutFile(base_rev, true, changelog_path);
-        else
-            repo.remove(changelog_path, force: true, ignore_unmatch: true);
-
-        if (changelog_path.exists) {
-            string changelog_content = changelog_path
-                .readFileText
-                .replaceFirst(regex("# Changelog\n"), new_changes_description);
-            changelog_path.writeFile(changelog_content);
-        } else
-            changelog_path.writeFile(new_changes_description);
-
-        repo.add(changelog_path);
-
-        // Update assembly version
-        version_path.writeFile(changes.assembly_version.toString ~ "\n");
+        // Assembly-specific: persist the version number in VERSION file.
+        version_path.writeFile(changes.repo_version.toString ~ "\n");
         repo.add(version_path);
 
         infof("Assembly: Changelog generated");
@@ -792,6 +720,67 @@ class Assembly {
     /// Add addon to assembly
     void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+    }
+
+    /** For each source, query the remote for tags matching the project's Odoo serie,
+      * pick the highest OdooStdVersion tag, and update the source's git_ref in place.
+      *
+      * The caller must call save() after this to persist spec changes.
+      * Returns one SourceUpgradeResult per source.
+      **/
+    SourceUpgradeResult[] upgradeSourceRefs() {
+        immutable serie = _project.odoo.serie;
+        SourceUpgradeResult[] results;
+
+        foreach(ref source; _spec.sources) {
+            immutable src_name = source.name.empty ? source.git_url.toString : source.name;
+            immutable old_ref = source.git_ref;
+
+            if (!OdooStdVersion(old_ref).isStandard) {
+                tracef("Assembly: Skipping %s — ref '%s' is not a version tag.", src_name, old_ref);
+                continue;
+            }
+
+            infof("Assembly: Checking %s for new version tags ...", src_name);
+            auto versions = gitListRemoteTags(
+                    source.git_url.toString,
+                    getSourceExtraEnv(source))
+                .map!(t => OdooStdVersion(t))
+                .filter!(v => v.isStandard && v.serie == serie)
+                .array;
+
+            if (versions.empty) {
+                infof("Assembly: No version tags found for %s.", src_name);
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: old_ref,
+                    changed: false);
+                continue;
+            }
+
+            immutable newest = versions.maxElement;
+            immutable new_ref = newest.toString;
+
+            if (new_ref == old_ref) {
+                infof("Assembly: %s is already at latest (%s).", src_name, new_ref);
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: new_ref,
+                    changed: false);
+            } else {
+                infof("Assembly: Upgrading %s: %s → %s.", src_name, old_ref.empty ? "(none)" : old_ref, new_ref);
+                source.git_ref = new_ref;
+                source.git_commit = null;
+                results ~= SourceUpgradeResult(
+                    source_name: src_name,
+                    old_ref: old_ref,
+                    new_ref: new_ref,
+                    changed: true);
+            }
+        }
+        return results;
     }
 
 }

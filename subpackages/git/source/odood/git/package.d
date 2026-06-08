@@ -3,7 +3,8 @@ module odood.git;
 private import std.logger: infof;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.string: strip;
+private import std.string: strip, splitLines, startsWith, indexOf;
+private import std.array: appender;
 
 private import thepath: Path;
 
@@ -90,6 +91,68 @@ unittest {
     git_root.join("some-test-dir").isGitRepo.shouldBeTrue();
     git_root.join("some-test-dir", "some-subdir").isGitRepo.shouldBeTrue();
 
+}
+
+
+/** List all tag names available on a remote without cloning it.
+  *
+  * Wraps `git ls-remote --refs --tags <url>`.
+  * Returns tag names only (the `refs/tags/` prefix is stripped).
+  * Peeled dereference lines (`tag^{}`) are excluded by `--refs`.
+  **/
+string[] gitListRemoteTags(in string url, in string[string] env = null) {
+    auto proc = Process("git")
+        .withArgs("ls-remote", "--refs", "--tags", url);
+    if (env !is null && env.length > 0)
+        proc = proc.withEnv(env);
+    return parseLsRemoteTags(proc.execute.ensureOk(true).output);
+}
+
+/** Parse `git ls-remote --refs --tags` output into bare tag names.
+  *
+  * Each line is "<sha>\trefs/tags/<tagname>"; the `refs/tags/` prefix is
+  * stripped. Shared by `gitListRemoteTags` and `GitRepository.listRemoteTags`.
+  **/
+package(odood) string[] parseLsRemoteTags(in string output) {
+    auto tags = appender!(string[]);
+    foreach(line; output.splitLines) {
+        auto tab = line.indexOf('\t');
+        if (tab < 0) continue;
+        auto refname = line[tab + 1 .. $];
+        enum prefix = "refs/tags/";
+        if (refname.startsWith(prefix))
+            tags ~= refname[prefix.length .. $];
+    }
+    return tags.data;
+}
+
+///
+unittest {
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Create a repo with two tags and verify gitListRemoteTags returns them.
+    auto repo_path = root.join("tagged-repo");
+    auto repo = GitRepository.initialize(repo_path);
+
+    repo_path.join("file.txt").writeFile("hello");
+    repo.add(repo_path.join("file.txt"));
+    repo.commit("initial commit");
+    repo.setTag("16.0.1.0.0", "First release");
+
+    repo_path.join("file.txt").writeFile("world");
+    repo.add(repo_path.join("file.txt"));
+    repo.commit("second commit");
+    repo.setTag("16.0.1.0.1", "Second release");
+
+    import std.algorithm: canFind;
+    auto tags = gitListRemoteTags(repo_path.toString);
+    tags.canFind("16.0.1.0.0").shouldBeTrue;
+    tags.canFind("16.0.1.0.1").shouldBeTrue;
+    tags.length.should == 2;
 }
 
 

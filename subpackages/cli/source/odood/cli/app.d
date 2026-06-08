@@ -2,23 +2,18 @@ module odood.cli.app;
 
 private import std.logger;
 private import std.format: format;
-private import std.array: empty;
 
-private import commandr: Program, ProgramArgs, Option, Flag, parse;
+private import darkcommand;
 private import colored;
 
 private import odood.lib: _version;
 private import odood.exception: OdoodException;
 private import odood.cli.core.logger: OdoodLogger;
-private import odood.cli.core: OdoodProgram, OdoodCommand;
 private import odood.cli.commands.init: CommandInit;
-private import odood.cli.commands.server:
-    CommandServer, CommandServerStart, CommandServerStop, CommandServerRestart,
-    CommandServerBrowse, CommandServerLogView;
-private import odood.cli.commands.database: CommandDatabase, CommandDatabaseList;
+private import odood.cli.commands.server: CommandServer;
+private import odood.cli.commands.database: CommandDatabase;
 private import odood.cli.commands.status: CommandStatus;
-private import odood.cli.commands.addons:
-    CommandAddons, CommandAddonsList, CommandAddonsUpdateList;
+private import odood.cli.commands.addons: CommandAddons;
 private import odood.cli.commands.repository: CommandRepository;
 private import odood.cli.commands.config: CommandConfig;
 private import odood.cli.commands.test: CommandTest;
@@ -32,83 +27,72 @@ private import odood.cli.commands.precommit: CommandPreCommit;
 private import odood.cli.commands.translations: CommandTranslations;
 private import odood.cli.commands.assembly: CommandAssembly;
 
-// Deploy is available only on Linux
 version(linux) private import odood.cli.commands.deploy: CommandDeploy;
 
 
 /** Class that represents main OdoodProgram
   **/
-class App: OdoodProgram {
+class App: Program {
 
-    private bool enable_debug = false;
+    int verbose;
+    int quiet;
+    bool enable_debug;
+    version(OdoodInDocker) bool configFromEnv;
 
     this() {
         super("odood", _version);
         this.summary("Easily manage odoo installations.");
-        this.topicGroup("Main");
-        this.add(new CommandInit());
-        version(linux) this.add(new CommandDeploy());
-        this.add(new CommandServer());
-        this.add(new CommandStatus());
-        this.add(new CommandDatabase());
-        this.add(new CommandAddons());
-        this.add(new CommandTest());
-        this.add(new CommandRepository());
-        this.add(new CommandVenv());
-        this.add(new CommandOdoo());
-        this.add(new CommandAssembly());
 
-        // Dev tools
-        this.topicGroup("Dev Tools");
-        this.add(new CommandScript());
-        this.add(new CommandPSQL());
-        this.add(new CommandPreCommit());
-        this.add(new CommandTranslations());
-
-        // System
-        this.topicGroup("System");
-        this.add(new CommandConfig());
-        this.add(new CommandDiscover());
-        this.add(new CommandInfo());
-
-        // shortcuts
-        this.topicGroup("Shortcuts");
-        this.add(new CommandServerStart());
-        this.add(new CommandServerStop());
-        this.add(new CommandServerRestart());
-        this.add(new CommandServerBrowse());
-        this.add(new CommandServerLogView());
-        this.add(new CommandDatabaseList("lsd"));
-        this.add(new CommandAddonsList("lsa"));
-        this.add(new CommandAddonsUpdateList("ual"));
-        this.add(new CommandTranslations("tr"));
-
-        // Options
-        this.add(new Flag(
-            "v", "verbose", "Enable verbose output").repeating());
-        this.add(new Flag(
-            "q", "quiet", "Hide unnecessary output").repeating());
-        this.add(new Flag(
-            "d", "debug", "Show additional debug information."));
+        this.addFlag!(verbose)("v", "verbose", "Enable verbose output");
+        this.addFlag!(quiet)("q", "quiet", "Hide unnecessary output");
+        this.addFlag!(enable_debug)("d", "debug", "Show additional debug information.");
 
         version(OdoodInDocker)
-            /* Optionally, try to apply Odood configuration from environment variables.
-             * This is useful, when running inside docker container.
-             */
-            this.add(new Flag(
-                null, "config-from-env", "Apply odoo configuration from envrionment"));
+            this.addFlag!(configFromEnv)(
+                "", "config-from-env",
+                "Apply odoo configuration from environment");
+
+        {
+            auto g = this.topicGroup("Main");
+            g.add(new CommandInit());
+            version(linux) g.add(new CommandDeploy());
+            g.add(new CommandServer());
+            g.add(new CommandStatus());
+            g.add(new CommandDatabase());
+            g.add(new CommandAddons());
+            g.add(new CommandTest());
+            g.add(new CommandRepository());
+            g.add(new CommandVenv());
+            g.add(new CommandOdoo());
+            g.add(new CommandAssembly());
+        }
+
+        {
+            auto g = this.topicGroup("Dev Tools");
+            g.add(new CommandScript());
+            g.add(new CommandPSQL());
+            g.add(new CommandPreCommit());
+            g.add(new CommandTranslations());
+        }
+
+        {
+            auto g = this.topicGroup("System");
+            g.add(new CommandConfig());
+            g.add(new CommandDiscover());
+            g.add(new CommandInfo());
+        }
+
+        this.addShortcut("start",   ["server", "start"],         "Run the server in background.");
+        this.addShortcut("stop",    ["server", "stop"],          "Stop the server.");
+        this.addShortcut("restart", ["server", "restart"],       "Restart the server.");
+        this.addShortcut("browse",  ["server", "browse"],        "Open odoo in browser.");
+        this.addShortcut("log",     ["server", "log"],           "View server logs.");
+        this.addShortcut("lsd",     ["db",     "list"],          "Show databases.");
+        this.addShortcut("lsa",     ["addons", "list"],          "List addons.");
+        this.addShortcut("ual",     ["addons", "update-list"],   "Update list of addons.");
+        this.addShortcut("tr",      ["translations"],             "Manage translations.");
     }
 
-    /** Setup logging for provided verbosity
-      *
-      * Verbosity levels:
-      *
-      * - all (3)
-      * - trace (2)
-      * - info (1)
-      * - warning (default)
-      *
-      **/
     void setUpLogging(in int verbosity, in int quietness) {
         auto log_verbosity = verbosity - quietness;
 
@@ -127,8 +111,6 @@ class App: OdoodProgram {
         std.logger.sharedLog = cast(shared) new OdoodLogger(log_level);
     }
 
-    /** Apply Odoo configuration based on docker environment
-      **/
     version(OdoodInDocker) void applyOdooConfFromEnv() {
         import odood.lib.project: Project;
         auto project = Project.maybeLoadProject;
@@ -141,53 +123,40 @@ class App: OdoodProgram {
             auto config = project.get.server.getConfig;
             foreach(kv; environment.toAA.byKeyValue) {
                 if (!kv.key.toLower.startsWith("odood_opt_"))
-                    // Skip options that not related to Odood
                     continue;
                 string key = kv.key.toLower.chompPrefix("odood_opt_");
                 config["options"].setKey(key, kv.value);
-                // Remove consumed param from environment
                 environment.remove(kv.key);
             }
-            // In case when we running in Docker, we can just rewrite config
             config.save(project.get.odoo.configfile.toString);
             infof("Odoo config updated from environment variables");
         }
     }
 
-    /** So setup actions before running any specific logic
-      **/
-    override void setup(scope ref ProgramArgs args) {
+    override protected void setup() {
         import std.stdio;
-        // Disable buffering of stdout and stderr
-        // TODO: Make it configurable with option
         stdout.setvbuf(1024, _IONBF);
         stderr.setvbuf(1024, _IONBF);
 
-        int verbosity = args.occurencesOf("verbose");
-        int quietness = args.occurencesOf("quiet");
+        setUpLogging(verbose, quiet);
 
-        if (args.flag("debug"))
-            enable_debug = true;
-
-        setUpLogging(verbosity, quietness);
-
-        // When running inside docker, there is option to apply configuration from environment variables.
-        version(OdoodInDocker) if (args.flag("config-from-env")) applyOdooConfFromEnv();
-
-        return super.setup(args);
+        version(OdoodInDocker) if (configFromEnv) applyOdooConfFromEnv();
     }
 
-    // Overridden to add additional error handling
-    override int run(ref string[] args) {
-        try {
-            return super.run(args);
-        } catch (Exception e) {
-            // TODO: Use custom colodred formatting for errors
-            if (enable_debug)
-                error("Exception catched:\n%s".format(e));
-            else
-                error("%s".format(e.msg));
+    override protected int onError(Exception e) {
+        import std.stdio: stderr;
+
+        if (enable_debug) {
+            error("Exception caught:\n%s".format(e));
             return 1;
         }
+        if (cast(DarkCommandException) e) {
+            auto code = super.onError(e);
+            if (cast(UnknownCommandException) e)
+                stderr.writeln("Run 'odood --help' for a list of available commands.");
+            return code;
+        }
+        error("%s".format(e.msg));
+        return 1;
     }
 }

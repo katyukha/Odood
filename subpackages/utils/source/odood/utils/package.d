@@ -11,7 +11,7 @@ private import std.exception: enforce, basicExceptionCtors;
 private import std.format: format;
 private import std.random: uniform;
 private import std.typecons: Nullable, nullable;
-private import std.regex: ctRegex, matchFirst;
+private import std.string: strip, startsWith, chompPrefix;
 
 private import thepath: Path;
 private import theprocess: Process;
@@ -33,15 +33,13 @@ package(odood) @safe Version parsePythonVersion(in Path interpreter_path) {
         .ensureStatus(
             "Cannot get version of python interpreter '%s'".format(
                 interpreter_path))
-        .output;
+        .output.strip;
 
-    immutable auto re_py_version = ctRegex!(`Python (\d+.\d+.\d+)`);
-    auto re_match = python_version_raw.matchFirst(re_py_version);
     enforce!OdoodException(
-        !re_match.empty,
+        python_version_raw.startsWith("Python "),
         "Cannot parse python interpreter (%s) version '%s'".format(
             interpreter_path, python_version_raw));
-    return Version(re_match[1]);
+    return Version(python_version_raw.chompPrefix("Python "));
 }
 
 

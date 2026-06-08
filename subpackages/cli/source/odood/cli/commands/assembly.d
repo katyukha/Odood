@@ -7,56 +7,63 @@ private import std.stdio: writefln, writeln;
 private import std.array: empty, join;
 private import std.format: format;
 private import std.algorithm: map;
+private import std.typecons: Nullable;
 
 private import colored;
-private import commandr: Argument, Option, Flag, ProgramArgs;
+private import darkcommand;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
+private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL;
-private import odood.cli.core: OdoodCommand, OdoodCLIException, OdoodCLIExitException;
+private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
 class CommandAssemblyInit: OdoodCommand {
+    Nullable!string repo;
+
     this() {
         super("init", "Initialize assembly for this project");
-        this.add(new Option(
-            null, "repo", "Url to git repo with assembly to use for this project."));
+        this.addOption!(repo)("", "repo",
+            "Url to git repo with assembly to use for this project.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Assembly already initialized!");
-        if (args.option("repo").empty)
+        if (repo.isNull)
             project.initializeAssembly();
         else {
-            project.initializeAssembly(parseGitURL(args.option("repo")));
+            project.initializeAssembly(parseGitURL(repo.get));
             project.assembly.link();
         }
+        return 0;
     }
 }
 
 
 class CommandAssemblyUse: OdoodCommand {
+    Path path;
+
     this() {
         super("use", "Use (attach) assembly located at specified path. Mostly useful in CI flows.");
-        this.add(new Argument(
-            "path", "Path to already existing assembly."));
+        this.addArgument!(path)("path", "Path to already existing assembly.")
+            .acceptsDirectories();
     }
 
-    public override void execute(ProgramArgs args) {
-        auto path = Path(args.arg("path")).toAbsolute;
+    override int execute() {
+        auto assembly_path = path.toAbsolute;
         auto project = Project.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Project already has configured assembly!");
-        project.useAssembly(path);
+        project.useAssembly(assembly_path);
+        return 0;
     }
 }
 
@@ -66,11 +73,11 @@ class CommandAssemblyStatus: OdoodCommand {
         super("status", "Project assembly status");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
-        if (args.parent.option("assembly-path")) {
-            auto assembly_path = Path(args.parent.option("assembly-path"));
-            project.useAssembly(assembly_path, save_config: false);
+        auto assemblyPath = parent!CommandAssembly.assemblyPath;
+        if (!assemblyPath.isNull) {
+            project.useAssembly(assemblyPath.get, save_config: false);
         }
         if (project.assembly is null)
             writeln("There is no assembly configured for this project!");
@@ -82,23 +89,25 @@ class CommandAssemblyStatus: OdoodCommand {
                 project.assembly.spec.sources.length,
             );
         }
+        return 0;
     }
 }
 
-// Base class for assembly command, that could be used to load project
-// And optionally handle --assembly-path option in parent command
+
+// Base class for assembly commands that need to load project with optional
+// --assembly-path from the parent CommandAssembly.
 class AssemblyCommandBase: OdoodCommand {
 
     this(T...)(auto ref T args) {
         super(args);
     }
 
-    auto loadProject(ProgramArgs args) {
+    auto loadProject() {
         auto project = Project.loadProject;
 
-        if (args.parent.option("assembly-path")) {
-            auto assembly_path = Path(args.parent.option("assembly-path"));
-            project.useAssembly(assembly_path, save_config: false);
+        auto assemblyPath = parent!CommandAssembly.assemblyPath;
+        if (!assemblyPath.isNull) {
+            project.useAssembly(assemblyPath.get, save_config: false);
         }
         enforce!OdoodCLIException(
             project.assembly !is null,
@@ -109,52 +118,50 @@ class AssemblyCommandBase: OdoodCommand {
 
 
 class CommandAssemblySync: AssemblyCommandBase {
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool failNothingToCommit;
+    bool push;
+    Nullable!string pushTo;
+    bool changelog;
+    bool dockerfile;
+    bool generateLock;
+    bool withOdooRequirements;
+
     this() {
         super("sync", "Synchronize assembly with updates from sources.");
-        this.add(new Flag(
-            null, "commit", "Commit changes."));
-        this.add(new Option(
-            null, "commit-message", "Commit message"));
-        this.add(new Option(
-            null, "commit-user", "Name of user to use for commit"));
-        this.add(new Option(
-            null, "commit-email", "Email of user to use for commit"));
-        this.add(new Flag(
-            null, "fail-nothing-to-commit", "Fail (set exit code = 1) if there is nothing to commit"));
-        this.add(new Flag(
-            null, "push", "Automatically push changes if needed."));
-        this.add(new Option(
-            null, "push-to", "Name of branch to push changes to."));
-
-        // TODO: Move this options to assembly spec?
-        this.add(new Flag(
-            null, "changelog", "Generate changelog for assembly."));
-        this.add(new Flag(
-            null, "dockerfile", "Generate Dockerfile for assembly."));
-        this.add(new Flag(
-            null, "generate-lock",
-            "Generate requirements.lock.txt after syncing"));
-        this.add(new Flag(
-            null, "with-odoo-requirements",
-            "Include Odoo's requirements.txt when generating lock file"));
+        this.addFlag!(commit)("", "commit", "Commit changes.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit");
+        this.addFlag!(failNothingToCommit)("", "fail-nothing-to-commit",
+            "Fail (set exit code = 1) if there is nothing to commit");
+        this.addFlag!(push)("", "push", "Automatically push changes if needed.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+        this.addFlag!(changelog)("", "changelog", "Generate changelog for assembly.");
+        this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
+        this.addFlag!(generateLock)("", "generate-lock",
+            "Generate requirements.lock.txt after syncing");
+        this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
+            "Include Odoo's requirements.txt when generating lock file");
     }
 
-    public override void execute(ProgramArgs args) {
-        auto project = loadProject(args);
+    override int execute() {
+        auto project = loadProject();
 
-        // Do the sync
         project.assembly.sync(
-            generate_lock: args.flag("generate-lock"),
-            with_odoo_requirements: args.flag("with-odoo-requirements"));
+            generate_lock: generateLock,
+            with_odoo_requirements: withOdooRequirements);
 
-        if (args.flag("changelog"))
+        if (changelog)
             project.assembly.generateChangelog;
 
-        if (args.flag("dockerfile"))
+        if (dockerfile)
             project.assembly.generateDockerfile;
 
-        // Commit changes if requested (usually useful in CI flows)
-        if (args.flag("commit") || args.flag("push") || args.option("push-to")) {
+        if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
                 project.assembly.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
@@ -175,7 +182,6 @@ class CommandAssemblySync: AssemblyCommandBase {
 
             if (
                 project.assembly.repo.getChangedFiles(
-                    // Changes that have to be commited (expected changes with changelog excluded)
                     path_filters: [
                         "dist",
                         "%s".format(ASSEMBLY_VERSION_PATH),
@@ -185,103 +191,111 @@ class CommandAssemblySync: AssemblyCommandBase {
                     ],
                     staged: true)
             ) {
-                infof("Assembly Sync: Commiting assembly changes...");
+                infof("Assembly Sync: Committing assembly changes...");
                 project.assembly.repo.commit(
-                    message: args.option("commit-message") ? args.option("commit-message") : "[SYNC] Assembly synced",
-                    username: args.option("commit-user"),
-                    useremail: args.option("commit-email"));
+                    message: commitMessage.isNull ?
+                        "[SYNC] Assembly synced" : commitMessage.get,
+                    username: commitUser.isNull ? null : commitUser.get,
+                    useremail: commitEmail.isNull ? null : commitEmail.get);
             } else {
                 warningf("Assembly Sync: There is no changes to be committed!");
-                if (args.flag("fail-nothing-to-commit"))
-                    throw new OdoodCLIExitException(1);
+                if (failNothingToCommit)
+                    exitWith(1);
                 else
-                    return;  // Nothing to commit, so no further processing needed
+                    return 0;
             }
         }
 
-        // Push changes back
-        if (args.flag("push") || args.option("push-to"))
-            project.assembly.push(branch_name: args.option("push-to").empty ? null : args.option("push-to"));
+        if (push || !pushTo.isNull)
+            project.assembly.push(
+                branch_name: pushTo.isNull ? null : pushTo.get);
+        return 0;
     }
 }
 
+
 class CommandAssemblyLink: AssemblyCommandBase {
+    bool manifestRequirements;
+    bool individualRequirements;
+    bool withOdooRequirements;
+    bool ual;
+
     this() {
         super("link", "Link addons from this assembly to custom addons");
-        this.add(new Flag(
-            null, "manifest-requirements",
-            "Install python dependencies from manifest's external dependencies"));
-        this.add(new Flag(
-            null, "individual-requirements",
-            "Install Python requirements per-addon instead of batched"));
-        this.add(new Flag(
-            null, "with-odoo-requirements",
-            "Include Odoo's requirements.txt in the batch install"));
-        this.add(new Flag(
-            null, "ual", "Update addons list for all databases"));
+        this.addFlag!(manifestRequirements)("", "manifest-requirements",
+            "Install python dependencies from manifest's external dependencies");
+        this.addFlag!(individualRequirements)("", "individual-requirements",
+            "Install Python requirements per-addon instead of batched");
+        this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install");
+        this.addFlag!(ual)("", "ual", "Update addons list for all databases");
     }
 
-    public override void execute(ProgramArgs args) {
-        auto project = loadProject(args);
+    override int execute() {
+        auto project = loadProject();
         project.assembly.link(
-            manifest_requirements: args.flag("manifest-requirements"),
-            individual_requirements: args.flag("individual-requirements"),
-            with_odoo_requirements: args.flag("with-odoo-requirements"),
+            manifest_requirements: manifestRequirements,
+            individual_requirements: individualRequirements,
+            with_odoo_requirements: withOdooRequirements,
         );
-        if (args.flag("ual"))
+        if (ual)
             foreach(dbname; project.databases.list())
                 project.lodoo.addonsUpdateList(dbname);
+        return 0;
     }
 }
 
 
 class CommandAssemblyPull: AssemblyCommandBase {
+    bool link;
+
     this() {
         super("pull", "Pull updates for this assembly.");
-        this.add(new Flag(
-            null, "link",
-            "Relink addons in this assembly after pull"));
+        this.addFlag!(link)("", "link", "Relink addons in this assembly after pull");
     }
 
-    public override void execute(ProgramArgs args) {
-        auto project = loadProject(args);
+    override int execute() {
+        auto project = loadProject();
         auto assembly = project.assembly;
 
         assembly.pull;
 
-        if (args.flag("link") || args.flag("update-addons"))
+        if (link)
             assembly.link();
+        return 0;
     }
 }
 
 
 class CommandAssemblyUpgrade: AssemblyCommandBase {
+    bool backup;
+    bool skipErrors;
+    bool start;
+
     this() {
         super("upgrade", "Upgrade assembly (optionally do backup, pull changes, update addons).");
-        this.add(new Flag(
-            null, "backup",
-            "Do backup of all databases"));
-        this.add(new Flag(
-            null, "skip-errors", "Continue upgrade next databases if upgrade of db had error."));
-        this.add(new Flag(
-            null, "start", "Start the server if upgrade completed successfully and server was not running before upgrade."));
+        this.addFlag!(backup)("", "backup", "Do backup of all databases");
+        this.addFlag!(skipErrors)("", "skip-errors",
+            "Continue upgrade next databases if upgrade of db had error.");
+        this.addFlag!(start)("", "start",
+            "Start the server if upgrade completed successfully and server was not running before upgrade.");
     }
 
-    public override void execute(ProgramArgs args) {
-        auto project = loadProject(args);
+    override int execute() {
+        auto project = loadProject();
         auto assembly = project.assembly;
 
-        if (args.flag("backup"))
+        if (backup)
             foreach(db; project.databases.list)
                 project.databases.backup(db);
 
         assembly.pull;
         assembly.link();
 
-        auto start_again = args.flag("start");
+        auto start_again = start;
         if (project.server.isRunning) {
             project.server.stop;
-            start_again=true;
+            start_again = true;
         }
 
         bool error = false;
@@ -313,7 +327,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
                 foreach(log_line; error_info.log)
                     printLogRecordSimplified(log_line);
 
-                if (!args.flag("skip-errors"))
+                if (!skipErrors)
                     throw new OdoodCLIException(
                         "Assembly upgrade for database %s failed!!".format(db));
             }
@@ -324,15 +338,80 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 
         if (error)
             throw new OdoodCLIException("Assembly upgrade failed!");
+        return 0;
+    }
+}
+
+
+class CommandAssemblyUpgradeSources: AssemblyCommandBase {
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("upgrade-sources", "Upgrade assembly source refs to the latest version tags on their remotes.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+    }
+
+    override int execute() {
+        auto project = loadProject;
+        auto results = project.assembly.upgradeSourceRefs();
+
+        bool any_changed = false;
+        foreach(result; results) {
+            if (result.changed) {
+                writefln("  %-40s  %s  →  %s",
+                    result.source_name,
+                    result.old_ref.empty ? "(none)" : result.old_ref,
+                    result.new_ref);
+                any_changed = true;
+            } else {
+                writefln("  %-40s  %s (no change)",
+                    result.source_name,
+                    result.new_ref.empty ? "(none)" : result.new_ref);
+            }
+        }
+
+        if (!any_changed) {
+            writeln("All sources are already at the latest version.");
+            return 0;
+        }
+
+        project.assembly.save();
+
+        if (commit || push || !pushTo.isNull) {
+            project.assembly.repo.commit(
+                message: commitMessage.isNull ?
+                    "[UPGRADE] Upgrade assembly source refs" : commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+        }
+
+        if (push || !pushTo.isNull)
+            project.assembly.push(
+                branch_name: pushTo.isNull ? null : pushTo.get);
+
+        return 0;
     }
 }
 
 
 class CommandAssembly: OdoodCommand {
+    Nullable!Path assemblyPath;
+
     this() {
         super("assembly", "Manage assembly of this project");
-        this.add(new Option(
-            "p", "assembly-path", "Path to assembly directory."));
+        this.addOption!(assemblyPath)("p", "assembly-path",
+            "Path to assembly directory.")
+            .acceptsDirectories();
 
         this.add(new CommandAssemblyInit());
         this.add(new CommandAssemblyUse());
@@ -341,7 +420,6 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyLink());
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
+        this.add(new CommandAssemblyUpgradeSources());
     }
 }
-
-

@@ -16,8 +16,8 @@ private import odood.lib.project:
     Project,
     ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.lib.venv: VirtualEnv;
-private import odood.lib.odoo.python: guessPySerie;
+private import odood.lib.python.venv: VirtualEnv;
+private import odood.lib.python.odoo: guessPySerie;
 private import odood.exception: OdoodException;
 
 
@@ -87,9 +87,6 @@ auto parseOdooHelperScriptsConfig(in string config_content) {
                 break;
             case "ADDONS_DIR":
                 project_directories.addons = Path(c["val"]);
-                break;
-            case "DATA_DIR":
-                project_directories.data = Path(c["val"]);
                 break;
             case "BACKUP_DIR":
                 project_directories.backups = Path(c["val"]);
@@ -206,7 +203,6 @@ USE_UNBUFFER=1
     project.directories.log.shouldEqual(Path("/home/me/odoo-16/logs"));
     project.directories.downloads.shouldEqual(Path("/home/me/odoo-16/downloads"));
     project.directories.addons.shouldEqual(Path("/home/me/odoo-16/custom_addons"));
-    project.directories.data.shouldEqual(Path("/home/me/odoo-16/data"));
     project.directories.backups.shouldEqual(Path("/home/me/odoo-16/backups"));
     project.directories.repositories.shouldEqual(Path("/home/me/odoo-16/repositories"));
 
@@ -257,7 +253,6 @@ USE_UNBUFFER=1
     project.directories.log.shouldEqual(Path("/home/me/odoo-16/logs"));
     project.directories.downloads.shouldEqual(Path("/home/me/odoo-16/downloads"));
     project.directories.addons.shouldEqual(Path("/home/me/odoo-16/custom_addons"));
-    project.directories.data.shouldEqual(Path("/home/me/odoo-16/data"));
     project.directories.backups.shouldEqual(Path("/home/me/odoo-16/backups"));
     project.directories.repositories.shouldEqual(Path("/home/me/odoo-16/repositories"));
 

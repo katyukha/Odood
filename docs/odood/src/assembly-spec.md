@@ -69,6 +69,10 @@ sources-list:
 | `oca: repo` | `https://github.com/OCA/repo` |
 | `crnd: group/repo` | `ssh://git@gitlab.crnd.pro/group/repo` |
 
+**Local SSH preference:** `github:` and `oca:` expand to HTTPS, which works for CI token auth.
+Developers who prefer SSH can configure git's `url.insteadOf` globally — see
+[SSH for local development](./assembly.md#ssh-for-local-development).
+
 ### Source fields
 
 | Field | Required | Default | Description |

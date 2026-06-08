@@ -1,5 +1,34 @@
 # Changelog
 
+## Release 0.6.3 (2026-06-08)
+
+### Added
+
+- Support for `--test-tag` option for `odood test` command
+- **Experimental** `odood repo release` command, that could automatically tag repo and generate changelogs.
+- **Experimental** `odood repo hotfix` command, that could be used to manage hotfixes of repositories.
+- **Experimental** `odood assembly upgrade-sources` command, that allows to bump pinned releases on repository.
+- **Experimental** `odood test --migration-last-release` option, that allows to test repo migration against latest release.
+- Added option `odood db backup --nice` that allows to lower cpu priority of backup task
+
+### Changed
+
+- Switched to [DarkCommand](https://code.dlang.org/packages/darkcommand) CLI lib:
+    - better autocomplete (file paths when needed)
+    - better automatic documentation (CLI Ref)
+- Updated default pre-commit configs.
+  You can apply it to your repo with `odood pre-commit init -f`,
+  but **review introduced changes** before committing, because this command overwrites pre-commit configs.
+
+### Fixed
+
+- Run `msguniq` before `msgmerge` when regenerating translations,
+  because AI too frequently generates duplicate translations and `msgmerge` fails
+- Use `data_dir` from `odoo.conf` for backup/restore to ensure backups are correct when `data_dir` changed to non-standard location.
+  Before fix, it was required to modify data dir on both places: `odood.yml` and `odoo.conf`
+
+---
+
 ## Release 0.6.2 (2026-05-09)
 
 ### Added

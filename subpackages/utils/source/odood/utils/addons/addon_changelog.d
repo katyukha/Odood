@@ -31,3 +31,26 @@ struct OdooAddonChangelogEntry {
         return this._ver.opEquals(other._ver);
     }
 }
+
+///
+unittest {
+    import unit_threaded.assertions;
+
+    auto e = OdooAddonChangelogEntry("1.2.3", "  Fixed something.  ");
+    e.ver.toString.shouldEqual("1.2.3");
+    e.data.shouldEqual("Fixed something.");  // strips surrounding whitespace
+}
+
+/// Ordering follows semantic version
+unittest {
+    import unit_threaded.assertions;
+
+    auto a = OdooAddonChangelogEntry("1.0.0", "initial");
+    auto b = OdooAddonChangelogEntry("2.0.0", "major");
+    auto c = OdooAddonChangelogEntry("1.0.0", "same");
+
+    (a < b).shouldBeTrue;
+    (b > a).shouldBeTrue;
+    (a == c).shouldBeTrue;
+    (a != b).shouldBeTrue;
+}

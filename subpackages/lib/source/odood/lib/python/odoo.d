@@ -1,12 +1,11 @@
-module odood.lib.odoo.python;
+module odood.lib.python.odoo;
 
 private import theprocess: resolveProgram;
 private import versioned: Version;
 
-private import odood.lib.venv;
-private import odood.lib.project: Project;
+private import odood.lib.python.venv: PySerie, PyInstallType, VenvOptions,
+    getSystemPythonVersion;
 private import odood.utils.odoo.serie;
-private import odood.utils: parsePythonVersion;
 
 
 /** Guess major python version for specified odoo serie
@@ -75,26 +74,12 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
 }
 
 
-/** Find version of system python for specified project.
-  * This function will check the version of python required for specified project.
+/** Find version of system python for specified Odoo serie.
   *
   * Params:
-  *     project = instance of Odood project to get version of system python for.
-  * Returns: Version version of system python interpreter
+  *     serie = Odoo serie to get system python version for
+  * Returns: Version of system python interpreter
   **/
-Version getSystemPythonVersion(in PySerie py_serie) {
-    /* If system python is not available, then return version 0.0.0.
-     * In this case, system python will not be suitable, and thus
-     * Odood will try to build python from sources.
-     */
-    auto python_interpreter = resolveProgram(py_serie.getPyInterpreterName);
-    if (python_interpreter.isNull)
-        return Version(0, 0, 0);
-
-    return parsePythonVersion(python_interpreter.get);
-}
-
-/// ditto
 Version getSystemPythonVersion(in OdooSerie serie) {
     return getSystemPythonVersion(serie.guessPySerie);
 }
@@ -119,4 +104,3 @@ auto guessVenvOptions(in OdooSerie serie) {
     }
     return venv_options;
 }
-

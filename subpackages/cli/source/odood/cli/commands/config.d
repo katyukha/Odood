@@ -1,7 +1,5 @@
 module odood.cli.commands.config;
 
-private import commandr: ProgramArgs;
-
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
 
@@ -11,9 +9,10 @@ class CommandConfigUpdate: OdoodCommand {
         super("update", "Update the config.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
         project.save();
+        return 0;
     }
 
 }
@@ -25,5 +24,3 @@ class CommandConfig: OdoodCommand {
         this.add(new CommandConfigUpdate());
     }
 }
-
-

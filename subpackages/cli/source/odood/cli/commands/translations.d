@@ -8,7 +8,7 @@ private import std.logger: infof, warningf, tracef;
 private import std.algorithm: map;
 private import std.array: join;
 
-private import commandr: Argument, Option, Flag, ProgramArgs, acceptsValues;
+private import darkcommand;
 private import thepath: Path;
 private import theprocess: Process, resolveProgram;
 
@@ -30,75 +30,78 @@ class CommandTranslationsRegenerate: OdoodCommand {
         }
     }
 
+    bool potRemoveDates;
+    bool pot;
+    bool potUpdate;
+    bool missingOnly;
+    bool noDropDb;
+    Path[] addonDir;
+    Path[] addonDirR;
+    string[] addon;
+    string[] langFile;
+    string[] lang;
+
     this() {
         super("regenerate", "Regenerate translations for specified addons.");
-        this.add(new Flag(
-            null, "pot-remove-dates", "Remove dates from generated .pot file."));
-        this.add(new Flag(
-            null, "pot", "Generate .pot file for translations."));
-        this.add(new Flag(
-            null, "pot-update", "Update translations based on regenerated .pot file."));
-        this.add(new Flag(
-            null, "missing-only", "Generate only missing translations."));
-
-        // No drop db
-        this.add(new Flag(
-            null, "no-drop-db", "Do not drop database after regeneration of translations"));
-
-        // Search for addons options
-        this.add(new Option(
-            null, "addon-dir", "Directory to search for addons").repeating);
-        this.add(new Option(
-            null, "addon-dir-r",
-            "Directory to recursively search for addons").repeating);
-        this.add(new Argument(
-            "addon", "Specify names of addons as arguments.").optional.repeating);
-
-        // Languages to translate
-        this.add(new Option(
-            null, "lang-file", "Combination of lang and file (separated by ':') to generate translations for. For example: uk_UA:uk.").repeating);
-        this.add(new Option(
-            "l", "lang", "Language to generate translations for. For example: uk_UA.").repeating);
+        this.addFlag!(potRemoveDates)("", "pot-remove-dates",
+            "Remove dates from generated .pot file.");
+        this.addFlag!(pot)("", "pot", "Generate .pot file for translations.");
+        this.addFlag!(potUpdate)("", "pot-update",
+            "Update translations based on regenerated .pot file.");
+        this.addFlag!(missingOnly)("", "missing-only",
+            "Generate only missing translations.");
+        this.addFlag!(noDropDb)("", "no-drop-db",
+            "Do not drop database after regeneration of translations");
+        this.addOption!(addonDir)("", "addon-dir",
+            "Directory to search for addons")
+            .acceptsDirectories();
+        this.addOption!(addonDirR)("", "addon-dir-r",
+            "Directory to recursively search for addons")
+            .acceptsDirectories();
+        this.addOption!(langFile)("", "lang-file",
+            "Combination of lang and file (separated by ':') to generate translations for. For example: uk_UA:uk.");
+        this.addOption!(lang)("l", "lang",
+            "Language to generate translations for. For example: uk_UA.");
+        this.addArgument!(addon)("addon", "Names of addons to regenerate translations for.")
+            .defaultValue([]);
     }
 
-    /** Find addons to regenerate translations for
-      **/
-    protected auto findAddons(ProgramArgs args, in Project project) {
+    protected auto findAddons(in Project project) {
         OdooAddon[] addons;
-        foreach(search_path; args.options("addon-dir"))
-            foreach(addon; project.addons.scan(Path(search_path), false))
-                if (project.addons.isLinked(addon) && addon.manifest.installable)
-                    addons ~= addon;
+        foreach(search_path; addonDir)
+            foreach(a; project.addons.scan(search_path, false))
+                if (project.addons.isLinked(a) && a.manifest.installable)
+                    addons ~= a;
                 else
-                    warningf("Skip addon %s because it is not linked or not installable", addon);
+                    warningf("Skip addon %s because it is not linked or not installable", a);
 
-        foreach(search_path; args.options("addon-dir-r"))
-            foreach(addon; project.addons.scan(Path(search_path), true))
-                if (project.addons.isLinked(addon) && addon.manifest.installable)
-                    addons ~= addon;
+        foreach(search_path; addonDirR)
+            foreach(a; project.addons.scan(search_path, true))
+                if (project.addons.isLinked(a) && a.manifest.installable)
+                    addons ~= a;
                 else
-                    warningf("Skip addon %s because it is not linked or not installable", addon);
+                    warningf("Skip addon %s because it is not linked or not installable", a);
 
-        foreach(addon_name; args.args("addon")) {
-            auto addon = project.addons.getByString(addon_name);
+        foreach(addon_name; addon) {
+            auto a = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
-                !addon.isNull,
+                !a.isNull,
                 "Cannot find addon %s!".format(addon_name));
             enforce!OdoodCLIException(
-                project.addons.isLinked(addon.get),
+                project.addons.isLinked(a.get),
                 "Addon %s is not linked!".format(addon_name));
             enforce!OdoodCLIException(
-                addon.get.manifest.installable,
+                a.get.manifest.installable,
                 "Addon %s is not installable!".format(addon_name));
-            addons ~= addon.get;
+            addons ~= a.get;
         }
         return addons;
     }
 
-    protected LangInfo[] parseLangs(ProgramArgs args) {
+    protected LangInfo[] parseLangs() {
         import std.array: split;
         LangInfo[] res;
-        foreach(lf; args.options("lang-file")) {
+        foreach(lf; langFile) {
             auto lfs = lf.split(':');
             enforce!OdoodException(
                 lfs.length == 2,
@@ -108,7 +111,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
                 file: lfs[1],
             );
         }
-        foreach(lg; args.options("lang")) {
+        foreach(lg; lang) {
             auto ls = lg.split('_');
             enforce!OdoodException(
                 ls.length == 2,
@@ -121,18 +124,18 @@ class CommandTranslationsRegenerate: OdoodCommand {
         return res;
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        auto addons = findAddons(args, project);
-        auto langs = parseLangs(args);
+        auto addons = findAddons(project);
+        auto langs = parseLangs();
 
         enforce!OdoodException(
             !resolveProgram("msgmerge").isNull,
             "This command requires 'msgmerge' program to work. Please, install 'gettext' package to get this utility.");
         enforce!OdoodException(
             langs.length > 0,
-            "There must be specified at lease one --lang option or --lang-file option.");
+            "There must be specified at least one --lang option or --lang-file option.");
         enforce!OdoodException(
             addons.length > 0,
             "There must be at least 1 addon specified to regenerate translations for.");
@@ -140,38 +143,42 @@ class CommandTranslationsRegenerate: OdoodCommand {
         auto dbname = "odood%s-test-%s".format(
             project.odoo.serie.major, generateRandomString(8));
         scope(exit) {
-            // Drop temporary database on exit
-            if (!args.flag("no-drop-db") && project.databases.exists(dbname))
+            if (!noDropDb && project.databases.exists(dbname))
                 project.databases.drop(dbname);
         }
 
         project.databases.create(name: dbname, demo: true, lang: langs.map!((a) => a.lang).join(','));
 
-        // Install required addons
         project.addons.install(dbname, addons);
 
-        // Regenerate translations for addons
-        foreach(addon; addons) {
-            auto i18n_dir = addon.path.join("i18n");
-            auto i18n_pot_file = i18n_dir.join("%s.pot".format(addon.name));
+        foreach(a; addons) {
+            auto i18n_dir = a.path.join("i18n");
+            auto i18n_pot_file = i18n_dir.join("%s.pot".format(a.name));
 
             if (!i18n_dir.exists)
                 i18n_dir.mkdir(true);
 
-            if (args.flag("pot") || args.flag("pot-update")) {
+            if (pot || potUpdate) {
                 project.lodoo.generatePot(
                         dbname: dbname,
-                        addon: addon.name,
-                        remove_dates: args.flag("pot-remove-dates")
+                        addon: a.name,
+                        remove_dates: potRemoveDates
                 );
             }
 
-            // Update translations for specified langs
             foreach(li; langs) {
                 auto i18n_file = i18n_dir.join("%s.po".format(li.file));
 
-                if (args.flag("missing-only") && i18n_file.exists && args.flag("pot-update") && i18n_pot_file.exists) {
+                if (missingOnly && i18n_file.exists && potUpdate && i18n_pot_file.exists) {
                     infof("translation file %s already exists. Updating translations based on .pot file.", i18n_file);
+                    // We have to uniquify translations first.
+                    // Because AI frequently duplicates transaltions, and people do not care on that
+                    auto msguniq = Process("msguniq")
+                        .withArgs(
+                            i18n_file.toString,
+                            "--output-file=%s".format(i18n_file));
+                    tracef("Running %s", msguniq);
+                    msguniq.execute.ensureOk!OdoodException(true);
                     auto msgmerge = Process("msgmerge")
                         .withArgs(
                             "--quiet", "-N", "-U",
@@ -179,16 +186,16 @@ class CommandTranslationsRegenerate: OdoodCommand {
                             i18n_pot_file.toString);
                     tracef("Running %s", msgmerge);
                     msgmerge.execute.ensureOk!OdoodException(true);
-                } else if (args.flag("missing-only") && i18n_file.exists) {
+                } else if (missingOnly && i18n_file.exists) {
                     warningf(
                         "translation file %s already exists and --missing-only option enabled. Skipping translation %s for module %s.",
-                        i18n_file, li, addon);
+                        i18n_file, li, a);
                 } else {
-                    infof("Generating translations for module %s for language %s...", addon, li);
+                    infof("Generating translations for module %s for language %s...", a, li);
                     auto cmd = project.server.getServerRunner(
                         "-d", dbname,
                         "--i18n-export=%s".format(i18n_file),
-                        "--modules=%s".format(addon.name),
+                        "--modules=%s".format(a.name),
                         "--lang=%s".format(li.lang),
                         "--stop-after-init",
                         "--pidfile=",
@@ -198,19 +205,14 @@ class CommandTranslationsRegenerate: OdoodCommand {
                 }
             }
         }
-
-
+        return 0;
     }
-
 }
 
 
 class CommandTranslations: OdoodCommand {
-    this(in string name) {
-        super(name, "Manage translations for this project.");
-        this.add(new CommandTranslationsRegenerate());
-    }
     this() {
-        this("translations");
+        super("translations", "Manage translations for this project.");
+        this.add(new CommandTranslationsRegenerate());
     }
 }

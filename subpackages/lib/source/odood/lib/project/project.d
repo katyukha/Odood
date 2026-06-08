@@ -16,10 +16,10 @@ private import darkarchive: DarkArchiveWriter, DarkArchiveFormat;
 private import odood.exception: OdoodException;
 
 private import odood.lib.odoo.config: initOdooConfig, readOdooConfig, getConfVal;
-private import odood.lib.odoo.python: guessPySerie, guessVenvOptions;
+private import odood.lib.python.odoo: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
-private import odood.lib.venv: VirtualEnv, VenvOptions;
+private import odood.lib.python.venv: VirtualEnv, VenvOptions;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
@@ -400,6 +400,7 @@ class Project {
         // Initialize project directories
         this.project_root.mkdir(true);
         this.directories.initializeDirecotires();
+        this.project_root.join("data").mkdir(true);
 
         // Initialize project (install everything needed)
         // TODO: parallelize download of Odoo and installation of virtualenv

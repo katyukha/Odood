@@ -422,6 +422,7 @@ struct OdooTestRunner {
     private bool _test_migration=false;
     private string _test_migration_start_ref=null;
     private AddonRepository _test_migration_repo;
+    private bool _test_migration_use_last_release=false;
 
     // Populate data before test (useful for migration testing)
     // TODO: Also handle case, when addon is not available on start ref
@@ -429,6 +430,9 @@ struct OdooTestRunner {
     // Odoo 18 changed the way population work and it does not have sense now.
     private string[] _populate_models=[];
     private string _populate_size="small";
+
+    // Test tags (--test-tags, Odoo 12.0+)
+    private string[] _test_tags;
 
     // Other configuration
     private bool _need_install_addons_before_test=true;
@@ -523,6 +527,15 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Use the latest release tag as migration start ref.
+      * Fails at run time if no release tags exist for the project's Odoo serie.
+      **/
+    auto ref setMigrationUseLastRelease() {
+        _test_migration_use_last_release = true;
+        _test_migration = true;
+        return this;
+    }
+
     /** Do not drop database after test completed
       **/
     auto ref setNoDropDatabase() {
@@ -534,6 +547,16 @@ struct OdooTestRunner {
       **/
     auto ref setCoverage(in bool coverage) {
         _coverage = coverage;
+        return this;
+    }
+
+    /** Add a test tag filter (--test-tags). Requires Odoo 12.0+.
+      * May be specified multiple times; all values are joined with commas.
+      * Supports Odoo's full tag syntax: plain tags, /module, /module:Class.method,
+      * and -tag exclusions.
+      **/
+    auto ref addTestTag(in string tag) {
+        _test_tags ~= tag;
         return this;
     }
 
@@ -707,7 +730,7 @@ struct OdooTestRunner {
       * Returns: true if command successful, otherwise false.
       **/
     private bool runServerCommand(ref OdooTestResult result, in string[] options) {
-        auto res =_server.pipeServerLog(
+        auto res = _server.pipeServerLog(
             getCoverageOptions(),
             options,
         ).processLogs!true((log_record) {
@@ -752,7 +775,21 @@ struct OdooTestRunner {
             initial_git_ref = _test_migration_repo.getCurrBranch.get(
                 _test_migration_repo.getCurrCommit);
 
-            if (_test_migration_start_ref) {
+            if (_test_migration_use_last_release) {
+                auto latest = _test_migration_repo.getLatestRelease(
+                    _project.odoo.serie);
+                enforce!OdoodException(
+                    !latest.isNull,
+                    ("No release tags found for serie %s. "
+                    ~ "Create a release first or use --migration-start-ref.").format(
+                        _project.odoo.serie));
+                auto tag = latest.get.toString;
+                infof(
+                    "Switching to last release tag %s before migration tests...",
+                    tag);
+                _test_migration_repo.fetchTag(tag);
+                _test_migration_repo.switchBranchTo(tag);
+            } else if (_test_migration_start_ref) {
                 infof(
                     "Switching to %s ref before running migration tests...",
                     _test_migration_start_ref);
@@ -888,17 +925,21 @@ struct OdooTestRunner {
         scope(exit) result.setDurationTests(watch_tests.peek());
 
         infof("Running tests for modules: %s", getModuleList);
-        auto cmd_res = runServerCommand(
-            result,
-            [
-                "--update=%s".format(getModuleList),
-                "--log-level=info",
-                "--stop-after-init",
-                "--workers=0",
-                "--test-enable",
-                "--database=%s".format(_test_db_name),
-            ],
-        );
+        auto test_args = [
+            "--update=%s".format(getModuleList),
+            "--log-level=info",
+            "--stop-after-init",
+            "--workers=0",
+            "--test-enable",
+            "--database=%s".format(_test_db_name),
+        ];
+        if (!_test_tags.empty) {
+            enforce!OdoodException(
+                _project.odoo.serie >= OdooSerie(12),
+                "--test-tags requires Odoo 12.0 or later");
+            test_args ~= "--test-tags=%s".format(_test_tags.join(","));
+        }
+        auto cmd_res = runServerCommand(result, test_args);
         if (!cmd_res) return result;
 
         if (!result.errors.empty)

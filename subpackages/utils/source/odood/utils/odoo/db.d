@@ -40,6 +40,20 @@ auto detectDatabaseBackupFormat(in Path path) {
 }
 
 
+///
+unittest {
+    import unit_threaded.assertions;
+    import odood.exception: OdoodException;
+
+    Path("backup.zip").detectDatabaseBackupFormat.shouldEqual(BackupFormat.zip);
+    Path("backup.sql").detectDatabaseBackupFormat.shouldEqual(BackupFormat.sql);
+    Path("/some/path/db-backup-2025-01-01.zip").detectDatabaseBackupFormat.shouldEqual(BackupFormat.zip);
+    Path("/some/path/db-backup-2025-01-01.sql").detectDatabaseBackupFormat.shouldEqual(BackupFormat.sql);
+    Path("backup.bak").detectDatabaseBackupFormat.shouldThrow!OdoodException;
+    Path("backup").detectDatabaseBackupFormat.shouldThrow!OdoodException;
+}
+
+
 /** Parse database backup's manifest
   *
   * Params:

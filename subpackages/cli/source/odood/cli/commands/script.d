@@ -4,59 +4,61 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 
-private import commandr: Argument, Option, Flag, ProgramArgs;
-
 private import thepath: Path;
+private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
 
 
 class CommandScriptPy: OdoodCommand {
-    // TODO: Add ability to pass extra arguments to script
+    string db;
+    Path script;
+
     this() {
         super("py", "Run Python script in this environment.");
-        this.add(new Option("d", "db", "Database to run script for").required);
-        this.add(new Argument("script", "Path to script to run"));
+        this.addOption!(db)("d", "db", "Database to run script for");
+        this.addArgument!(script)("script", "Path to script to run")
+            .acceptsFiles();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        auto dbname = args.option("db");
-        Path script = args.arg("script");
-
         enforce!OdoodCLIException(
-            project.databases.exists(args.option("db")),
-            "Database %s does not exists!".format(args.option("db")));
+            project.databases.exists(db),
+            "Database %s does not exists!".format(db));
 
-        project.lodoo.runPyScript(dbname, script);
+        project.lodoo.runPyScript(db, script);
+        return 0;
     }
 }
 
 
 class CommandScriptSQL: OdoodCommand {
+    string db;
+    bool noCommit;
+    Path script;
+
     this() {
         super("sql", "Run SQL script in this environment.");
-        this.add(new Option("d", "db", "Database to run script for").required);
-        this.add(new Flag("n", "no-commit", "Do not commit changes."));
-        this.add(new Argument("script", "Path to script to run"));
+        this.addOption!(db)("d", "db", "Database to run script for");
+        this.addFlag!(noCommit)("n", "no-commit", "Do not commit changes.");
+        this.addArgument!(script)("script", "Path to script to run")
+            .acceptsFiles();
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
-        auto dbname = args.option("db");
-        Path script = args.arg("script");
-
         enforce!OdoodCLIException(
-            project.databases.exists(dbname),
-            "Database %s does not exists!".format(dbname));
+            project.databases.exists(db),
+            "Database %s does not exists!".format(db));
 
-        project.dbSQL(dbname).runSQLScript(script, args.flag("no-commit"));
+        project.dbSQL(db).runSQLScript(script, noCommit);
+        return 0;
     }
 }
-
 
 
 class CommandScript: OdoodCommand {

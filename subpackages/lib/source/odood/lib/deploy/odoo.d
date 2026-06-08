@@ -224,8 +224,8 @@ Project deployOdoo(in DeployConfig config) {
     }
 
     // Make Odoo owner of data directory. Do not allow others to access it.
-    project.directories.data.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
-    project.directories.data.setAttributes(octal!750);
+    project.server.getConfigDataDir.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+    project.server.getConfigDataDir.setAttributes(octal!750);
 
     // Make Odoo owner of project root (/opt/odoo), but not recursively,
     // thus, Odoo will be able to create files there,

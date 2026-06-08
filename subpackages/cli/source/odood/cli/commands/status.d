@@ -2,15 +2,12 @@ module odood.cli.commands.status;
 
 private import std.stdio: writeln;
 private import std.format: format;
-private import std.exception: enforce;
 
 private import colored;
 private import thepath: Path;
-private import commandr: Option, Flag, ProgramArgs;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.utils.odoo.serie: OdooSerie;
 
 
 immutable string TMPL_CURRENT_PROJECT_STATUS = "
@@ -32,7 +29,7 @@ class CommandStatus: OdoodCommand {
         super("status", "Show the project status.");
     }
 
-    public override void execute(ProgramArgs args) {
+    override int execute() {
         auto project = Project.loadProject;
 
         writeln(
@@ -45,7 +42,6 @@ class CommandStatus: OdoodCommand {
                 project.server.getConfigHTTP.url.lightBlue,
             )
         );
+        return 0;
     }
 }
-
-

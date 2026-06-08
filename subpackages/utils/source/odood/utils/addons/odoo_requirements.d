@@ -176,3 +176,37 @@ unittest {
         addon.shouldEqual("generic_request");
     }
 }
+
+/// branch (-b / --branch) and module (-m / --module) options
+unittest {
+    import unit_threaded.assertions;
+
+    auto res = parseOdooRequirements("
+--github crnd-inc/generic-addons -b 16.0
+--oca project --branch 17.0 --module project_description
+-r https://github.com/OCA/web.git -b 16.0 -m website_sale_b2b
+");
+
+    res.length.shouldEqual(3);
+
+    with (res[0]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/crnd-inc/generic-addons");
+        branch.shouldEqual("16.0");
+        addon.shouldBeNull;
+    }
+
+    with (res[1]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/OCA/project");
+        branch.shouldEqual("17.0");
+        addon.shouldEqual("project_description");
+    }
+
+    with (res[2]) {
+        type.shouldEqual(OdooRequirementsLineType.repo);
+        repo_url.shouldEqual("https://github.com/OCA/web.git");
+        branch.shouldEqual("16.0");
+        addon.shouldEqual("website_sale_b2b");
+    }
+}

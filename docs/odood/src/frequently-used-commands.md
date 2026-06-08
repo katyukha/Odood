@@ -12,6 +12,8 @@ just call if with `-h` option.
 - `odood stop` - stop odoo server
 - `odood log` - see odoo server logs
 - `odood browse` - open running odoo installation in browser
+- `odood server healthcheck` - check if the Odoo HTTP server is responding; exits 0 if healthy, 1 if not. Useful as a Docker/K8s health probe.
+- `odood server wait-pg` - wait for PostgreSQL to become available before proceeding. Useful in container entrypoints when the DB container may not be ready yet.
 
 ### Addons management
 - `odood addons list <path>` - list odoo addons in specified directory
@@ -47,6 +49,9 @@ Thus following commands are used to deal with it:
 - `odood repo add --oca <name>` - fetch OCA repository named `name` from OCA git repo. For example, `--oca web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo add --github <username/repository>` - shortcut to easily fetch repo from github, by specifying only github username and repo name. For example: `--github oca/web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo bump-versions` - increase versions of changed modules in git repo.
+- `odood repo release --initial` - create the first release tag (`<serie>.1.0.0`) for a repository with no prior tags.
+- `odood repo release` - auto-detect changed addons since the last tag, verify versions are bumped, and create the next release tag.
+- `odood repo release --changelog --push` - generate `CHANGELOG.md`, commit it, tag, and push branch + tag to origin.
 
 ### Database management
 - `odood db list` - list all databases available for current odoo instance
@@ -65,6 +70,7 @@ Thus following commands are used to deal with it:
 - `odood assembly init --repo=git@github.com:my/assembly.git` - initialize this instance with assembly from specified repo
 - `odood assembly upgrade` - pull latest changes from assembly and upgrade server
 - `odood assembly sync` - synchronize assembly according to spec: fetch latest versions of modules from specified sources and update assembly repo
+- `odood assembly upgrade-sources` - advance version-tag-pinned sources in the spec to the newest matching tags on their remotes; follow up with `assembly sync` to apply
 - `odood assembly link` - relink all addons that are in assembly
 
 ### Virtualenv management

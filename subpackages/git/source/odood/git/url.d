@@ -1,7 +1,7 @@
 module odood.git.url;
 
 private import std.logger: infof;
-private import std.regex: ctRegex, matchFirst;
+private import std.regex: regex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.process: environment;
@@ -17,7 +17,7 @@ private import theprocess: Process;
 // TODO: Cleanup, split Odood and CRND logic away from this file,
 //       thus making it more universal
 /// Regex for parsing git URL
-private auto immutable RE_GIT_URL = ctRegex!(
+private auto RE_GIT_URL = regex(
     `^((?P<scheme>http|https|ssh|git)://)?((?P<user>[\w\-\+\.]+)(:(?P<password>[\w\-\.\+]+))?@)?(?P<host>[\w\-\.]+)(:(?P<port>\d+))?(/|:)((?P<path>[\w\-\/\.]+?)(?:\.git)?)$`);
 
 

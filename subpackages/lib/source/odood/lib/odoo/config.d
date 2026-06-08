@@ -16,14 +16,19 @@ private import odood.utils.odoo.serie: OdooSerie;
   *
   * List paths where Odoo system (out-of-the-box) addons located.
   **/
-Path[] getSystemAddonsPaths(in Project project) {
-    Path[] addons_paths = [project.odoo.path.join("addons")];
-    if (project.odoo.serie <= OdooSerie(9)) {
-        addons_paths ~= project.odoo.path.join("openerp", "addons");
+Path[] getSystemAddonsPaths(in Path odoo_path, in OdooSerie serie) {
+    Path[] addons_paths = [odoo_path.join("addons")];
+    if (serie <= OdooSerie(9)) {
+        addons_paths ~= odoo_path.join("openerp", "addons");
     } else {
-        addons_paths ~= project.odoo.path.join("odoo", "addons");
+        addons_paths ~= odoo_path.join("odoo", "addons");
     }
     return addons_paths;
+}
+
+/// ditto
+Path[] getSystemAddonsPaths(in Project project) {
+    return getSystemAddonsPaths(project.odoo.path, project.odoo.serie);
 }
 
 /** Initialize default odoo config
@@ -44,7 +49,7 @@ Ini initOdooConfig(in Project project) {
     addons_path ~= project.directories.addons.toString;
 
     odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
-    odoo_conf["options"].setKey("data_dir", project.directories.data.toString);
+    odoo_conf["options"].setKey("data_dir", project.project_root.join("data").toString);
     if (!project.odoo.logfile.isNull)
         odoo_conf["options"].setKey("logfile", project.odoo.logfile.get.toString);
     odoo_conf["options"].setKey("admin_passwd", "admin");

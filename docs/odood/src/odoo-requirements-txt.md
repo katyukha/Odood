@@ -1,11 +1,27 @@
 # odoo\_requirements.txt
 
-*odoo_requirements.txt* file is a text file that describes what repositories have to be installed on Odoo instance.
-Originally, this format comes from [odoo-helper](https://katyukha.gitlab.io/odoo-helper-scripts/). Odood supports it too.
+*odoo_requirements.txt* is a text file that lists the repositories and apps to install on an Odoo instance.
+The format originates from [odoo-helper](https://katyukha.gitlab.io/odoo-helper-scripts/) and is supported by Odood.
 
-This file is parsed line by line, and each line must be a set of options as described below.
+## Usage
+
+Install all repositories and apps listed in the file:
+
+```bash
+odood addons add --odoo-requirements path/to/odoo_requirements.txt
+```
+
+You can also pass a **directory** — Odood will look for `odoo_requirements.txt` inside it:
+
+```bash
+odood addons add --odoo-requirements path/to/my-project/
+```
+
+This is convenient when the file lives alongside your project's other config files and you want to point at the project root rather than the file itself.
 
 ## Format
+
+The file is parsed line by line. Each non-empty, non-comment line is a set of options:
 
 ### Fetch addons from any git repository
 
@@ -33,12 +49,16 @@ This file is parsed line by line, and each line must be a set of options as desc
 
 ## Notes
 
-***Note*** *odoo_requirements.txt* must end with newline symbol.
+- The file must end with a newline character.
+- Lines beginning with `#` are treated as comments and ignored.
 
-## Examples
+## Example
 
 ```
---github crnd-inc/generic-addon --module generic_tags -b 12.0
+# Third-party repos
+--github crnd-inc/generic-addons --module generic_mixin -b 16.0
 --oca project -m project_description
+
+# From Odoo Apps
 --odoo-app bureaucrat_helpdesk_lite
 ```

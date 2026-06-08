@@ -24,8 +24,8 @@ import odood.exception: OdoodException;
 
 /// Prepare virtualenv options for test
 auto getVenvOptions(in OdooSerie serie) {
-    import odood.lib.venv: PyInstallType;
-    import odood.lib.odoo.python: guessVenvOptions;
+    import odood.lib.python.venv: PyInstallType;
+    import odood.lib.python.odoo: guessVenvOptions;
 
     auto venv_options = serie.guessVenvOptions;
 
@@ -113,7 +113,28 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
+    // Capture row count for restore integrity check (#5)
+    auto lang_count = project.databases.get(
+        project.genDbName("test-2", ukey)
+    ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string;
+
     auto backup_path = project.databases.backup(project.genDbName("test-2", ukey));
+
+    // Test #1: Verify ZIP backup integrity — non-empty file, contains required entries
+    (backup_path.getSize > 0).shouldBeTrue;
+    {
+        import darkarchive: DarkArchiveReader, DarkArchiveFormat;
+        import odood.utils.odoo.db: parseDatabaseBackupManifest;
+
+        parseDatabaseBackupManifest(backup_path);  // throws if manifest.json missing or unparseable
+
+        auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
+        auto e = reader.entries();
+        bool hasDumpSql = false;
+        foreach (i; 0 .. e.length)
+            if (e[i].meta.pathname == "dump.sql") { hasDumpSql = true; break; }
+        hasDumpSql.shouldBeTrue;
+    }
 
     project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
@@ -123,11 +144,34 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
 
+    // Test #5: Restore integrity — row count must match pre-backup value
+    project.databases.get(
+        project.genDbName("test-2", ukey)
+    ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string.shouldEqual(lang_count);
+
     // Drop restored database and try to restore database by backup name
     project.databases.drop(project.genDbName("test-2", ukey));
     project.databases.restore(project.genDbName("test-2", ukey), backup_path.baseName);
     project.databases.exists(project.genDbName("test-1", ukey)).shouldBeTrue();
     project.databases.exists(project.genDbName("test-2", ukey)).shouldBeTrue();
+
+    // Test #2: SQL format backup/restore cycle
+    {
+        import odood.utils.odoo.db: BackupFormat;
+        auto sql_backup = project.databases.backup(
+            project.genDbName("test-2", ukey), BackupFormat.sql);
+        scope(exit) if (sql_backup.exists) sql_backup.remove();
+
+        sql_backup.exists.shouldBeTrue;
+        (sql_backup.getSize > 0).shouldBeTrue;
+
+        project.databases.drop(project.genDbName("test-2", ukey));
+        project.databases.restore(project.genDbName("test-2", ukey), sql_backup);
+        project.databases.isInitialized(project.genDbName("test-2", ukey)).shouldBeTrue;
+        project.databases.get(
+            project.genDbName("test-2", ukey)
+        ).runSQLQuery("SELECT COUNT(*) FROM res_lang")[0][0].get!string.shouldEqual(lang_count);
+    }
 
     // Test restore into pre-existing empty (uninitialized) DB — should succeed
     project.databases.drop(project.genDbName("test-2", ukey));
@@ -145,6 +189,22 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
 
     // Test restore into an initialized (non-empty) DB — should fail
     project.databases.restore(project.genDbName("test-2", ukey), backup_path).shouldThrow!OdoodException;
+
+    // Test #4: getConfigDataDir reads from odoo.conf, not a hardcoded path
+    {
+        project.server.getConfigDataDir.shouldEqual(project.project_root.join("data"));
+
+        auto alt_data_dir = project.project_root.join("data-alt");
+        auto conf = project.server.getConfig;
+        conf["options"].setKey("data_dir", alt_data_dir.toString);
+        conf.save(project.odoo.configfile.toString);
+        project.server.getConfigDataDir.shouldEqual(alt_data_dir);
+
+        // Restore original
+        conf["options"].setKey("data_dir", project.project_root.join("data").toString);
+        conf.save(project.odoo.configfile.toString);
+        project.server.getConfigDataDir.shouldEqual(project.project_root.join("data"));
+    }
 
     // Drop databases
     project.databases.drop(project.genDbName("test-1", ukey));
@@ -311,7 +371,8 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.changelog_path.exists.shouldBeTrue;
     assembly.changelog_latest_path.exists.shouldBeTrue;
     assembly.version_path.exists.shouldBeTrue;
-    assembly.version_path.readFileText.shouldEqual("%s.1.0.0\n".format(project.odoo.serie));
+    // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
+    assembly.version_path.readFileText.shouldEqual("%s.0.1.0\n".format(project.odoo.serie));
 
     // Link assembly and change that symlinks were created in custom_addons dir
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
@@ -342,7 +403,8 @@ void testAssembly(Project project, in string ukey="n") {
 
     // Generate (update) changelog and check that assembly version updated.
     assembly.generateChangelog(base_commit);
-    assembly.version_path.readFileText.shouldEqual("%s.2.0.0\n".format(project.odoo.serie));
+    // Another added addon -> another MINOR bump: 18.0.0.1.0 -> 18.0.0.2.0.
+    assembly.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
 
     // Link assembly and check that correct symlinks created
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
@@ -733,7 +795,7 @@ unittest {
     import std.process;
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
-    import odood.lib.venv;
+    import odood.lib.python.venv;
     import odood.utils.versioned: Version;
 
     auto save_env = environment.toAA;
