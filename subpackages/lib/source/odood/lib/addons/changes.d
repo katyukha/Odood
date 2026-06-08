@@ -119,7 +119,7 @@ class AddonRepositoryChanges {
       * - Added addon                         → MINOR (purely additive).
       * - Updated addon                       → escalated to its addon-version
       *                                         diff (MAJOR / MINOR / PATCH).
-      * - Addon with a non-standard version   → floored to MINOR (cannot diff).
+      * - Non-standard version or serie change → floored to MINOR (cannot diff).
       *
       * No changes → version unchanged.
       *
@@ -149,8 +149,13 @@ class AddonRepositoryChanges {
         foreach(addon; addons_updated) {
             if (vpart == VersionPart.MAJOR)
                 break;
-            if (!addon.old_version.isStandard || !addon.new_version.isStandard) {
-                // Non-standard versions cannot be diffed; floor at MINOR.
+            // differAt requires two standard versions of the SAME serie. A
+            // non-standard version, or a serie change between the two refs,
+            // cannot be diffed — treat it as a MINOR-level change (floor at
+            // MINOR). Without the serie guard differAt would violate its
+            // contract and crash (assert(0) fires even in -release builds).
+            if (!addon.old_version.isStandard || !addon.new_version.isStandard
+                    || addon.old_version.serie != addon.new_version.serie) {
                 if (vpart > VersionPart.MINOR)
                     vpart = VersionPart.MINOR;
                 continue;
@@ -303,6 +308,16 @@ class AddonRepositoryChanges {
             "b", Path("b"), Path("b"), OdooStdVersion("18.0.1.0.0"), NONSTD, []);
         ns_mix.postProcess(VersionPart.PATCH);
         ns_mix.repo_version.toString.should == "18.0.0.1.0";
+
+        // A standard update whose serie changes between refs cannot be diffed
+        // (differAt requires equal series, else assert(0)). It must floor to
+        // MINOR without crashing, not feed differAt.
+        auto ns_serie = new AddonRepositoryChanges(base);
+        ns_serie.logAddonUpdated(
+            "a", Path("a"), Path("a"),
+            OdooStdVersion("17.0.1.0.0"), OdooStdVersion("18.0.1.0.0"), []);
+        ns_serie.postProcess(VersionPart.PATCH);
+        ns_serie.repo_version.toString.should == "18.0.0.1.0";
 
         // ── Item 2: mixed / multiple changes ──
 
