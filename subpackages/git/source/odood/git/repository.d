@@ -213,6 +213,10 @@ class GitRepository {
 
         clone.listLocalTags().canFind("17.0.1.0.0").shouldBeFalse;
 
+        // listRemoteTags resolves the remote by name (credentials/env via
+        // gitCmd, no URL in argv) and sees tags that are not present locally.
+        clone.listRemoteTags().canFind("17.0.1.0.0").shouldBeTrue;
+
         // fetchTag must bring the tag in via explicit refspec.
         clone.fetchTag("17.0.1.0.0");
 
@@ -415,10 +419,22 @@ class GitRepository {
         cmd.execute.ensureOk(true);
     }
 
-    /** List all tag names visible on the given remote. **/
+    /** List all tag names visible on the given remote.
+      *
+      * Runs `git ls-remote` inside the repository using the remote NAME (not a
+      * resolved URL), so the repository's configured credential helper and its
+      * env (`_env`, which may carry access tokens) apply — consistent with
+      * every other method here — and no credentials embedded in a remote URL
+      * leak into the process argv.
+      **/
     string[] listRemoteTags(in string remote = "origin") const {
-        import odood.git: gitListRemoteTags;
-        return gitListRemoteTags(getRemoteUrl(remote).toString);
+        import odood.git: parseLsRemoteTags;
+        return parseLsRemoteTags(
+            gitCmd
+                .withArgs("ls-remote", "--refs", "--tags", remote)
+                .execute
+                .ensureOk(true)
+                .output);
     }
 
     /** List all local tag names in the repository. **/

@@ -105,11 +105,17 @@ string[] gitListRemoteTags(in string url, in string[string] env = null) {
         .withArgs("ls-remote", "--refs", "--tags", url);
     if (env !is null && env.length > 0)
         proc = proc.withEnv(env);
-    auto output = proc.execute.ensureOk(true).output;
+    return parseLsRemoteTags(proc.execute.ensureOk(true).output);
+}
 
+/** Parse `git ls-remote --refs --tags` output into bare tag names.
+  *
+  * Each line is "<sha>\trefs/tags/<tagname>"; the `refs/tags/` prefix is
+  * stripped. Shared by `gitListRemoteTags` and `GitRepository.listRemoteTags`.
+  **/
+package(odood) string[] parseLsRemoteTags(in string output) {
     auto tags = appender!(string[]);
     foreach(line; output.splitLines) {
-        // Each line: "<sha>\trefs/tags/<tagname>"
         auto tab = line.indexOf('\t');
         if (tab < 0) continue;
         auto refname = line[tab + 1 .. $];
