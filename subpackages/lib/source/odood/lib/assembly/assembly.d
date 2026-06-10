@@ -448,11 +448,17 @@ class Assembly {
             .chain(spec.known_addons)
             .uniq.array;
 
+        string[] missing_dependencies;
         foreach(addon; assembly_addons)
             foreach(dep; addon.manifest.dependencies)
-                enforce!OdoodAssemblyException(
-                    available_addons.canFind(dep),
-                    "Cannot find dependency %s for addon %s!".format(dep, addon));
+                if (!available_addons.canFind(dep))
+                    missing_dependencies ~= "%s (required by %s)".format(
+                        dep, addon.name);
+
+        enforce!OdoodAssemblyException(
+            missing_dependencies.empty,
+            "Cannot find following dependencies:\n%s".format(
+                missing_dependencies.join("\n")));
     }
 
     /** Get info about changes between current version and series version
