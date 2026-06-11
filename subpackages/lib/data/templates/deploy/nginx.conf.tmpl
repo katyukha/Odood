@@ -126,13 +126,24 @@ server {
 
     # Chat and IM related features support
     {% if config.odoo.serie >= 16 %}
-    location ~* ^/(websocket|bus) {
+    location /websocket {
         proxy_pass http://odoo_websocket;
 
         # Upgrade connection
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
+
+        # We have to define these headers here,
+        # because if we define any proxy_set_header inside location,
+        # then headers from outer scope not applies,
+        # thus we have to redefine them
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+
 
         # Increase timeouts for websockets
         proxy_connect_timeout 3600s;
