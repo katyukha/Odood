@@ -22,8 +22,13 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException, exitWithCode;
 private import odood.cli.utils: printLogRecord, printLogRecordSimplified;
 private import odood.lib.project: Project;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
+private import odood.lib.odoo.test: OdooTestStat;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.utils.odoo.serie: OdooSerie;
+
+
+/// Default number of rows shown in each per-method test-profiling table.
+private enum size_t DEFAULT_TEST_STATS_LIMIT = 20;
 
 
 class CommandTest: OdoodCommand {
@@ -57,6 +62,9 @@ class CommandTest: OdoodCommand {
     string[] populateModel;
     Nullable!string populateSize;
     string[] testTag;
+    bool testStatsSummary;
+    bool testStatsDetailed;
+    bool testStatsAll;
 
     this() {
         super("test", "Run tests for modules.");
@@ -115,6 +123,17 @@ class CommandTest: OdoodCommand {
         this.addOption!(testTag)("", "test-tag",
             "Filter tests by tag (Odoo 12.0+). Repeatable. Supports Odoo tag syntax: " ~
             "plain tags, /module, /module:Class.method, -tag to exclude.");
+        this.addFlag!(testStatsSummary)("", "test-stats-summary",
+            "Report per-module test statistics (time + SQL query count). " ~
+            "May be combined with --test-stats-detailed. Requires Odoo 13.0+.");
+        this.addFlag!(testStatsDetailed)("", "test-stats-detailed",
+            "Report per-test-method statistics (time + SQL query count), " ~
+            "useful to spot slow tests and N+1 query regressions. May be " ~
+            "combined with --test-stats-summary. Requires Odoo 13.0+.");
+        this.addFlag!(testStatsAll)("", "test-stats-all",
+            "Report both per-module and per-test-method statistics " ~
+            "(shortcut for --test-stats-summary --test-stats-detailed). " ~
+            "Requires Odoo 13.0+.");
         this.addArgument!(addon)("addon", "Names of addons to run tests for.")
             .defaultValue([]);
     }
@@ -161,6 +180,90 @@ class CommandTest: OdoodCommand {
             }
         }
         return addons;
+    }
+
+    /** Print the test-profiling report captured during the test run.
+      *
+      * Odoo's detailed report contains entries at the module, module.Class and
+      * module.Class.method aggregation levels.  The two sections of the report
+      * are selected independently:
+      *   - summary: per-module table (entries with no dot in their name)
+      *   - detailed: per-method bottleneck tables (leaf entries — names that
+      *     are not a dotted prefix of any other entry)
+      * so both can be shown from a single (detailed) run.
+      *
+      * Params:
+      *     stats = statistics captured from the test run
+      *     show_summary = render the per-module summary table
+      *     show_detailed = render the per-method bottleneck tables
+      **/
+    private void printTestStatsReport(
+            in OdooTestStat[] stats,
+            in bool show_summary,
+            in bool show_detailed) {
+        import tabletool;
+        import std.range: take;
+
+        static string fmtTime(in OdooTestStat s) {
+            return "%.2fs".format(s.duration.total!"msecs" / 1000.0);
+        }
+        auto cfg = tabletool.Config(
+            tabletool.Style.grid, tabletool.Align.left, true);
+
+        // Module aggregation level: entries without a dot in their name.
+        auto modules = stats.filter!(s => !s.name.canFind('.')).array;
+
+        // Leaf entries (individual test methods): names that are not a dotted
+        // prefix of any other entry.
+        bool[string] aggregates;
+        foreach(s; stats) {
+            auto parts = s.name.split('.');
+            string prefix;
+            foreach(i, p; parts[0 .. $ - 1]) {
+                prefix = i == 0 ? p : prefix ~ "." ~ p;
+                aggregates[prefix] = true;
+            }
+        }
+        auto methods = stats.filter!(s => s.name !in aggregates).array;
+
+        if (modules.empty && methods.empty)
+            return;
+
+        writeln();
+        writeln("*".replicate(28).blue);
+        writeln("* ".blue, "Test profiling report".bold, " *".blue);
+        writeln("*".replicate(28).blue);
+
+        if (show_summary && !modules.empty) {
+            auto rows = modules.dup.sort!((a, b) => a.duration > b.duration);
+            string[][] table = [["Module", "Time", "Queries"]];
+            foreach(s; rows)
+                table ~= [s.name, fmtTime(s), s.queries.to!string];
+            writeln("Per-module summary:".bold);
+            writeln(tabulate(table, cfg));
+        }
+
+        if (show_detailed && !methods.empty) {
+            auto by_time = methods.dup.sort!((a, b) => a.duration > b.duration);
+            string[][] slowest = [["Test", "Time", "Queries"]];
+            foreach(s; by_time.take(DEFAULT_TEST_STATS_LIMIT))
+                slowest ~= [s.name, fmtTime(s), s.queries.to!string];
+            writeln("Slowest tests:".bold);
+            writeln(tabulate(slowest, cfg));
+
+            auto by_queries = methods.dup.sort!((a, b) => a.queries > b.queries);
+            string[][] most_queries = [["Test", "Queries", "Time"]];
+            foreach(s; by_queries.take(DEFAULT_TEST_STATS_LIMIT))
+                most_queries ~= [s.name, s.queries.to!string, fmtTime(s)];
+            writeln("Most queries (possible N+1):".bold);
+            writeln(tabulate(most_queries, cfg));
+        }
+
+        // The sum over module-level entries represents the whole run.
+        auto totals = modules.empty ? methods : modules;
+        writefln(
+            "Total: %s entries, %s queries.",
+            totals.length, totals.map!(s => s.queries).sum);
     }
 
     override int execute() {
@@ -225,7 +328,17 @@ class CommandTest: OdoodCommand {
         foreach(tag; testTag)
             testRunner.addTestTag(tag);
 
+        immutable show_summary = testStatsSummary || testStatsAll;
+        immutable show_detailed = testStatsDetailed || testStatsAll;
+        if (show_detailed)
+            testRunner.setTestStats(true);
+        else if (show_summary)
+            testRunner.setTestStats(false);
+
         auto res = testRunner.run();
+
+        if ((show_summary || show_detailed) && !res.testStats.empty)
+            printTestStatsReport(res.testStats, show_summary, show_detailed);
 
         if (warningReport && !res.warnings.empty) {
             writeln();

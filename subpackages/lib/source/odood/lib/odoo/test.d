@@ -7,10 +7,13 @@ private import std.datetime.stopwatch;
 
 private import std.logger;
 private import std.regex;
-private import std.string: join, empty;
+private import std.string: join, empty, splitLines;
 private import std.format: format;
 private import std.algorithm: map, filter, canFind;
 private import std.exception: enforce;
+private import std.typecons: Nullable, nullable;
+private import std.conv: to;
+private import core.time: dur;
 
 private import thepath: Path;
 
@@ -272,6 +275,114 @@ private immutable auto RE_SAFE_WARNINGS = [
 ];
 
 
+// Regular expressions to parse statistics emitted by Odoo's `odoo.tests.stats`
+// logger (enabled via `--log-handler=odoo.tests.stats:INFO|DEBUG`).
+//
+// Summary mode (INFO) emits one record per module:
+//     <module>: N tests X.XXs Q queries
+//
+// Detailed mode (DEBUG) emits a single multi-line record holding entries for
+// every module / module.Class / module.Class.method aggregation level:
+//     Detailed Tests Report:
+//     \t<name>: X.XXs Q queries
+//     \t...
+//
+// Each pattern is matched per line.  The summary pattern is tried first as it
+// is the more specific one.  Lines matching neither are ignored (tolerant
+// parsing — the message format may vary between Odoo series).
+private immutable auto RE_TEST_STAT_SUMMARY = ctRegex!(
+    `^\s*(?P<name>\S.*?):\s+(?P<tests>\d+)\s+tests\s+(?P<time>[\d.]+)s\s+(?P<queries>\d+)\s+queries\s*$`);
+private immutable auto RE_TEST_STAT_DETAILED = ctRegex!(
+    `^\s*(?P<name>\S.*?):\s+(?P<time>[\d.]+)s\s+(?P<queries>\d+)\s+queries\s*$`);
+
+
+/** Single statistics entry captured from the `odoo.tests.stats` logger.
+  *
+  * Depending on logger level, `name` may be a module, a module.Class, or a
+  * module.Class.method aggregation level.
+  **/
+struct OdooTestStat {
+    /// Name of the entry (module, module.Class or module.Class.method).
+    string name;
+
+    /// Wall-clock time spent.
+    Duration duration;
+
+    /// Number of SQL queries executed.
+    ulong queries;
+}
+
+
+/** Parse test-statistics entries from a single log record.
+  *
+  * Handles both the summary (one record per module) and detailed (a single
+  * multi-line record) output formats of Odoo's `log_stats()`.
+  *
+  * Params:
+  *     rec = log record to parse
+  *
+  * Returns: array of parsed entries (possibly empty) for records emitted by
+  *          the `odoo.tests.stats` logger; empty for any other record.
+  **/
+private OdooTestStat[] parseTestStats(in OdooLogRecord rec) {
+    if (rec.logger != "odoo.tests.stats")
+        return [];
+
+    static Duration toDuration(in string seconds) {
+        return dur!"msecs"(cast(long)(seconds.to!double * 1000));
+    }
+
+    OdooTestStat[] result;
+    foreach(line; rec.msg.splitLines) {
+        if (auto m = line.matchFirst(RE_TEST_STAT_SUMMARY))
+            result ~= OdooTestStat(
+                m["name"], toDuration(m["time"]), m["queries"].to!ulong);
+        else if (auto m = line.matchFirst(RE_TEST_STAT_DETAILED))
+            result ~= OdooTestStat(
+                m["name"], toDuration(m["time"]), m["queries"].to!ulong);
+    }
+    return result;
+}
+
+unittest {
+    import unit_threaded.assertions;
+
+    OdooLogRecord rec(in string logger, in string msg) {
+        OdooLogRecord r;
+        r.logger = logger;
+        r.msg = msg;
+        return r;
+    }
+
+    // Records from other loggers are ignored.
+    parseTestStats(rec("odoo.modules.loading", "sale: 12 queries")).length.shouldEqual(0);
+
+    // Detailed (DEBUG) report: single multi-line record with the module /
+    // module.Class / module.Class.method aggregation levels emitted by Odoo.
+    auto detailed = parseTestStats(rec(
+        "odoo.tests.stats",
+        "Detailed Tests Report:\n" ~
+        "\tsale: 3.40s 128 queries\n" ~
+        "\tsale.test_sale.TestSale: 1.25s 42 queries\n" ~
+        "\tsale.test_sale.TestSale.test_confirm: 1.25s 42 queries\n"));
+    detailed.length.shouldEqual(3);
+    detailed[2].name.shouldEqual("sale.test_sale.TestSale.test_confirm");
+    detailed[2].duration.shouldEqual(dur!"msecs"(1250));
+    detailed[2].queries.shouldEqual(42);
+
+    // Summary (INFO): one record per module.
+    auto summary = parseTestStats(rec(
+        "odoo.tests.stats", "sale: 7 tests 3.40s 128 queries"));
+    summary.length.shouldEqual(1);
+    summary[0].name.shouldEqual("sale");
+    summary[0].duration.shouldEqual(dur!"msecs"(3400));
+    summary[0].queries.shouldEqual(128);
+
+    // The report header line (and any other unrecognized content) is ignored.
+    parseTestStats(rec("odoo.tests.stats", "Detailed Tests Report:")).length.shouldEqual(0);
+}
+
+
 /** Struct that represents test result
   **/
 private struct OdooTestResult {
@@ -279,6 +390,7 @@ private struct OdooTestResult {
     private bool _cancelled;
     private string _cancel_reason;
     private const(OdooLogRecord)[] _log_records;
+    private OdooTestStat[] _test_stats;
 
     private Duration _duration_total;
     private Duration _duration_tests;
@@ -339,6 +451,20 @@ private struct OdooTestResult {
       **/
     package pure void addLogRecord(in OdooLogRecord record) {
         _log_records ~= record;
+    }
+
+    /** Add captured test-statistics entry to test result
+      *
+      **/
+    package pure void addTestStat(in OdooTestStat stat) {
+        _test_stats ~= stat;
+    }
+
+    /** Get list of captured test-statistics entries
+      *
+      **/
+    pure const(OdooTestStat[]) testStats() const {
+        return _test_stats;
     }
 
     /** Set the total duration of test run
@@ -433,6 +559,10 @@ struct OdooTestRunner {
 
     // Test tags (--test-tags, Odoo 12.0+)
     private string[] _test_tags;
+
+    // Test statistics collection via odoo.tests.stats logger (Odoo 13.0+)
+    private bool _test_stats_enabled=false;
+    private bool _test_stats_detailed=false;
 
     // Other configuration
     private bool _need_install_addons_before_test=true;
@@ -663,6 +793,31 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Enable collection of test statistics (time + SQL query count) emitted
+      * by Odoo's `odoo.tests.stats` logger.
+      *
+      * Available on Odoo 13.0+ only; on older series the request is ignored
+      * with a warning.
+      *
+      * Params:
+      *     detailed = if true, collect per-test-method statistics (DEBUG),
+      *         otherwise per-module summary statistics (INFO). Calling with
+      *         detailed=true takes precedence over a previous summary request.
+      **/
+    auto ref setTestStats(in bool detailed=true) {
+        if (_project.odoo.serie < OdooSerie(13)) {
+            warningf(
+                "Test statistics (odoo.tests.stats) are available for " ~
+                "Odoo 13.0+ only; ignoring test-stats option for Odoo %s.",
+                _project.odoo.serie);
+            return this;
+        }
+        _test_stats_enabled = true;
+        if (detailed)
+            _test_stats_detailed = true;
+        return this;
+    }
+
     /** Get coma-separated list of modules to run tests for.
       *
       * Params:
@@ -691,6 +846,14 @@ struct OdooTestRunner {
 
         if (!filterLogRecord(log_record))
             return;
+
+        // Capture test statistics from odoo.tests.stats and keep them out of
+        // the inline log display; they are rendered as a separate report.
+        if (_test_stats_enabled && log_record.logger == "odoo.tests.stats") {
+            foreach(stat; parseTestStats(log_record))
+                result.addTestStat(stat);
+            return;
+        }
 
         if (_log_handler)
             _log_handler(log_record);
@@ -939,6 +1102,11 @@ struct OdooTestRunner {
                 "--test-tags requires Odoo 12.0 or later");
             test_args ~= "--test-tags=%s".format(_test_tags.join(","));
         }
+        if (_test_stats_enabled)
+            // Additive to --log-level above: raises only the odoo.tests.stats
+            // logger so per-module (INFO) or per-method (DEBUG) stats are emitted.
+            test_args ~= "--log-handler=odoo.tests.stats:%s".format(
+                _test_stats_detailed ? "DEBUG" : "INFO");
         auto cmd_res = runServerCommand(result, test_args);
         if (!cmd_res) return result;
 
