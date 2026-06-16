@@ -221,7 +221,11 @@ The naive approach — manually cherry-picking or re-applying changes — is ted
 
 ### Key concept: `--config-from-env` and `ODOOD_OPT_*`
 
-The prebuilt Docker images (`ghcr.io/katyukha/odood/odoo/{serie}:latest`) already have Odoo installed and ready.
+The prebuilt Docker images already have Odoo installed and ready. Two variants are published per serie:
+
+- `ghcr.io/katyukha/odood/odoo/{serie}:latest` — the production image (includes a container `HEALTHCHECK`).
+- `ghcr.io/katyukha/odood/odoo-ci/{serie}:latest` — the **CI image**, recommended for test/lint jobs (see [the CI image](#key-concept-the-ci-image) below).
+
 `ODOOD_OPT_*` environment variables allow you to override individual Odoo configuration options (i.e. values in `odoo.conf`) at runtime — without modifying any file on disk.
 Combined with the `--config-from-env` flag, this is the standard way to point CI containers at the PostgreSQL sidecar.
 
@@ -271,6 +275,20 @@ For deployment context (not CI), see [Docker Compose deployment](./deployment-do
 
 ---
 
+### Key concept: the CI image
+
+The `odoo-ci/{serie}` image is a drop-in CI variant of the production image (same
+`--config-from-env` / `ODOOD_OPT_*` mechanism), used by the examples below. It differs in two ways:
+
+- **No `HEALTHCHECK`** — the container is a disposable test runner, not a server.
+- **Dev/test tooling pre-installed** (`odood venv install-dev-tools`): `pre-commit`, `eslint`,
+  `flake8`, `pylint-odoo`, `coverage`, etc. — so lint and coverage jobs don't reinstall it each run.
+
+> **Tip:** `pre-commit` is baked in, but its hook environments are still built from your repo's
+> `.pre-commit-config.yaml` on first run — cache `~/.cache/pre-commit` between runs.
+
+---
+
 ### GitHub Actions
 
 The following workflow runs on development branches (`18.0-*`).
@@ -288,7 +306,7 @@ jobs:
     name: Lint & version checks
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/katyukha/odood/odoo/18.0:latest
+      image: ghcr.io/katyukha/odood/odoo-ci/18.0:latest
     steps:
       - uses: actions/checkout@v4
 
@@ -315,7 +333,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     container:
-      image: ghcr.io/katyukha/odood/odoo/18.0:latest
+      image: ghcr.io/katyukha/odood/odoo-ci/18.0:latest
     services:
       postgres:
         image: postgres:15
@@ -355,7 +373,7 @@ jobs:
     # with an older version of this repo — treated as a soft failure.
     continue-on-error: true
     container:
-      image: ghcr.io/katyukha/odood/odoo/18.0:latest
+      image: ghcr.io/katyukha/odood/odoo-ci/18.0:latest
     services:
       postgres:
         image: postgres:15
@@ -397,7 +415,7 @@ jobs:
 The following pipeline mirrors the GitHub Actions structure using GitLab CI's `extends` keyword to share the common setup.
 
 ```yaml
-image: ghcr.io/katyukha/odood/odoo/18.0:latest
+image: ghcr.io/katyukha/odood/odoo-ci/18.0:latest
 
 stages:
   - lint

@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS base
 
 ARG ODOO_VERSION
 ARG ODOOD_DEPENDENCIES
@@ -46,7 +46,19 @@ VOLUME ["/opt/odoo/data", "/opt/odoo/backups"]
 
 STOPSIGNAL SIGINT
 
+CMD ["/usr/bin/odood", "--config-from-env", "server", "run", "--wait-pg"]
+
+
+# Production image (default target): adds a HEALTHCHECK for orchestrators.
+FROM base AS production
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD odood server healthcheck -t 9
 
-CMD ["/usr/bin/odood", "--config-from-env", "server", "run", "--wait-pg"]
+
+# CI image: no HEALTHCHECK (disposable test runner), with the dev/lint/test
+# toolbelt (pre-commit, eslint, flake8, pylint-odoo, coverage, ...) pre-installed.
+FROM base AS ci
+
+RUN /usr/bin/odood venv install-dev-tools && \
+    rm -rf /root/.cache
