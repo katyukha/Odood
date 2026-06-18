@@ -5,6 +5,7 @@ private import std.format: format;
 private import std.exception: enforce;
 private import std.conv: to, text, ConvException;
 private import std.string: strip;
+private import std.typecons: Nullable;
 private static import std.process;
 
 private import core.sys.posix.unistd: geteuid, getegid;
@@ -13,8 +14,46 @@ private import theprocess: Process;
 private import thepath: Path;
 
 
-void createSystemUser(in Path home, in string name) {
+void createSystemUser(
+        in Path home,
+        in string name,
+        in Nullable!uint uid = Nullable!uint.init,
+        in Nullable!uint gid = Nullable!uint.init) {
     infof("Creating system user for Odoo named '%s'", name);
+
+    if (!uid.isNull || !gid.isNull) {
+        // A deterministic UID/GID was requested (container builds). adduser
+        // cannot create a *new* group with a fixed GID in the same call, so
+        // create the group first, then the user bound to it. The GID defaults
+        // to the UID when only the UID is provided (common container convention).
+        immutable uint group_id = gid.isNull ? uid.get : gid.get;
+        Process("addgroup")
+            .withArgs(
+                "--system",
+                "--gid", group_id.to!string,
+                name)
+            .execute()
+            .ensureOk(true);
+
+        auto user_proc = Process("adduser")
+            .withArgs(
+                "--system",
+                "--no-create-home",
+                "--home", home.toString,
+                "--quiet",
+                "--gid", group_id.to!string);
+        if (!uid.isNull)
+            user_proc.addArgs("--uid", uid.get.to!string);
+        user_proc.addArgs(name);
+        user_proc.execute().ensureOk(true);
+        infof(
+            "User '%s' created successfully (uid=%s, gid=%s)",
+            name,
+            uid.isNull ? "auto" : uid.get.to!string,
+            group_id.to!string);
+        return;
+    }
+
     Process("adduser")
         .withArgs(
             "--system",

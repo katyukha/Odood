@@ -198,7 +198,11 @@ Project deployOdoo(in DeployConfig config) {
     project.save(ODOOD_SYSTEM_CONFIG_PATH);
 
     if (!systemUserExists(project.odoo.server_user))
-        createSystemUser(project.project_root, project.odoo.server_user);
+        createSystemUser(
+            project.project_root,
+            project.odoo.server_user,
+            config.odoo.server_user_uid,
+            config.odoo.server_user_gid);
 
     // Get info about odoo user (that is needed to set up access rights for Odoo files
     auto pw_odoo = getpwnam(project.odoo.server_user.toStringz);

@@ -33,7 +33,8 @@ ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 COPY ./bin/${TARGETARCH}/odood /usr/bin/odood
 COPY ./bin/${TARGETARCH}/odood.bash /etc/bash_completion.d/odood.bash
 
-RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo && \
+RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo \
+        --server-user-uid=1000 --server-user-gid=1000 && \
     rm -rf /root/.cache/pip/*
 
 WORKDIR /opt/odoo

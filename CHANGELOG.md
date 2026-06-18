@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Added
+
+- New options `--server-user-uid` and `--server-user-gid` for `odood deploy`,
+  to create the Odoo system user with a fixed UID/GID. Intended for container
+  builds that need a deterministic UID matching the runtime `securityContext`.
+  Standard (systemd/bare-metal) installs are unaffected and keep allocating the
+  UID dynamically.
+
+### Changed
+
+- Docker images now build the Odoo system user with a fixed **UID/GID 1000**
+  (previously a dynamically-allocated system UID). This is required so the
+  images can run under Kubernetes/Helm with a non-root `securityContext`.
+
+  > **⚠️ Migration required for existing docker-compose / `docker run` setups
+  > with a persistent `/opt/odoo/data` (or `/opt/odoo/backups`) volume.**
+  >
+  > The persisted filestore is still owned by the old UID, so the new process
+  > (UID 1000) gets *permission denied* on the filestore and sessions. Before
+  > upgrading, re-own the volume(s) to `1000:1000` while the stack is stopped:
+  >
+  > ```bash
+  > docker compose down
+  > docker run --rm -v <odoo-data-volume>:/data alpine chown -R 1000:1000 /data
+  > # repeat for the backups volume if you mount one
+  > docker compose pull && docker compose up -d
+  > ```
+  >
+  > For bind mounts, run `sudo chown -R 1000:1000 <host-data-dir>` instead.
+  > Fresh deployments and the PostgreSQL database are not affected.
+
 ---
 
 ## Release 0.6.3 (2026-06-08)
