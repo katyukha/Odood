@@ -386,6 +386,7 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
         }
 
         project.assembly.save();
+        project.assembly.repo.add(project.assembly.spec_path);
 
         if (commit || push || !pushTo.isNull) {
             project.assembly.repo.commit(
