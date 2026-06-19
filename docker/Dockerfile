@@ -3,6 +3,8 @@ FROM ubuntu:24.04 AS base
 ARG ODOO_VERSION
 ARG ODOOD_DEPENDENCIES
 ARG TARGETARCH
+ARG ODOOD_SERVER_USER_UID=1000
+ARG ODOOD_SERVER_USER_GID=1000
 
 RUN apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove \
@@ -34,7 +36,7 @@ COPY ./bin/${TARGETARCH}/odood /usr/bin/odood
 COPY ./bin/${TARGETARCH}/odood.bash /etc/bash_completion.d/odood.bash
 
 RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo \
-        --server-user-uid=1000 --server-user-gid=1000 && \
+        --server-user-uid="$ODOOD_SERVER_USER_UID" --server-user-gid="$ODOOD_SERVER_USER_GID" && \
     rm -rf /root/.cache/pip/*
 
 WORKDIR /opt/odoo

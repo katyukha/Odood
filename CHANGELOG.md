@@ -7,14 +7,11 @@
 - New options `--server-user-uid` and `--server-user-gid` for `odood deploy`,
   to create the Odoo system user with a fixed UID/GID. Intended for container
   builds that need a deterministic UID matching the runtime `securityContext`.
-  Standard (systemd/bare-metal) installs are unaffected and keep allocating the
-  UID dynamically.
 
 ### Changed
 
-- Docker images now build the Odoo system user with a fixed **UID/GID 1000**
-  (previously a dynamically-allocated system UID). This is required so the
-  images can run under Kubernetes/Helm with a non-root `securityContext`.
+- Docker images now build the Odoo system user with a fixed **UID/GID 1000**.
+  This is allows images to run under Kubernetes/Helm with a non-root `securityContext`.
 
   > **⚠️ Migration required for existing docker-compose / `docker run` setups
   > with a persistent `/opt/odoo/data` (or `/opt/odoo/backups`) volume.**
