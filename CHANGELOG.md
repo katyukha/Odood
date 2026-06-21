@@ -15,24 +15,26 @@
 
 ### Changed
 
-- Docker images now build the Odoo system user with a fixed **UID/GID 1000**.
-  This is allows images to run under Kubernetes/Helm with a non-root `securityContext`.
+- Docker images now build the Odoo system user with a fixed **UID/GID 999**.
+  This allows images to run under Kubernetes/Helm with a non-root `securityContext`.
+  999 is the top of the system range (used by the official Postgres/MySQL/Redis
+  images).
 
   > **⚠️ Migration required for existing docker-compose / `docker run` setups
   > with a persistent `/opt/odoo/data` (or `/opt/odoo/backups`) volume.**
   >
   > The persisted filestore is still owned by the old UID, so the new process
-  > (UID 1000) gets *permission denied* on the filestore and sessions. Before
-  > upgrading, re-own the volume(s) to `1000:1000` while the stack is stopped:
+  > (UID 999) gets *permission denied* on the filestore and sessions. Before
+  > upgrading, re-own the volume(s) to `999:999` while the stack is stopped:
   >
   > ```bash
   > docker compose down
-  > docker run --rm -v <odoo-data-volume>:/data alpine chown -R 1000:1000 /data
+  > docker run --rm -v <odoo-data-volume>:/data alpine chown -R 999:999 /data
   > # repeat for the backups volume if you mount one
   > docker compose pull && docker compose up -d
   > ```
   >
-  > For bind mounts, run `sudo chown -R 1000:1000 <host-data-dir>` instead.
+  > For bind mounts, run `sudo chown -R 999:999 <host-data-dir>` instead.
   > Fresh deployments and the PostgreSQL database are not affected.
 
 ---

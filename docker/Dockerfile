@@ -3,8 +3,12 @@ FROM ubuntu:24.04 AS base
 ARG ODOO_VERSION
 ARG ODOOD_DEPENDENCIES
 ARG TARGETARCH
-ARG ODOOD_SERVER_USER_UID=1000
-ARG ODOOD_SERVER_USER_GID=1000
+
+# UID/GID 999 is the top of the system range (Postgres/MySQL/Redis use it too)
+# and is free on the base image, so the 'odoo' system user gets a fixed,
+# predictable ID.
+ARG ODOOD_SERVER_USER_UID=999
+ARG ODOOD_SERVER_USER_GID=999
 
 RUN apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove \
