@@ -14,7 +14,9 @@ private import odood.lib.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
+private import odood.lib.addons.repository:
+    AddonRepository, PrepareReleaseResult,
+    ChangelogRequirement, ChangelogCheckResult;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
@@ -278,6 +280,100 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 
         return runVersionCheck(
             repo, project.odoo.serie, start_ref, ignoreTranslations);
+    }
+}
+
+
+class CommandRepositoryEnsureChangelog: OdoodCommand {
+    Nullable!Path path;
+    string require;
+    bool ignoreTranslations;
+    bool sinceLastRelease;
+    Nullable!string startRef;
+    Nullable!string endRef;
+
+    this() {
+        super(
+            "ensure-changelog",
+            "Check that changed addons carry a changelog entry.");
+        this.addArgument!(path)("path",
+            "Path to repository to check for changelog entries.")
+            .acceptsDirectories();
+        this.addOption!(require)("", "require",
+            "Whether all changed addons must have a changelog entry, or just "
+            ~ "at least one. One of: all, any. Default: all.")
+            .defaultValue("all")
+            .acceptsValues(["all", "any"]);
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Ignore translation-only (.po/.pot) changes.");
+        this.addFlag!(sinceLastRelease)("", "since-last-release",
+            "Compare against the latest release tag instead of the stable branch tip.");
+        this.addOption!(startRef)("", "start-ref",
+            "Explicit git ref to compare against (overrides --since-last-release "
+            ~ "and the default origin/<serie>).");
+        this.addOption!(endRef)("", "end-ref",
+            "Explicit git ref for the current state (defaults to the working tree).");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            path.isNull ? Path.current : path.get.toAbsolute);
+
+        string start_ref;
+        if (!startRef.isNull) {
+            start_ref = startRef.get;
+        } else if (sinceLastRelease) {
+            repo.fetchOrigin(project.odoo.serie.toString);
+            auto latest = repo.getLatestRelease(project.odoo.serie);
+            if (latest.isNull) {
+                infof("No release tags found; comparing against origin/%s.",
+                    project.odoo.serie);
+                start_ref = "origin/%s".format(project.odoo.serie);
+            } else {
+                infof("Comparing against latest release tag: %s", latest.get);
+                start_ref = latest.get.toString;
+            }
+        } else {
+            repo.fetchOrigin(project.odoo.serie.toString);
+            start_ref = "origin/%s".format(project.odoo.serie);
+        }
+
+        immutable string end_ref = endRef.isNull ? GIT_REF_WORKTREE : endRef.get;
+        immutable auto require_mode = require == "any"
+            ? ChangelogRequirement.any : ChangelogRequirement.all;
+
+        auto result = repo.ensureChangelog(
+            start_ref: start_ref,
+            end_ref: end_ref,
+            require: require_mode,
+            ignore_translations: ignoreTranslations);
+
+        if (!result.has_changes) {
+            infof("There are no changes in modules");
+            return 0;
+        }
+
+        if (result.ok) {
+            infof("All required changelog entries are present.");
+            return 0;
+        }
+
+        final switch (require_mode) {
+            case ChangelogRequirement.all:
+                foreach(name; result.addons_missing_changelog)
+                    errorf(
+                        "Addon '%s' is missing a changelog entry for its version bump.",
+                        name);
+                throw new OdoodCLIException(
+                    "%s updated addon(s) are missing changelog entries.".format(
+                        result.addons_missing_changelog.length));
+            case ChangelogRequirement.any:
+                throw new OdoodCLIException(
+                    "None of the changed addons have a changelog entry " ~
+                    "(at least one is required).");
+        }
     }
 }
 
@@ -852,6 +948,7 @@ class CommandRepository: OdoodCommand {
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
         this.add(new CommandRepositoryCheckVersion());
+        this.add(new CommandRepositoryEnsureChangelog());
         this.add(new CommandRepositoryMigrateAddons());
         this.add(new CommandRepositoryDoForwardPort());
         this.add(new CommandRepositoryRelease());

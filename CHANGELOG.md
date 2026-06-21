@@ -4,6 +4,11 @@
 
 ### Added
 
+- New command `odood repo ensure-changelog` that checks changed addons carry a
+  changelog entry for their version bump. Supports `--require all|any`,
+  `--ignore-translations`, `--since-last-release`, and explicit `--start-ref` /
+  `--end-ref` (the latter allowing checks against any git ref, not just the
+  working tree). Intended as a CI gate feeding the release changelog pipeline.
 - New options `--server-user-uid` and `--server-user-gid` for `odood deploy`,
   to create the Odoo system user with a fixed UID/GID. Intended for container
   builds that need a deterministic UID matching the runtime `securityContext`.

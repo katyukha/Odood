@@ -1,7 +1,7 @@
 module odood.lib.addons.repository;
 
 private import std.logger: warningf, infof;
-private import std.algorithm: canFind, map, filter, maxElement;
+private import std.algorithm: canFind, map, filter, maxElement, sort;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
@@ -17,7 +17,8 @@ private import versioned: Version, VersionPart;
 private import thepath: Path;
 
 private import odood.utils.addons.addon: OdooAddon, findAddons;
-private import odood.utils.addons.addon_changelog: OdooAddonChangelogEntry;
+private import odood.utils.addons.addon_changelog:
+    OdooAddonChangelogEntry, matchChangelogFileVersion;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
@@ -46,6 +47,23 @@ struct AddonVersionCheckResult {
         foreach(ref e; errors)
             if (e.addon_name == addon_name) { e.messages ~= message; return; }
         errors ~= AddonCheckError(addon_name, [message]);
+    }
+}
+
+/** How strict the changelog check is. **/
+enum ChangelogRequirement {
+    all,  /// every updated addon must have a changelog entry
+    any,  /// at least one updated addon must have a changelog entry
+}
+
+/** Result of a changelog-check run across changed addons in a repository. **/
+struct ChangelogCheckResult {
+    bool ok = true;                  /// true if the changelog requirement is satisfied
+    AddonRepositoryChanges changes;  /// changes collected by ensureChangelog; null only before first run
+    string[] addons_missing_changelog;  /// updated addons without a changelog entry for the bump
+
+    @property bool has_changes() const {
+        return changes !is null && changes.has_changes;
     }
 }
 
@@ -184,6 +202,43 @@ class AddonRepository : GitRepository{
         return Nullable!AddonInfo.init;
     }
 
+    /** Read changelog entries for an addon at the given ref.
+      *
+      * For the worktree the changelog files are read from the filesystem; for
+      * any other ref the addon's `changelog/` directory is listed in that ref
+      * via git and each entry's content is read from the ref. This makes
+      * changelog collection work for arbitrary end refs, not just the worktree.
+      *
+      * Params:
+      *     addon_path = path to the addon, relative to the repo root.
+      *     rev        = git ref to read from (or GIT_REF_WORKTREE).
+      *     start_ver  = if set, entries with version <= start_ver are excluded.
+      **/
+    OdooAddonChangelogEntry[] readAddonChangelog(
+            in Path addon_path, in string rev,
+            in Nullable!Version start_ver=Nullable!Version.init) const {
+        if (rev == GIT_REF_WORKTREE)
+            return new OdooAddon(this.path.join(addon_path))
+                .readChangelogEntries(start_ver: start_ver);
+
+        auto changelog_dir = addon_path.join("changelog");
+        OdooAddonChangelogEntry[] entries;
+        foreach (p; listDir(changelog_dir, rev)) {
+            // The version is in the file name, so entries at or below start_ver
+            // are skipped before reading content from git (one `git show` per
+            // file).
+            auto ver = matchChangelogFileVersion(p.baseName);
+            if (ver.isNull)
+                continue;
+            if (!start_ver.isNull && start_ver.get >= ver.get)
+                continue;
+            entries ~= OdooAddonChangelogEntry(
+                ver.get, getContent(changelog_dir.join(p.baseName), rev));
+        }
+        entries.sort!("a > b");
+        return entries;
+    }
+
     /** Collect addon-level changes between start_ref and end_ref.
       *
       * For each changed file, the containing addon is looked up independently
@@ -241,15 +296,12 @@ class AddonRepository : GitRepository{
                 changes.logAddonAdded(name, end_info.path, end_info.addon_version);
             } else {
                 auto start_info = start_map[name];
-                // Changelog files live on the filesystem, so only read them
-                // when end_ref is the worktree (not a historical commit).
-                OdooAddonChangelogEntry[] changelog;
-                if (end_ref == GIT_REF_WORKTREE) {
-                    auto addon = new OdooAddon(this.path.join(end_info.path));
-                    changelog = addon.readChangelogEntries(
-                        start_ver: cast(Nullable!Version)
-                            start_info.addon_version.semver.nullable);
-                }
+                // Read changelog entries newer than the start version, from the
+                // end ref (works for both the worktree and historical refs).
+                auto changelog = readAddonChangelog(
+                    end_info.path, end_ref,
+                    cast(Nullable!Version)
+                        start_info.addon_version.semver.nullable);
                 changes.logAddonUpdated(
                     name,
                     start_info.path,
@@ -323,6 +375,59 @@ class AddonRepository : GitRepository{
                     addon.name,
                     "Current version (%s) must be greater than stable version (%s).".format(
                         end_version, start_version));
+        }
+        return result;
+    }
+
+    /** Check that addons changed between start_ref and end_ref carry a
+      * changelog entry for their version bump.
+      *
+      * Only *updated* addons are subject to the requirement; newly added and
+      * removed addons are exempt (an added addon's whole history is new, a
+      * removed one has none). An updated addon "has a changelog" when it
+      * carries a changelog entry newer than its start-ref version — exactly the
+      * entries that feed release-changelog generation.
+      *
+      * Params:
+      *     start_ref           = Git ref to compare against (e.g. "origin/16.0").
+      *     end_ref             = Git ref for the current state. Defaults to worktree.
+      *     require             = all  → every updated addon must have a changelog;
+      *                           any  → at least one updated addon must have one.
+      *     ignore_translations = Exclude .po/.pot files when detecting changes.
+      *
+      * Returns: ChangelogCheckResult with ok=false and addons_missing_changelog
+      *          populated when the requirement is not met.
+      **/
+    ChangelogCheckResult ensureChangelog(
+            in string start_ref,
+            in string end_ref = GIT_REF_WORKTREE,
+            in ChangelogRequirement require = ChangelogRequirement.all,
+            in bool ignore_translations = true) const {
+        ChangelogCheckResult result;
+
+        auto changes = collectChanges(start_ref, end_ref, ignore_translations);
+        result.changes = changes;
+
+        // Updated addons that carry a changelog entry covering the bump.
+        bool[string] has_changelog;
+        foreach(nc; changes.notable_changes)
+            has_changelog[nc.name] = true;
+
+        foreach(addon; changes.addons_updated)
+            if (addon.name !in has_changelog)
+                result.addons_missing_changelog ~= addon.name;
+
+        final switch (require) {
+            case ChangelogRequirement.all:
+                // Every updated addon must have a changelog.
+                result.ok = result.addons_missing_changelog.length == 0;
+                break;
+            case ChangelogRequirement.any:
+                // At least one updated addon must have a changelog. With no
+                // updated addons there is nothing to require → pass.
+                result.ok = changes.addons_updated.length == 0
+                    || has_changelog.length > 0;
+                break;
         }
         return result;
     }
@@ -741,6 +846,111 @@ unittest {
     auto cc_dir_name = repo.collectChanges(rev_v7, rev_v8);
     cc_dir_name.addons_updated.length.should == 1;
     cc_dir_name.addons_updated[0].name.should == "addon_a";  // directory name, not "My Addon A (Display Name)"
+}
+
+
+// ensureChangelog + readAddonChangelog — worktree and historical end refs.
+unittest {
+    import std.algorithm: canFind, map;
+    import std.array: array;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("repo")));
+    auto repo_path = repo.path;
+
+    // Two addons at 17.0.1.0.0
+    foreach(name; ["addon_a", "addon_b"]) {
+        repo_path.join(name).mkdir(false);
+        repo_path.join(name, "__init__.py").writeFile("");
+        repo_path.join(name, "__manifest__.py").writeFile(
+            `{"name": "%s", "version": "17.0.1.0.0", "depends": ["base"]}`.format(name));
+    }
+    repo.add(repo_path.join("addon_a"));
+    repo.add(repo_path.join("addon_b"));
+    repo.commit("Initial commit");
+    auto rev0 = repo.getCurrCommit();
+
+    // Worktree: bump both addons; only addon_a gets a changelog entry.
+    foreach(name; ["addon_a", "addon_b"])
+        repo_path.join(name, "__manifest__.py").writeFile(
+            `{"name": "%s", "version": "17.0.1.1.0", "depends": ["base"]}`.format(name));
+    repo_path.join("addon_a", "changelog").mkdir(false);
+    repo_path.join("addon_a", "changelog", "changelog.1.1.0.md").writeFile(
+        "Added feature X.");
+
+    // ── worktree end_ref ──
+
+    // 'all': addon_b lacks a changelog → fail, addon_b reported.
+    auto wt_all = repo.ensureChangelog(rev0);
+    wt_all.has_changes.shouldBeTrue;
+    wt_all.ok.shouldBeFalse;
+    wt_all.addons_missing_changelog.should == ["addon_b"];
+
+    // 'any': addon_a has a changelog → pass.
+    repo.ensureChangelog(
+        rev0, GIT_REF_WORKTREE, ChangelogRequirement.any).ok.shouldBeTrue;
+
+    // Add a changelog for addon_b too → 'all' now passes.
+    repo_path.join("addon_b", "changelog").mkdir(false);
+    repo_path.join("addon_b", "changelog", "changelog.1.1.0.md").writeFile(
+        "Fixed bug Y.");
+    repo.ensureChangelog(rev0).ok.shouldBeTrue;
+
+    // readAddonChangelog — worktree reads the entry just written.
+    auto wt_cl = repo.readAddonChangelog(Path("addon_a"), GIT_REF_WORKTREE);
+    wt_cl.length.should == 1;
+    wt_cl[0].ver.toString.should == "1.1.0";
+
+    // ── historical end_ref (proves changelog is read from the ref) ──
+
+    repo.add(repo_path.join("addon_a"));
+    repo.add(repo_path.join("addon_b"));
+    repo.commit("Bump both addons with changelogs");
+    auto rev1 = repo.getCurrCommit();
+
+    // Both addons carry a changelog at rev1 → 'all' passes comparing two refs.
+    auto ref_all = repo.ensureChangelog(rev0, rev1);
+    ref_all.has_changes.shouldBeTrue;
+    ref_all.ok.shouldBeTrue;
+    ref_all.addons_missing_changelog.length.should == 0;
+
+    // readAddonChangelog from the historical ref finds the committed entry...
+    auto ref_cl = repo.readAddonChangelog(Path("addon_a"), rev1);
+    ref_cl.length.should == 1;
+    ref_cl[0].ver.toString.should == "1.1.0";
+
+    // ...and is read from the ref, not the worktree: delete it on disk, the
+    // ref-based read is unaffected and the ref-to-ref check still passes.
+    repo_path.join("addon_a", "changelog", "changelog.1.1.0.md").remove();
+    repo.readAddonChangelog(Path("addon_a"), rev1).length.should == 1;
+    repo.ensureChangelog(rev0, rev1).ok.shouldBeTrue;
+
+    // No changes between identical refs → ok, nothing to require.
+    auto none = repo.ensureChangelog(rev1, rev1);
+    none.has_changes.shouldBeFalse;
+    none.ok.shouldBeTrue;
+
+    // Added-only diff is exempt: a brand-new addon needs no changelog.
+    repo_path.join("addon_c").mkdir(false);
+    repo_path.join("addon_c", "__init__.py").writeFile("");
+    repo_path.join("addon_c", "__manifest__.py").writeFile(
+        `{"name": "addon_c", "version": "17.0.1.0.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_c"));
+    repo.commit("Add addon_c (no changelog)");
+    auto rev2 = repo.getCurrCommit();
+
+    auto added = repo.ensureChangelog(rev1, rev2);
+    added.has_changes.shouldBeTrue;
+    added.changes.addons_added.length.should == 1;
+    added.changes.addons_updated.length.should == 0;
+    added.ok.shouldBeTrue;  // added addon exempt under 'all'
+    // 'any' with no updated addons → nothing to require → pass.
+    repo.ensureChangelog(
+        rev1, rev2, ChangelogRequirement.any).ok.shouldBeTrue;
 }
 
 

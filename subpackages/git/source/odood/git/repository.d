@@ -821,6 +821,89 @@ class GitRepository {
         git_repo.getContent(Path("test_file.txt")).should == "Hello world!\nSome extra text.\n";
     }
 
+    /** List file and directory names directly under `dir` (non-recursive)
+      * at the given ref.
+      *
+      * Works for both git refs and GIT_REF_WORKTREE (filesystem). Entries are
+      * returned as paths relative to the repo root. Returns an empty array when
+      * `dir` does not exist at that ref.
+      **/
+    Path[] listDir(in Path dir, in string rev) const {
+        auto rel_dir = _makeRelPath(dir);
+        if (rev == GIT_REF_WORKTREE) {
+            auto abs_dir = _path.join(rel_dir);
+            if (!abs_dir.exists || !abs_dir.isDir)
+                return [];
+            return abs_dir.walk  // default SpanMode.shallow — non-recursive
+                .map!(p => rel_dir.join(p.baseName))
+                .array;
+        }
+
+        // `git ls-tree --name-only <rev> -- <dir>/` lists the immediate children
+        // of <dir> as repo-root-relative paths. A missing dir is not an error:
+        // it yields empty output with status 0. A non-zero exit therefore means
+        // a genuine git failure (invalid rev, broken repo, ...) and is raised.
+        return gitCmd
+            .withArgs(
+                "ls-tree", "--name-only", rev, "--", "%s/".format(rel_dir))
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .ensureOk(true)
+            .output
+            .strip
+            .splitLines
+            .filter!(l => l.length > 0)
+            .map!(l => Path(l))
+            .array;
+    }
+
+    /// ditto
+    Path[] listDir(in Path dir) const {
+        return listDir(dir, GIT_REF_WORKTREE);
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import std.algorithm: sort, canFind;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto git_root = root.join("test-repo");
+        auto repo = GitRepository.initialize(git_root);
+
+        // Set up: addon_a/changelog/{changelog.1.0.0.md, changelog.1.1.0.md}
+        git_root.join("addon_a", "changelog").mkdir(true);
+        git_root.join("addon_a", "changelog", "changelog.1.0.0.md").writeFile("init");
+        git_root.join("addon_a", "changelog", "changelog.1.1.0.md").writeFile("more");
+        repo.add(git_root.join("addon_a"));
+        repo.commit("Init");
+        auto rev_v1 = repo.getCurrCommit();
+
+        // Worktree listing (relative to repo root), order-independent.
+        auto wt = repo.listDir(Path("addon_a/changelog"))
+            .map!(p => p.toString).array;
+        wt.length.should == 2;
+        wt.canFind("addon_a/changelog/changelog.1.0.0.md").shouldBeTrue;
+        wt.canFind("addon_a/changelog/changelog.1.1.0.md").shouldBeTrue;
+
+        // Ref listing returns the same set.
+        auto at_ref = repo.listDir(Path("addon_a/changelog"), rev_v1)
+            .map!(p => p.toString).array;
+        at_ref.length.should == 2;
+        at_ref.canFind("addon_a/changelog/changelog.1.0.0.md").shouldBeTrue;
+
+        // Add a third file in the worktree only; ref must not see it.
+        git_root.join("addon_a", "changelog", "changelog.1.2.0.md").writeFile("new");
+        repo.listDir(Path("addon_a/changelog")).length.should == 3;
+        repo.listDir(Path("addon_a/changelog"), rev_v1).length.should == 2;
+
+        // Missing directory → empty, for both worktree and ref.
+        repo.listDir(Path("addon_a/nonexistent")).length.should == 0;
+        repo.listDir(Path("addon_a/nonexistent"), rev_v1).length.should == 0;
+    }
+
     /// Push current branch to a remote, optionally to a different branch name.
     void push(in string branch_name=null, in string remote="origin") const {
         auto current_branch = getCurrBranch();
