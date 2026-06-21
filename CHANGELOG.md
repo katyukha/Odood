@@ -37,6 +37,11 @@
   > For bind mounts, run `sudo chown -R 999:999 <host-data-dir>` instead.
   > Fresh deployments and the PostgreSQL database are not affected.
 
+### Fixed
+
+- `odood test --migration` now correctly handles new addon dependencies during migration tests.
+  For example, in case, when we added new addon in repo and make one of existing addons depend on it.
+
 ---
 
 ## Release 0.6.3 (2026-06-08)

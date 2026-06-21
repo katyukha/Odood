@@ -60,8 +60,13 @@ private immutable auto RE_ERROR_CHECKS = [
     ctRegex!(`The group [“'”"][a-zA-Z0-9\\._]+[“'”"] defined in view does not exist!?`),
     ctRegex!(`[a-zA-Z0-9\\._]+: inconsistent 'compute_sudo' for computed fields`),
     ctRegex!(`Field [a-zA-Z0-9\\._]+ with unknown comodel_name '[a-zA-Z0-9\\._]+'`),
-    ctRegex!(`module [a-zA-Z0-9\\._]+: Unmet dependencies: [a-zA-Z0-9\\._,\s]+`),
 ];
+
+/* Regex for "Unmet dependencies" reports.
+ * Treated as an error for normal tests, but ignored for migration tests
+ */
+private immutable auto RE_UNMET_DEPENDENCIES = ctRegex!(
+    `^module [a-zA-Z0-9\\._]+: Unmet dependencies: [a-zA-Z0-9\\._,\s]+`);
 
 unittest {
     import unit_threaded.assertions;
@@ -123,13 +128,9 @@ unittest {
     is_re_error("Field sale.order.custom_partner_id with unknown comodel_name 'res.custom.partner' ").shouldBeTrue;
     is_re_error("Field generic_request.request.service_id with unknown comodel_name 'generic.service' ").shouldBeTrue;
 
-    // Pattern: "module X: Unmet dependencies: Y"
-    is_re_error(
-        "module my_module: Unmet dependencies: another_module"
-    ).shouldBeTrue;
-    is_re_error(
-        "module my_module: Unmet dependencies: another_module, other_module"
-    ).shouldBeTrue;
+    // "Unmet dependencies" is NOT in RE_ERROR_CHECKS - it is handled in
+    // OdooTestResult.errors (see the dedicated unittest below).
+    is_re_error("module mod_a: Unmet dependencies: mod_b").shouldBeFalse;
 
     // Negative cases: normal operational messages that should NOT match
     is_re_error("Odoo version 16.0 ").shouldBeFalse;
@@ -250,6 +251,62 @@ unittest {
     errors.length.shouldEqual(3);
     errors.map!(e => e.msg).array.shouldEqual(
         ["Something failed", "Critical failure", "At least one test failed"]);
+}
+
+/// Test that unmet-dependency reports are treated as errors for normal tests,
+/// but ignored (not failing the run) for migration tests.
+unittest {
+    import std.array: array;
+    import unit_threaded.assertions;
+
+    OdooLogRecord unmet_rec;
+    unmet_rec.log_level = "INFO";
+    unmet_rec.logger = "odoo.modules.graph";
+    unmet_rec.msg = "module mod_a: Unmet dependencies: mod_b";
+
+    // Several coma-separated dependencies are matched too.
+    OdooLogRecord unmet_multi_rec;
+    unmet_multi_rec.log_level = "INFO";
+    unmet_multi_rec.logger = "odoo.modules.graph";
+    unmet_multi_rec.msg = "module mod_a: Unmet dependencies: mod_b, mod_c";
+
+    // Normal test: unmet dependency is treated as an error.
+    {
+        OdooTestResult result;
+        result.addLogRecord(unmet_rec);
+        result.addLogRecord(unmet_multi_rec);
+
+        result.errors.array.length.shouldEqual(2);
+        result.warnings.array.length.shouldEqual(0);
+    }
+
+    // Migration test: transient unmet-dependency reports do not fail the run.
+    {
+        OdooTestResult result;
+        result.setMigrationTest(true);
+        result.addLogRecord(unmet_rec);
+        result.addLogRecord(unmet_multi_rec);
+
+        result.errors.array.length.shouldEqual(0);
+
+        // Unmet dependencies has INFO log level, thus  no warnings
+        result.warnings.array.length.shouldEqual(0);
+    }
+
+    // Migration test: a real ERROR-level report is still treated as an error.
+    {
+        OdooTestResult result;
+        result.setMigrationTest(true);
+
+        OdooLogRecord err_rec;
+        err_rec.log_level = "ERROR";
+        err_rec.msg =
+            "Some modules have inconsistent states, some dependencies may be missing: ['x']";
+        result.addLogRecord(err_rec);
+
+        result.errors.array.length.shouldEqual(1);
+        result.warnings.array.length.shouldEqual(0);
+    }
 }
 
 /// Test OdooTestResult duration tracking
@@ -389,6 +446,7 @@ private struct OdooTestResult {
     private bool _success;
     private bool _cancelled;
     private string _cancel_reason;
+    private bool _migration_test;
     private const(OdooLogRecord)[] _log_records;
     private OdooTestStat[] _test_stats;
 
@@ -446,6 +504,17 @@ private struct OdooTestResult {
         _success = true;
     }
 
+    /** Mark this result as produced by a migration test.
+      *
+      * Migration tests upgrade and install addons in separate graph passes, so
+      * Odoo emits transient "Unmet dependencies" reports that are not real
+      * errors here (truly missing dependencies still surface as ERROR-level
+      * reports). Thus such reports are ignored for migration tests only.
+      **/
+    package pure void setMigrationTest(in bool migration_test=true) {
+        _migration_test = migration_test;
+    }
+
     /** Add log record to test result
       *
       **/
@@ -495,6 +564,11 @@ private struct OdooTestResult {
         return _log_records.filter!((r) {
             if (r.isError)
                 return true;
+
+            // Unmet-dependency reports are errors for normal tests, but
+            // ignored for migration tests (see setMigrationTest).
+            if (!r.msg.matchFirst(RE_UNMET_DEPENDENCIES).empty)
+                return !_migration_test;
 
             // Try to detect warnings that we treat as errors
             foreach(check; RE_ERROR_CHECKS)
@@ -823,9 +897,11 @@ struct OdooTestRunner {
       * Params:
       *     additional = If set, then include additional addons to the
       *         module list.
-      *     existing_only = If set to True, then only existing modules will be listed.
-      *         modules, that are specified, but does not exists will be skipped.
-      *         this is needed for migration tests, when new modules added to avoid false-positives.
+      *     existing_only = If set, skip addons whose manifest does not exist
+      *         (needed for migration tests to avoid false-positives on newly
+      *         added addons). The manifest is checked rather than the directory:
+      *         after switching git refs the directory may linger because of
+      *         untracked/ignored files (e.g. __pycache__) while the addon is gone.
       *
       * Returns: string, that include coma-separated list of addons
       **/
@@ -835,7 +911,7 @@ struct OdooTestRunner {
             res_addons ~= _additional_addons;
 
         if (existing_only)
-            return res_addons.filter!(a => a.path.exists).map!(a => a.name).join(",");
+            return res_addons.filter!(a => a.manifest_path.exists).map!(a => a.name).join(",");
         return res_addons.map!(a => a.name).join(",");
     }
 
@@ -926,6 +1002,7 @@ struct OdooTestRunner {
             "Coverage not installed. Please, install it via 'odood venv install-py-packages coverage' to continue.");
 
         OdooTestResult result;
+        result.setMigrationTest(_test_migration);
 
         auto watch_total = StopWatch(AutoStart.yes);
         scope(exit) result.setDurationTotal(watch_total.peek());
