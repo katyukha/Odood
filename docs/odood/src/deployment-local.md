@@ -72,17 +72,14 @@ Run `odood init --help` to see the full list of options.
 
 ## Multiple instances on one machine
 
-Each instance needs a unique combination of:
-- **Installation directory** (`-i`)
-- **HTTP port** (`--http-port`)
-- **Database user** (`--db-user`)
-
-Example: three active development instances:
+You can run several instances side by side — typically one per Odoo series. Each
+needs a unique installation directory (`-i`), HTTP port (`--http-port`), and
+database user (`--db-user`):
 
 ```bash
-odood init -i odoo-16 -v 16 --db-user=odoo16 --http-port=16069
-odood init -i odoo-17 -v 17 --db-user=odoo17 --http-port=17069
-odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069
+odood init -i odoo-16 -v 16 --db-user=odoo16 --http-port=16069 --create-db-user
+odood init -i odoo-17 -v 17 --db-user=odoo17 --http-port=17069 --create-db-user
+odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069 --create-db-user
 ```
 
 Switch between them by changing your working directory:
@@ -91,6 +88,10 @@ Switch between them by changing your working directory:
 cd ~/odoo-16 && odood server start
 cd ~/odoo-18 && odood server start
 ```
+
+For the full picture — how instances stay isolated, how switching works, and how
+to avoid port and database conflicts — see
+[Working with Multiple Instances](./multiple-instances.md).
 
 ## Managing the server
 

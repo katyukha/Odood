@@ -20,6 +20,11 @@ The recommended branch naming convention mirrors the Odoo series:
 
 ## Local Development
 
+> **Running several series at once?** When you develop and forward-port across
+> Odoo versions you typically keep one instance per series running side by side.
+> See [Working with Multiple Instances](./multiple-instances.md) for how Odood
+> isolates them and how to avoid port and database conflicts.
+
 ### Running Tests
 
 Run tests for a single module on a temporary database:

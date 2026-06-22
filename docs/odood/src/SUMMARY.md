@@ -8,6 +8,7 @@
 
 # Development
 - [Development Workflow](./development-workflow.md)
+- [Working with Multiple Instances](./multiple-instances.md)
 - [Release Management](./release-management.md)
 - [Translation Management](./translations.md)
 
