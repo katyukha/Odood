@@ -405,6 +405,7 @@ struct AddonManager {
             in string[] addon_names,
             in cmdIU cmd,
             in string[string] env=null) const {
+        import std.datetime.stopwatch;
 
         // Initialize server runner configuration
         auto runner = _project.server.getServerRunner(
@@ -420,6 +421,7 @@ struct AddonManager {
             runner.addArgs("--without-demo=all");
 
         auto addon_names_csv = addon_names.join(",");
+        auto sw = StopWatch(AutoStart.yes);
         final switch(cmd) {
             case cmdIU.install:
                 infof("Installing addons (db=%s): %s", database, addon_names_csv);
@@ -429,7 +431,9 @@ struct AddonManager {
                 if (_project.odoo.logfile.isNull)
                     install_runner.setStderrPassThrough;
                 install_runner.execute.ensureOk!AddonsInstallException(true);
-                infof("Installation of addons for database %s completed!", database);
+                infof(
+                    "Installation of addons for database %s completed in %s!",
+                    database, sw.peek);
                 break;
             case cmdIU.update:
                 infof("Updating addons (db=%s): %s", database, addon_names_csv);
@@ -439,14 +443,18 @@ struct AddonManager {
                 if (_project.odoo.logfile.isNull)
                     update_runner.setStderrPassThrough;
                 update_runner.execute.ensureOk!AddonsUpdateException(true);
-                infof("Update of addons for database %s completed!", database);
+                infof(
+                    "Update of addons for database %s completed in %s!",
+                    database, sw.peek);
                 break;
             case cmdIU.uninstall:
                 infof("Uninstalling addons (db=%s): %s", database, addon_names_csv);
                 _project.lodoo(_test_mode).addonsUninstall(
                     database,
                     addon_names);
-                infof("Uninstallation of addons for database %s completed!", database);
+                infof(
+                    "Uninstallation of addons for database %s completed in %s!",
+                    database, sw.peek);
                 break;
         }
     }

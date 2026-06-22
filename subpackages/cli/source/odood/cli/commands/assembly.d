@@ -282,8 +282,12 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
     }
 
     override int execute() {
+        import std.datetime.stopwatch;
+
         auto project = loadProject();
         auto assembly = project.assembly;
+
+        auto sw_total = StopWatch(AutoStart.yes);
 
         if (backup)
             foreach(db; project.databases.list)
@@ -301,6 +305,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         bool error = false;
         OdooAddon[] addons = project.addons.scan(assembly.dist_dir, recursive: false);
         foreach(db; project.databases.list) {
+            auto sw_db = StopWatch(AutoStart.yes);
             auto error_info = project.server.catchOdooErrors(() {
                 project.lodoo.addonsUpdateList(
                     dbname: db,
@@ -331,6 +336,10 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
                     throw new OdoodCLIException(
                         "Assembly upgrade for database %s failed!!".format(db));
             }
+
+            infof(
+                "Assembly upgrade for database %s completed in %s.",
+                db, sw_db.peek);
         }
 
         if (start_again)
@@ -338,6 +347,8 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 
         if (error)
             throw new OdoodCLIException("Assembly upgrade failed!");
+
+        infof("Assembly upgrade completed in %s.", sw_total.peek);
         return 0;
     }
 }
