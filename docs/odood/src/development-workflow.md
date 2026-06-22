@@ -130,20 +130,100 @@ odood pre-commit run
 
 ### Per-addon Changelog
 
-To track user-facing changes at the module level, each addon can contain a `changelog/` directory.
-Each file inside describes changes introduced in a specific version, using the naming pattern:
+To track *user-facing* changes at the module level, each addon can carry a
+`changelog/` directory holding one markdown file per notable version:
 
 ```
-changelog/
-└── changelog.X.Y.Z.md
+my_addon/
+├── __manifest__.py
+└── changelog/
+    ├── changelog.1.2.0.md
+    └── changelog.1.3.0.md
 ```
 
-For example, `changelog/changelog.1.3.0.md` contains a markdown description of what changed in version `1.3.0` of that addon.
+#### File naming
 
-The file content is free-form markdown — describe what changed from an end-user perspective, not implementation details.
+Each entry is named `changelog.X.Y.Z.md`, where `X.Y.Z` is the addon's module
+version **with the Odoo serie stripped** (`X` — major, `Y` — minor, `Z` —
+patch). The serie is ignored so the same entry stays valid when an addon is
+forward-ported between series.
 
-Odood reads these files when generating the assembly-level changelog.
-When you run `odood assembly sync --changelog`, it aggregates per-addon changelogs across all updated modules into a single `CHANGELOG.md` (and `CHANGELOG.latest.md`) at the assembly root — useful for release notes and communicating changes to end users.
+For example, an addon at version `18.0.1.3.0` records its notable changes in
+`changelog/changelog.1.3.0.md`.
+
+Only versions with *notable changes* need a file — there is no requirement to
+add one for every bump.
+
+#### File content
+
+The content is free-form markdown describing what changed from an **end-user
+perspective** (new features, behaviour changes, breaking changes), not
+implementation details:
+
+```md
+###### New features
+- Added a "Reorder lines" button to the sale order form.
+
+###### Breaking changes
+- The `state` field no longer accepts the legacy `draft2` value.
+```
+
+> **Note:** only `h6` headers (`######`) — or no headers at all — may be used
+> inside a changelog entry. Larger headers (`#` … `#####`) are reserved for the
+> structure of the generated, aggregated changelog, so using them here would
+> break that layout.
+
+#### What deserves an entry
+
+Reserve changelog entries for changes that matter to the people *using* the
+module — new features, UI or behaviour changes, breaking changes, notable bug
+fixes. Purely technical work (refactors, code-style or typo fixes, test-only
+changes, small internal fixes) usually does not need its own entry.
+
+Where exactly to draw that line, and how strictly to enforce it, is a project
+decision — see [Enforcing changelog entries](#enforcing-changelog-entries) below.
+
+#### Where changelogs are used
+
+Odood reads these entries in three places:
+
+| Command | What it does with changelogs |
+| --- | --- |
+| `odood repo ensure-changelog` | Verifies that addons changed since the release branch (or last tag) carry a changelog entry covering their version bump. Useful as a CI / pre-merge gate. |
+| `odood repo release --changelog` | Generates and commits repo-level `CHANGELOG.md` and `CHANGELOG.latest.md` while cutting a release (see [Release Management](./release-management.md)). |
+| `odood assembly sync --changelog` | Aggregates per-addon entries across all updated modules into a single assembly-level `CHANGELOG.md` (and `CHANGELOG.latest.md`) — see the assembly [*Notable changes*](./assembly.md#notable-changes) section. |
+
+#### Enforcing changelog entries
+
+`odood repo ensure-changelog` checks that changed addons carry a changelog entry
+for their version bump, so you can wire it into CI or a pre-merge hook. An addon
+is considered to *need* an entry when its version was bumped relative to the
+comparison ref — and the entry's version must be **newer than the addon's
+version at that ref**.
+
+How strict to be is a per-project policy, selected with `--require`:
+
+- **`--require all`** (default) — *every* changed addon must have an entry. Best
+  when you want a complete, auditable history of user-facing changes.
+- **`--require any`** — at least *one* changed addon in the set must have an
+  entry. Lighter-weight: it ensures a pull request documents something
+  user-facing without forcing an entry onto every incidental change.
+
+Some teams skip the automated check entirely and rely on review discipline
+instead. Pick whatever matches your release process.
+
+```bash
+# Strict: every changed addon needs an entry (compared against origin/<serie>):
+odood repo ensure-changelog .
+
+# Relaxed: at least one entry across the change set, compared against the
+# latest release tag:
+odood repo ensure-changelog . --require any --since-last-release
+```
+
+Translation-only changes (`.po`/`.pot`) are **counted as changes**; add
+`--ignore-translations` to skip them. The compared refs can be overridden with
+`--start-ref` / `--end-ref`.
 
 ### Releasing a Repository
 
