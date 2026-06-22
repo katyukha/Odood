@@ -22,6 +22,13 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
 
 
+/// Documentation on how to write per-addon changelog entries; referenced from
+/// changelog-related error messages. The anchor must match the heading in
+/// docs/odood/src/development-workflow.md ("Per-addon Changelog").
+private enum DOC_URL_CHANGELOG =
+    "https://katyukha.github.io/Odood/development-workflow.html#per-addon-changelog";
+
+
 class CommandRepositoryAdd: OdoodCommand {
     bool oca;
     bool github;
@@ -367,12 +374,17 @@ class CommandRepositoryEnsureChangelog: OdoodCommand {
                         "Addon '%s' is missing a changelog entry for its version bump.",
                         name);
                 throw new OdoodCLIException(
-                    "%s updated addon(s) are missing changelog entries.".format(
-                        result.addons_missing_changelog.length));
+                    ("%s updated addon(s) are missing changelog entries. " ~
+                     "Add a 'changelog/changelog.X.Y.Z.md' entry for each. " ~
+                     "See %s").format(
+                        result.addons_missing_changelog.length,
+                        DOC_URL_CHANGELOG));
             case ChangelogRequirement.any:
                 throw new OdoodCLIException(
                     "None of the changed addons have a changelog entry " ~
-                    "(at least one is required).");
+                    "(at least one is required). Add a " ~
+                    "'changelog/changelog.X.Y.Z.md' entry. See " ~
+                    DOC_URL_CHANGELOG);
         }
     }
 }
