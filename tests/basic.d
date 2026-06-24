@@ -841,3 +841,56 @@ unittest {
     ));
     venv3.py_version.shouldEqual(Version(3, 10, 16));
 }
+
+
+@("Test script resolution precedence")
+unittest {
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import std.typecons: Nullable, nullable;
+    import odood.lib.odoo.script: resolveScriptPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Path resolution does not need an installed Odoo, so a lightweight project
+    // (test constructor) is enough.
+    auto project = new Project(root.join("project"), OdooSerie(17));
+
+    auto repo = root.join("repo");
+    auto repo_scripts = repo.join(".odood-scripts");
+    auto project_scripts = project.project_root.join("scripts");
+    repo_scripts.mkdir(true);
+    project_scripts.mkdir(true);
+
+    // <repo>/.odood-scripts/ takes precedence over <project>/scripts/ when both
+    // provide the script and a repo is in context.
+    repo_scripts.join("shared.py").writeFile("repo");
+    project_scripts.join("shared.py").writeFile("project");
+    resolveScriptPath(project, "shared.py", repo.nullable)
+        .readFileText.shouldEqual("repo");
+
+    // <project>/scripts/ is used when the script is not in the repo dir.
+    project_scripts.join("only_project.sql").writeFile("project");
+    resolveScriptPath(project, "only_project.sql", repo.nullable)
+        .readFileText.shouldEqual("project");
+
+    // Without a repo in context, <repo>/.odood-scripts/ is not searched, so the
+    // shared name resolves to <project>/scripts/ instead.
+    resolveScriptPath(project, "shared.py", Nullable!Path.init)
+        .readFileText.shouldEqual("project");
+
+    // Absolute paths are used as is, regardless of the convention directories.
+    auto abs_script = root.join("abs_script.py");
+    abs_script.writeFile("abs");
+    resolveScriptPath(project, abs_script.toString, repo.nullable)
+        .readFileText.shouldEqual("abs");
+
+    // A name that is nowhere on the search path fails.
+    resolveScriptPath(project, "does_not_exist.py", repo.nullable)
+        .shouldThrow!OdoodException;
+
+    // A non-existent absolute path fails too.
+    resolveScriptPath(project, root.join("missing.py").toString, repo.nullable)
+        .shouldThrow!OdoodException;
+}

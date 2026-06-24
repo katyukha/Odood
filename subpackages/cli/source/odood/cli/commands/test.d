@@ -61,6 +61,8 @@ class CommandTest: OdoodCommand {
     bool migrationLastRelease;
     string[] populateModel;
     Nullable!string populateSize;
+    string[] scriptAfterInstall;
+    string[] scriptAfterMigration;
     string[] testTag;
     bool testStatsSummary;
     bool testStatsDetailed;
@@ -120,6 +122,15 @@ class CommandTest: OdoodCommand {
             "Name of model to populate. Could be specified multiple times.");
         this.addOption!(populateSize)("", "populate-size", "Population size.")
             .acceptsValues(["small", "medium", "large"]);
+        this.addOption!(scriptAfterInstall)("", "script-after-install",
+            "Run a script (.py or .sql) after addons are installed, before " ~
+            "tests. In migration mode runs on the start ref (old version). " ~
+            "Repeatable. Accepts an absolute path, or a name resolved against " ~
+            "<repo>/.odood-scripts/, <project>/scripts/, or the current directory.");
+        this.addOption!(scriptAfterMigration)("", "script-after-migration",
+            "Run a script (.py or .sql) after addons are updated to the " ~
+            "current branch (migrations applied), before tests. Migration " ~
+            "mode only. Repeatable. Same resolution as --script-after-install.");
         this.addOption!(testTag)("", "test-tag",
             "Filter tests by tag (Odoo 12.0+). Repeatable. Supports Odoo tag syntax: " ~
             "plain tags, /module, /module:Class.method, -tag to exclude.");
@@ -324,6 +335,11 @@ class CommandTest: OdoodCommand {
             testRunner.setPopulateModels(populateModel);
         if (!populateSize.isNull)
             testRunner.setPopulateSize(populateSize.get);
+
+        foreach(script; scriptAfterInstall)
+            testRunner.addScriptAfterInstall(script);
+        foreach(script; scriptAfterMigration)
+            testRunner.addScriptAfterMigration(script);
 
         foreach(tag; testTag)
             testRunner.addTestTag(tag);

@@ -631,6 +631,17 @@ struct OdooTestRunner {
     private string[] _populate_models=[];
     private string _populate_size="small";
 
+    // Scripts to run during a test run. Each entry is a raw script reference
+    // (absolute path, or a name/relative path resolved at run time against the
+    // convention directories - see resolveScript). Dispatched by extension:
+    // '.py' runs via Odoo (full ORM env), '.sql' runs against the test database.
+    //   - after-install: runs after addons are installed, before tests. In
+    //     migration mode this runs on the start ref (old version).
+    //   - after-migration: runs after addons are updated to the current branch
+    //     (migrations applied), before tests. Migration mode only.
+    private string[] _scripts_after_install;
+    private string[] _scripts_after_migration;
+
     // Test tags (--test-tags, Odoo 12.0+)
     private string[] _test_tags;
 
@@ -851,6 +862,68 @@ struct OdooTestRunner {
         return this;
     }
 
+    /** Add a script to run after addons are installed, before tests.
+      *
+      * In migration mode this runs while the repo is checked out at the start
+      * ref (the old version), which makes it suitable for seeding demo data with
+      * the data structure of that version.
+      *
+      * The script reference is either an absolute path, or a name/relative path
+      * resolved at run time - see resolveScript. Dispatch is by extension:
+      * '.py' runs via Odoo (full ORM env), '.sql' runs against the test database.
+      **/
+    auto ref addScriptAfterInstall(in string script) {
+        _scripts_after_install ~= script;
+        return this;
+    }
+
+    /** Add a script to run after addons are updated to the current branch
+      * (migrations applied), before tests. Migration mode only.
+      *
+      * See addScriptAfterInstall for reference resolution and dispatch rules.
+      **/
+    auto ref addScriptAfterMigration(in string script) {
+        _scripts_after_migration ~= script;
+        return this;
+    }
+
+    /** Resolve a script reference to an existing file path.
+      *
+      * Delegates to resolveScriptPath. In migration mode the migration repo is
+      * passed as the repo to search `.odood-scripts/` in, so resolution happens
+      * at call time and a repo-local script reflects whichever ref is currently
+      * checked out (old version after install, new version after migration).
+      **/
+    private Path resolveScript(in string script) {
+        import odood.lib.odoo.script: resolveScriptPath;
+        Nullable!Path repo_path;
+        if (_test_migration && _test_migration_repo !is null)
+            repo_path = Path(_test_migration_repo.path.toString);
+        return resolveScriptPath(_project, script, repo_path);
+    }
+
+    /** Resolve and run a single script against the test database, dispatching
+      * by file extension: '.py' via Odoo (full ORM env), '.sql' as a SQL script.
+      * A non-zero exit / SQL error fails the run.
+      **/
+    private void runScript(in string script) {
+        auto script_path = resolveScript(script);
+        infof("Running script %s for database %s ...", script_path, _test_db_name);
+        switch(script_path.extension) {
+            case ".py":
+                _lodoo.runPyScript(_test_db_name, script_path);
+                break;
+            case ".sql":
+                _databases.get(_test_db_name).runSQLScript(script_path);
+                break;
+            default:
+                throw new OdoodException(
+                    ("Unsupported script type '%s' for script %s. " ~
+                     "Only '.py' and '.sql' scripts are supported.").format(
+                        script_path.extension, script_path));
+        }
+    }
+
     /** Register handler that will be called to process each log record
       * captured by this test runner.
       **/
@@ -1000,6 +1073,11 @@ struct OdooTestRunner {
         enforce!OdoodException(
             !_coverage || _project.venv.path.join("bin", "coverage").exists,
             "Coverage not installed. Please, install it via 'odood venv install-py-packages coverage' to continue.");
+        enforce!OdoodException(
+            _test_migration || _scripts_after_migration.length == 0,
+            "Scripts after migration (--script-after-migration) require " ~
+            "migration test mode. Use --migration, or move the script to " ~
+            "--script-after-install.");
 
         OdooTestResult result;
         result.setMigrationTest(_test_migration);
@@ -1106,6 +1184,11 @@ struct OdooTestRunner {
             if (!cmd_res) return result;
         }
 
+        // Run after-install scripts. In migration mode the repo is still on the
+        // start ref here, so repo-local scripts reflect the old version.
+        foreach(script; _scripts_after_install)
+            runScript(script);
+
         if (_populate_models.length > 0) {
             // Populate database before running tests
             infof(
@@ -1159,6 +1242,11 @@ struct OdooTestRunner {
                 ]
             );
             if (!cmd_res) return result;
+
+            // Run after-migration scripts. The repo is back on the current
+            // branch and migrations have been applied, before tests run.
+            foreach(script; _scripts_after_migration)
+                runScript(script);
         }
 
         auto watch_tests = StopWatch(AutoStart.yes);

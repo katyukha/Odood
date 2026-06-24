@@ -4,22 +4,27 @@ private import std.logger;
 private import std.exception: enforce;
 private import std.format: format;
 
-private import thepath: Path;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project: Project;
+private import odood.lib.odoo.script: resolveScriptPath;
 
 
 class CommandScriptPy: OdoodCommand {
     string db;
-    Path script;
+    string script;
 
     this() {
         super("py", "Run Python script in this environment.");
         this.addOption!(db)("d", "db", "Database to run script for");
-        this.addArgument!(script)("script", "Path to script to run")
-            .acceptsFiles();
+        this.addArgument!(script)("script",
+            "Script to run: an absolute path, or a name resolved against " ~
+            "<repo>/.odood-scripts/, <project>/scripts/, or the current directory.")
+            // Offer file completion without requiring the value to be an
+            // existing file, so bare names resolved against the convention
+            // directories still work.
+            .completesAsFile();
     }
 
     override int execute() {
@@ -29,7 +34,7 @@ class CommandScriptPy: OdoodCommand {
             project.databases.exists(db),
             "Database %s does not exists!".format(db));
 
-        project.lodoo.runPyScript(db, script);
+        project.lodoo.runPyScript(db, resolveScriptPath(project, script));
         return 0;
     }
 }
@@ -38,14 +43,19 @@ class CommandScriptPy: OdoodCommand {
 class CommandScriptSQL: OdoodCommand {
     string db;
     bool noCommit;
-    Path script;
+    string script;
 
     this() {
         super("sql", "Run SQL script in this environment.");
         this.addOption!(db)("d", "db", "Database to run script for");
         this.addFlag!(noCommit)("n", "no-commit", "Do not commit changes.");
-        this.addArgument!(script)("script", "Path to script to run")
-            .acceptsFiles();
+        this.addArgument!(script)("script",
+            "Script to run: an absolute path, or a name resolved against " ~
+            "<repo>/.odood-scripts/, <project>/scripts/, or the current directory.")
+            // Offer file completion without requiring the value to be an
+            // existing file, so bare names resolved against the convention
+            // directories still work.
+            .completesAsFile();
     }
 
     override int execute() {
@@ -55,7 +65,7 @@ class CommandScriptSQL: OdoodCommand {
             project.databases.exists(db),
             "Database %s does not exists!".format(db));
 
-        project.dbSQL(db).runSQLScript(script, noCommit);
+        project.dbSQL(db).runSQLScript(resolveScriptPath(project, script), noCommit);
         return 0;
     }
 }
