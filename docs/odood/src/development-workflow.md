@@ -109,53 +109,17 @@ migration runs too — `--script-after-install` is handy for seeding fixtures
 before a normal test run. A script that fails (non-zero exit, or a SQL error)
 fails the whole run.
 
-**Script type.** Dispatch is by file extension:
+Scripts may be `.py` (run with a full Odoo ORM environment) or `.sql`, and are
+passed as a path or a bare name resolved against `<repo>/.odood-scripts/`,
+`<project>/scripts/`, or the current directory. For how to write them, pass
+parameters via environment variables, and a worked example, see
+**[Custom Scripts](./custom-scripts.md)**.
 
-- `*.py` — executed by Odoo with a full ORM environment (the same mechanism as
-  [`odood script`](./odood-docs-command-ref.md)); use `env[...]` to read and
-  write records.
-- `*.sql` — executed directly against the test database; useful to construct
-  legacy or malformed data states the ORM would not allow.
-
-**Where scripts are found.** You can pass an absolute path, or just a name that
-Odood resolves (in order) against:
-
-1. `<repo>/.odood-scripts/` — a repository-scoped scripts directory kept under
-   version control with your addons. Because it is part of the repo it is
-   **version-locked**: in a migration run an `--script-after-install` script is
-   read from the **old** ref and an `--script-after-migration` script from the
-   **new** ref — exactly what you want for seeding era-correct demo data. (The
-   test runner only searches this directory in migration mode, since outside
-   migration there is no single repo in context.)
-2. `<project>/scripts/` — the Odood project root, which is **not** affected by
-   the repository checkout, so the same file is used in both phases. Good for
-   stable seed/maintenance logic.
-3. the current working directory.
-
-`.odood-scripts/` is not test-specific — it is the conventional home for any
-repo-scoped script. You can run those scripts directly by name at any time:
-
-```bash
-odood script py  -d <db> recompute_totals.py   # found in .odood-scripts/
-odood script sql -d <db> fix_sequences.sql
-```
-
-`odood script` resolves a bare name the same way (the repo is the one enclosing
-your current directory), so the same script can serve both as a migration hook
-and as an ad-hoc maintenance tool.
-
-> **Gotcha:** because `<repo>/.odood-scripts/` is version-locked, a
-> *pre-migration* script placed there must already exist on the **stable
-> branch** to run as `--script-after-install` — a script added only on your
-> development branch will not be present at the old ref. If you need a
-> pre-migration script that lives outside version control of the addon, put it
-> in `<project>/scripts/` instead.
-
-**Passing parameters.** Scripts inherit the environment of the `odood` process,
-so you can pass values via environment variables — export them before invoking
-`odood test` (a `ODOOD_SCRIPT_*` prefix is a good convention to avoid
-collisions). The target database and Odoo serie do not need to be passed in: a
-Python script already has them from its Odoo environment.
+> **Gotcha:** because `<repo>/.odood-scripts/` is version-locked to the
+> checked-out ref, a *pre-migration* script placed there must already exist on
+> the **stable branch** to run as `--script-after-install` — a script added only
+> on your development branch will not be present at the old ref. Put such scripts
+> in `<project>/scripts/` (unaffected by the repository checkout) instead.
 
 ### Translation Management
 

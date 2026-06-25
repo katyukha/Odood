@@ -324,6 +324,29 @@ void testRunningScripts(in Project project, in string ukey="n") {
         )[0][0].get!string.shouldEqual("Test PY 42");
     }
 
+    // Run the sample 'generate_partners.py' script (documented in
+    // docs/odood/src/custom-scripts.md). It creates N random res.partner
+    // records, where N is read from the ODOOD_SCRIPT_PARTNER_COUNT environment
+    // variable. This also checks that env-var parameters reach the script.
+    auto countPartners() {
+        return project.databases.get(dbname).runSQLQuery(
+            "SELECT count(*) FROM res_partner")[0][0].get!long;
+    }
+
+    auto saved_count = environment.get("ODOOD_SCRIPT_PARTNER_COUNT", null);
+    scope(exit) {
+        if (saved_count is null)
+            environment.remove("ODOOD_SCRIPT_PARTNER_COUNT");
+        else
+            environment["ODOOD_SCRIPT_PARTNER_COUNT"] = saved_count;
+    }
+
+    immutable partners_before = countPartners();
+    environment["ODOOD_SCRIPT_PARTNER_COUNT"] = "7";
+    project.lodoo.runPyScript(
+        dbname, Path("test-data", "generate_partners.py"));
+    (countPartners() - partners_before).shouldEqual(7);
+
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
