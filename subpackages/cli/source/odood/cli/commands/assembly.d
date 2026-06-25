@@ -461,19 +461,27 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
                 ("Assembly has no source named '%s'. " ~
                  "Add it first with 'odood assembly add-source'.").format(source.get));
 
-        // Reject addons already present in the spec, and duplicates in the args.
-        string[] seen;
+        // Skip addons already present in the spec (or duplicated in the args),
+        // warning about each rather than failing the whole command.
+        string[] to_add;
         foreach(name; addons) {
-            enforce!OdoodCLIException(
-                !assembly.spec.hasAddon(name),
-                "Addon '%s' is already present in the assembly spec.".format(name));
-            enforce!OdoodCLIException(
-                !seen.canFind(name),
-                "Addon '%s' is specified more than once.".format(name));
-            seen ~= name;
+            if (assembly.spec.hasAddon(name)) {
+                warningf("Addon '%s' is already present in the assembly spec; skipping.", name);
+                continue;
+            }
+            if (to_add.canFind(name)) {
+                warningf("Addon '%s' is specified more than once; skipping duplicate.", name);
+                continue;
+            }
+            to_add ~= name;
         }
 
-        foreach(name; addons)
+        if (to_add.empty) {
+            warningf("No new addons to add to the assembly spec.");
+            return 0;
+        }
+
+        foreach(name; to_add)
             assembly.addAddon(
                 name: name,
                 source_name: source.isNull ? null : source.get,
@@ -481,12 +489,12 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
 
         assembly.save();
         assembly.repo.add(assembly.spec_path);
-        infof("Added addon(s) to assembly spec: %s", addons.join(", "));
+        infof("Added addon(s) to assembly spec: %s", to_add.join(", "));
 
         if (commit || push || !pushTo.isNull)
             assembly.repo.commit(
                 message: commitMessage.isNull ?
-                    "[ASSEMBLY] Add addon(s): %s".format(addons.join(", ")) :
+                    "[ASSEMBLY] Add addon(s): %s".format(to_add.join(", ")) :
                     commitMessage.get,
                 username: commitUser.isNull ? null : commitUser.get,
                 useremail: commitEmail.isNull ? null : commitEmail.get);
@@ -549,11 +557,11 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
             provided == 1,
             "Exactly one of --url, --github, --oca, --crnd must be provided.");
 
-        // A named source must be unique.
-        if (!name.isNull)
-            enforce!OdoodCLIException(
-                assembly.spec.getSource(name.get).isNull,
-                "Assembly already has a source named '%s'.".format(name.get));
+        // If a source with this name already exists, skip rather than fail.
+        if (!name.isNull && !assembly.spec.getSource(name.get).isNull) {
+            warningf("Assembly already has a source named '%s'; skipping.", name.get);
+            return 0;
+        }
 
         auto before = assembly.spec.sources.length;
         assembly.addSource(
@@ -561,7 +569,7 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
             name: name.isNull ? null : name.get,
             git_ref: gitRef.isNull ? null : gitRef.get);
         if (assembly.spec.sources.length == before) {
-            warningf("Source %s is already present in the assembly spec; nothing to do.", git_url);
+            warningf("Source %s is already present in the assembly spec; skipping.", git_url);
             return 0;
         }
 

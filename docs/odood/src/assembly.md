@@ -249,10 +249,12 @@ odood assembly add-source --github my/repo --name my_repo --ref 18.0
 odood assembly add-addon my_addon --source my_repo
 ```
 
-This produces the same spec as the manual edit above, while validating it
-(rejecting duplicate addons, unknown `--source` names, or a source name that is
-already used). Both commands accept `--commit` / `--commit-message` /
-`--push` / `--push-to` to commit and push the spec change in one step.
+This produces the same spec as the manual edit above. The commands are
+idempotent: an addon or source that is already present is skipped with a warning
+rather than failing (handy in scripts and CI). Binding an addon to an unknown
+`--source` name is still an error. Both commands accept `--commit` /
+`--commit-message` / `--push` / `--push-to` to commit and push the spec change in
+one step.
 
 For **free** addons distributed through [Odoo Apps](https://apps.odoo.com/apps),
 use `--odoo-apps` instead of binding to a source (only free addons can be

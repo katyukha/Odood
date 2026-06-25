@@ -21,6 +21,9 @@
 
 ### Changed
 
+- `odood script py` and `odood script sql` now accept a script name (not only a
+  path), resolved against `<repo>/.odood-scripts/`, `<project>/scripts/`, or an
+  absolute path.
 - Docker images now build the Odoo system user with a fixed **UID/GID 999**.
   This allows images to run under Kubernetes/Helm with a non-root `securityContext`.
   999 is the top of the system range (used by the official Postgres/MySQL/Redis
