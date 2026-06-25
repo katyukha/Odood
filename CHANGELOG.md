@@ -12,6 +12,12 @@
 - New options `--server-user-uid` and `--server-user-gid` for `odood deploy`,
   to create the Odoo system user with a fixed UID/GID. Intended for container
   builds that need a deterministic UID matching the runtime `securityContext`.
+- New commands `odood assembly add-addon` and `odood assembly add-source` to
+  edit the assembly spec without hand-editing `odood-assembly.yml`.
+- New `odood test` options `--script-after-install` and `--script-after-migration`
+  to run `.py`/`.sql` scripts during a test run (e.g. seed data before a
+  migration test). Scripts resolve against `<repo>/.odood-scripts/`,
+  `<project>/scripts/`, or an absolute path.
 
 ### Changed
 

@@ -4,9 +4,9 @@ private import std.logger: infof, warningf;
 private import std.json;
 private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
-private import std.array: empty, join;
+private import std.array: empty, join, array;
 private import std.format: format;
-private import std.algorithm: map;
+private import std.algorithm: map, canFind;
 private import std.typecons: Nullable;
 
 private import colored;
@@ -17,7 +17,7 @@ private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSI
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.git: parseGitURL;
+private import odood.git: parseGitURL, GitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
@@ -416,6 +416,174 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
 }
 
 
+class CommandAssemblyAddAddon: AssemblyCommandBase {
+    string[] addons;
+    Nullable!string source;
+    bool odooApps;
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("add-addon", "Add addon(s) to this assembly's spec.");
+        this.addOption!(source)("", "source",
+            "Bind the addon(s) to the named source in the spec.");
+        this.addFlag!(odooApps)("", "odoo-apps",
+            "Mark the addon(s) as downloaded from Odoo Apps.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+        this.addArgument!(addons)("addon", "Name(s) of addon(s) to add.")
+            .defaultValue([]);
+    }
+
+    override int execute() {
+        auto project = loadProject();
+        auto assembly = project.assembly;
+
+        enforce!OdoodCLIException(
+            addons.length > 0,
+            "At least one addon name must be specified.");
+        enforce!OdoodCLIException(
+            !(odooApps && !source.isNull),
+            "Options --odoo-apps and --source are mutually exclusive.");
+
+        // The named source must already exist in the spec.
+        if (!source.isNull)
+            enforce!OdoodCLIException(
+                !assembly.spec.getSource(source.get).isNull,
+                ("Assembly has no source named '%s'. " ~
+                 "Add it first with 'odood assembly add-source'.").format(source.get));
+
+        // Reject addons already present in the spec, and duplicates in the args.
+        string[] seen;
+        foreach(name; addons) {
+            enforce!OdoodCLIException(
+                !assembly.spec.hasAddon(name),
+                "Addon '%s' is already present in the assembly spec.".format(name));
+            enforce!OdoodCLIException(
+                !seen.canFind(name),
+                "Addon '%s' is specified more than once.".format(name));
+            seen ~= name;
+        }
+
+        foreach(name; addons)
+            assembly.addAddon(
+                name: name,
+                source_name: source.isNull ? null : source.get,
+                from_odoo_apps: odooApps);
+
+        assembly.save();
+        assembly.repo.add(assembly.spec_path);
+        infof("Added addon(s) to assembly spec: %s", addons.join(", "));
+
+        if (commit || push || !pushTo.isNull)
+            assembly.repo.commit(
+                message: commitMessage.isNull ?
+                    "[ASSEMBLY] Add addon(s): %s".format(addons.join(", ")) :
+                    commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+
+        if (push || !pushTo.isNull)
+            assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+        else if (!commit)
+            infof("Run 'odood assembly sync' to fetch the new addon(s).");
+
+        return 0;
+    }
+}
+
+
+class CommandAssemblyAddSource: AssemblyCommandBase {
+    Nullable!string url;
+    Nullable!string github;
+    Nullable!string oca;
+    Nullable!string crnd;
+    Nullable!string name;
+    Nullable!string gitRef;
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("add-source", "Add a git source to this assembly's spec.");
+        this.addOption!(url)("", "url", "Git repository URL.");
+        this.addOption!(github)("", "github",
+            "GitHub repo as owner/repo (expands to https://github.com/owner/repo).");
+        this.addOption!(oca)("", "oca",
+            "OCA repo name (expands to https://github.com/oca/<repo>).");
+        this.addOption!(crnd)("", "crnd",
+            "CRND repo as group/repo (expands to ssh://git@gitlab.crnd.pro/group/repo).");
+        this.addOption!(name)("", "name", "Name to reference this source by.");
+        this.addOption!(gitRef)("", "ref", "Branch or tag to fetch.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+    }
+
+    override int execute() {
+        auto project = loadProject();
+        auto assembly = project.assembly;
+
+        // Exactly one of url/github/oca/crnd must be provided.
+        string git_url;
+        int provided = 0;
+        if (!url.isNull)    { provided++; git_url = url.get; }
+        if (!github.isNull) { provided++; git_url = "https://github.com/" ~ github.get; }
+        if (!oca.isNull)    { provided++; git_url = "https://github.com/oca/" ~ oca.get; }
+        if (!crnd.isNull)   { provided++; git_url = "ssh://git@gitlab.crnd.pro/" ~ crnd.get; }
+        enforce!OdoodCLIException(
+            provided == 1,
+            "Exactly one of --url, --github, --oca, --crnd must be provided.");
+
+        // A named source must be unique.
+        if (!name.isNull)
+            enforce!OdoodCLIException(
+                assembly.spec.getSource(name.get).isNull,
+                "Assembly already has a source named '%s'.".format(name.get));
+
+        auto before = assembly.spec.sources.length;
+        assembly.addSource(
+            git_url: GitURL(git_url),
+            name: name.isNull ? null : name.get,
+            git_ref: gitRef.isNull ? null : gitRef.get);
+        if (assembly.spec.sources.length == before) {
+            warningf("Source %s is already present in the assembly spec; nothing to do.", git_url);
+            return 0;
+        }
+
+        assembly.save();
+        assembly.repo.add(assembly.spec_path);
+        infof("Added source %s to assembly spec.", git_url);
+
+        if (commit || push || !pushTo.isNull)
+            assembly.repo.commit(
+                message: commitMessage.isNull ?
+                    "[ASSEMBLY] Add source: %s".format(git_url) : commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+
+        if (push || !pushTo.isNull)
+            assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+
+        return 0;
+    }
+}
+
+
 class CommandAssembly: OdoodCommand {
     Nullable!Path assemblyPath;
 
@@ -433,5 +601,7 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
         this.add(new CommandAssemblyUpgradeSources());
+        this.add(new CommandAssemblyAddAddon());
+        this.add(new CommandAssemblyAddSource());
     }
 }

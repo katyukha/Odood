@@ -237,6 +237,36 @@ spec:
       ref: 18.0
 ```
 
+Instead of editing `odood-assembly.yml` by hand, you can let Odood update the
+spec for you:
+
+```bash
+# Add the source (one of --url / --github / --oca / --crnd), naming it so addons
+# can bind to it:
+odood assembly add-source --github my/repo --name my_repo --ref 18.0
+
+# Add the addon, optionally binding it to that source:
+odood assembly add-addon my_addon --source my_repo
+```
+
+This produces the same spec as the manual edit above, while validating it
+(rejecting duplicate addons, unknown `--source` names, or a source name that is
+already used). Both commands accept `--commit` / `--commit-message` /
+`--push` / `--push-to` to commit and push the spec change in one step.
+
+For **free** addons distributed through [Odoo Apps](https://apps.odoo.com/apps),
+use `--odoo-apps` instead of binding to a source (only free addons can be
+downloaded automatically — paid addons require a purchase):
+
+```bash
+odood assembly add-addon free_addon --odoo-apps
+```
+
+> **Note:** Odood manages `odood-assembly.yml` as a generated file — `add-addon`,
+> `add-source`, and `upgrade-sources` rewrite it in canonical form. URL
+> shortcuts (`github:` / `oca:` / `crnd:`) are expanded to full `url:` values and
+> YAML comments are not preserved.
+
 As next step, we have to *sync* the assembly, to make Odood pull latest versions of selected modules from specified sources.
 We can do it using following command:
 
