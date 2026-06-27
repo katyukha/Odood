@@ -18,6 +18,13 @@
   to run `.py`/`.sql` scripts during a test run (e.g. seed data before a
   migration test). Scripts resolve against `<repo>/.odood-scripts/`,
   `<project>/scripts/`, or an absolute path.
+- New command `odood addons where <name>` (+ `--json`) to locate an addon and
+  report whether it is available, its real path, owning repository, source
+  (Odoo core / custom repository / Odoo Apps download), whether it is linked
+  into `custom_addons`, and whether it is installable.
+- `odood addons list --table` now accepts computed `-f` fields in addition to
+  manifest fields: `source` (odoo-core/custom-repo/downloads), `repo` (owning
+  repository), and `linked` (whether linked into `custom_addons`).
 
 ### Changed
 

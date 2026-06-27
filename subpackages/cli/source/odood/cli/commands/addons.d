@@ -1,6 +1,7 @@
 module odood.cli.commands.addons;
 
-private import std.stdio: writeln, File;
+private import std.stdio: writeln, writefln, File;
+private import std.json: JSONValue, toJSON;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce, basicExceptionCtors;
@@ -21,7 +22,8 @@ private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.odoo.log: OdooLogProcessor;
-private import odood.lib.addons.manager: AddonsInstallUpdateException;
+private import odood.lib.addons.manager:
+    AddonsInstallUpdateException, AddonLocationSource, toKey;
 private import odood.git: isGitRepo, GitRepository, GitURL;
 
 
@@ -79,8 +81,11 @@ class CommandAddonsList: OdoodCommand {
             "Show addons available in assembly");
         this.addFlag!(table)("t", "table", "Display list of addons as table");
         this.addOption!(field)("f", "field",
-            "Display provided field in table. " ~
-            "This have to be valid field from manifest.");
+            "Display field in table. Either a manifest field (e.g. version, " ~
+            "author, license, summary, category, application, auto_install, " ~
+            "installable, price, tags), or a computed field: " ~
+            "'source' (odoo-core/custom-repo/downloads), 'repo' (owning " ~
+            "repository), or 'linked' (whether linked into custom_addons).");
         this.addOption!(color)("c", "color",
             "Color output by selected scheme: " ~
             "link - color addons by link status, " ~
@@ -250,8 +255,23 @@ class CommandAddonsList: OdoodCommand {
                     else
                         row ~= ["", ""];
                     break;
+                case "source":
+                    row ~= [project.addons.classifySource(addon.path).toKey];
+                    break;
+                case "repo": {
+                    auto repo = project.addons.addonRepo(addon.path);
+                    row ~= [
+                        repo.isNull ? "" :
+                            repo.get.relativeTo(
+                                project.directories.repositories.realPath).toString,
+                    ];
+                    break;
+                }
+                case "linked":
+                    row ~= [project.addons.isLinked(addon).to!string];
+                    break;
                 default:
-                    throw new OdoodCLIException("Unsupported manifest field %s".format(f));
+                    throw new OdoodCLIException("Unknown field '%s'".format(f));
             }
         }
         return row;
@@ -841,6 +861,64 @@ class CommandAddonsFindInstalled: OdoodCommand {
 }
 
 
+class CommandAddonsWhere: OdoodCommand {
+    string addon;
+    bool json;
+
+    this() {
+        super("where",
+            "Show where an addon is located and whether it is available.");
+        this.addFlag!(json)("", "json", "Output result in JSON format.");
+        this.addArgument!(addon)("addon", "Name of the addon to locate.");
+    }
+
+    private string sourceLabel(in AddonLocationSource source) {
+        final switch(source) {
+            case AddonLocationSource.absent:     return "not found";
+            case AddonLocationSource.odooCore:   return "Odoo core";
+            case AddonLocationSource.customRepo: return "custom repository";
+            case AddonLocationSource.downloads:  return "Odoo Apps download";
+            case AddonLocationSource.other:      return "other addons path";
+        }
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+        auto loc = project.addons.locate(addon);
+
+        if (json) {
+            JSONValue j = JSONValue.emptyObject;
+            j["name"] = loc.name;
+            j["found"] = loc.found;
+            j["source"] = loc.source.toKey;
+            j["linked"] = loc.is_linked;
+            if (loc.found) {
+                j["path"] = loc.path.get.toString;
+                j["installable"] = loc.is_installable;
+                if (!loc.repo.isNull)
+                    j["repo"] = loc.repo.get.toString;
+            }
+            writeln(j.toJSON(true));
+            return loc.found ? 0 : 1;
+        }
+
+        if (!loc.found) {
+            writefln("Addon '%s' not found.", addon);
+            return 1;
+        }
+
+        writefln("Addon: %s", loc.name);
+        writefln("  Source:      %s", sourceLabel(loc.source));
+        writefln("  Path:        %s", loc.path.get);
+        if (!loc.repo.isNull)
+            writefln("  Repository:  %s", loc.repo.get);
+        writefln("  Linked:      %s", loc.is_linked ? "yes" : "no");
+        writefln("  Installable: %s", loc.is_installable ? "yes" : "no");
+        return 0;
+    }
+}
+
+
 class CommandAddons: OdoodCommand {
     this() {
         super("addons", "Manage third-party addons.");
@@ -854,5 +932,6 @@ class CommandAddons: OdoodCommand {
         this.add(new CommandAddonsIsInstalled());
         this.add(new CommandAddonsGeneratePyRequirements());
         this.add(new CommandAddonsFindInstalled());
+        this.add(new CommandAddonsWhere());
     }
 }

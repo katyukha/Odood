@@ -45,6 +45,54 @@ class AddonsUpdateException : AddonsInstallUpdateException {
 // TODO: Think, may be it have sense to keep OCA modules database in the code,
 //       to be able to automatically resolve dependencies.
 
+
+/// Classification of where an addon's code lives.
+enum AddonLocationSource {
+    absent,       /// not found anywhere
+    odooCore,     /// ships with Odoo (system addons path)
+    customRepo,   /// lives in a repository under repositories/
+    downloads,    /// downloaded from Odoo Apps (downloads/)
+    other,        /// found in some other addons_path
+}
+
+
+/// Stable string key for an addon location source (for JSON / tooling output).
+string toKey(in AddonLocationSource source) pure nothrow @safe {
+    final switch(source) {
+        case AddonLocationSource.absent:     return "absent";
+        case AddonLocationSource.odooCore:   return "odoo-core";
+        case AddonLocationSource.customRepo: return "custom-repo";
+        case AddonLocationSource.downloads:  return "downloads";
+        case AddonLocationSource.other:      return "other";
+    }
+}
+
+
+/// Result of locating an addon by name.
+struct AddonLocation {
+    /// Requested addon name
+    string name;
+
+    /// Whether the addon was found anywhere
+    bool found;
+
+    /// Where the addon's code lives
+    AddonLocationSource source = AddonLocationSource.absent;
+
+    /// Real (symlink-resolved) path to the addon code, if found
+    Nullable!Path path;
+
+    /// Owning repository root (set only for customRepo)
+    Nullable!Path repo;
+
+    /// Whether the addon is linked into custom_addons (visible to Odoo)
+    bool is_linked;
+
+    /// Manifest 'installable' flag (only meaningful when found)
+    bool is_installable;
+}
+
+
 /// Struct that provide API to manage odoo addons for the project
 struct AddonManager {
     private const Project _project;
@@ -134,6 +182,100 @@ struct AddonManager {
             result ~= scan(apath);
         }
         return result;
+    }
+
+    /** Locate an addon by name and classify where its code lives.
+      *
+      * Answers "where is addon X, and is it available at all?" — used by
+      * `odood addons where` and by tooling. Resolves the custom_addons symlink
+      * to the real code path, and classifies the source as Odoo core, a
+      * repository under repositories/, an Odoo Apps download, or absent.
+      *
+      * Params:
+      *     name = technical name of the addon to locate
+      * Returns:
+      *     AddonLocation describing where (and whether) the addon was found.
+      **/
+    AddonLocation locate(in string name) {
+        AddonLocation result;
+        result.name = name;
+
+        // Resolve the real code path, and whether it is linked into custom_addons.
+        Nullable!Path real_path;
+
+        auto link_path = _project.directories.addons.join(name);
+        if (link_path.isOdooAddon) {
+            result.is_linked = true;
+            real_path = link_path.realPath.nullable;
+        } else {
+            // Not linked — look for the real code in repositories/, then
+            // downloads/, then the Odoo core addons paths.
+            if (_project.directories.repositories.exists)
+                foreach(addon; scan(_project.directories.repositories, true))
+                    if (addon.name == name) {
+                        real_path = addon.path.realPath.nullable;
+                        break;
+                    }
+            if (real_path.isNull) {
+                auto dl = _project.directories.downloads.join(name);
+                if (dl.isOdooAddon)
+                    real_path = dl.realPath.nullable;
+            }
+            if (real_path.isNull)
+                foreach(apath; system_addons_paths)
+                    if (apath.join(name).isOdooAddon) {
+                        real_path = apath.join(name).realPath.nullable;
+                        break;
+                    }
+        }
+
+        if (real_path.isNull) {
+            result.source = AddonLocationSource.absent;
+            return result;
+        }
+
+        result.found = true;
+        result.path = real_path;
+        result.is_installable = (new OdooAddon(real_path.get)).manifest.installable;
+
+        result.source = classifySource(real_path.get);
+        if (result.source == AddonLocationSource.customRepo)
+            result.repo = addonRepo(real_path.get);
+
+        return result;
+    }
+
+    /** Classify where an addon path lives: Odoo core, a repository under
+      * repositories/, an Odoo Apps download, or some other addons path.
+      *
+      * Cheap — pure path containment, no scanning. The path is resolved to its
+      * real location first, so a custom_addons symlink classifies by its target.
+      **/
+    AddonLocationSource classifySource(in Path addon_path) const {
+        auto rp = addon_path.realPath;
+        if (_project.directories.repositories.exists &&
+                rp.isInside(_project.directories.repositories.realPath))
+            return AddonLocationSource.customRepo;
+        if (_project.directories.downloads.exists &&
+                rp.isInside(_project.directories.downloads.realPath))
+            return AddonLocationSource.downloads;
+        if (system_addons_paths.canFind!(p => p.exists && rp.isInside(p.realPath)))
+            return AddonLocationSource.odooCore;
+        return AddonLocationSource.other;
+    }
+
+    /** Owning repository root for an addon path, if it lives in a git
+      * repository under repositories/. Null otherwise.
+      **/
+    Nullable!Path addonRepo(in Path addon_path) const {
+        import odood.git: isGitRepo, getGitTopLevel;
+        auto rp = addon_path.realPath;
+        if (!(_project.directories.repositories.exists &&
+                rp.isInside(_project.directories.repositories.realPath)))
+            return Nullable!Path.init;
+        if (rp.isGitRepo)
+            return getGitTopLevel(rp).nullable;
+        return Nullable!Path.init;
     }
 
     /** Parse file that contains list of addons
@@ -761,4 +903,84 @@ struct AddonManager {
             "Is not a git root directory.");
         return new AddonRepository(path);
     }
+}
+
+
+unittest {
+    import unit_threaded.assertions;
+
+    AddonLocationSource.absent.toKey.should == "absent";
+    AddonLocationSource.odooCore.toKey.should == "odoo-core";
+    AddonLocationSource.customRepo.toKey.should == "custom-repo";
+    AddonLocationSource.downloads.toKey.should == "downloads";
+    AddonLocationSource.other.toKey.should == "other";
+}
+
+
+// Test AddonManager.locate classification (no Odoo install / DB required).
+unittest {
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+    import std.file: symlink;
+    import odood.utils.odoo.serie: OdooSerie;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto project = new Project(root, OdooSerie(17));
+    auto am = project.addons;
+
+    void makeAddon(in Path path, in bool installable) {
+        path.mkdir(true);
+        path.join("__manifest__.py").writeFile(
+            "{'name': '%s', 'installable': %s}".format(
+                path.baseName, installable ? "True" : "False"));
+    }
+
+    // A repository addon, linked into custom_addons via a symlink.
+    auto repo_addon = root.join("repositories", "acme", "myrepo", "my_addon");
+    makeAddon(repo_addon, true);
+    root.join("custom_addons").mkdir(true);
+    symlink(
+        repo_addon.toString,
+        root.join("custom_addons", "my_addon").toString);
+
+    // A repository addon that is NOT linked.
+    auto repo_addon2 = root.join("repositories", "acme", "myrepo", "other_addon");
+    makeAddon(repo_addon2, true);
+
+    // A downloaded (Odoo Apps) addon, not linked, not installable.
+    auto dl_addon = root.join("downloads", "dl_addon");
+    makeAddon(dl_addon, false);
+
+    // Linked repo addon → custom-repo, linked, installable.
+    auto loc1 = am.locate("my_addon");
+    loc1.found.shouldBeTrue;
+    loc1.is_linked.shouldBeTrue;
+    loc1.source.should == AddonLocationSource.customRepo;
+    loc1.is_installable.shouldBeTrue;
+    loc1.path.get.should == repo_addon.realPath;
+
+    // Unlinked repo addon → custom-repo, not linked.
+    auto loc2 = am.locate("other_addon");
+    loc2.found.shouldBeTrue;
+    loc2.is_linked.shouldBeFalse;
+    loc2.source.should == AddonLocationSource.customRepo;
+
+    // Download addon → downloads, not linked, not installable.
+    auto loc3 = am.locate("dl_addon");
+    loc3.found.shouldBeTrue;
+    loc3.is_linked.shouldBeFalse;
+    loc3.source.should == AddonLocationSource.downloads;
+    loc3.is_installable.shouldBeFalse;
+
+    // Missing addon → absent.
+    auto loc4 = am.locate("nonexistent_addon");
+    loc4.found.shouldBeFalse;
+    loc4.source.should == AddonLocationSource.absent;
+    loc4.path.isNull.shouldBeTrue;
+
+    // classifySource works directly on a known path (no by-name search).
+    am.classifySource(repo_addon).should == AddonLocationSource.customRepo;
+    am.classifySource(dl_addon).should == AddonLocationSource.downloads;
 }
