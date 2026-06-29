@@ -25,6 +25,8 @@
 - `odood addons list --table` now accepts computed `-f` fields in addition to
   manifest fields: `source` (odoo-core/custom-repo/downloads), `repo` (owning
   repository), and `linked` (whether linked into `custom_addons`).
+- `odood addons list --json` outputs the addon catalog as JSON (name, path,
+  version, source, repo, linked, installable), honoring the same filters.
 
 ### Changed
 

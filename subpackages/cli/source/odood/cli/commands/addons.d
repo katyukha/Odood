@@ -55,6 +55,7 @@ class CommandAddonsList: OdoodCommand {
     bool withoutPrice;
     bool assembly;
     bool table;
+    bool json;
     string[] field;
     Nullable!string color;
     Nullable!Path path;
@@ -80,6 +81,9 @@ class CommandAddonsList: OdoodCommand {
         this.addFlag!(assembly)("", "assembly",
             "Show addons available in assembly");
         this.addFlag!(table)("t", "table", "Display list of addons as table");
+        this.addFlag!(json)("", "json",
+            "Output the addon catalog as JSON (name, path, version, source, " ~
+            "repo, linked, installable). Honors the same filters.");
         this.addOption!(field)("f", "field",
             "Display field in table. Either a manifest field (e.g. version, " ~
             "author, license, summary, category, application, auto_install, " ~
@@ -301,10 +305,32 @@ class CommandAddonsList: OdoodCommand {
         );
     }
 
+    private void displayAddonsJson(in Project project) {
+        JSONValue[] addons;
+        foreach(addon; findAddons(project)) {
+            JSONValue j = JSONValue.emptyObject;
+            j["name"] = addon.name;
+            j["path"] = addon.path.toString;
+            j["version"] = addon.manifest.module_version.toString;
+            j["source"] = project.addons.classifySource(addon.path).toKey;
+            auto repo = project.addons.addonRepo(addon.path);
+            if (!repo.isNull)
+                j["repo"] = repo.get.relativeTo(
+                    project.directories.repositories.realPath).toString;
+            j["linked"] = project.addons.isLinked(addon);
+            j["installable"] = addon.manifest.installable;
+            addons ~= j;
+        }
+        auto result = JSONValue(addons);
+        writeln(result.toJSON(true));
+    }
+
     override int execute() {
         auto project = Project.loadProject;
 
-        if (table)
+        if (json)
+            displayAddonsJson(project);
+        else if (table)
             displayAddonsTable(project);
         else
             displayAddonsList(project);
