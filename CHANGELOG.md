@@ -19,17 +19,26 @@
   migration test). Scripts resolve against `<repo>/.odood-scripts/`,
   `<project>/scripts/`, or an absolute path.
 - New command `odood addons where <name>` (+ `--json`) to locate an addon and
-  report whether it is available, its real path, owning repository, source
-  (Odoo core / custom repository / Odoo Apps download), whether it is linked
-  into `custom_addons`, and whether it is installable.
+  report whether it is available
 - `odood addons list --table` now accepts computed `-f` fields in addition to
   manifest fields: `source` (odoo-core/custom-repo/downloads), `repo` (owning
   repository), and `linked` (whether linked into `custom_addons`).
-- `odood addons list --json` outputs the addon catalog as JSON (name, path,
-  version, source, repo, linked, installable), honoring the same filters.
+- `odood addons list --json` outputs the addon catalog as JSON honoring the same filters.
+- New command `odood repo list` (+ `--json`) listing the project's git
+  repositories with branch, addon count, and (for `--json`) remote URL and
+  derived Odoo serie. The remote URL is credential-stripped.
 
 ### Changed
 
+- Git URLs are now credential-stripped by default when displayed, logged, or
+  serialized (e.g. in `odood repo list --json` and assembly specs). Embedded
+  `user:password` credentials are only emitted where a clone-ready URL is
+  actually required. Prevents access tokens from leaking into command output
+  and committed spec files.
+- `--json` output (`odood info`, `odood addons list`, `odood addons where`,
+  `odood repo list`) no longer escapes forward slashes (`\/` → `/`), so paths
+  are readable and grep-friendly. Output is produced through a single shared
+  JSON printer for consistency.
 - `odood script py` and `odood script sql` now accept a script name (not only a
   path), resolved against `<repo>/.odood-scripts/`, `<project>/scripts/`, or an
   absolute path.

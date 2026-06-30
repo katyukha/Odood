@@ -19,9 +19,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
 private import odood.utils.addons.odoo_requirements:
     parseOdooRequirements, OdooRequirementsLineType;
-private import odood.lib.addons.repository: AddonRepository;
 private import odood.utils: download;
-private import odood.git: parseGitURL, gitClone;
 private import odood.exception: OdoodException;
 
 /// Install python dependencies requirements.txt by default
@@ -845,39 +843,13 @@ struct AddonManager {
             in bool recursive=true,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
-
-        auto git_url = parseGitURL(url);
-
-        // TODO: Handle .git suffix here. chomp it
-        auto dest = _project.directories.repositories.join(
-                git_url.toPathSegments.map!((p) => p.toLower).array);
-
-        if (dest.exists) {
-            warningf(
-                "Repository %s seems to be already cloned to %s. Skipping...",
-                url, dest);
-            return;
-        }
-
-        auto repo = gitClone(git_url, dest, branch, single_branch);
-
-        link(
-            repo.path,
-            true,  // recursive
-            false, // force
+        _project.repositories(_test_mode).add(
+            url,
+            branch,
+            single_branch,
+            recursive,
             py_requirements,
             manifest_requirements);
-
-        // If there is odoo_requirements.txt file present, then we have to
-        // process it.
-        if (recursive && repo.path.join("odoo_requirements.txt").exists) {
-            processOdooRequirements(
-                repo.path.join("odoo_requirements.txt"),
-                single_branch,
-                recursive,
-                py_requirements,
-                manifest_requirements);
-        }
     }
 
     /// ditto
@@ -887,9 +859,8 @@ struct AddonManager {
             in bool recursive=true,
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS) {
-        addRepo(
+        _project.repositories(_test_mode).add(
             url,
-            _project.odoo.serie.toString,
             single_branch,
             recursive,
             py_requirements,
@@ -898,10 +869,7 @@ struct AddonManager {
 
     /// Get repository instance for specified path
     auto getRepo(in Path path) {
-        enforce!OdoodException(
-            path.join(".git").exists,
-            "Is not a git root directory.");
-        return new AddonRepository(path);
+        return _project.repositories(_test_mode).get(path);
     }
 }
 

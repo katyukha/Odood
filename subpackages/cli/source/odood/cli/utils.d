@@ -1,11 +1,24 @@
 module odood.cli.utils;
 
-private import std.stdio: writefln;
+private import std.stdio: writefln, writeln;
 private import std.conv: to;
+private import std.json: JSONValue, toJSON, JSONOptions;
 
 private import odood.lib.odoo.log: OdooLogRecord;
 
 private import colored;
+
+
+/** Print a JSONValue to stdout as pretty-printed JSON.
+  *
+  * Central helper for every `--json` command so their output stays consistent.
+  * Forward slashes are not escaped (the `\/` legacy default is noisy to read
+  * and grep). Accepts an rvalue (`toJSON` needs a `const ref`, which the named
+  * parameter provides).
+  **/
+void printJSON(in JSONValue value) {
+    writeln(value.toJSON(true, JSONOptions.doNotEscapeSlashes));
+}
 
 
 /** Color log level, depending on log level itself

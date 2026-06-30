@@ -21,6 +21,7 @@ private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
 private import odood.lib.python.venv: VirtualEnv, VenvOptions;
 private import odood.lib.addons.manager: AddonManager;
+private import odood.lib.addons.repository_manager: RepositoryManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
 public import odood.lib.project.config:
@@ -313,6 +314,14 @@ class Project {
       **/
     auto addons(in bool test_mode=false) pure const {
         return AddonManager(this, test_mode);
+    }
+
+    /** RepositoryManager related to this project
+      * Allows to manage the git repositories (under repositories/) of this
+      * project
+      **/
+    auto repositories(in bool test_mode=false) pure const {
+        return RepositoryManager(this, test_mode);
     }
 
     /** Return database manager instance, that provides high-level

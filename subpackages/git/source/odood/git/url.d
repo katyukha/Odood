@@ -60,7 +60,11 @@ struct GitURL {
             _scheme = re_match["scheme"];
     }
 
-    /** Convert to string that is suitable to pass to git clone
+    /** Convert to string that is suitable to pass to git clone.
+      *
+      * Includes any embedded credentials (user/password). Use this only
+      * where a clone-ready URL is required; for logging, serialization,
+      * or display use `toString`, which strips credentials.
       **/
     string toUrl() const {
         string res;
@@ -121,8 +125,21 @@ struct GitURL {
         return result;
     }
 
+    /** String representation of the URL with any embedded credentials
+      * (user/password) stripped. Safe by default for logging, serialization,
+      * and display. Use `toUrl` when a clone-ready URL (with credentials)
+      * is required.
+      **/
     string toString() const {
-        return toUrl();
+        string res;
+        if (scheme)
+            res ~= "%s://".format(scheme);
+
+        res ~= host;
+        if (port) res ~= ":%s".format(port);
+
+        res ~= "/" ~ path;
+        return res;
     }
 
     unittest {
@@ -131,6 +148,28 @@ struct GitURL {
         GitURL("github.com/katyukha/thepath.git").shouldEqual(GitURL("github.com/katyukha/thepath.git"));
         GitURL("github.com/katyukha/thepath.git").shouldEqual(GitURL("github.com/katyukha/thepath"));
         GitURL("github.com/katyukha/thepath.git").shouldNotEqual(GitURL("github.com/katyukha/theprocess"));
+    }
+
+    /// toString strips credentials; toUrl keeps them for cloning.
+    unittest {
+        import unit_threaded.assertions;
+
+        // Credential-bearing URL: toUrl keeps user:password, toString drops it.
+        with (GitURL("https://gitlab+deploy-token-42:some+token-s@gitlab.crnd.pro/crnd/crnd-account")) {
+            toUrl.shouldEqual(
+                "https://gitlab+deploy-token-42:some+token-s@gitlab.crnd.pro/crnd/crnd-account");
+            toString.shouldEqual("https://gitlab.crnd.pro/crnd/crnd-account");
+        }
+
+        // SSH url: conventional 'git@' user is stripped from toString too.
+        GitURL("git@gitlab.crnd.pro:crnd-opensource/crnd-web.git")
+            .toString.shouldEqual("ssh://gitlab.crnd.pro/crnd-opensource/crnd-web");
+
+        // No credentials: toString matches toUrl.
+        with (GitURL("https://github.com/katyukha/thepath.git")) {
+            toString.shouldEqual("https://github.com/katyukha/thepath");
+            toString.shouldEqual(toUrl);
+        }
     }
 }
 

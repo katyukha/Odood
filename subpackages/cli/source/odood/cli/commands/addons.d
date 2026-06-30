@@ -1,7 +1,7 @@
 module odood.cli.commands.addons;
 
 private import std.stdio: writeln, writefln, File;
-private import std.json: JSONValue, toJSON;
+private import std.json: JSONValue;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce, basicExceptionCtors;
@@ -17,7 +17,7 @@ private import darkcommand;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.cli.utils: printLogRecordSimplified;
+private import odood.cli.utils: printLogRecordSimplified, printJSON;
 private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
@@ -321,8 +321,7 @@ class CommandAddonsList: OdoodCommand {
             j["installable"] = addon.manifest.installable;
             addons ~= j;
         }
-        auto result = JSONValue(addons);
-        writeln(result.toJSON(true));
+        printJSON(JSONValue(addons));
     }
 
     override int execute() {
@@ -924,7 +923,7 @@ class CommandAddonsWhere: OdoodCommand {
                 if (!loc.repo.isNull)
                     j["repo"] = loc.repo.get.toString;
             }
-            writeln(j.toJSON(true));
+            printJSON(j);
             return loc.found ? 0 : 1;
         }
 

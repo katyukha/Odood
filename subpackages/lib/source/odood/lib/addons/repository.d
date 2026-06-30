@@ -5,8 +5,9 @@ private import std.algorithm: canFind, map, filter, maxElement, sort;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
-private import std.array: appender, array;
+private import std.array: appender, array, split;
 private import std.string: strip, join;
+private import std.json: JSONValue;
 private import std.regex: replaceFirst, regex;
 private import std.datetime.date: DateTime;
 private import std.datetime.systime: Clock;
@@ -109,6 +110,34 @@ class AddonRepository : GitRepository{
       **/
     auto addons(in bool recursive=true) const {
         return findAddons(path, recursive);
+    }
+
+    /** Serialize repository metadata to JSON: path, current branch,
+      * remote url, derived Odoo serie (from the branch name), and addon count.
+      *
+      * Intended for `odood repo list --json` and tooling. Fields that are not
+      * available (e.g. no `origin` remote, detached HEAD) are simply omitted.
+      * The remote url is credential-stripped (`GitURL.toString`).
+      **/
+    JSONValue toJSON() const {
+        JSONValue j = JSONValue.emptyObject;
+        j["path"] = this.path.toString;
+
+        auto branch = this.getCurrBranch;
+        if (!branch.isNull) {
+            j["branch"] = branch.get;
+            // Branch naming convention is `{serie}` or `{serie}-{feature}`.
+            auto serie = OdooSerie(branch.get.split("-")[0]);
+            if (serie.isValid)
+                j["serie"] = serie.toString;
+        }
+
+        try {
+            j["remote"] = this.getRemoteUrl.toString;
+        } catch (Exception) { /* no remote configured */ }
+
+        j["addons_count"] = this.addons.length;
+        return j;
     }
 
     /** Get version of addon in specified commit

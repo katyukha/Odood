@@ -4,6 +4,10 @@ private import std.logger: infof, warningf, tracef, errorf;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
+private import std.stdio: writeln;
+private import std.conv: to;
+private import std.json: JSONValue;
+private import odood.cli.utils: printJSON;
 
 private import darkcommand;
 private import thepath: Path;
@@ -498,21 +502,9 @@ class CommandRepositoryPullAll: OdoodCommand {
             "[Experimental] Pull changes from all repos and relink addons.");
     }
 
-    private AddonRepository[] searchRepositories(in Path repo_dir) const
-    in (repo_dir.isDir) {
-        AddonRepository[] repositories;
-        foreach(p; repo_dir.walk) {
-            if (p.isGitRepo)
-                repositories ~= new AddonRepository(p);
-            else
-                repositories ~= searchRepositories(p);
-        }
-        return repositories;
-    }
-
     override int execute() {
         auto project = Project.loadProject;
-        foreach(repo; searchRepositories(project.directories.repositories)) {
+        foreach(repo; project.repositories.list()) {
             auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
             if (repo.status.isClean) {
                 infof("Repo %s: pulling changes...", repo_name);
@@ -545,6 +537,54 @@ class CommandRepositoryPullAll: OdoodCommand {
                 warningf("Repo %s: not clean, skipping...", repo_name);
             }
         }
+        return 0;
+    }
+}
+
+
+class CommandRepositoryList: OdoodCommand {
+    bool json;
+
+    this() {
+        super("list", "List git repositories in this project.");
+        this.addFlag!(json)("", "json", "Output the repository list as JSON.");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+        auto repos = project.repositories.list();
+        auto repos_dir = project.directories.repositories.exists ?
+            project.directories.repositories.realPath :
+            project.directories.repositories;
+
+        if (json) {
+            JSONValue[] arr;
+            foreach(repo; repos) {
+                auto j = repo.toJSON();
+                j["name"] = repo.path.relativeTo(repos_dir).toString;
+                arr ~= j;
+            }
+            printJSON(JSONValue(arr));
+            return 0;
+        }
+
+        import tabletool;
+        string[][] table = [["Repository", "Branch", "Addons"]];
+        foreach(repo; repos) {
+            auto branch = repo.getCurrBranch;
+            table ~= [
+                repo.path.relativeTo(repos_dir).toString,
+                branch.isNull ? "(detached)" : branch.get,
+                repo.addons.length.to!string,
+            ];
+        }
+        writeln(
+            tabulate(
+                table,
+                tabletool.Config(
+                    tabletool.Style.grid,
+                    tabletool.Align.left,
+                    true)));
         return 0;
     }
 }
@@ -956,6 +996,7 @@ class CommandRepository: OdoodCommand {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositoryPullAll());
+        this.add(new CommandRepositoryList());
         this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
