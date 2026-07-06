@@ -2,7 +2,7 @@ module odood.lib.project.project;
 
 private import std.exception: enforce;
 private import std.format: format;
-private import std.typecons: Nullable, nullable;
+private import std.typecons: Nullable, nullable, Tuple;
 private import std.logger;
 private import std.conv: to, ConvException;
 private import std.datetime.systime: Clock;
@@ -15,11 +15,12 @@ private import darkarchive: DarkArchiveWriter, DarkArchiveFormat;
 
 private import odood.exception: OdoodException;
 
-private import odood.lib.odoo.config: initOdooConfig, readOdooConfig, getConfVal;
+private static import cfg = odood.lib.odoo.config;
+private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.python.odoo: guessPySerie, guessVenvOptions;
 private import odood.lib.odoo.lodoo: LOdoo;
 private import odood.lib.server: OdooServer;
-private import odood.lib.python.venv: VirtualEnv, VenvOptions;
+private import odood.lib.python.venv: VirtualEnv, VenvOptions, PySerie;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository_manager: RepositoryManager;
 private import odood.lib.odoo.test: OdooTestRunner;
@@ -217,7 +218,7 @@ class Project {
                     Path(yaml_config["project_root"].as!string),
                     yaml_config["directories"]),
                 ProjectConfigOdoo(yaml_config["odoo"]),
-                VirtualEnv(yaml_config["virtualenv"]),
+                venvFromYAML(yaml_config["virtualenv"]),
                 Assembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
             );
         else
@@ -227,7 +228,7 @@ class Project {
                     Path(yaml_config["project_root"].as!string),
                     yaml_config["directories"]),
                 ProjectConfigOdoo(yaml_config["odoo"]),
-                VirtualEnv(yaml_config["virtualenv"]),
+                venvFromYAML(yaml_config["virtualenv"]),
             );
     }
 
@@ -235,6 +236,25 @@ class Project {
     this(in Node yaml_config, in Path config_path) {
         this(yaml_config);
         _config_path = Nullable!Path(config_path);
+    }
+
+    /** (De)serialize the project's virtualenv to/from YAML.
+      *
+      * Kept on Project (not on VirtualEnv) so the venv type stays free of the
+      * on-disk project config format — Project owns odood.yml.
+      **/
+    private static Node venvToYAML(in VirtualEnv venv) {
+        return Node([
+            "path": Node(venv.path.toString),
+            "python_serie": Node(venv.py_serie),
+        ]);
+    }
+
+    /// ditto
+    private static VirtualEnv venvFromYAML(in Node node) {
+        return VirtualEnv(
+            Path(node["path"].as!string),
+            node["python_serie"].as!PySerie);
     }
 
     /// Path to project config
@@ -248,6 +268,48 @@ class Project {
 
     /// Project odoo info
     auto odoo() const { return _odoo; }
+
+    /** Paths to Odoo's built-in (system) addons for this project.
+      **/
+    Path[] getSystemAddonsPaths() const {
+        return cfg.getSystemAddonsPaths(_odoo.path, _odoo.serie);
+    }
+
+    /** Odoo config builder pre-seeded with this project's defaults.
+      * Chain `setDBConfig`/`setHttp` then `result` to build an odoo.conf.
+      **/
+    auto odooConfigBuilder() const {
+        return cfg.OdooConfigBuilder(
+            _odoo.serie,
+            _odoo.path,
+            _directories.addons,
+            _project_root.join("data"),
+            _odoo.logfile);
+    }
+
+    /** Read this project's odoo.conf into an Ini structure.
+      **/
+    Ini readOdooConfig() const {
+        return cfg.readOdooConfig(_odoo.configfile);
+    }
+
+    /** Parse this project's database connection settings from odoo.conf.
+      * Returns a tuple with fields: host, port, user, password, sslmode.
+      **/
+    auto parseOdooDatabaseConfig() const {
+        // TODO: handle test config
+        auto config = readOdooConfig();
+        return Tuple!(
+            string, "host", string, "port", string, "user", string, "password",
+            string, "sslmode"
+        )(
+            config.getConfVal("db_host"),
+            config.getConfVal("db_port"),
+            config.getConfVal("db_user"),
+            config.getConfVal("db_password"),
+            config.getConfVal("db_sslmode"),
+        );
+    }
 
     /// LOdoo instance for this project
     const(LOdoo) lodoo(in bool test_mode=false) const {
@@ -362,7 +424,7 @@ class Project {
             "project_root": Node(this.project_root.toString),
             "odoo": this.odoo.toYAML(),
             "directories": this.directories.toYAML(),
-            "virtualenv": _venv.toYAML(),
+            "virtualenv": venvToYAML(_venv),
         ]);
 
         if (_assembly !is null)
@@ -433,7 +495,7 @@ class Project {
 
     /// ditto
     void initialize() {
-        auto odoo_config = this.initOdooConfig;
+        auto odoo_config = this.odooConfigBuilder.result;
         auto venv_options = this.odoo.serie.guessVenvOptions;
         initialize(odoo_config, venv_options);
     }

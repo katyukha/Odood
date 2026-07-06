@@ -14,7 +14,6 @@ private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
 
 private import odood.lib.project: Project;
 private import odood.lib.python.venv: PyRequirements;
-private import odood.lib.odoo.config: readOdooConfig, getSystemAddonsPaths;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon;
 private import odood.utils.addons.odoo_requirements:

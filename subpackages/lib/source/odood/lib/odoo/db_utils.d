@@ -4,7 +4,6 @@ module odood.lib.odoo.db_utils;
 private import peque: Connection;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 
 
 /** Open a peque connection to a PostgreSQL database using the connection

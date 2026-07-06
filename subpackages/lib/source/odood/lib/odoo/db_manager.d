@@ -22,7 +22,7 @@ private import darkarchive: DarkArchiveReader, DarkArchiveWriter,
     probeArchive, DarkArchiveException;
 
 private import odood.lib.project: Project;
-private import odood.lib.odoo.config: parseOdooDatabaseConfig, getConfVal;
+private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.odoo.db: OdooDatabase;
 private import odood.lib.odoo.db_utils: openPgConnection;
 

@@ -7,7 +7,6 @@ private import std.conv: to;
 
 private import odood.lib.project.project: Project, OdooInstallType;
 private import odood.lib.project.config: ProjectServerSupervisor;
-private import odood.lib.odoo.config: parseOdooDatabaseConfig;
 private import odood.lib: _version;
 
 
@@ -182,7 +181,7 @@ ProjectInfo getInfo(in Project project) {
 
     // Database config from odoo.conf
     try {
-        auto db_config = parseOdooDatabaseConfig(project);
+        auto db_config = project.parseOdooDatabaseConfig;
         info.db_host = db_config.host ? db_config.host : "";
         info.db_port = db_config.port ? db_config.port : "";
         info.db_user = db_config.user ? db_config.user : "";

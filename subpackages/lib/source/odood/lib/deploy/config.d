@@ -9,7 +9,6 @@ private import std.typecons: Nullable;
 private import thepath: Path;
 private import theprocess: Process, resolveProgram, systemUserExists;
 
-private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.project:
     Project,
     OdooInstallType,
@@ -261,34 +260,21 @@ struct DeployConfig {
     in (
         project.odoo.serie == this.odoo.serie
     ) {
-        auto odoo_config = initOdooConfig(project);
+        // Note: when log_to_stderr is set, project.odoo.logfile is null, so the
+        // builder omits the logfile key — nothing to remove.
+        auto odoo_config = project.odooConfigBuilder
+            .setDBConfig(database.host, database.port, database.user, database.password)
+            .setHttp(odoo.http_host, odoo.http_port)
+            .result;
+
         odoo_config["options"].setKey(
             "admin_passwd", generateRandomString(DEFAULT_PASSWORD_LEN));
-
-        // DB config
-        odoo_config["options"].setKey("db_host", database.host);
-        odoo_config["options"].setKey("db_port", database.port);
-        odoo_config["options"].setKey("db_user", database.user);
-        odoo_config["options"].setKey("db_password", database.password);
-
-        if (odoo.serie < OdooSerie(11)) {
-            if (odoo.http_host.length > 0)
-                odoo_config["options"].setKey("xmlrpc_interface", odoo.http_host);
-            odoo_config["options"].setKey("xmlrpc_port", odoo.http_port);
-        } else {
-            if (odoo.http_host.length > 0)
-                odoo_config["options"].setKey("http_interface", odoo.http_host);
-            odoo_config["options"].setKey("http_port", odoo.http_port);
-        }
 
         // TODO: Configure automatically, set memory limits based on available RAM and CPU
         odoo_config["options"].setKey("workers", odoo.workers.to!string);
 
         if (odoo.proxy_mode || nginx.enable)
             odoo_config["options"].setKey("proxy_mode", "True");
-
-        // Note: when log_to_stderr is set, project.odoo.logfile is null,
-        // so initOdooConfig already omits the logfile key — nothing to remove.
 
         return odoo_config;
     }

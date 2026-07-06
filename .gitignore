@@ -21,3 +21,4 @@ odood-test-*
 /build/
 cobertura.xml
 /.vscode/
+__pycache__/

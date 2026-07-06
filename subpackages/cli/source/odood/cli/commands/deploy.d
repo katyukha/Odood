@@ -18,7 +18,6 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.project:
     Project, OdooInstallType;
 private import odood.lib.project.config: ProjectServerSupervisor;
-private import odood.lib.odoo.config: initOdooConfig;
 private import odood.lib.python.venv: PyInstallType, VenvOptions;
 private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;

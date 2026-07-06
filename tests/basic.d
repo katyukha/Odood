@@ -13,7 +13,6 @@ import unit_threaded.assertions;
 
 import odood.lib.project;
 import odood.utils.odoo.serie;
-import odood.lib.odoo.config: OdooConfigBuilder;
 import odood.git: GitURL;
 
 import odood.cli.utils: printLogRecord;
@@ -488,7 +487,7 @@ unittest {
     createDbUser("odood19test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(19));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -538,7 +537,7 @@ unittest {
     createDbUser("odood18test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(18));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -570,7 +569,7 @@ unittest {
     createDbUser("odood17test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(17));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -603,7 +602,7 @@ unittest {
     createDbUser("odood16test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(16));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -637,7 +636,7 @@ unittest {
     createDbUser("odood15test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(15));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -671,7 +670,7 @@ unittest {
     createDbUser("odood14test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(14));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -705,7 +704,7 @@ unittest {
     createDbUser("odood13test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(13));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -739,7 +738,7 @@ unittest {
     createDbUser("odood12test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(12));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -772,7 +771,7 @@ unittest {
     createDbUser("odood16to17test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(16));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),

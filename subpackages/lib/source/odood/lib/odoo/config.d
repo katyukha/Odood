@@ -8,7 +8,6 @@ private import std.array: join, array;
 private import thepath: Path;
 private import dini;
 
-private import odood.lib.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
@@ -26,42 +25,6 @@ Path[] getSystemAddonsPaths(in Path odoo_path, in OdooSerie serie) {
     return addons_paths;
 }
 
-/// ditto
-Path[] getSystemAddonsPaths(in Project project) {
-    return getSystemAddonsPaths(project.odoo.path, project.odoo.serie);
-}
-
-/** Initialize default odoo config
-  *
-  * Params:
-  *     project = Odoo project instance
-  *
-  * Returns:
-  *    Ini file structure, that could be used to read and modify config
-  **/
-Ini initOdooConfig(in Project project) {
-    // Generate default config
-    Ini odoo_conf;
-    IniSection options = IniSection("options");
-    odoo_conf.addSection(options);
-
-    string[] addons_path = project.getSystemAddonsPaths.map!((p) => p.toString).array.dup;
-    addons_path ~= project.directories.addons.toString;
-
-    odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
-    odoo_conf["options"].setKey("data_dir", project.project_root.join("data").toString);
-    if (!project.odoo.logfile.isNull)
-        odoo_conf["options"].setKey("logfile", project.odoo.logfile.get.toString);
-    odoo_conf["options"].setKey("admin_passwd", "admin");
-
-    if (project.odoo.serie < 8)
-        // Disable logrotate for Odoo version 7.0, because it seems to be buggy
-        odoo_conf["options"].setKey("logrotate", "False");
-
-    return odoo_conf;
-}
-
-
 /** Read odoo config from specified file.
   *
   * Params:
@@ -75,30 +38,54 @@ Ini readOdooConfig(in Path odoo_conf_path) {
 }
 
 
-/** Read odoo default Odoo configuration
+/** Odoo config builder - struct that helps to build complex odoo configs.
   *
-  * Params:
-  *     project = Odood Project instance
+  * Project-free: seeded from primitives so config can be assembled and tested
+  * without a live `Project`. Use `Project.odooConfigBuilder` for a builder
+  * pre-filled with a project's defaults.
   *
-  * Returns:
-  *    Ini file structure, that could be used to read and modify config
-  **/
-Ini readOdooConfig(in Project project) {
-    return readOdooConfig(project.odoo.configfile);
-}
-
-
-/** Odoo config builder - struct that helps to build complex odoo configs
+  * The constructor produces a sane default config; chain `setDBConfig` /
+  * `setHttp` (and plain `setKey` on `result`) to layer on specifics.
   **/
 struct OdooConfigBuilder {
     private Ini _odoo_conf;
-    private const Project _project;
+    private OdooSerie _serie;
 
     @disable this();
 
-    this(in Project project) {
-        _project = project;
-        _odoo_conf = _project.initOdooConfig;
+    /** Seed a default config.
+      *
+      * Params:
+      *     serie = Odoo serie (gates a couple of version-specific options)
+      *     odoo_path = path to the Odoo installation (for system addons paths)
+      *     addons_dir = project's custom addons directory
+      *     data_dir = Odoo data directory
+      *     logfile = optional log file path (null = log to stdout/stderr)
+      **/
+    this(
+            in OdooSerie serie,
+            in Path odoo_path,
+            in Path addons_dir,
+            in Path data_dir,
+            in Nullable!Path logfile) {
+        _serie = serie;
+
+        IniSection options = IniSection("options");
+        _odoo_conf.addSection(options);
+
+        string[] addons_path =
+            getSystemAddonsPaths(odoo_path, serie).map!((p) => p.toString).array.dup;
+        addons_path ~= addons_dir.toString;
+
+        _odoo_conf["options"].setKey("addons_path", join(addons_path, ","));
+        _odoo_conf["options"].setKey("data_dir", data_dir.toString);
+        if (!logfile.isNull)
+            _odoo_conf["options"].setKey("logfile", logfile.get.toString);
+        _odoo_conf["options"].setKey("admin_passwd", "admin");
+
+        if (serie < 8)
+            // Disable logrotate for Odoo 7.0, because it seems to be buggy
+            _odoo_conf["options"].setKey("logrotate", "False");
     }
 
     /** Set configuration for database connection
@@ -115,14 +102,19 @@ struct OdooConfigBuilder {
         return this;
     }
 
-    /** Set Http configuration
+    /** Set Http configuration.
+      *
+      * An empty `host` leaves the interface key unset (Odoo then binds all
+      * interfaces), so callers can pass an optional bind address uniformly.
       **/
     ref typeof(this) setHttp(in string host, in string port) {
-        if (_project.odoo.serie < 11) {
-            _odoo_conf["options"].setKey("xmlrpc_interface", host);
+        if (_serie < 11) {
+            if (host.length > 0)
+                _odoo_conf["options"].setKey("xmlrpc_interface", host);
             _odoo_conf["options"].setKey("xmlrpc_port", port);
         } else {
-            _odoo_conf["options"].setKey("http_interface", host);
+            if (host.length > 0)
+                _odoo_conf["options"].setKey("http_interface", host);
             _odoo_conf["options"].setKey("http_port", port);
         }
         return this;
@@ -185,24 +177,4 @@ unittest {
     // Missing key defaults to "None" internally, so returns default
     config.getConfVal("nonexistent_key").shouldBeNull;
     config.getConfVal("nonexistent_key", "fallback").shouldEqual("fallback");
-}
-
-
-/** Parse Odoo's database config and return tuple with following fields:
-  * host, port, user, password, sslmode
-  **/
-auto parseOdooDatabaseConfig(in Project project) {
-    // TODO: handle test config
-    auto config = project.readOdooConfig;
-
-    return Tuple!(
-        string, "host", string, "port", string, "user", string, "password",
-        string, "sslmode"
-    )(
-        config.getConfVal("db_host"),
-        config.getConfVal("db_port"),
-        config.getConfVal("db_user"),
-        config.getConfVal("db_password"),
-        config.getConfVal("db_sslmode"),
-    );
 }
