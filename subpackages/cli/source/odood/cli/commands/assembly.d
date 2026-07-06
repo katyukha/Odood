@@ -84,9 +84,9 @@ class CommandAssemblyStatus: OdoodCommand {
         else {
             writefln(
                 "Assembly: %s\nAddons: %s\nSources: %s\n",
-                project.assembly.path,
-                project.assembly.spec.addons.length,
-                project.assembly.spec.sources.length,
+                project.assembly.raw.path,
+                project.assembly.raw.spec.addons.length,
+                project.assembly.raw.spec.sources.length,
             );
         }
         return 0;
@@ -156,17 +156,17 @@ class CommandAssemblySync: AssemblyCommandBase {
             with_odoo_requirements: withOdooRequirements);
 
         if (changelog)
-            project.assembly.generateChangelog;
+            project.assembly.raw.generateChangelog;
 
         if (dockerfile)
-            project.assembly.generateDockerfile;
+            project.assembly.raw.generateDockerfile;
 
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
-                project.assembly.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
-                project.assembly.repo.getChangedFiles(
+                project.assembly.raw.repo.getChangedFiles(
                     path_filters: [
                         ":(exclude)dist",
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
@@ -181,7 +181,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
-                project.assembly.repo.getChangedFiles(
+                project.assembly.raw.repo.getChangedFiles(
                     path_filters: [
                         "dist",
                         "%s".format(ASSEMBLY_VERSION_PATH),
@@ -192,7 +192,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");
-                project.assembly.repo.commit(
+                project.assembly.raw.repo.commit(
                     message: commitMessage.isNull ?
                         "[SYNC] Assembly synced" : commitMessage.get,
                     username: commitUser.isNull ? null : commitUser.get,
@@ -207,7 +207,7 @@ class CommandAssemblySync: AssemblyCommandBase {
         }
 
         if (push || !pushTo.isNull)
-            project.assembly.push(
+            project.assembly.raw.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
         return 0;
     }
@@ -258,7 +258,7 @@ class CommandAssemblyPull: AssemblyCommandBase {
         auto project = loadProject();
         auto assembly = project.assembly;
 
-        assembly.pull;
+        assembly.raw.pull;
 
         if (link)
             assembly.link();
@@ -293,7 +293,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
             foreach(db; project.databases.list)
                 project.databases.backup(db);
 
-        assembly.pull;
+        assembly.raw.pull;
         assembly.link();
 
         auto start_again = start;
@@ -303,7 +303,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         }
 
         bool error = false;
-        OdooAddon[] addons = project.addons.scan(assembly.dist_dir, recursive: false);
+        OdooAddon[] addons = project.addons.scan(assembly.raw.dist_dir, recursive: false);
         foreach(db; project.databases.list) {
             auto sw_db = StopWatch(AutoStart.yes);
             auto error_info = project.server.catchOdooErrors(() {
@@ -374,7 +374,7 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
 
     override int execute() {
         auto project = loadProject;
-        auto results = project.assembly.upgradeSourceRefs();
+        auto results = project.assembly.raw.upgradeSourceRefs();
 
         bool any_changed = false;
         foreach(result; results) {
@@ -396,11 +396,11 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
             return 0;
         }
 
-        project.assembly.save();
-        project.assembly.repo.add(project.assembly.spec_path);
+        project.assembly.raw.save();
+        project.assembly.raw.repo.add(project.assembly.raw.spec_path);
 
         if (commit || push || !pushTo.isNull) {
-            project.assembly.repo.commit(
+            project.assembly.raw.repo.commit(
                 message: commitMessage.isNull ?
                     "[UPGRADE] Upgrade assembly source refs" : commitMessage.get,
                 username: commitUser.isNull ? null : commitUser.get,
@@ -408,7 +408,7 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
         }
 
         if (push || !pushTo.isNull)
-            project.assembly.push(
+            project.assembly.raw.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
 
         return 0;
@@ -457,7 +457,7 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
         // The named source must already exist in the spec.
         if (!source.isNull)
             enforce!OdoodCLIException(
-                !assembly.spec.getSource(source.get).isNull,
+                !assembly.raw.spec.getSource(source.get).isNull,
                 ("Assembly has no source named '%s'. " ~
                  "Add it first with 'odood assembly add-source'.").format(source.get));
 
@@ -465,7 +465,7 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
         // warning about each rather than failing the whole command.
         string[] to_add;
         foreach(name; addons) {
-            if (assembly.spec.hasAddon(name)) {
+            if (assembly.raw.spec.hasAddon(name)) {
                 warningf("Addon '%s' is already present in the assembly spec; skipping.", name);
                 continue;
             }
@@ -482,17 +482,17 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
         }
 
         foreach(name; to_add)
-            assembly.addAddon(
+            assembly.raw.addAddon(
                 name: name,
                 source_name: source.isNull ? null : source.get,
                 from_odoo_apps: odooApps);
 
-        assembly.save();
-        assembly.repo.add(assembly.spec_path);
+        assembly.raw.save();
+        assembly.raw.repo.add(assembly.raw.spec_path);
         infof("Added addon(s) to assembly spec: %s", to_add.join(", "));
 
         if (commit || push || !pushTo.isNull)
-            assembly.repo.commit(
+            assembly.raw.repo.commit(
                 message: commitMessage.isNull ?
                     "[ASSEMBLY] Add addon(s): %s".format(to_add.join(", ")) :
                     commitMessage.get,
@@ -500,7 +500,7 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
                 useremail: commitEmail.isNull ? null : commitEmail.get);
 
         if (push || !pushTo.isNull)
-            assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+            assembly.raw.push(branch_name: pushTo.isNull ? null : pushTo.get);
         else if (!commit)
             infof("Run 'odood assembly sync' to fetch the new addon(s).");
 
@@ -558,34 +558,34 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
             "Exactly one of --url, --github, --oca, --crnd must be provided.");
 
         // If a source with this name already exists, skip rather than fail.
-        if (!name.isNull && !assembly.spec.getSource(name.get).isNull) {
+        if (!name.isNull && !assembly.raw.spec.getSource(name.get).isNull) {
             warningf("Assembly already has a source named '%s'; skipping.", name.get);
             return 0;
         }
 
-        auto before = assembly.spec.sources.length;
-        assembly.addSource(
+        auto before = assembly.raw.spec.sources.length;
+        assembly.raw.addSource(
             git_url: GitURL(git_url),
             name: name.isNull ? null : name.get,
             git_ref: gitRef.isNull ? null : gitRef.get);
-        if (assembly.spec.sources.length == before) {
+        if (assembly.raw.spec.sources.length == before) {
             warningf("Source %s is already present in the assembly spec; skipping.", git_url);
             return 0;
         }
 
-        assembly.save();
-        assembly.repo.add(assembly.spec_path);
+        assembly.raw.save();
+        assembly.raw.repo.add(assembly.raw.spec_path);
         infof("Added source %s to assembly spec.", git_url);
 
         if (commit || push || !pushTo.isNull)
-            assembly.repo.commit(
+            assembly.raw.repo.commit(
                 message: commitMessage.isNull ?
                     "[ASSEMBLY] Add source: %s".format(git_url) : commitMessage.get,
                 username: commitUser.isNull ? null : commitUser.get,
                 useremail: commitEmail.isNull ? null : commitEmail.get);
 
         if (push || !pushTo.isNull)
-            assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+            assembly.raw.push(branch_name: pushTo.isNull ? null : pushTo.get);
 
         return 0;
     }

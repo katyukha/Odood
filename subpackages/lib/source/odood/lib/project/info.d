@@ -214,7 +214,7 @@ ProjectInfo getInfo(in Project project) {
 
     // Assembly
     if (project.assembly !is null)
-        info.assembly_path = project.assembly.path.toString;
+        info.assembly_path = project.assembly.raw.path.toString;
 
     return info;
 }

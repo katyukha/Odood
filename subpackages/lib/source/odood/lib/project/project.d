@@ -33,7 +33,7 @@ public import odood.lib.project.config:
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: isGitRepo, GitRepository, GitURL;
 private import odood.utils: generateRandomString;
-private import odood.lib.assembly: Assembly, AssemblySpec;
+private import odood.lib.assembly: Assembly, ProjectAssembly, AssemblySpec;
 
 
 /** Defined the way to install Odoo: from archive or from git
@@ -64,7 +64,7 @@ class Project {
 
     private VirtualEnv _venv;
 
-    private Assembly _assembly;
+    private ProjectAssembly _assembly;
 
     /** Try to load project config automaticall. Returns nullable.
       *
@@ -160,7 +160,7 @@ class Project {
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
             in VirtualEnv venv,
-            Assembly assembly=null) {
+            ProjectAssembly assembly=null) {
         this._project_root = project_root.toAbsolute;
         this._directories = directories;
         this._odoo = odoo;
@@ -221,7 +221,7 @@ class Project {
                     yaml_config["directories"]),
                 ProjectConfigOdoo(yaml_config["odoo"]),
                 venvFromYAML(yaml_config["virtualenv"]),
-                Assembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
+                ProjectAssembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
             );
         else
             this(
@@ -326,7 +326,7 @@ class Project {
 
     /** Assembly related to this project.
       **/
-    Assembly assembly() const { return cast(Assembly)_assembly; }
+    ProjectAssembly assembly() const { return cast(ProjectAssembly)_assembly; }
 
     /** String representation of Odood project
       **/
@@ -437,7 +437,7 @@ class Project {
         ]);
 
         if (_assembly !is null)
-            yaml_data["assembly-path"] = _assembly.path.toString;
+            yaml_data["assembly-path"] = _assembly.raw.path.toString;
 
         infof("Saving Odood config...");
         dumper.dump(out_file.lockingTextWriter, yaml_data);
@@ -513,7 +513,7 @@ class Project {
       **/
     void initializeAssembly() {
         _project_root.join("assembly").mkdir(true);
-        _assembly = Assembly.initialize(
+        _assembly = ProjectAssembly.initialize(
             project: this,
             path: _project_root.join("assembly"));
         save();
@@ -522,7 +522,7 @@ class Project {
     /// ditto
     void initializeAssembly(in GitURL git_url) {
         _project_root.join("assembly").mkdir(true);
-        _assembly = Assembly.initialize(
+        _assembly = ProjectAssembly.initialize(
             project: this,
             path: _project_root.join("assembly"),
             git_url: git_url);
@@ -531,7 +531,7 @@ class Project {
 
     /// Use already existing assembly located at some path
     void useAssembly(in Path path, in bool save_config=true) {
-        _assembly = Assembly.load(project: this, path: path);
+        _assembly = ProjectAssembly.load(project: this, path: path);
         if (save_config)
             save();
     }
