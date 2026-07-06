@@ -59,16 +59,22 @@ class Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
     private Project _project;
+    private OdooSerie _serie;      // target Odoo serie (from project for now)
+    private Path _cache_dir;       // assembly cache directory
     private AddonRepository _repo = null;
 
     this(Project project, in Path path, AssemblySpec spec) {
         _project = project;
+        _serie = project.odoo.serie;
+        _cache_dir = project.directories.cache.join("assembly");
         _spec = spec;
         _path = path;
     }
 
     this(Project project, in Path path, in Node yaml_data) {
         _project = project;
+        _serie = project.odoo.serie;
+        _cache_dir = project.directories.cache.join("assembly");
         _path = path;
         _spec = AssemblySpec(yaml_data);
     }
@@ -80,7 +86,7 @@ class Assembly {
     @property path() const => _path;
 
     /// Odoo serie for this assembly
-    @property serie() const => _project.odoo.serie;
+    @property serie() const => _serie;
 
     /// Compute spec path
     @property spec_path() const => _path.join("odood-assembly.yml");
@@ -105,7 +111,7 @@ class Assembly {
     @property version_path() const => _path.join(ASSEMBLY_VERSION_PATH);
 
     /// Cache directory
-    @property cache_dir() const => _project.directories.cache.join("assembly");
+    @property cache_dir() const => _cache_dir;
 
     /// Project this assembly is related to
     @property project() const => _project;
@@ -322,7 +328,7 @@ class Assembly {
         infof("Downloading addon %s from odoo apps...", addon_name);
         download(
             "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
-                addon_name, _project.odoo.serie, addon_name),
+                addon_name, serie, addon_name),
             download_path);
         infof("Unpacking addon %s from odoo apps...", addon_name);
         DarkArchiveReader!(DarkArchiveFormat.zip)(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
@@ -351,7 +357,7 @@ class Assembly {
         OdooAddon[string][string] res;
         foreach(source; spec.sources) {
             auto source_path = getSourceCachePath(source);
-            res[source.hashString] = _project.addons.scan(path: source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
+            res[source.hashString] = findAddons(source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
         }
         return res;
     }
@@ -467,12 +473,12 @@ class Assembly {
       *    base_rev = base revision. Changes will be generated for changes between base_rev and current commit.
       **/
     auto getChanges(in string base_rev) {
-        auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
+        auto assembly_version = OdooStdVersion(serie, 0);  // Default version.
 
         if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev))
             assembly_version = OdooStdVersion(
                 repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
-                .withSerie(project.odoo.serie);
+                .withSerie(serie);
 
         auto changes = repo.collectChanges(
             base_rev,
@@ -505,9 +511,9 @@ class Assembly {
 
     void generateChangelog() {
         if (repo.hasRemoteUrl("origin"))
-            generateChangelog("origin/" ~ project.odoo.serie.toString);
-        else if (repo.hasLocalBranch(project.odoo.serie.toString))
-            generateChangelog(project.odoo.serie.toString);
+            generateChangelog("origin/" ~ serie.toString);
+        else if (repo.hasLocalBranch(serie.toString))
+            generateChangelog(serie.toString);
         else
             throw new OdoodAssemblyException(
                 "Changelog generation requires an 'origin' remote to be configured " ~
@@ -557,7 +563,7 @@ class Assembly {
         spec.validate;
         if (repo.hasRemoteUrl("origin"))
             // Fetch origin/serie branch if origin repo is configured
-            repo.fetchOrigin(project.odoo.serie.toString());
+            repo.fetchOrigin(serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
@@ -735,7 +741,7 @@ class Assembly {
       * Returns one SourceUpgradeResult per source.
       **/
     SourceUpgradeResult[] upgradeSourceRefs() {
-        immutable serie = _project.odoo.serie;
+        immutable serie = _serie;
         SourceUpgradeResult[] results;
 
         foreach(ref source; _spec.sources) {
