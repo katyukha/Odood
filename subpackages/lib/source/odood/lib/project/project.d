@@ -23,6 +23,8 @@ private import odood.lib.server: OdooServer;
 private import odood.lib.python.venv: VirtualEnv, VenvOptions, PySerie;
 private import odood.lib.addons.manager: AddonManager;
 private import odood.lib.addons.repository_manager: RepositoryManager;
+private import odood.lib.addons.repository: AddonRepository;
+private import odood.lib.devtools.precommit: PreCommitManager;
 private import odood.lib.odoo.test: OdooTestRunner;
 private import odood.lib.odoo.db_manager: OdooDatabaseManager;
 public import odood.lib.project.config:
@@ -384,6 +386,13 @@ class Project {
       **/
     auto repositories(in bool test_mode=false) pure const {
         return RepositoryManager(this, test_mode);
+    }
+
+    /** PreCommitManager for the given addon repository, using this project's
+      * virtualenv and Odoo serie.
+      **/
+    auto preCommit(in AddonRepository repo) const {
+        return PreCommitManager(repo, _venv, _odoo.serie);
     }
 
     /** Return database manager instance, that provides high-level

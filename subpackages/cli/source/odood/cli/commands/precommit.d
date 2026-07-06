@@ -7,11 +7,6 @@ private import darkcommand;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.lib.project: Project;
-private import odood.lib.devtools.precommit:
-    initPreCommit,
-    initPreCommitOdooHelper,
-    setUpPreCommit,
-    updatePreCommit;
 
 
 class CommandPreCommitInit: OdoodCommand {
@@ -41,9 +36,9 @@ class CommandPreCommitInit: OdoodCommand {
             !path.isNull ? path.get : Path.current);
 
         if (odooHelperCompat)
-            project.initPreCommitOdooHelper(repo, force, !noSetup);
+            project.preCommit(repo).initOdooHelper(force, !noSetup);
         else
-            project.initPreCommit(repo, force, !noSetup);
+            project.preCommit(repo).init(force, !noSetup);
         return 0;
     }
 }
@@ -64,7 +59,7 @@ class CommandPreCommitSetUp: OdoodCommand {
         auto repo = project.addons.getRepo(
             !path.isNull ? path.get : Path.current);
 
-        project.setUpPreCommit(repo);
+        project.preCommit(repo).setUp();
         return 0;
     }
 }
@@ -85,7 +80,7 @@ class CommandPreCommitUpdate: OdoodCommand {
         auto repo = project.addons.getRepo(
             !path.isNull ? path.get : Path.current);
 
-        project.updatePreCommit(repo);
+        project.preCommit(repo).update();
         return 0;
     }
 }
