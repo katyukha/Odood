@@ -17,7 +17,7 @@ private import darkcommand;
 private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.cli.utils: printLogRecordSimplified, printJSON;
+private import odood.cli.utils: printLogRecordSimplified, printJSON, displayPath;
 private import odood.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
@@ -56,6 +56,7 @@ class CommandAddonsList: OdoodCommand {
     bool assembly;
     bool table;
     bool json;
+    bool absolute;
     string[] field;
     Nullable!string color;
     Nullable!Path path;
@@ -84,6 +85,8 @@ class CommandAddonsList: OdoodCommand {
         this.addFlag!(json)("", "json",
             "Output the addon catalog as JSON (name, path, version, source, " ~
             "repo, linked, installable). Honors the same filters.");
+        this.addFlag!(absolute)("", "absolute",
+            "Show absolute paths instead of paths relative to the project root.");
         this.addOption!(field)("f", "field",
             "Display field in table. Either a manifest field (e.g. version, " ~
             "author, license, summary, category, application, auto_install, " ~
@@ -142,12 +145,15 @@ class CommandAddonsList: OdoodCommand {
             });
     }
 
-    private string getAddonDisplayName(OdooAddon addon, in AddonDisplayType display_type) {
+    private string getAddonDisplayName(
+            in Project project,
+            OdooAddon addon,
+            in AddonDisplayType display_type) {
         final switch(display_type) {
             case AddonDisplayType.by_name:
                 return addon.name;
             case AddonDisplayType.by_path:
-                return addon.path.toString;
+                return displayPath(project.project_root, addon.path, absolute);
             case AddonDisplayType.by_name_version:
                 return "%10s\t%s".format(
                     addon.manifest.module_version.toString, addon.name);
@@ -159,7 +165,8 @@ class CommandAddonsList: OdoodCommand {
             OdooAddon addon,
             in AddonDisplayType display_type) {
 
-        auto addon_line = StyledString(getAddonDisplayName(addon, display_type));
+        auto addon_line = StyledString(
+            getAddonDisplayName(project, addon, display_type));
 
         if (color.isNull)
             return addon_line;
@@ -266,8 +273,7 @@ class CommandAddonsList: OdoodCommand {
                     auto repo = project.addons.addonRepo(addon.path);
                     row ~= [
                         repo.isNull ? "" :
-                            repo.get.relativeTo(
-                                project.directories.repositories.realPath).toString,
+                            displayPath(project.project_root, repo.get, absolute),
                     ];
                     break;
                 }
@@ -310,13 +316,12 @@ class CommandAddonsList: OdoodCommand {
         foreach(addon; findAddons(project)) {
             JSONValue j = JSONValue.emptyObject;
             j["name"] = addon.name;
-            j["path"] = addon.path.toString;
+            j["path"] = displayPath(project.project_root, addon.path, absolute);
             j["version"] = addon.manifest.module_version.toString;
             j["source"] = project.addons.classifySource(addon.path).toKey;
             auto repo = project.addons.addonRepo(addon.path);
             if (!repo.isNull)
-                j["repo"] = repo.get.relativeTo(
-                    project.directories.repositories.realPath).toString;
+                j["repo"] = displayPath(project.project_root, repo.get, absolute);
             j["linked"] = project.addons.isLinked(addon);
             j["installable"] = addon.manifest.installable;
             addons ~= j;
@@ -889,11 +894,14 @@ class CommandAddonsFindInstalled: OdoodCommand {
 class CommandAddonsWhere: OdoodCommand {
     string addon;
     bool json;
+    bool absolute;
 
     this() {
         super("where",
             "Show where an addon is located and whether it is available.");
         this.addFlag!(json)("", "json", "Output result in JSON format.");
+        this.addFlag!(absolute)("", "absolute",
+            "Show absolute paths instead of paths relative to the project root.");
         this.addArgument!(addon)("addon", "Name of the addon to locate.");
     }
 
@@ -918,10 +926,10 @@ class CommandAddonsWhere: OdoodCommand {
             j["source"] = loc.source.toKey;
             j["linked"] = loc.is_linked;
             if (loc.found) {
-                j["path"] = loc.path.get.toString;
+                j["path"] = displayPath(project.project_root, loc.path.get, absolute);
                 j["installable"] = loc.is_installable;
                 if (!loc.repo.isNull)
-                    j["repo"] = loc.repo.get.toString;
+                    j["repo"] = displayPath(project.project_root, loc.repo.get, absolute);
             }
             printJSON(j);
             return loc.found ? 0 : 1;
@@ -934,9 +942,11 @@ class CommandAddonsWhere: OdoodCommand {
 
         writefln("Addon: %s", loc.name);
         writefln("  Source:      %s", sourceLabel(loc.source));
-        writefln("  Path:        %s", loc.path.get);
+        writefln("  Path:        %s",
+            displayPath(project.project_root, loc.path.get, absolute));
         if (!loc.repo.isNull)
-            writefln("  Repository:  %s", loc.repo.get);
+            writefln("  Repository:  %s",
+                displayPath(project.project_root, loc.repo.get, absolute));
         writefln("  Linked:      %s", loc.is_linked ? "yes" : "no");
         writefln("  Installable: %s", loc.is_installable ? "yes" : "no");
         return 0;

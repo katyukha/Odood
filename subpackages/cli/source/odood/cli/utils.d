@@ -4,9 +4,38 @@ private import std.stdio: writefln, writeln;
 private import std.conv: to;
 private import std.json: JSONValue, toJSON, JSONOptions;
 
+private import thepath: Path;
+
 private import odood.lib.odoo.log: OdooLogRecord;
 
 private import colored;
+
+
+/** Format a filesystem path for display relative to the project root.
+  *
+  * Falls back to the absolute path when `path` is outside the project root
+  *
+  * Params:
+  *     project_root = Root directory of the Odood project.
+  *     path         = Path to format.
+  *     absolute     = When true, always return the absolute path.
+  **/
+string displayPath(in Path project_root, in Path path, in bool absolute = false) {
+    if (absolute)
+        return path.toAbsolute.toString;
+
+    // Resolve symlinks on both sides so containment is decided on the canonical
+    // locations (the project root or the addon dir may be reached via a
+    // symlinked parent).
+    auto root = project_root.exists ? project_root.realPath : project_root.toAbsolute;
+    auto abs = path.exists ? path.realPath : path.toAbsolute;
+
+    if (abs == root)
+        return ".";
+    if (abs.isInside(root))
+        return abs.relativeTo(root).toString;
+    return abs.toString;
+}
 
 
 /** Print a JSONValue to stdout as pretty-printed JSON.

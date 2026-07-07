@@ -7,7 +7,7 @@ private import std.exception: enforce;
 private import std.stdio: writeln;
 private import std.conv: to;
 private import std.json: JSONValue;
-private import odood.cli.utils: printJSON;
+private import odood.cli.utils: printJSON, displayPath;
 
 private import darkcommand;
 private import thepath: Path;
@@ -544,10 +544,13 @@ class CommandRepositoryPullAll: OdoodCommand {
 
 class CommandRepositoryList: OdoodCommand {
     bool json;
+    bool absolute;
 
     this() {
         super("list", "List git repositories in this project.");
         this.addFlag!(json)("", "json", "Output the repository list as JSON.");
+        this.addFlag!(absolute)("", "absolute",
+            "Show absolute paths instead of paths relative to the project root.");
     }
 
     override int execute() {
@@ -561,7 +564,11 @@ class CommandRepositoryList: OdoodCommand {
             JSONValue[] arr;
             foreach(repo; repos) {
                 auto j = repo.toJSON();
+                // `name` is the repo's short identifier (relative to the
+                // repositories dir); `path` is project-root-relative for
+                // consistency with the other path-bearing commands.
                 j["name"] = repo.path.relativeTo(repos_dir).toString;
+                j["path"] = displayPath(project.project_root, repo.path, absolute);
                 arr ~= j;
             }
             printJSON(JSONValue(arr));
@@ -573,7 +580,7 @@ class CommandRepositoryList: OdoodCommand {
         foreach(repo; repos) {
             auto branch = repo.getCurrBranch;
             table ~= [
-                repo.path.relativeTo(repos_dir).toString,
+                displayPath(project.project_root, repo.path, absolute),
                 branch.isNull ? "(detached)" : branch.get,
                 repo.addons.length.to!string,
             ];
