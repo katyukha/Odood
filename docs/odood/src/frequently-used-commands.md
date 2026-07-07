@@ -45,7 +45,7 @@ Thus following commands are used to deal with it:
 - `odood pre-commit run` - Run pre-commit hooks for this repo manually.
 
 ### Repository management
-- `odood repo add <url>` - fetch repository with third-party addons from git repo specified by `url`
+- `odood repo add <url>` - fetch repository with third-party addons from git repo specified by `url`. Local repositories are supported via `file://` URLs with absolute paths (for example `file:///data/repos/my-addons`) - useful for local mirrors or pre-fetched repositories in CI.
 - `odood repo add --oca <name>` - fetch OCA repository named `name` from OCA git repo. For example, `--oca web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo add --github <username/repository>` - shortcut to easily fetch repo from github, by specifying only github username and repo name. For example: `--github oca/web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo bump-versions` - increase versions of changed modules in git repo.

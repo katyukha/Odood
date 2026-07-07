@@ -39,6 +39,9 @@
   `odood repo list`) no longer escapes forward slashes (`\/` → `/`), so paths
   are readable and grep-friendly. Output is produced through a single shared
   JSON printer for consistency.
+- Paths in `odood addons list`, `odood repo list`, and `odood addons where`
+  (both human-readable and `--json` output) are now displayed relative to the
+  project root; paths outside the project stay absolute.
 - `odood script py` and `odood script sql` now accept a script name (not only a
   path), resolved against `<repo>/.odood-scripts/`, `<project>/scripts/`, or an
   absolute path.
@@ -68,6 +71,10 @@
 
 - `odood test --migration` now correctly handles new addon dependencies during migration tests.
   For example, in case, when we added new addon in repo and make one of existing addons depend on it.
+- Checking whether a non-existent path is a git repository no longer crashes
+  with a process error — it now correctly reports "not a repository".
+- Unparseable git URLs now raise a proper "Cannot parse git url" error instead
+  of crashing with a low-level array error.
 
 ---
 
