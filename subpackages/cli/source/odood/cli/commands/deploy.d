@@ -15,17 +15,17 @@ private import darkcommand;
 private import dini: Ini;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project:
+private import odood.project:
     Project, OdooInstallType;
-private import odood.lib.project.config: ProjectServerSupervisor;
+private import odood.project.config: ProjectServerSupervisor;
 private import odood.lib.python.venv: PyInstallType, VenvOptions;
 private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
-private import odood.lib.deploy;
-private import odood.lib.deploy.config: detectSystemCABundle;
+private import odood.project.deploy;
+private import odood.project.deploy.config: detectSystemCABundle;
 
 
 class CommandDeploy: OdoodCommand {

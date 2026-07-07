@@ -8,7 +8,7 @@ private import std.typecons: Nullable;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 
 
 class CommandOdooShell: OdoodCommand {

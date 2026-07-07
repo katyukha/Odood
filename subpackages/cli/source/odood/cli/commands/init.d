@@ -13,8 +13,8 @@ private import darkcommand;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.python.venv: VenvOptions, PyInstallType;
 private import odood.lib.python.odoo: guessVenvOptions, suggestPythonVersion;
-private import odood.lib.project: Project, OdooInstallType;
-private import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
+private import odood.project: Project, OdooInstallType;
+private import odood.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
 

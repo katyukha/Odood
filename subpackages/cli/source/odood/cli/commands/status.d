@@ -7,7 +7,7 @@ private import colored;
 private import thepath: Path;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 
 
 immutable string TMPL_CURRENT_PROJECT_STATUS = "

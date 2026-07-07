@@ -20,9 +20,9 @@ private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException, exitWithCode;
 private import odood.cli.utils: printLogRecord, printLogRecordSimplified;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.lib.odoo.log: OdooLogProcessor, OdooLogRecord;
-private import odood.lib.odoo.test: OdooTestStat;
+private import odood.project.odoo.test: OdooTestStat;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.utils.odoo.serie: OdooSerie;
 

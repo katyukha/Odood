@@ -9,12 +9,14 @@ dependency ":tipy" version="*"
 dependency ":utils" version="*"
 dependency ":git" version="*"
 dependency ":lib" version="*"
+dependency ":project" version="*"
 dependency ":cli" version="*"
 subPackage "./subpackages/exception"
 subPackage "./subpackages/tipy"
 subPackage "./subpackages/utils"
 subPackage "./subpackages/git"
 subPackage "./subpackages/lib"
+subPackage "./subpackages/project"
 subPackage "./subpackages/cli"
 
 targetPath "build"
@@ -49,6 +51,7 @@ configuration "generate-command-ref" {
 configuration "unittest" {
     /* Build subpackages as sourceLibrary to run tests of subpackages */
     subConfiguration ":lib" "sourceLibrary"
+    subConfiguration ":project" "sourceLibrary"
     subConfiguration ":git" "sourceLibrary"
     subConfiguration ":tipy" "sourceLibrary"
     subConfiguration ":utils" "sourceLibrary"

@@ -7,8 +7,8 @@ private import darkcommand;
 
 private import odood.cli.core: OdoodCommand;
 private import odood.cli.utils: printJSON;
-private import odood.lib.project: Project;
-private import odood.lib.project.info: getInfo;
+private import odood.project: Project;
+private import odood.project.info: getInfo;
 
 
 class CommandInfo: OdoodCommand {

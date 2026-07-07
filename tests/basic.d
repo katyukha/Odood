@@ -11,7 +11,7 @@ import thepath;
 import theprocess;
 import unit_threaded.assertions;
 
-import odood.lib.project;
+import odood.project;
 import odood.utils.odoo.serie;
 import odood.git: GitURL;
 
@@ -176,7 +176,7 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.drop(project.genDbName("test-2", ukey));
     {
         // Create a raw empty DB (no Odoo schema) by hand
-        import odood.lib.odoo.db_utils: openPgConnection;
+        import odood.project.odoo.db_utils: openPgConnection;
         auto conn = project.openPgConnection("postgres");
         conn.exec(
             "CREATE DATABASE \"%s\"".format(project.genDbName("test-2", ukey)));
@@ -870,7 +870,7 @@ unittest {
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
     import std.typecons: Nullable, nullable;
-    import odood.lib.odoo.script: resolveScriptPath;
+    import odood.project.odoo.script: resolveScriptPath;
 
     auto root = createTempPath;
     scope(exit) root.remove();

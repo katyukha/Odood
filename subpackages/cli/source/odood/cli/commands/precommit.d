@@ -6,7 +6,7 @@ private import thepath: Path;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 
 
 class CommandPreCommitInit: OdoodCommand {

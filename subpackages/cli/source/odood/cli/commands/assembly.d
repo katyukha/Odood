@@ -15,7 +15,7 @@ private import thepath: Path;
 
 private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL, GitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;

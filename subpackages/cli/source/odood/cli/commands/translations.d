@@ -13,7 +13,7 @@ private import thepath: Path;
 private import theprocess: Process, resolveProgram;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;

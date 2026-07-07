@@ -14,7 +14,7 @@ private import thepath: Path;
 private import versioned: VersionPart;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
@@ -410,7 +410,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
     }
 
     override int execute() {
-        import odood.lib.devtools.migrate: migrateAddonsCode;
+        import odood.project.devtools.migrate: migrateAddonsCode;
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(

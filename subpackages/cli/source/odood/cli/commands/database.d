@@ -16,8 +16,8 @@ private import thepath: Path;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, exitWithCode, OdoodCLIException;
-private import odood.lib.project: Project;
-private import odood.lib.odoo.test: generateTestDbName;
+private import odood.project: Project;
+private import odood.project.odoo.test: generateTestDbName;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.db: BackupFormat;
 private import odood.utils: generateRandomString;

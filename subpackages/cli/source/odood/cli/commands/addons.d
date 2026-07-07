@@ -18,11 +18,11 @@ private import colored;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified, printJSON;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.odoo.log: OdooLogProcessor;
-private import odood.lib.addons.manager:
+private import odood.project.addons.manager:
     AddonsInstallUpdateException, AddonLocationSource, toKey;
 private import odood.git: isGitRepo, GitRepository, GitURL;
 

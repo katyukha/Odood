@@ -7,8 +7,8 @@ private import std.format: format;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
-private import odood.lib.odoo.script: resolveScriptPath;
+private import odood.project: Project;
+private import odood.project.odoo.script: resolveScriptPath;
 
 
 class CommandScriptPy: OdoodCommand {

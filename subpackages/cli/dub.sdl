@@ -7,6 +7,7 @@ dependency "colored" version="0.0.31"
 dependency "tabletool" version="~>0.5.0"
 dependency "darkcommand" version=">=0.0.10"
 
+dependency "odood:project" path="../../"
 dependency "odood:lib" path="../../"
 
 targetPath "build"
@@ -17,5 +18,6 @@ configuration "library" {
 
 configuration "sourceLibrary" {
     targetType "sourceLibrary"
+    subConfiguration "odood:project" "sourceLibrary"
     subConfiguration "odood:lib" "sourceLibrary"
 }

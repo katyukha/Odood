@@ -6,8 +6,8 @@ private import thepath: Path;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project;
-private import odood.lib.project.discover: discoverOdooHelper;
+private import odood.project: Project;
+private import odood.project.discover: discoverOdooHelper;
 
 
 class CommandDiscoverOdooHelper: OdoodCommand {
