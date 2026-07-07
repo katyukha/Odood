@@ -22,6 +22,11 @@ GitURL parseGitURL(in string url) {
     return GitURL(url);
 }
 
+/// Create git URL for a local repository. The path must be absolute.
+GitURL parseGitURL(in Path path) {
+    return GitURL(path);
+}
+
 /// Clone git repository to provided destination directory
 GitRepository gitClone(
         in GitURL repo,
@@ -54,7 +59,13 @@ GitRepository gitClone(
 /** Check if specified path is git repository
   **/
 bool isGitRepo(in Path path) {
-    // TODO: Think about adding ability to handle unexisting directories inside git root
+    // A non-existent path is not a git repository. Guard early: the worktree
+    // fallback below runs `git` with `inWorkDir(path)`, which throws a
+    // ProcessException ("failed to open working directory") for a missing
+    // directory instead of reporting "not a repo".
+    if (!path.exists)
+        return false;
+
     if (path.join(".git").exists)
         return true;
 
@@ -79,6 +90,9 @@ unittest {
     // check if random dir is not git directory
     root.join("some-other-dir").mkdir(true);
     root.join("some-other-dir").isGitRepo.shouldBeFalse();
+
+    // a non-existent path is not a git repo (must return false, not throw)
+    root.join("does-not-exist").isGitRepo.shouldBeFalse();
 
     // Create repo
     auto git_root = root.join("test-repo");
