@@ -4,20 +4,33 @@ private import std.logger: infof, warningf, tracef, errorf;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
+private import std.stdio: writeln;
+private import std.conv: to;
+private import std.json: JSONValue;
+private import odood.cli.utils: printJSON, displayPath;
 
 private import darkcommand;
 private import thepath: Path;
 private import versioned: VersionPart;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.lib.devtools.utils: fixVersionConflict, updateManifestSerie, updateManifestVersion;
 private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
+private import odood.lib.addons.repository:
+    AddonRepository, PrepareReleaseResult,
+    ChangelogRequirement, ChangelogCheckResult;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
+
+
+/// Documentation on how to write per-addon changelog entries; referenced from
+/// changelog-related error messages. The anchor must match the heading in
+/// docs/odood/src/development-workflow.md ("Per-addon Changelog").
+private enum DOC_URL_CHANGELOG =
+    "https://katyukha.github.io/Odood/development-workflow.html#per-addon-changelog";
 
 
 class CommandRepositoryAdd: OdoodCommand {
@@ -282,6 +295,105 @@ class CommandRepositoryCheckVersion: OdoodCommand {
 }
 
 
+class CommandRepositoryEnsureChangelog: OdoodCommand {
+    Nullable!Path path;
+    string require;
+    bool ignoreTranslations;
+    bool sinceLastRelease;
+    Nullable!string startRef;
+    Nullable!string endRef;
+
+    this() {
+        super(
+            "ensure-changelog",
+            "Check that changed addons carry a changelog entry.");
+        this.addArgument!(path)("path",
+            "Path to repository to check for changelog entries.")
+            .acceptsDirectories();
+        this.addOption!(require)("", "require",
+            "Whether all changed addons must have a changelog entry, or just "
+            ~ "at least one. One of: all, any. Default: all.")
+            .defaultValue("all")
+            .acceptsValues(["all", "any"]);
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Ignore translation-only (.po/.pot) changes.");
+        this.addFlag!(sinceLastRelease)("", "since-last-release",
+            "Compare against the latest release tag instead of the stable branch tip.");
+        this.addOption!(startRef)("", "start-ref",
+            "Explicit git ref to compare against (overrides --since-last-release "
+            ~ "and the default origin/<serie>).");
+        this.addOption!(endRef)("", "end-ref",
+            "Explicit git ref for the current state (defaults to the working tree).");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+
+        auto repo = project.addons.getRepo(
+            path.isNull ? Path.current : path.get.toAbsolute);
+
+        string start_ref;
+        if (!startRef.isNull) {
+            start_ref = startRef.get;
+        } else if (sinceLastRelease) {
+            repo.fetchOrigin(project.odoo.serie.toString);
+            auto latest = repo.getLatestRelease(project.odoo.serie);
+            if (latest.isNull) {
+                infof("No release tags found; comparing against origin/%s.",
+                    project.odoo.serie);
+                start_ref = "origin/%s".format(project.odoo.serie);
+            } else {
+                infof("Comparing against latest release tag: %s", latest.get);
+                start_ref = latest.get.toString;
+            }
+        } else {
+            repo.fetchOrigin(project.odoo.serie.toString);
+            start_ref = "origin/%s".format(project.odoo.serie);
+        }
+
+        immutable string end_ref = endRef.isNull ? GIT_REF_WORKTREE : endRef.get;
+        immutable auto require_mode = require == "any"
+            ? ChangelogRequirement.any : ChangelogRequirement.all;
+
+        auto result = repo.ensureChangelog(
+            start_ref: start_ref,
+            end_ref: end_ref,
+            require: require_mode,
+            ignore_translations: ignoreTranslations);
+
+        if (!result.has_changes) {
+            infof("There are no changes in modules");
+            return 0;
+        }
+
+        if (result.ok) {
+            infof("All required changelog entries are present.");
+            return 0;
+        }
+
+        final switch (require_mode) {
+            case ChangelogRequirement.all:
+                foreach(name; result.addons_missing_changelog)
+                    errorf(
+                        "Addon '%s' is missing a changelog entry for its version bump.",
+                        name);
+                throw new OdoodCLIException(
+                    ("%s updated addon(s) are missing changelog entries. " ~
+                     "Add a 'changelog/changelog.X.Y.Z.md' entry for each. " ~
+                     "See %s").format(
+                        result.addons_missing_changelog.length,
+                        DOC_URL_CHANGELOG));
+            case ChangelogRequirement.any:
+                throw new OdoodCLIException(
+                    "None of the changed addons have a changelog entry " ~
+                    "(at least one is required). Add a " ~
+                    "'changelog/changelog.X.Y.Z.md' entry. See " ~
+                    DOC_URL_CHANGELOG);
+        }
+    }
+}
+
+
 class CommandRepositoryMigrateAddons: OdoodCommand {
     Nullable!Path path;
     string[] module_;
@@ -298,7 +410,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
     }
 
     override int execute() {
-        import odood.lib.devtools.migrate: migrateAddonsCode;
+        import odood.project.devtools.migrate: migrateAddonsCode;
         auto project = Project.loadProject;
 
         auto repo = project.addons.getRepo(
@@ -390,21 +502,9 @@ class CommandRepositoryPullAll: OdoodCommand {
             "[Experimental] Pull changes from all repos and relink addons.");
     }
 
-    private AddonRepository[] searchRepositories(in Path repo_dir) const
-    in (repo_dir.isDir) {
-        AddonRepository[] repositories;
-        foreach(p; repo_dir.walk) {
-            if (p.isGitRepo)
-                repositories ~= new AddonRepository(p);
-            else
-                repositories ~= searchRepositories(p);
-        }
-        return repositories;
-    }
-
     override int execute() {
         auto project = Project.loadProject;
-        foreach(repo; searchRepositories(project.directories.repositories)) {
+        foreach(repo; project.repositories.list()) {
             auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
             if (repo.status.isClean) {
                 infof("Repo %s: pulling changes...", repo_name);
@@ -437,6 +537,61 @@ class CommandRepositoryPullAll: OdoodCommand {
                 warningf("Repo %s: not clean, skipping...", repo_name);
             }
         }
+        return 0;
+    }
+}
+
+
+class CommandRepositoryList: OdoodCommand {
+    bool json;
+    bool absolute;
+
+    this() {
+        super("list", "List git repositories in this project.");
+        this.addFlag!(json)("", "json", "Output the repository list as JSON.");
+        this.addFlag!(absolute)("", "absolute",
+            "Show absolute paths instead of paths relative to the project root.");
+    }
+
+    override int execute() {
+        auto project = Project.loadProject;
+        auto repos = project.repositories.list();
+        auto repos_dir = project.directories.repositories.exists ?
+            project.directories.repositories.realPath :
+            project.directories.repositories;
+
+        if (json) {
+            JSONValue[] arr;
+            foreach(repo; repos) {
+                auto j = repo.toJSON();
+                // `name` is the repo's short identifier (relative to the
+                // repositories dir); `path` is project-root-relative for
+                // consistency with the other path-bearing commands.
+                j["name"] = repo.path.relativeTo(repos_dir).toString;
+                j["path"] = displayPath(project.project_root, repo.path, absolute);
+                arr ~= j;
+            }
+            printJSON(JSONValue(arr));
+            return 0;
+        }
+
+        import tabletool;
+        string[][] table = [["Repository", "Branch", "Addons"]];
+        foreach(repo; repos) {
+            auto branch = repo.getCurrBranch;
+            table ~= [
+                displayPath(project.project_root, repo.path, absolute),
+                branch.isNull ? "(detached)" : branch.get,
+                repo.addons.length.to!string,
+            ];
+        }
+        writeln(
+            tabulate(
+                table,
+                tabletool.Config(
+                    tabletool.Style.grid,
+                    tabletool.Align.left,
+                    true)));
         return 0;
     }
 }
@@ -848,10 +1003,12 @@ class CommandRepository: OdoodCommand {
         super("repo", "Manage git repositories.");
         this.add(new CommandRepositoryAdd());
         this.add(new CommandRepositoryPullAll());
+        this.add(new CommandRepositoryList());
         this.add(new CommandRepositoryFixVersionConflict());
         this.add(new CommandRepositoryFixSerie());
         this.add(new CommandRepositoryBumpAddonVersion());
         this.add(new CommandRepositoryCheckVersion());
+        this.add(new CommandRepositoryEnsureChangelog());
         this.add(new CommandRepositoryMigrateAddons());
         this.add(new CommandRepositoryDoForwardPort());
         this.add(new CommandRepositoryRelease());

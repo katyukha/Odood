@@ -51,13 +51,13 @@ After the command completes, Odoo is installed in the `odoo-18` directory. Any s
 | Flag | Description |
 |---|---|
 | `--http-port=<port>` | Port Odoo listens on (default: `8069`) |
-| `--longpolling-port=<port>` | Gevent / long-polling port (default: `8072`) |
+| `--http-host=<host>` | Interface Odoo binds to (default: `0.0.0.0`) |
 
 ### Python and Node
 
 | Flag | Description |
 |---|---|
-| `--python=<path>` | Path to the Python executable to use for the virtualenv |
+| `--py-version=<version>` | Build and use a specific Python version for the virtualenv (default: system Python) |
 | `--node-version=<ver>` | Node.js version to install (for frontend assets) |
 | `--pyenv` | Use pyenv to manage the Python version (see macOS section) |
 
@@ -65,24 +65,25 @@ After the command completes, Odoo is installed in the `odoo-18` directory. Any s
 
 | Flag | Description |
 |---|---|
-| `--repo=<url>` | Git URL of a third-party addon repository to add during init |
-| `--branch=<ref>` | Branch/ref for the `--repo` repository |
+| `--odoo-repo=<url>` | Install **Odoo itself** from a specific repository (default: `https://github.com/odoo/odoo.git`). Useful for forks. Used for both install types: cloned for `git`, archive downloaded from it for `archive`. |
+| `--odoo-branch=<ref>` | Branch in the Odoo repository to install from (default: the serie, e.g. `18.0`) |
+| `--log-to-stderr` | Configure the project without a log file (logs to stdout/stderr). Recommended for container setups. |
+
+To add third-party addon repositories, use `odood repo add` after init — see
+[Adding third-party repositories](#adding-third-party-repositories) below.
 
 Run `odood init --help` to see the full list of options.
 
 ## Multiple instances on one machine
 
-Each instance needs a unique combination of:
-- **Installation directory** (`-i`)
-- **HTTP port** (`--http-port`)
-- **Database user** (`--db-user`)
-
-Example: three active development instances:
+You can run several instances side by side — typically one per Odoo series. Each
+needs a unique installation directory (`-i`), HTTP port (`--http-port`), and
+database user (`--db-user`):
 
 ```bash
-odood init -i odoo-16 -v 16 --db-user=odoo16 --http-port=16069
-odood init -i odoo-17 -v 17 --db-user=odoo17 --http-port=17069
-odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069
+odood init -i odoo-16 -v 16 --db-user=odoo16 --http-port=16069 --create-db-user
+odood init -i odoo-17 -v 17 --db-user=odoo17 --http-port=17069 --create-db-user
+odood init -i odoo-18 -v 18 --db-user=odoo18 --http-port=18069 --create-db-user
 ```
 
 Switch between them by changing your working directory:
@@ -91,6 +92,10 @@ Switch between them by changing your working directory:
 cd ~/odoo-16 && odood server start
 cd ~/odoo-18 && odood server start
 ```
+
+For the full picture — how instances stay isolated, how switching works, and how
+to avoid port and database conflicts — see
+[Working with Multiple Instances](./multiple-instances.md).
 
 ## Managing the server
 

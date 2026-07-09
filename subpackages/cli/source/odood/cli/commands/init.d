@@ -13,9 +13,8 @@ private import darkcommand;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.lib.python.venv: VenvOptions, PyInstallType;
 private import odood.lib.python.odoo: guessVenvOptions, suggestPythonVersion;
-private import odood.lib.project: Project, OdooInstallType;
-private import odood.lib.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
-private import odood.lib.odoo.config: initOdooConfig;
+private import odood.project: Project, OdooInstallType;
+private import odood.project.config: ProjectConfigOdoo, ProjectConfigDirectories;
 private import odood.lib.postgres: createNewPostgresUser;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -70,20 +69,10 @@ class CommandInit: OdoodCommand {
     }
 
     auto prepareOdooConfig(in Project project) {
-        auto odoo_config = initOdooConfig(project);
-        odoo_config["options"].setKey("db_host", dbHost);
-        odoo_config["options"].setKey("db_port", dbPort);
-        odoo_config["options"].setKey("db_user", dbUser);
-        odoo_config["options"].setKey("db_password", dbPassword);
-
-        if (project.odoo.serie < OdooSerie(11)) {
-            odoo_config["options"].setKey("xmlrpc_interface", httpHost);
-            odoo_config["options"].setKey("xmlrpc_port", httpPort);
-        } else {
-            odoo_config["options"].setKey("http_interface", httpHost);
-            odoo_config["options"].setKey("http_port", httpPort);
-        }
-        return odoo_config;
+        return project.odooConfigBuilder
+            .setDBConfig(dbHost, dbPort, dbUser, dbPassword)
+            .setHttp(httpHost, httpPort)
+            .result;
     }
 
     override int execute() {

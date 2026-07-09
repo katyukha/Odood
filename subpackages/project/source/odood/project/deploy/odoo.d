@@ -1,0 +1,284 @@
+module odood.project.deploy.odoo;
+
+private import core.sys.posix.unistd: geteuid, getegid;
+private import core.sys.posix.pwd: getpwnam, passwd;
+
+private import std.logger: infof;
+private import std.exception: enforce, errnoEnforce;
+private import std.conv: to, text, octal;
+private import std.format: format;
+private import std.string: toStringz, empty;
+
+private import thepath: Path;
+private import theprocess: Process, systemUserExists;
+private import darktemple: renderFile;
+
+private import odood.utils.odoo.serie: OdooSerie;
+private import odood.project: Project, ODOOD_SYSTEM_CONFIG_PATH;
+private import odood.project.config: ProjectServerSupervisor;
+
+private import odood.project.deploy.config: DeployConfig;
+private import odood.project.deploy.utils:
+    createSystemUser,
+    postgresCheckUserExists,
+    postgresCreateUser;
+
+
+private void deployInitScript(in Project project, in DeployConfig config) {
+
+    infof("Configuring init script for Odoo...");
+
+    // Configure init scripts
+    project.odoo.server_init_script_path.writeFile(
+        renderFile!("templates/deploy/init.d.tmpl", project, config));
+
+    // Set access rights for init script
+    project.odoo.server_init_script_path.setAttributes(octal!755);
+    project.odoo.server_init_script_path.chown("root", "root");
+
+    // Enable init script for Odoo
+    Process("update-rc.d")
+        .withArgs("odoo", "defaults")
+        .execute
+        .ensureOk(true);
+    infof("Init script (%s) configred successfully. Odoo will be started at startup.", project.odoo.server_init_script_path);
+}
+
+
+private void deploySystemdConfig(in Project project, in DeployConfig config) {
+
+    infof("Configuring systemd daemon for Odoo...");
+
+    // Configure systemd
+    project.odoo.server_systemd_service_path.writeFile(
+        renderFile!("templates/deploy/systemd.tmpl", project, config));
+
+    // Set access rights for systemd config
+    project.odoo.server_systemd_service_path.setAttributes(octal!755);
+    project.odoo.server_systemd_service_path.chown("root", "root");
+
+    // Enable systemd service for Odoo
+    Process("systemctl")
+        .withArgs("daemon-reload")
+        .execute
+        .ensureOk(true);
+    Process("systemctl")
+        .withArgs("enable", "--now", "odoo.service")
+        .execute
+        .ensureOk(true);
+    Process("systemctl")
+        .withArgs("start", "odoo.service")
+        .execute
+        .ensureOk(true);
+
+    infof("Systemd (%s) configred successfully. Odoo will be started at startup.", project.odoo.server_systemd_service_path);
+}
+
+
+private void deployLogrotateConfig(in Project project, in DeployConfig config) {
+    infof("Configuring logrotate for Odoo...");
+
+    config.logrotate_config_path.writeFile(
+        renderFile!("templates/deploy/logrotate.tmpl", project));
+
+    // Set access rights for logrotate config
+    config.logrotate_config_path.setAttributes(octal!755);
+    config.logrotate_config_path.chown("root", "root");
+
+    infof("Logrotate configured successfully. Config: %s", config.logrotate_config_path);
+}
+
+
+/** Deploy nginx configuration for Odoo
+  **/
+private void deployNginxConfig(in Project project, in DeployConfig config) {
+    infof("Configuring Nginx for Odoo...");
+
+    // We compute ssl_on flag separately, because in case of let's encrypt configuration,
+    // at first stage we need to generate config without ssl (because at this stage there is no generated certs)
+    // and after cert generation completed, we will update nginx config with ssl_on
+    bool ssl_on = config.letsencrypt_enable ? false : config.nginx.ssl_on;
+
+    config.nginx.config_path.writeFile(
+        renderFile!("templates/deploy/nginx.conf.tmpl", config, ssl_on));
+
+    // Set access rights for logrotate config
+    config.nginx.config_path.setAttributes(octal!644);
+    config.nginx.config_path.chown("root", "root");
+
+    // Reload nginx
+    Process("systemctl")
+        .withArgs("reload", "nginx.service")
+        .execute
+        .ensureOk(true);
+
+    infof("Nginx configured successfully. Config: %s", config.nginx.config_path);
+
+    if (config.letsencrypt_enable) {
+        infof("Let's Encrypt configuration requested. Requesting certs....");
+        config.letsencrypt_webroot.mkdir(true);
+        Process("certbot")
+            .withArgs(
+                "certonly",
+                "--non-interactive",
+                "--agree-tos",
+                "--email=%s".format(config.letsencrypt_email),
+                "--preferred-challenges=http-01",
+                "--rsa-key-size=%s".format(config.letsencrypt_rsa_key_size),
+                "--webroot",
+                "-w", config.letsencrypt_webroot.toString,
+                "-d", config.nginx.server_name,
+            ).execute.ensureOk(true);
+        infof("Let's Encrypt certificates generated.");
+
+        // Update nginx config with ssl_on
+        ssl_on = true;
+        config.nginx.config_path.writeFile(
+            renderFile!("templates/deploy/nginx.conf.tmpl", config, ssl_on));
+
+        // Reload nginx
+        Process("systemctl")
+            .withArgs("reload", "nginx.service")
+            .execute
+            .ensureOk(true);
+
+        infof("Nginx configuration updated to use let's encrypt generated certificates.");
+    }
+}
+
+
+/** Deploy fail2ban configuration for Odoo
+  **/
+private void deployFail2banConfig(in Project project, in DeployConfig config) {
+    infof("Configuring Fail2ban for Odoo...");
+
+    config.fail2ban_filter_path.writeFile(
+        renderFile!("templates/deploy/fail2ban.filter.tmpl", project));
+
+    // Set access rights for logrotate config
+    config.fail2ban_filter_path.setAttributes(octal!644);
+    config.fail2ban_filter_path.chown("root", "root");
+
+    config.fail2ban_jail_path.writeFile(
+        renderFile!("templates/deploy/fail2ban.jail.tmpl", project));
+
+    // Set access rights for jail config
+    config.fail2ban_jail_path.setAttributes(octal!644);
+    config.fail2ban_jail_path.chown("root", "root");
+
+    // Reload nginx
+    Process("systemctl")
+        .withArgs("reload", "fail2ban.service")
+        .execute
+        .ensureOk(true);
+
+    infof(
+        "Fail2ban configured successfully. Filter config: %s, jail config: %s",
+        config.fail2ban_filter_path, config.fail2ban_jail_path);
+}
+
+
+/** Deploy Odoo according provided DeployConfig
+  **/
+Project deployOdoo(in DeployConfig config) {
+    infof("Deploying Odoo %s to %s", config.odoo.serie, config.deploy_path);
+
+    // TODO: Move this configuration to Deploy config
+    auto project = config.prepareOdoodProject();
+
+    // We need to keep reference on odoo_config to make initialize work.
+    // TODO: Fix this
+    auto odoo_config = config.prepareOdooConfig(project);
+
+    // Initialize project.
+    project.initialize(
+        odoo_config,
+        config.venv_options,
+        config.install_type);
+    project.save(ODOOD_SYSTEM_CONFIG_PATH);
+
+    if (!systemUserExists(project.odoo.server_user))
+        createSystemUser(
+            project.project_root,
+            project.odoo.server_user,
+            config.odoo.server_user_uid,
+            config.odoo.server_user_gid);
+
+    // Get info about odoo user (that is needed to set up access rights for Odoo files
+    auto pw_odoo = getpwnam(project.odoo.server_user.toStringz);
+    errnoEnforce(
+        pw_odoo !is null,
+        "Cannot get info about user %s".format(project.odoo.server_user));
+
+    // Config is owned by root, but readable by Odoo
+    project.odoo.configfile.chown(0, pw_odoo.pw_gid);
+    project.odoo.configfile.setAttributes(octal!640);
+
+    // Odoo can read and write and create files in log directory
+    project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+    project.directories.log.setAttributes(octal!750);
+
+    // Existing file is required to make fail2ban work.
+    // Thus we just create empty logfile here, odoo will continue to log here.
+    // Skip when logging to stdout (no logfile configured).
+    if (!project.odoo.logfile.isNull && !project.odoo.logfile.get.exists) {
+        project.odoo.logfile.get.writeFile([]);
+        project.odoo.logfile.get.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+        project.odoo.logfile.get.setAttributes(octal!640);
+    }
+
+    // Make Odoo owner of data directory. Do not allow others to access it.
+    project.server.getConfigDataDir.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+    project.server.getConfigDataDir.setAttributes(octal!750);
+
+    // Make Odoo owner of project root (/opt/odoo), but not recursively,
+    // thus, Odoo will be able to create files there,
+    // but will not be allowed to change existing files.
+    project.project_root.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
+
+    // Initialize assembly if specified
+    if (!config.assembly_repo.isNull) {
+        // TODO: Wrap it in try/catch
+        project.initializeAssembly(config.assembly_repo.get);
+        project.assembly.link();
+    }
+
+    // Create postgresql user if "local-postgres" is selected and no user exists
+    if (config.database.local_postgres)
+        /* In this case we need to create postgres user
+         * only if it does not exists yet.
+         * If user already exists, we expect,
+         * that user provided correct password for it.
+         */
+        if (!postgresCheckUserExists(config.database.user))
+            postgresCreateUser(config.database.user, config.database.password);
+
+    // Configure logrotate
+    if (config.logrotate_enable)
+        deployLogrotateConfig(project, config);
+
+    // Configure systemd
+    final switch(config.odoo.server_supervisor) {
+        case ProjectServerSupervisor.Odood:
+            // Do nothing.
+            // TODO: May be it have sense to create some link in /usr/sbin for Odoo?
+            break;
+        case ProjectServerSupervisor.InitScript:
+            deployInitScript(project, config);
+            break;
+        case ProjectServerSupervisor.Systemd:
+            deploySystemdConfig(project, config);
+            break;
+    }
+
+    // Deploy nginx
+    if (config.nginx.enable)
+        deployNginxConfig(project, config);
+
+    // Deploy fail2ban
+    if (config.fail2ban_enable)
+        deployFail2banConfig(project, config);
+
+    infof("Odoo deployed successfully.");
+    return project;
+}

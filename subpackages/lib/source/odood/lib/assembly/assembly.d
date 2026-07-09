@@ -25,16 +25,11 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
-private import odood.lib.project: Project;
 private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo, gitListRemoteTags;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
 private import odood.utils: download;
-private import odood.lib.python.venv: PyRequirements;
-private import odood.lib.addons.manager:
-    DEFAULT_INSTALL_PY_REQUIREMENTS,
-    DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
 private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
@@ -58,17 +53,20 @@ package(odood) immutable ASSEMBLY_REQUIREMENTS_LOCK = Path("requirements.lock.tx
 class Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
-    private Project _project;
+    private OdooSerie _serie;      // target Odoo serie
+    private Path _cache_dir;       // assembly cache directory
     private AddonRepository _repo = null;
 
-    this(Project project, in Path path, AssemblySpec spec) {
-        _project = project;
+    this(in Path path, AssemblySpec spec, in OdooSerie serie, in Path cache_dir) {
+        _serie = serie;
+        _cache_dir = cache_dir;
         _spec = spec;
         _path = path;
     }
 
-    this(Project project, in Path path, in Node yaml_data) {
-        _project = project;
+    this(in Path path, in Node yaml_data, in OdooSerie serie, in Path cache_dir) {
+        _serie = serie;
+        _cache_dir = cache_dir;
         _path = path;
         _spec = AssemblySpec(yaml_data);
     }
@@ -80,7 +78,7 @@ class Assembly {
     @property path() const => _path;
 
     /// Odoo serie for this assembly
-    @property serie() const => _project.odoo.serie;
+    @property serie() const => _serie;
 
     /// Compute spec path
     @property spec_path() const => _path.join("odood-assembly.yml");
@@ -105,10 +103,7 @@ class Assembly {
     @property version_path() const => _path.join(ASSEMBLY_VERSION_PATH);
 
     /// Cache directory
-    @property cache_dir() const => _project.directories.cache.join("assembly");
-
-    /// Project this assembly is related to
-    @property project() const => _project;
+    @property cache_dir() const => _cache_dir;
 
     /// Git repository instance for this assembly
     @property repo() {
@@ -129,22 +124,22 @@ class Assembly {
 
     /** Try to load asembly spec from specified location
       **/
-    static Assembly maybeLoad(Project project, in Path path) {
+    static Assembly maybeLoad(in Path path, in OdooSerie serie, in Path cache_dir) {
         if (path.exists && path.isFile) {
             dyaml.Node assembly_spec = dyaml.Loader.fromFile(path.toString()).load();
-            return new Assembly(project, path.parent, assembly_spec);
+            return new Assembly(path.parent, assembly_spec, serie, cache_dir);
         } else if (path.exists && path.isDir && path.join("odood-assembly.yml").exists) {
             auto load_path = path.join("odood-assembly.yml");
             Node assembly_spec = dyaml.Loader.fromFile(load_path.toString()).load();
-            return new Assembly(project, path, assembly_spec);
+            return new Assembly(path, assembly_spec, serie, cache_dir);
         }
         return null;
     }
 
     /** Load assembly spec from specified path
       **/
-    static Assembly load(Project project, in Path path) {
-        auto assembly = maybeLoad(project, path);
+    static Assembly load(in Path path, in OdooSerie serie, in Path cache_dir) {
+        auto assembly = maybeLoad(path, serie, cache_dir);
         enforce!OdoodAssemblyException(
             assembly !is null,
             "Cannot find and load Odood Assembly config at %s!".format(path));
@@ -173,9 +168,9 @@ class Assembly {
 
     /** Initialize new assembly
       **/
-    static Assembly initialize(Project project, in Path path) {
+    static Assembly initialize(in Path path, in OdooSerie serie, in Path cache_dir) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = new Assembly(project, path, AssemblySpec.init);
+        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, cache_dir);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -191,16 +186,16 @@ class Assembly {
     }
 
     /// ditto
-    static Assembly initialize(Project project, in Path path, in GitURL git_url) {
+    static Assembly initialize(in Path path, in OdooSerie serie, in Path cache_dir, in GitURL git_url) {
         auto repo = gitClone(
                 repo: git_url,
                 dest: path,
-                branch: project.odoo.serie.toString,  // Assembly repo must conform branch naming standards
+                branch: serie.toString,  // Assembly repo must conform branch naming standards
         );
         enforce!OdoodAssemblyException(
             repo.path.join("odood-assembly.yml").exists,
             "Cannot find assembly config in this repo (%s)".format(git_url.toString));
-        return load(project, repo.path);
+        return load(repo.path, serie, cache_dir);
     }
 
     private Path getSourceCachePath(in AssemblySpecSource source) const {
@@ -322,7 +317,7 @@ class Assembly {
         infof("Downloading addon %s from odoo apps...", addon_name);
         download(
             "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
-                addon_name, _project.odoo.serie, addon_name),
+                addon_name, serie, addon_name),
             download_path);
         infof("Unpacking addon %s from odoo apps...", addon_name);
         DarkArchiveReader!(DarkArchiveFormat.zip)(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
@@ -351,7 +346,7 @@ class Assembly {
         OdooAddon[string][string] res;
         foreach(source; spec.sources) {
             auto source_path = getSourceCachePath(source);
-            res[source.hashString] = _project.addons.scan(path: source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
+            res[source.hashString] = findAddons(source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
         }
         return res;
     }
@@ -440,33 +435,18 @@ class Assembly {
         infof("Assembly: All addons synced.");
     }
 
-    void validateAddonsDependencies() const {
-        auto assembly_addons = findAddons(dist_dir);
-        auto available_addons = _project.addons.getSystemAddonsList()
-            .map!((a) => a.name)
-            .chain(assembly_addons.map!((a) => a.name))
-            .chain(spec.known_addons)
-            .uniq.array;
-
-        foreach(addon; assembly_addons)
-            foreach(dep; addon.manifest.dependencies)
-                enforce!OdoodAssemblyException(
-                    available_addons.canFind(dep),
-                    "Cannot find dependency %s for addon %s!".format(dep, addon));
-    }
-
     /** Get info about changes between current version and series version
       *
       * Params:
       *    base_rev = base revision. Changes will be generated for changes between base_rev and current commit.
       **/
     auto getChanges(in string base_rev) {
-        auto assembly_version = OdooStdVersion(project.odoo.serie, 0);  // Default version.
+        auto assembly_version = OdooStdVersion(serie, 0);  // Default version.
 
         if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev))
             assembly_version = OdooStdVersion(
                 repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
-                .withSerie(project.odoo.serie);
+                .withSerie(serie);
 
         auto changes = repo.collectChanges(
             base_rev,
@@ -499,9 +479,9 @@ class Assembly {
 
     void generateChangelog() {
         if (repo.hasRemoteUrl("origin"))
-            generateChangelog("origin/" ~ project.odoo.serie.toString);
-        else if (repo.hasLocalBranch(project.odoo.serie.toString))
-            generateChangelog(project.odoo.serie.toString);
+            generateChangelog("origin/" ~ serie.toString);
+        else if (repo.hasLocalBranch(serie.toString))
+            generateChangelog(serie.toString);
         else
             throw new OdoodAssemblyException(
                 "Changelog generation requires an 'origin' remote to be configured " ~
@@ -547,150 +527,21 @@ class Assembly {
       *     with_odoo_requirements = if set, include Odoo's requirements.txt
       *         when generating lock file
       **/
-    void sync(in bool generate_lock=false, in bool with_odoo_requirements=false) {
+    /** Fetch sources and assemble addons into `dist_dir`.
+      *
+      * Project-free packaging step: validates the spec, fetches sources, and
+      * populates the dist directory. Dependency validation against a live Odoo
+      * instance and requirements-lock generation live in `ProjectAssembly.sync`.
+      **/
+    void sync() {
         spec.validate;
         if (repo.hasRemoteUrl("origin"))
             // Fetch origin/serie branch if origin repo is configured
-            repo.fetchOrigin(project.odoo.serie.toString());
+            repo.fetchOrigin(serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
         cache_dir.mkdir(true);  // ensure cache dir exists
         syncSources();
         syncAddons();
-        validateAddonsDependencies();
-
-        if (generate_lock)
-            generateRequirementsLock(with_odoo_requirements);
-    }
-
-    /** Link assembly addons.
-      *
-      * Remove symlinks that point to this assembly from custom addons,
-      * and create only valid symlinks.
-      *
-      * If requirements.lock.txt exists in the assembly root, install only
-      * from that file (skip per-addon requirement scanning). Otherwise,
-      * gather all addon requirements and install in a single pip call.
-      *
-      * Params:
-      *     py_requirements = collect/install from requirements.txt files
-      *     manifest_requirements = collect/install from manifest python_dependencies
-      *     individual_requirements = if set, install requirements per-addon
-      *         instead of batched (old behavior)
-      *     with_odoo_requirements = if set, include Odoo's requirements.txt
-      *         in the batch install
-      **/
-    void link(
-            in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
-            in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
-            in bool individual_requirements=false,
-            in bool with_odoo_requirements=false) const {
-        infof("Assembly Link: Cleanup old symlinks.");
-
-        // Remove all links in custom addons that point to this assembly
-        foreach(p; _project.directories.addons.walk) {
-            if (p.isSymlink && p.readLink.isInside(dist_dir))
-                p.remove();
-        }
-
-        auto lock_path = _path.join(ASSEMBLY_REQUIREMENTS_LOCK);
-        if (lock_path.exists) {
-            // Lock file present: install only from it, skip per-addon scanning
-            infof("Assembly Link: Installing requirements from lock file '%s'", lock_path);
-            _project.venv.installPyRequirements(lock_path);
-
-            // Symlink addons only (no per-addon pip)
-            infof("Assembly Link: Start linking");
-            _project.addons.link(
-                search_path: dist_dir,
-                recursive: true,
-                force: true,
-                py_requirements: false,
-                manifest_requirements: false);
-        } else {
-            // No lock file: use batched (or individual) install
-            infof("Assembly Link: Start linking");
-            PyRequirements reqs;
-
-            // Include assembly-root requirements.txt in the batch
-            if (py_requirements && _path.join("requirements.txt").exists) {
-                reqs.addRequirementsFile(_path.join("requirements.txt"));
-            }
-
-            if (individual_requirements) {
-                // Install assembly-root requirements first, then per-addon
-                if (!reqs.empty)
-                    _project.venv.installBatchPyRequirements(reqs);
-                _project.addons.link(
-                    search_path: dist_dir,
-                    recursive: true,
-                    force: true,
-                    py_requirements: py_requirements,
-                    manifest_requirements: manifest_requirements,
-                    individual_requirements: true);
-            } else {
-                // Symlink only, gather requirements, batch install
-                _project.addons.link(
-                    search_path: dist_dir,
-                    recursive: true,
-                    force: true,
-                    py_requirements: false,
-                    manifest_requirements: false);
-
-                // Gather addon requirements
-                auto addon_reqs = _project.addons.collectPyRequirements(
-                    dist_dir, true, py_requirements, manifest_requirements);
-                reqs.add(addon_reqs);
-
-                if (with_odoo_requirements
-                        && _project.odoo.path.join("requirements.txt").exists) {
-                    reqs.addRequirementsFile(
-                        _project.odoo.path.join("requirements.txt"));
-                }
-
-                if (!reqs.empty) {
-                    infof("Assembly Link: Installing python requirements (batched)");
-                    _project.venv.installBatchPyRequirements(reqs);
-                }
-            }
-        }
-        infof("Assembly Link: Completed");
-    }
-
-    /** Generate requirements.lock.txt for this assembly.
-      *
-      * Scans all addons and the assembly root requirements.txt,
-      * installs everything into the venv, then runs pip freeze
-      * to produce a fully pinned lock file. Adds it to the git index.
-      *
-      * Params:
-      *     with_odoo_requirements = if set, include Odoo's requirements.txt
-      *         in the resolved dependency set
-      **/
-    void generateRequirementsLock(in bool with_odoo_requirements=false) {
-        PyRequirements reqs;
-
-        if (_path.join("requirements.txt").exists)
-            reqs.addRequirementsFile(_path.join("requirements.txt"));
-
-        auto addon_reqs = _project.addons.collectPyRequirements(
-            dist_dir, true, true, true);
-        reqs.add(addon_reqs);
-
-        if (with_odoo_requirements
-                && _project.odoo.path.join("requirements.txt").exists) {
-            reqs.addRequirementsFile(
-                _project.odoo.path.join("requirements.txt"));
-        }
-
-        if (!reqs.empty)
-            _project.venv.installBatchPyRequirements(reqs);
-
-        // Freeze current venv state to lock file
-        auto freeze_result = _project.venv.pip("freeze");
-        auto lock_path = _path.join(ASSEMBLY_REQUIREMENTS_LOCK);
-        lock_path.writeFile(freeze_result.output);
-        repo.add(lock_path);
-        infof("Assembly: Generated %s", ASSEMBLY_REQUIREMENTS_LOCK);
     }
 
     void pull() {
@@ -729,7 +580,7 @@ class Assembly {
       * Returns one SourceUpgradeResult per source.
       **/
     SourceUpgradeResult[] upgradeSourceRefs() {
-        immutable serie = _project.odoo.serie;
+        immutable serie = _serie;
         SourceUpgradeResult[] results;
 
         foreach(ref source; _spec.sources) {

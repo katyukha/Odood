@@ -10,8 +10,8 @@ private import theprocess: Process;
 private import darkcommand;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project: Project;
-private import odood.lib.server: DEFAULT_START_TIMEOUT;
+private import odood.project: Project;
+private import odood.project.server: DEFAULT_START_TIMEOUT;
 
 
 class CommandServerRun: OdoodCommand {

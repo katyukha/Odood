@@ -19,7 +19,10 @@ exclude: |
   # Ignore test files in addons
   /tests/samples/.*|
   # You don't usually want a bot to modify your legal texts
-  (LICENSE.*|COPYING.*)
+  (LICENSE.*|COPYING.*)|
+  # Auto-generated changelog files (odood repo release --changelog):
+  # repo-root CHANGELOG.md / CHANGELOG.latest.md
+  (^|/)CHANGELOG[^/]*\.md$
 default_language_version:
   python: python3
   node: "20.16.0"

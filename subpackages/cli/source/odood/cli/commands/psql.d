@@ -4,7 +4,7 @@ private import darkcommand;
 private import theprocess: Process;
 
 private import odood.cli.core: OdoodCommand;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 
 
 class CommandPSQL: OdoodCommand {

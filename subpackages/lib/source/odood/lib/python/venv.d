@@ -13,7 +13,6 @@ private static import std.process;
 private import theprocess;
 private import thepath: Path;
 private import darktemple: renderFile;
-private static import dyaml;
 
 private import odood.exception: OdoodException;
 private import odood.utils;
@@ -140,13 +139,6 @@ const struct VirtualEnv {
         _py_serie = py_serie;
     }
 
-    /** Constrcut virtualenv from yaml node
-      **/
-    this(in dyaml.Node config) {
-        _path = Path(config["path"].as!string);
-        _py_serie = config["python_serie"].as!PySerie;
-    }
-
     /// Path where virtualenv isntalled
     @safe pure nothrow const(Path) path() const => _path;
 
@@ -167,13 +159,6 @@ const struct VirtualEnv {
     /// Python version for this venv
     @safe auto py_version() const {
         return parsePythonVersion(_path.join("bin", py_interpreter_name));
-    }
-
-    package(odood.lib) dyaml.Node toYAML() const {
-        return dyaml.Node([
-            "path": dyaml.Node(_path.toString),
-            "python_serie": dyaml.Node(_py_serie),
-        ]);
     }
 
     /// Initialize run-in-venv script

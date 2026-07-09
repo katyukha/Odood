@@ -33,15 +33,15 @@ addons-list:
   - my_addon                  # string shorthand — name only
   - name: other_addon         # mapping form
     source: my_repo           # optional: bind to a named source
-  - name: paid_addon
-    odoo_apps: true           # optional: download from Odoo Apps
+  - name: free_addon
+    odoo_apps: true           # optional: download from Odoo Apps (free addons only)
 ```
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `name` | yes | — | Technical name of the Odoo addon. |
 | `source` | no | `null` | Name of the source entry to fetch this addon from. When set, Odood will only search the named source and will fetch the addon even if that source has `no-search: true`. |
-| `odoo_apps` | no | `false` | When `true`, download this addon from [Odoo Apps](https://apps.odoo.com/apps) instead of a git source. |
+| `odoo_apps` | no | `false` | When `true`, download this addon from [Odoo Apps](https://apps.odoo.com/apps) instead of a git source. Only **free** addons can be downloaded automatically; paid addons require a purchase. |
 
 ---
 
@@ -104,8 +104,8 @@ spec:
     - name: generic_tag
     - name: generic_m2o
       source: generic_addons              # explicit source binding
-    - name: paid_addon
-      odoo_apps: true                     # from Odoo Apps
+    - name: free_addon
+      odoo_apps: true                     # from Odoo Apps (free addons only)
   sources-list:
     - github: crnd-inc/generic-addons
       name: generic_addons

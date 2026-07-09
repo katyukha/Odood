@@ -1,5 +1,66 @@
 # Changelog
 
+## Release 0.6.4 (2026-07-09)
+
+### Added
+
+- New command `odood repo ensure-changelog` that checks changed addons carry a
+  changelog entry for their version bump.
+  Intended as a CI gate feeding the release changelog pipeline.
+- New options `--server-user-uid` and `--server-user-gid` for `odood deploy`,
+  to create the Odoo system user with a fixed UID/GID. Intended for container
+  builds that need a deterministic UID matching the runtime `securityContext`.
+- New commands `odood assembly add-addon` and `odood assembly add-source` to
+  edit the assembly spec without hand-editing `odood-assembly.yml`.
+- New `odood test` options `--script-after-install` and `--script-after-migration`
+  to run `.py`/`.sql` scripts during a test run (e.g. seed data before a
+  migration test).
+- New command `odood addons where <name>` to locate an addon and report whether it is available
+- `odood addons list --table` now accepts computed `-f` fields in addition to
+  manifest fields: `source` (odoo-core/custom-repo/downloads), `repo` (owning
+  repository), and `linked` (whether linked into `custom_addons`).
+- `odood addons list --json` outputs the addon catalog as JSON honoring the same filters.
+- New command `odood repo list` listing the project's git repositories
+
+### Changed
+
+- Git URLs are now credential-stripped by default when displayed, logged, or
+  serialized.
+- `odood script py` and `odood script sql` now accept a script name (not only a
+  path), resolved against `<repo>/.odood-scripts/`, `<project>/scripts/`, or an
+  absolute path.
+- Docker images now build the Odoo system user with a fixed **UID/GID 999**.
+  This allows images to run under Kubernetes/Helm with a non-root `securityContext`.
+  999 is the top of the system range.
+
+  > **⚠️ Migration required for existing docker-compose / `docker run` setups
+  > with a persistent `/opt/odoo/data` (or `/opt/odoo/backups`) volume.**
+  >
+  > The persisted filestore is still owned by the old UID, so the new process
+  > (UID 999) gets *permission denied* on the filestore and sessions. Before
+  > upgrading, re-own the volume(s) to `999:999` while the stack is stopped:
+  >
+  > ```bash
+  > docker compose down
+  > docker run --rm -v <odoo-data-volume>:/data alpine chown -R 999:999 /data
+  > # repeat for the backups volume if you mount one
+  > docker compose pull && docker compose up -d
+  > ```
+  >
+  > For bind mounts, run `sudo chown -R 999:999 <host-data-dir>` instead.
+  > Fresh deployments and the PostgreSQL database are not affected.
+
+### Fixed
+
+- `odood test --migration` now correctly handles new addon dependencies during migration tests.
+  For example, in case, when we added new addon in repo and make one of existing addons depend on it.
+- Checking whether a non-existent path is a git repository no longer crashes
+  with a process error — it now correctly reports "not a repository".
+- Unparseable git URLs now raise a proper "Cannot parse git url" error instead
+  of crashing with a low-level array error.
+
+---
+
 ## Release 0.6.3 (2026-06-08)
 
 ### Added

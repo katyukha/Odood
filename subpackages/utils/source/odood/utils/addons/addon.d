@@ -1,6 +1,6 @@
 module odood.utils.addons.addon;
 
-private import std.typecons: Nullable, nullable, tuple;
+private import std.typecons: Nullable, nullable;
 private import std.algorithm.searching: startsWith;
 private import std.algorithm.comparison: cmp;
 private import std.algorithm.sorting: sort;
@@ -8,7 +8,6 @@ private import std.exception: enforce;
 private import std.conv: to;
 private import std.format: format;
 private import std.file: SpanMode;
-private import std.regex: matchFirst;
 private import std.range: empty;
 
 private import thepath: Path;
@@ -75,28 +74,27 @@ final class OdooAddon {
     auto readChangelogEntries(
             in Nullable!Version start_ver=Nullable!Version.init,
             in Nullable!Version end_ver=Nullable!Version.init) const {
-        OdooAddonChangelogEntry[] result;
-
         auto changelog_path = _path.join("changelog");
         if (!changelog_path.exists) {
-            return result;
+            return OdooAddonChangelogEntry[].init;
         }
+        OdooAddonChangelogEntry[] entries;
         foreach (p; changelog_path.walkBreadth) {
-            auto m = matchFirst(
-                p.baseName, `^changelog.(\d+\.\d+\.\d+).md$`);
-            if (!m.empty) {
-                auto entry = OdooAddonChangelogEntry(m[1], p.readFileText);
-                if (!start_ver.isNull && start_ver.get >= entry.ver)
-                    // Start ver is defined and entry version is less than start ver, then skip
-                    continue;
-                if (!end_ver.isNull && end_ver.get < entry.ver)
-                    // End ver is defined and entry version is greater than end ver, then skip
-                    continue;
-                result ~= entry;
-            }
+            if (!p.isFile)
+                continue;
+            // The version is in the file name, so out-of-range entries are
+            // skipped (to the (start_ver, end_ver] range) before reading content.
+            auto ver = matchChangelogFileVersion(p.baseName);
+            if (ver.isNull)
+                continue;
+            if (!start_ver.isNull && start_ver.get >= ver.get)
+                continue;
+            if (!end_ver.isNull && end_ver.get < ver.get)
+                continue;
+            entries ~= OdooAddonChangelogEntry(ver.get, p.readFileText);
         }
-        result.sort!("a > b");  // Sort results
-        return result;
+        entries.sort!("a > b");
+        return entries;
     }
 
     /// Read changelog for addon

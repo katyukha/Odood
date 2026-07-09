@@ -33,6 +33,26 @@ On a production server:
 sudo odood venv update-odoo
 ```
 
+## Switching to another Odoo series
+
+Odood does **not** support cross-series (major version) upgrades — there is no
+database migration across Odoo series.
+
+`odood venv reinstall-odoo -v <serie>` can replace the Odoo code and the
+virtualenv of an existing instance with another series **in place**, but it
+migrates nothing: old-series databases will not work with the new code, and
+third-party repositories stay on their old branches. It is useful in one
+narrow scenario: the database was **already migrated** to the new series
+elsewhere (e.g. via [Odoo's upgrade service](https://upgrade.odoo.com/) or
+[OpenUpgrade](https://github.com/OCA/OpenUpgrade)), and you want to restore it
+on the same machine so that outer integrations keep pointing at the same host.
+In that case: reinstall, switch the repositories under `repositories/` to the
+new series branches (and `odood addons link` them), then restore the migrated
+backup.
+
+In every other case, install the new series as a separate instance — see
+[Working with Multiple Instances](./multiple-instances.md).
+
 ## Updating third-party addons
 
 ### With assembly (recommended for production)

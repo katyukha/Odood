@@ -293,6 +293,14 @@ struct AssemblySpec {
         return Nullable!AssemblySpecSource.init;
     }
 
+    /// Check if an addon with the given name is present in the spec
+    bool hasAddon(in string name) const {
+        foreach(addon; _addons)
+            if (addon.name == name)
+                return true;
+        return false;
+    }
+
     /** Validate spec
       **/
     void validate() const {
@@ -383,8 +391,15 @@ unittest {
 
     spec.layout.should == AssemblyLayout.STANDARD;
 
+    // hasAddon reflects presence in the spec
+    spec.hasAddon("generic_mixin").shouldBeTrue;
+    spec.hasAddon("kw_api_connector").shouldBeTrue;
+    spec.hasAddon("nonexistent_addon").shouldBeFalse;
+
     // Add addon to spec
     spec.addAddon("generic_condition");
+
+    spec.hasAddon("generic_condition").shouldBeTrue;
 
     spec.addons.length.should == 4;
     spec.addons.map!((s) => s.name).should == ["generic_mixin", "web_chatter_position", "kw_api_connector", "generic_condition"];

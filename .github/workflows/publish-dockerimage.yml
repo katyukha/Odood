@@ -144,6 +144,16 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      # Metadata for the dedicated CI image (published under the `odoo-ci` path).
+      - name: Extract metadata (tags, labels) for CI Docker image
+        id: meta-ci
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/odoo-ci/${{ matrix.odoo_version }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
       - name: Prepare debian dependencies dependencies
         id: prepare_deb_deps
         run: |
@@ -166,6 +176,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./docker
+          target: production
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
@@ -175,15 +186,40 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             odoo_version=${{ matrix.odoo_version }}
-      
+
+      # Dedicated CI image (`ci` target). Shares base layers with the
+      # production build above, so it mostly reuses the buildx cache.
+      - name: Build and push CI Docker image
+        id: push-ci
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: ./docker
+          target: ci
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            ODOO_VERSION=${{ matrix.odoo_version }}
+            ODOOD_DEPENDENCIES=${{ steps.prepare_deb_deps.outputs.universal_deb_deps }}
+          tags: ${{ steps.meta-ci.outputs.tags }}
+          labels: |
+            ${{ steps.meta-ci.outputs.labels }}
+            odoo_version=${{ matrix.odoo_version }}
+
       # This step generates an artifact attestation for the image,
       # which is an unforgeable statement about where and how it was built.
       # It increases supply chain security for people who consume the image.
-      # For more information, see "[AUTOTITLE](/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)." 
+      # For more information, see "[AUTOTITLE](/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)."
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}/odoo/${{ matrix.odoo_version }}
           subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation for CI image
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}/odoo-ci/${{ matrix.odoo_version }}
+          subject-digest: ${{ steps.push-ci.outputs.digest }}
           push-to-registry: true
       

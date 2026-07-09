@@ -112,7 +112,7 @@ class App: Program {
     }
 
     version(OdoodInDocker) void applyOdooConfFromEnv() {
-        import odood.lib.project: Project;
+        import odood.project: Project;
         auto project = Project.maybeLoadProject;
         if (project.isNull) {
             warningf("Cannot load Odood project config. Cannot configure Odoo from env. Skipping...");

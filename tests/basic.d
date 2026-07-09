@@ -11,9 +11,8 @@ import thepath;
 import theprocess;
 import unit_threaded.assertions;
 
-import odood.lib.project;
+import odood.project;
 import odood.utils.odoo.serie;
-import odood.lib.odoo.config: OdooConfigBuilder;
 import odood.git: GitURL;
 
 import odood.cli.utils: printLogRecord;
@@ -177,7 +176,7 @@ void testDatabaseManagement(in Project project, in string ukey="n") {
     project.databases.drop(project.genDbName("test-2", ukey));
     {
         // Create a raw empty DB (no Odoo schema) by hand
-        import odood.lib.odoo.db_utils: openPgConnection;
+        import odood.project.odoo.db_utils: openPgConnection;
         auto conn = project.openPgConnection("postgres");
         conn.exec(
             "CREATE DATABASE \"%s\"".format(project.genDbName("test-2", ukey)));
@@ -324,6 +323,29 @@ void testRunningScripts(in Project project, in string ukey="n") {
         )[0][0].get!string.shouldEqual("Test PY 42");
     }
 
+    // Run the sample 'generate_partners.py' script (documented in
+    // docs/odood/src/custom-scripts.md). It creates N random res.partner
+    // records, where N is read from the ODOOD_SCRIPT_PARTNER_COUNT environment
+    // variable. This also checks that env-var parameters reach the script.
+    auto countPartners() {
+        return project.databases.get(dbname).runSQLQuery(
+            "SELECT count(*) FROM res_partner")[0][0].get!long;
+    }
+
+    auto saved_count = environment.get("ODOOD_SCRIPT_PARTNER_COUNT", null);
+    scope(exit) {
+        if (saved_count is null)
+            environment.remove("ODOOD_SCRIPT_PARTNER_COUNT");
+        else
+            environment["ODOOD_SCRIPT_PARTNER_COUNT"] = saved_count;
+    }
+
+    immutable partners_before = countPartners();
+    environment["ODOOD_SCRIPT_PARTNER_COUNT"] = "7";
+    project.lodoo.runPyScript(
+        dbname, Path("test-data", "generate_partners.py"));
+    (countPartners() - partners_before).shouldEqual(7);
+
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
@@ -345,34 +367,34 @@ void testAssembly(Project project, in string ukey="n") {
     (project.assembly !is null).shouldBeTrue;
 
     auto assembly  = project.assembly;
-    auto base_commit = assembly.repo.getCurrCommit;
+    auto base_commit = assembly.raw.repo.getCurrCommit;
 
     // Add generic_mixin to assembly
-    assembly.addSource(GitURL("https://github.com/crnd-inc/generic-addons"));
-    assembly.addAddon("generic_mixin");
-    assembly.save();
+    assembly.raw.addSource(GitURL("https://github.com/crnd-inc/generic-addons"));
+    assembly.raw.addAddon("generic_mixin");
+    assembly.raw.save();
 
     // Sync assembly and check that only generic_mixin addon added to assembly
     // (no changelog generated on sync)
-    assembly.dist_dir.join("generic_mixin").exists.shouldBeFalse;
-    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
-    assembly.changelog_path.exists.shouldBeFalse;
-    assembly.changelog_latest_path.exists.shouldBeFalse;
-    assembly.version_path.exists.shouldBeFalse;
+    assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeFalse;
+    assembly.raw.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.raw.changelog_path.exists.shouldBeFalse;
+    assembly.raw.changelog_latest_path.exists.shouldBeFalse;
+    assembly.raw.version_path.exists.shouldBeFalse;
     assembly.sync();
-    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
-    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
-    assembly.changelog_path.exists.shouldBeFalse;
-    assembly.changelog_latest_path.exists.shouldBeFalse;
-    assembly.version_path.exists.shouldBeFalse;
+    assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.raw.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.raw.changelog_path.exists.shouldBeFalse;
+    assembly.raw.changelog_latest_path.exists.shouldBeFalse;
+    assembly.raw.version_path.exists.shouldBeFalse;
 
     // Generate changelog, end ensure that changelog was written
-    assembly.generateChangelog(base_commit);
-    assembly.changelog_path.exists.shouldBeTrue;
-    assembly.changelog_latest_path.exists.shouldBeTrue;
-    assembly.version_path.exists.shouldBeTrue;
+    assembly.raw.generateChangelog(base_commit);
+    assembly.raw.changelog_path.exists.shouldBeTrue;
+    assembly.raw.changelog_latest_path.exists.shouldBeTrue;
+    assembly.raw.version_path.exists.shouldBeTrue;
     // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
-    assembly.version_path.readFileText.shouldEqual("%s.0.1.0\n".format(project.odoo.serie));
+    assembly.raw.version_path.readFileText.shouldEqual("%s.0.1.0\n".format(project.odoo.serie));
 
     // Link assembly and change that symlinks were created in custom_addons dir
     project.directories.addons.join("generic_mixin").exists.shouldBeFalse;
@@ -380,31 +402,31 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.link();
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
     project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
-    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_mixin").readLink == assembly.raw.dist_dir.join("generic_mixin");
     project.directories.addons.join("generic_tag").exists.shouldBeFalse;
 
     // Commit changes
-    assembly.repo.add(assembly.spec_path);
-    assembly.repo.commit("Added generic_tag");
+    assembly.raw.repo.add(assembly.raw.spec_path);
+    assembly.raw.repo.commit("Added generic_tag");
 
     // Set new base for changelog generation
-    base_commit = assembly.repo.getCurrCommit;
+    base_commit = assembly.raw.repo.getCurrCommit;
 
     // Add generic_tag addon
-    assembly.addAddon("generic_tag");
-    assembly.save();
+    assembly.raw.addAddon("generic_tag");
+    assembly.raw.save();
 
     // Sync and check that addon added to assembly
-    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
-    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.raw.dist_dir.join("generic_tag").exists.shouldBeFalse;
     assembly.sync();
-    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
-    assembly.dist_dir.join("generic_tag").exists.shouldBeTrue;
+    assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.raw.dist_dir.join("generic_tag").exists.shouldBeTrue;
 
     // Generate (update) changelog and check that assembly version updated.
-    assembly.generateChangelog(base_commit);
+    assembly.raw.generateChangelog(base_commit);
     // Another added addon -> another MINOR bump: 18.0.0.1.0 -> 18.0.0.2.0.
-    assembly.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
+    assembly.raw.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
 
     // Link assembly and check that correct symlinks created
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
@@ -412,10 +434,10 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.link();
     project.directories.addons.join("generic_mixin").exists.shouldBeTrue;
     project.directories.addons.join("generic_mixin").isSymlink.shouldBeTrue;
-    project.directories.addons.join("generic_mixin").readLink == assembly.dist_dir.join("generic_mixin");
+    project.directories.addons.join("generic_mixin").readLink == assembly.raw.dist_dir.join("generic_mixin");
     project.directories.addons.join("generic_tag").exists.shouldBeTrue;
     project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
-    project.directories.addons.join("generic_tag").readLink == assembly.dist_dir.join("generic_tag");
+    project.directories.addons.join("generic_tag").readLink == assembly.raw.dist_dir.join("generic_tag");
 
     infof("Testing assembly for %s. Complete: Ok.", project);
 }
@@ -465,7 +487,7 @@ unittest {
     createDbUser("odood19test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(19));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -515,7 +537,7 @@ unittest {
     createDbUser("odood18test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(18));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -547,7 +569,7 @@ unittest {
     createDbUser("odood17test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(17));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -580,7 +602,7 @@ unittest {
     createDbUser("odood16test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(16));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -614,7 +636,7 @@ unittest {
     createDbUser("odood15test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(15));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -648,7 +670,7 @@ unittest {
     createDbUser("odood14test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(14));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -682,7 +704,7 @@ unittest {
     createDbUser("odood13test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(13));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -716,7 +738,7 @@ unittest {
     createDbUser("odood12test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(12));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -749,7 +771,7 @@ unittest {
     createDbUser("odood16to17test", "odoo");
 
     auto project = new Project(temp_path, OdooSerie(16));
-    auto odoo_conf = OdooConfigBuilder(project)
+    auto odoo_conf = project.odooConfigBuilder
         .setDBConfig(
             environment.get("POSTGRES_HOST", "localhost"),
             environment.get("POSTGRES_PORT", "5432"),
@@ -840,4 +862,57 @@ unittest {
         py_version: "3.10.16",
     ));
     venv3.py_version.shouldEqual(Version(3, 10, 16));
+}
+
+
+@("Test script resolution precedence")
+unittest {
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import std.typecons: Nullable, nullable;
+    import odood.project.odoo.script: resolveScriptPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Path resolution does not need an installed Odoo, so a lightweight project
+    // (test constructor) is enough.
+    auto project = new Project(root.join("project"), OdooSerie(17));
+
+    auto repo = root.join("repo");
+    auto repo_scripts = repo.join(".odood-scripts");
+    auto project_scripts = project.project_root.join("scripts");
+    repo_scripts.mkdir(true);
+    project_scripts.mkdir(true);
+
+    // <repo>/.odood-scripts/ takes precedence over <project>/scripts/ when both
+    // provide the script and a repo is in context.
+    repo_scripts.join("shared.py").writeFile("repo");
+    project_scripts.join("shared.py").writeFile("project");
+    resolveScriptPath(project, "shared.py", repo.nullable)
+        .readFileText.shouldEqual("repo");
+
+    // <project>/scripts/ is used when the script is not in the repo dir.
+    project_scripts.join("only_project.sql").writeFile("project");
+    resolveScriptPath(project, "only_project.sql", repo.nullable)
+        .readFileText.shouldEqual("project");
+
+    // Without a repo in context, <repo>/.odood-scripts/ is not searched, so the
+    // shared name resolves to <project>/scripts/ instead.
+    resolveScriptPath(project, "shared.py", Nullable!Path.init)
+        .readFileText.shouldEqual("project");
+
+    // Absolute paths are used as is, regardless of the convention directories.
+    auto abs_script = root.join("abs_script.py");
+    abs_script.writeFile("abs");
+    resolveScriptPath(project, abs_script.toString, repo.nullable)
+        .readFileText.shouldEqual("abs");
+
+    // A name that is nowhere on the search path fails.
+    resolveScriptPath(project, "does_not_exist.py", repo.nullable)
+        .shouldThrow!OdoodException;
+
+    // A non-existent absolute path fails too.
+    resolveScriptPath(project, root.join("missing.py").toString, repo.nullable)
+        .shouldThrow!OdoodException;
 }

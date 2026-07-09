@@ -4,9 +4,9 @@ private import std.logger: infof, warningf;
 private import std.json;
 private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
-private import std.array: empty, join;
+private import std.array: empty, join, array;
 private import std.format: format;
-private import std.algorithm: map;
+private import std.algorithm: map, canFind;
 private import std.typecons: Nullable;
 
 private import colored;
@@ -15,9 +15,9 @@ private import thepath: Path;
 
 private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
-private import odood.lib.project: Project;
+private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
-private import odood.git: parseGitURL;
+private import odood.git: parseGitURL, GitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
@@ -84,9 +84,9 @@ class CommandAssemblyStatus: OdoodCommand {
         else {
             writefln(
                 "Assembly: %s\nAddons: %s\nSources: %s\n",
-                project.assembly.path,
-                project.assembly.spec.addons.length,
-                project.assembly.spec.sources.length,
+                project.assembly.raw.path,
+                project.assembly.raw.spec.addons.length,
+                project.assembly.raw.spec.sources.length,
             );
         }
         return 0;
@@ -156,17 +156,17 @@ class CommandAssemblySync: AssemblyCommandBase {
             with_odoo_requirements: withOdooRequirements);
 
         if (changelog)
-            project.assembly.generateChangelog;
+            project.assembly.raw.generateChangelog;
 
         if (dockerfile)
-            project.assembly.generateDockerfile;
+            project.assembly.raw.generateDockerfile;
 
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
-                project.assembly.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
-                project.assembly.repo.getChangedFiles(
+                project.assembly.raw.repo.getChangedFiles(
                     path_filters: [
                         ":(exclude)dist",
                         ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
@@ -181,7 +181,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
-                project.assembly.repo.getChangedFiles(
+                project.assembly.raw.repo.getChangedFiles(
                     path_filters: [
                         "dist",
                         "%s".format(ASSEMBLY_VERSION_PATH),
@@ -192,7 +192,7 @@ class CommandAssemblySync: AssemblyCommandBase {
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");
-                project.assembly.repo.commit(
+                project.assembly.raw.repo.commit(
                     message: commitMessage.isNull ?
                         "[SYNC] Assembly synced" : commitMessage.get,
                     username: commitUser.isNull ? null : commitUser.get,
@@ -207,7 +207,7 @@ class CommandAssemblySync: AssemblyCommandBase {
         }
 
         if (push || !pushTo.isNull)
-            project.assembly.push(
+            project.assembly.raw.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
         return 0;
     }
@@ -258,7 +258,7 @@ class CommandAssemblyPull: AssemblyCommandBase {
         auto project = loadProject();
         auto assembly = project.assembly;
 
-        assembly.pull;
+        assembly.raw.pull;
 
         if (link)
             assembly.link();
@@ -282,14 +282,18 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
     }
 
     override int execute() {
+        import std.datetime.stopwatch;
+
         auto project = loadProject();
         auto assembly = project.assembly;
+
+        auto sw_total = StopWatch(AutoStart.yes);
 
         if (backup)
             foreach(db; project.databases.list)
                 project.databases.backup(db);
 
-        assembly.pull;
+        assembly.raw.pull;
         assembly.link();
 
         auto start_again = start;
@@ -299,8 +303,9 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         }
 
         bool error = false;
-        OdooAddon[] addons = project.addons.scan(assembly.dist_dir, recursive: false);
+        OdooAddon[] addons = project.addons.scan(assembly.raw.dist_dir, recursive: false);
         foreach(db; project.databases.list) {
+            auto sw_db = StopWatch(AutoStart.yes);
             auto error_info = project.server.catchOdooErrors(() {
                 project.lodoo.addonsUpdateList(
                     dbname: db,
@@ -331,6 +336,10 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
                     throw new OdoodCLIException(
                         "Assembly upgrade for database %s failed!!".format(db));
             }
+
+            infof(
+                "Assembly upgrade for database %s completed in %s.",
+                db, sw_db.peek);
         }
 
         if (start_again)
@@ -338,6 +347,8 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
 
         if (error)
             throw new OdoodCLIException("Assembly upgrade failed!");
+
+        infof("Assembly upgrade completed in %s.", sw_total.peek);
         return 0;
     }
 }
@@ -363,7 +374,7 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
 
     override int execute() {
         auto project = loadProject;
-        auto results = project.assembly.upgradeSourceRefs();
+        auto results = project.assembly.raw.upgradeSourceRefs();
 
         bool any_changed = false;
         foreach(result; results) {
@@ -385,10 +396,11 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
             return 0;
         }
 
-        project.assembly.save();
+        project.assembly.raw.save();
+        project.assembly.raw.repo.add(project.assembly.raw.spec_path);
 
         if (commit || push || !pushTo.isNull) {
-            project.assembly.repo.commit(
+            project.assembly.raw.repo.commit(
                 message: commitMessage.isNull ?
                     "[UPGRADE] Upgrade assembly source refs" : commitMessage.get,
                 username: commitUser.isNull ? null : commitUser.get,
@@ -396,8 +408,184 @@ class CommandAssemblyUpgradeSources: AssemblyCommandBase {
         }
 
         if (push || !pushTo.isNull)
-            project.assembly.push(
+            project.assembly.raw.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
+
+        return 0;
+    }
+}
+
+
+class CommandAssemblyAddAddon: AssemblyCommandBase {
+    string[] addons;
+    Nullable!string source;
+    bool odooApps;
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("add-addon", "Add addon(s) to this assembly's spec.");
+        this.addOption!(source)("", "source",
+            "Bind the addon(s) to the named source in the spec.");
+        this.addFlag!(odooApps)("", "odoo-apps",
+            "Mark the addon(s) as downloaded from Odoo Apps.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+        this.addArgument!(addons)("addon", "Name(s) of addon(s) to add.")
+            .defaultValue([]);
+    }
+
+    override int execute() {
+        auto project = loadProject();
+        auto assembly = project.assembly;
+
+        enforce!OdoodCLIException(
+            addons.length > 0,
+            "At least one addon name must be specified.");
+        enforce!OdoodCLIException(
+            !(odooApps && !source.isNull),
+            "Options --odoo-apps and --source are mutually exclusive.");
+
+        // The named source must already exist in the spec.
+        if (!source.isNull)
+            enforce!OdoodCLIException(
+                !assembly.raw.spec.getSource(source.get).isNull,
+                ("Assembly has no source named '%s'. " ~
+                 "Add it first with 'odood assembly add-source'.").format(source.get));
+
+        // Skip addons already present in the spec (or duplicated in the args),
+        // warning about each rather than failing the whole command.
+        string[] to_add;
+        foreach(name; addons) {
+            if (assembly.raw.spec.hasAddon(name)) {
+                warningf("Addon '%s' is already present in the assembly spec; skipping.", name);
+                continue;
+            }
+            if (to_add.canFind(name)) {
+                warningf("Addon '%s' is specified more than once; skipping duplicate.", name);
+                continue;
+            }
+            to_add ~= name;
+        }
+
+        if (to_add.empty) {
+            warningf("No new addons to add to the assembly spec.");
+            return 0;
+        }
+
+        foreach(name; to_add)
+            assembly.raw.addAddon(
+                name: name,
+                source_name: source.isNull ? null : source.get,
+                from_odoo_apps: odooApps);
+
+        assembly.raw.save();
+        assembly.raw.repo.add(assembly.raw.spec_path);
+        infof("Added addon(s) to assembly spec: %s", to_add.join(", "));
+
+        if (commit || push || !pushTo.isNull)
+            assembly.raw.repo.commit(
+                message: commitMessage.isNull ?
+                    "[ASSEMBLY] Add addon(s): %s".format(to_add.join(", ")) :
+                    commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+
+        if (push || !pushTo.isNull)
+            assembly.raw.push(branch_name: pushTo.isNull ? null : pushTo.get);
+        else if (!commit)
+            infof("Run 'odood assembly sync' to fetch the new addon(s).");
+
+        return 0;
+    }
+}
+
+
+class CommandAssemblyAddSource: AssemblyCommandBase {
+    Nullable!string url;
+    Nullable!string github;
+    Nullable!string oca;
+    Nullable!string crnd;
+    Nullable!string name;
+    Nullable!string gitRef;
+    bool commit;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+    bool push;
+    Nullable!string pushTo;
+
+    this() {
+        super("add-source", "Add a git source to this assembly's spec.");
+        this.addOption!(url)("", "url", "Git repository URL.");
+        this.addOption!(github)("", "github",
+            "GitHub repo as owner/repo (expands to https://github.com/owner/repo).");
+        this.addOption!(oca)("", "oca",
+            "OCA repo name (expands to https://github.com/oca/<repo>).");
+        this.addOption!(crnd)("", "crnd",
+            "CRND repo as group/repo (expands to ssh://git@gitlab.crnd.pro/group/repo).");
+        this.addOption!(name)("", "name", "Name to reference this source by.");
+        this.addOption!(gitRef)("", "ref", "Branch or tag to fetch.");
+        this.addFlag!(commit)("", "commit", "Commit the updated spec.");
+        this.addOption!(commitMessage)("", "commit-message", "Commit message.");
+        this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
+        this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
+        this.addFlag!(push)("", "push", "Push changes after committing.");
+        this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
+    }
+
+    override int execute() {
+        auto project = loadProject();
+        auto assembly = project.assembly;
+
+        // Exactly one of url/github/oca/crnd must be provided.
+        string git_url;
+        int provided = 0;
+        if (!url.isNull)    { provided++; git_url = url.get; }
+        if (!github.isNull) { provided++; git_url = "https://github.com/" ~ github.get; }
+        if (!oca.isNull)    { provided++; git_url = "https://github.com/oca/" ~ oca.get; }
+        if (!crnd.isNull)   { provided++; git_url = "ssh://git@gitlab.crnd.pro/" ~ crnd.get; }
+        enforce!OdoodCLIException(
+            provided == 1,
+            "Exactly one of --url, --github, --oca, --crnd must be provided.");
+
+        // If a source with this name already exists, skip rather than fail.
+        if (!name.isNull && !assembly.raw.spec.getSource(name.get).isNull) {
+            warningf("Assembly already has a source named '%s'; skipping.", name.get);
+            return 0;
+        }
+
+        auto before = assembly.raw.spec.sources.length;
+        assembly.raw.addSource(
+            git_url: GitURL(git_url),
+            name: name.isNull ? null : name.get,
+            git_ref: gitRef.isNull ? null : gitRef.get);
+        if (assembly.raw.spec.sources.length == before) {
+            warningf("Source %s is already present in the assembly spec; skipping.", git_url);
+            return 0;
+        }
+
+        assembly.raw.save();
+        assembly.raw.repo.add(assembly.raw.spec_path);
+        infof("Added source %s to assembly spec.", git_url);
+
+        if (commit || push || !pushTo.isNull)
+            assembly.raw.repo.commit(
+                message: commitMessage.isNull ?
+                    "[ASSEMBLY] Add source: %s".format(git_url) : commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+
+        if (push || !pushTo.isNull)
+            assembly.raw.push(branch_name: pushTo.isNull ? null : pushTo.get);
 
         return 0;
     }
@@ -421,5 +609,7 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
         this.add(new CommandAssemblyUpgradeSources());
+        this.add(new CommandAssemblyAddAddon());
+        this.add(new CommandAssemblyAddSource());
     }
 }

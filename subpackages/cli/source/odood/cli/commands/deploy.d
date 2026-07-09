@@ -15,18 +15,17 @@ private import darkcommand;
 private import dini: Ini;
 
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
-private import odood.lib.project:
+private import odood.project:
     Project, OdooInstallType;
-private import odood.lib.project.config: ProjectServerSupervisor;
-private import odood.lib.odoo.config: initOdooConfig;
+private import odood.project.config: ProjectServerSupervisor;
 private import odood.lib.python.venv: PyInstallType, VenvOptions;
 private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils: generateRandomString;
 private import odood.git: GitURL;
 
-private import odood.lib.deploy;
-private import odood.lib.deploy.config: detectSystemCABundle;
+private import odood.project.deploy;
+private import odood.project.deploy.config: detectSystemCABundle;
 
 
 class CommandDeploy: OdoodCommand {
@@ -54,6 +53,8 @@ class CommandDeploy: OdoodCommand {
     bool logToStderr;
     bool useSystemCaBundle;
     Nullable!string assemblyRepo;
+    Nullable!string serverUserUid;
+    Nullable!string serverUserGid;
 
     this() {
         super("deploy", "Deploy production-ready Odoo.");
@@ -116,6 +117,14 @@ class CommandDeploy: OdoodCommand {
 
         this.addOption!(assemblyRepo)("", "assembly-repo",
             "Configure Odood to use assembly from this repo. Ensure, you have access to specified repo from this machine.");
+
+        this.addOption!(serverUserUid)("", "server-user-uid",
+            "Create the Odoo system user with this fixed UID. Intended for " ~
+            "container builds that need a deterministic UID matching the " ~
+            "runtime securityContext. By default the UID is allocated dynamically.");
+        this.addOption!(serverUserGid)("", "server-user-gid",
+            "Create the Odoo system group with this fixed GID. " ~
+            "Defaults to the UID value when omitted.");
     }
 
     DeployConfig parseDeployOptions() {
@@ -204,6 +213,11 @@ class CommandDeploy: OdoodCommand {
 
         if (!assemblyRepo.isNull)
             config.assembly_repo = GitURL(assemblyRepo.get).nullable;
+
+        if (!serverUserUid.isNull)
+            config.odoo.server_user_uid = serverUserUid.get.to!uint.nullable;
+        if (!serverUserGid.isNull)
+            config.odoo.server_user_gid = serverUserGid.get.to!uint.nullable;
 
         return config;
     }

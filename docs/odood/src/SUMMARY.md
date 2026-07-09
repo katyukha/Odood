@@ -8,6 +8,7 @@
 
 # Development
 - [Development Workflow](./development-workflow.md)
+- [Working with Multiple Instances](./multiple-instances.md)
 - [Release Management](./release-management.md)
 - [Translation Management](./translations.md)
 
@@ -24,6 +25,7 @@
 
 # Reference
 - [Directory Structure](./directory-structure.md)
+- [Custom Scripts](./custom-scripts.md)
 - [Frequently Used Commands](./frequently-used-commands.md)
 - [Command Reference](./odood-docs-command-ref.md)
 - [Assembly Spec](./assembly-spec.md)

@@ -16,10 +16,10 @@ Following features available:
 - Simple way to manage multiple development instances of Odoo on same developer's machine
 - Everything (including [nodejs](https://nodejs.org/en/)) installed in [virtualenv](https://virtualenv.pypa.io/en/stable/) - no conflicts with system packages
 - Best test runner for Odoo modules:
-    - Easy run test for developed modules
-    - Show errors in the end of the log, that is really useful feature for large (few megabytes size test logs)
+    - Easily run tests for developed modules
+    - Show errors at the end of the log — a really useful feature for large (few megabytes) test logs
     - Test module migrations with ease
-- Super easy of third-party addons installation:
+- Super easy installation of third-party addons:
     - Install modules directly from Odoo Apps
     - Easily connect git repositories with Odoo modules to Odoo instance managed by Odood
     - Automatic resolution of addons dependencies:
@@ -36,7 +36,7 @@ Following features available:
 
 2022-02-24 Russia invaded Ukraine...
 
-If you want to help or support Ukraine to stand against russian inavasion,
+If you want to help or support Ukraine to stand against the russian invasion,
 please, visit [the official site of Ukraine](https://war.ukraine.ua/)
 and find the best way to help.
 
@@ -67,35 +67,26 @@ Theoretically it should work on macOS also.
 - Odoo 7.0 (partial)
 
 
-## Installation (as Debian Package)
+## Installation
 
-To install Odood, just find debian package in [releases](https://github.com/katyukha/Odood/releases) and install it.
-Thats all.
+Install the latest stable version on Debian/Ubuntu:
 
-Note, that usually you will need to manually install additional system packages, that include:
-- [postgresql](https://www.postgresql.org/) - if you plan to use local instance of postgresql.
-- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
+```bash
+wget -O /tmp/odood.deb \
+    "https://github.com/katyukha/Odood/releases/latest/download/odood_$(dpkg --print-architecture).deb"
+sudo apt install -yq /tmp/odood.deb
+```
 
-
-## Installation (on MacOS)
-
-There is experimental support for MacOS implemented as homebrew's [tap](https://github.com/katyukha/homebrew-odood).
-Just run:
+On macOS (experimental), install via the Homebrew tap:
 
 ```bash
 brew tap katyukha/odood
 brew install odood
 ```
 
-It is recommented to use [pyenv](https://github.com/pyenv/pyenv) on MacOS to init Odood projects.
-For example, use option `--pyenv` when creating new odood project via `odood init`:
-
-```bash
-odood init -v 18 --pyenv
-```
-
-Also, take into account that you have to install missing dependencies on MacOS.
-If you know how to make MacOS support better, just create issue or pull request with your ideas or patches.
+See [Installing Odood](./installation.md) for details: specific versions,
+required system dependencies (postgresql, wkhtmltopdf), macOS notes, and
+building from source.
 
 
 ## Docker images

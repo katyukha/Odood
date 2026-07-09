@@ -1,8 +1,14 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS base
 
 ARG ODOO_VERSION
 ARG ODOOD_DEPENDENCIES
 ARG TARGETARCH
+
+# UID/GID 999 is the top of the system range (Postgres/MySQL/Redis use it too)
+# and is free on the base image, so the 'odoo' system user gets a fixed,
+# predictable ID.
+ARG ODOOD_SERVER_USER_UID=999
+ARG ODOOD_SERVER_USER_GID=999
 
 RUN apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove \
@@ -33,7 +39,8 @@ ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 COPY ./bin/${TARGETARCH}/odood /usr/bin/odood
 COPY ./bin/${TARGETARCH}/odood.bash /etc/bash_completion.d/odood.bash
 
-RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo && \
+RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo \
+        --server-user-uid="$ODOOD_SERVER_USER_UID" --server-user-gid="$ODOOD_SERVER_USER_GID" && \
     rm -rf /root/.cache/pip/*
 
 WORKDIR /opt/odoo
@@ -46,7 +53,19 @@ VOLUME ["/opt/odoo/data", "/opt/odoo/backups"]
 
 STOPSIGNAL SIGINT
 
+CMD ["/usr/bin/odood", "--config-from-env", "server", "run", "--wait-pg"]
+
+
+# Production image (default target): adds a HEALTHCHECK for orchestrators.
+FROM base AS production
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD odood server healthcheck -t 9
 
-CMD ["/usr/bin/odood", "--config-from-env", "server", "run", "--wait-pg"]
+
+# CI image: no HEALTHCHECK (disposable test runner), with the dev/lint/test
+# toolbelt (pre-commit, eslint, flake8, pylint-odoo, coverage, ...) pre-installed.
+FROM base AS ci
+
+RUN /usr/bin/odood venv install-dev-tools && \
+    rm -rf /root/.cache

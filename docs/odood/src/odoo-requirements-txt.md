@@ -44,8 +44,22 @@ The file is parsed line by line. Each non-empty, non-comment line is a set of op
 ### Fetch addons directly from [Odoo Apps](https://apps.odoo.com/apps)
 
 ```
---odoo-app <app name>
+--odoo-apps <app name>
 ```
+
+Only **free** addons can be downloaded from Odoo Apps automatically.
+
+### Common options for repository lines
+
+```
+-b|--branch <git branch>   # branch to clone (default: the project's Odoo serie)
+-m|--module <module name>  # no-op; kept for backward compatibility
+```
+
+Note: `-m|--module` is a **no-op** kept only for backward compatibility with the
+odoo-helper-scripts format, so existing `odoo_requirements.txt` files parse
+without errors. Odood always fetches and links the **whole repository**; the
+named module has no effect.
 
 ## Notes
 
@@ -60,5 +74,5 @@ The file is parsed line by line. Each non-empty, non-comment line is a set of op
 --oca project -m project_description
 
 # From Odoo Apps
---odoo-app bureaucrat_helpdesk_lite
+--odoo-apps bureaucrat_helpdesk_lite
 ```
