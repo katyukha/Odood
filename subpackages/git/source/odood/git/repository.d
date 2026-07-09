@@ -5,7 +5,7 @@ private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith, filter;
-private import std.array: array;
+private import std.array: array, split;
 private import std.regex: regex, matchFirst;
 private import std.conv: to;
 private static import std.process;
@@ -43,6 +43,17 @@ protected struct GitStatus {
     bool isDiverged() const {
         return ahead > 0 && behind > 0;
     }
+}
+
+/** Tag together with the commit it points at.
+  *
+  * For annotated tags `sha` is the peeled (dereferenced) commit, not the tag
+  * object itself; for lightweight tags it is the commit directly — so `sha`
+  * always identifies the tagged commit regardless of the tag kind.
+  **/
+struct GitTag {
+    string name;
+    string sha;
 }
 
 /** Simple class to manage git repositories
@@ -152,20 +163,44 @@ class GitRepository {
     }
 
     /** Fetch remote 'origin'
+      *
+      * Params:
+      *     prune    = remove remote-tracking refs that no longer exist on the
+      *                remote (`--prune`). Without it, deleted remote branches
+      *                linger in the local remote-tracking refs.
+      *     all_tags = fetch all tags, including tags outside the fetched
+      *                history that tag auto-following would miss (`--tags`).
+      *                Combined with prune, also removes local tags deleted on
+      *                the remote (`--prune-tags`).
       **/
-    void fetchOrigin() const {
-        gitCmd
-            .withArgs("fetch", "origin")
-            .execute()
-            .ensureStatus(true);
+    void fetchOrigin(in bool prune = false, in bool all_tags = false) const {
+        auto cmd = gitCmd.withArgs("fetch", "origin");
+        if (prune)
+            cmd.addArgs("--prune");
+        if (all_tags)
+            cmd.addArgs("--tags");
+        // --prune-tags is only valid together with --prune, and only
+        // meaningful when tags are fetched.
+        if (prune && all_tags)
+            cmd.addArgs("--prune-tags");
+        cmd.execute().ensureStatus(true);
     }
 
-    /// ditto
-    void fetchOrigin(in string branch) const {
-        gitCmd
-            .withArgs("fetch", "origin", branch)
-            .execute()
-            .ensureStatus(true);
+    /// ditto — fetch only `branch`. Note that with a branch refspec git
+    /// applies `--prune` only within that refspec, so unrelated stale
+    /// remote-tracking branches are not cleaned by this overload.
+    void fetchOrigin(
+            in string branch,
+            in bool prune = false,
+            in bool all_tags = false) const {
+        auto cmd = gitCmd.withArgs("fetch", "origin", branch);
+        if (prune)
+            cmd.addArgs("--prune");
+        if (all_tags)
+            cmd.addArgs("--tags");
+        if (prune && all_tags)
+            cmd.addArgs("--prune-tags");
+        cmd.execute().ensureStatus(true);
     }
 
     /** Fetch a specific tag from origin into the local repo.
@@ -264,6 +299,102 @@ class GitRepository {
         clone.getCurrBranch().get.should == "hotfix/18.0.1.0.x";
     }
 
+    /// Test listRemoteBranches, listTags, resetBranchToRemote and
+    /// fetchOrigin prune/all_tags flags.
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import odood.git: gitListRemoteBranches;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial");
+        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable default_branch = src.getCurrBranch.get;
+        immutable sha_default = src.getCurrCommit;
+
+        // Feature branch with an extra commit.
+        src.createBranch("feature/x");
+        src_path.join("feature.txt").writeFile("f");
+        src.add(src_path.join("feature.txt"));
+        src.commit("feature commit");
+        immutable sha_feature = src.getCurrCommit;
+        src.gitCmd.withArgs("push", "-u", "origin", "feature/x").execute.ensureOk(true);
+        src.switchBranchTo(default_branch);
+
+        // Annotated (setTag uses -a) and lightweight tags on the default
+        // branch head: listTags must resolve BOTH to the tagged commit
+        // (annotated tags peeled through the tag object).
+        src.setTag("17.0.1.0.0");
+        src.gitCmd.withArgs("tag", "light-tag").execute.ensureOk(true);
+        src.pushTag("17.0.1.0.0");
+        src.gitCmd.withArgs("push", "origin", "light-tag").execute.ensureOk(true);
+
+        auto tags = src.listTags();
+        tags.canFind(GitTag("17.0.1.0.0", sha_default)).shouldBeTrue;
+        tags.canFind(GitTag("light-tag", sha_default)).shouldBeTrue;
+
+        // Branch enumeration: live via the repo method and via the free
+        // function on a raw URL.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.listRemoteBranches().canFind(default_branch).shouldBeTrue;
+        clone.listRemoteBranches().canFind("feature/x").shouldBeTrue;
+        gitListRemoteBranches(remote_path.toString).canFind("feature/x").shouldBeTrue;
+
+        // resetBranchToRemote creates a missing local branch...
+        clone.hasLocalBranch("feature/x").shouldBeFalse;
+        clone.resetBranchToRemote("feature/x");
+        clone.getCurrBranch.get.should == "feature/x";
+        clone.getCurrCommit.should == sha_feature;
+
+        // ...and hard-resets a diverged one back to the remote state.
+        clone_path.join("local.txt").writeFile("local");
+        clone.add(clone_path.join("local.txt"));
+        clone.commit("local-only commit");
+        clone.getCurrCommit.shouldNotEqual(sha_feature);
+        clone.resetBranchToRemote("feature/x");
+        clone.getCurrCommit.should == sha_feature;
+
+        // fetchOrigin(prune) removes remote-tracking refs of branches deleted
+        // on the remote; without prune they linger.
+        src.gitCmd.withArgs("push", "origin", "--delete", "feature/x").execute.ensureOk(true);
+        auto has_tracking_ref = () => clone.gitCmd
+            .withArgs("show-ref", "--verify", "--quiet", "refs/remotes/origin/feature/x")
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute.isOk;
+        clone.fetchOrigin();
+        has_tracking_ref().shouldBeTrue;
+        clone.fetchOrigin(prune: true);
+        has_tracking_ref().shouldBeFalse;
+        // The live listing reflects the deletion immediately.
+        clone.listRemoteBranches().canFind("feature/x").shouldBeFalse;
+
+        // fetchOrigin(all_tags) brings in tags a --no-tags clone lacks.
+        auto clone2_path = root.join("clone2");
+        Process("git")
+            .withArgs("clone", "--single-branch", "--no-tags", remote_path.toString, clone2_path.toString)
+            .execute.ensureOk(true);
+        auto clone2 = new GitRepository(clone2_path);
+        clone2.listLocalTags().length.should == 0;
+        clone2.fetchOrigin(all_tags: true);
+        clone2.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
+        clone2.listLocalTags().canFind("light-tag").shouldBeTrue;
+    }
+
     /** Check if repo has configured remote url with specified name
       **/
     auto hasRemoteUrl(in string name) const {
@@ -341,6 +472,26 @@ class GitRepository {
             .isOk;
     }
 
+    /** List all branch names available on the given remote.
+      *
+      * Queries the remote directly via `git ls-remote --heads` (like
+      * `hasRemoteBranch` and `listRemoteTags`), so the result is live remote
+      * state — it does not depend on what has been fetched, and never
+      * contains stale entries for branches deleted on the remote. Uses the
+      * remote NAME (not a resolved URL), so the repository's credential
+      * helper and env apply and no credentials leak into process argv.
+      **/
+    string[] listRemoteBranches(in string remote = "origin") const {
+        import odood.git: parseLsRemoteRefs;
+        return parseLsRemoteRefs(
+            gitCmd
+                .withArgs("ls-remote", "--heads", remote)
+                .execute
+                .ensureOk(true)
+                .output,
+            "refs/heads/");
+    }
+
     /** Create a local branch tracking `remote`'s branch of the same name and
       * switch to it.
       *
@@ -361,6 +512,40 @@ class GitRepository {
             .ensureStatus(true);
         gitCmd
             .withArgs("checkout", "-b", name, "%s/%s".format(remote, name))
+            .execute
+            .ensureStatus(true);
+    }
+
+    /** Reset local branch `name` to match `remote`'s branch of the same name
+      * and switch to it: create the branch if it does not exist, hard-move it
+      * to the remote state if it does. The idempotent "make local match
+      * remote" that `switchBranchTo` (does not create) and
+      * `checkoutTrackingBranch` (does not reset an existing branch) do not
+      * cover.
+      *
+      * DESTRUCTIVE: local commits on `name` that are not on the remote branch
+      * are discarded (the branch pointer is moved and the worktree updated).
+      * Local uncommitted changes are carried over by git where possible and
+      * abort the checkout otherwise — callers that need a pristine result
+      * should check `status.isClean` first.
+      *
+      * The branch is fetched explicitly first (same refspec as
+      * `checkoutTrackingBranch`), so it reflects the actual remote state and
+      * works in single-branch clones.
+      *
+      * Equivalent to:
+      *   git fetch <remote> <name>:refs/remotes/<remote>/<name>
+      *   git checkout -B <name> <remote>/<name>
+      **/
+    void resetBranchToRemote(in string name, in string remote = "origin") const {
+        gitCmd
+            .withArgs(
+                "fetch", "--force", remote,
+                "%s:refs/remotes/%s/%s".format(name, remote, name))
+            .execute
+            .ensureStatus(true);
+        gitCmd
+            .withArgs("checkout", "-B", name, "%s/%s".format(remote, name))
             .execute
             .ensureStatus(true);
     }
@@ -445,6 +630,34 @@ class GitRepository {
             .ensureOk(true)
             .output;
         return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
+    }
+
+    /** List all local tags together with the commit each points at.
+      *
+      * Annotated tags are peeled to the tagged commit (`%(*objectname)`);
+      * for lightweight tags the ref itself is the commit. See `GitTag`.
+      **/
+    GitTag[] listTags() const {
+        // %09 = tab. Control characters are forbidden in refnames, so tab is
+        // a safe field separator. The peeled field is empty for lightweight
+        // tags.
+        auto output = gitCmd
+            .withArgs(
+                "for-each-ref", "refs/tags",
+                "--format=%(refname:short)%09%(objectname)%09%(*objectname)")
+            .execute
+            .ensureOk(true)
+            .output;
+        GitTag[] res;
+        foreach(line; output.splitLines) {
+            auto parts = line.split("\t");
+            if (parts.length < 3)
+                continue;
+            res ~= GitTag(
+                parts[0],
+                parts[2].length > 0 ? parts[2] : parts[1]);
+        }
+        return res;
     }
 
     /** Set annotation tag on current commit in repo

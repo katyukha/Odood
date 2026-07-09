@@ -12,7 +12,7 @@ private import odood.exception: OdoodException;
 private import theprocess: Process;
 
 public import odood.git.url: GitURL;
-public import odood.git.repository: GitRepository;
+public import odood.git.repository: GitRepository, GitTag;
 
 immutable string GIT_REF_WORKTREE = "-working-tree-";
 
@@ -122,22 +122,44 @@ string[] gitListRemoteTags(in string url, in string[string] env = null) {
     return parseLsRemoteTags(proc.execute.ensureOk(true).output);
 }
 
-/** Parse `git ls-remote --refs --tags` output into bare tag names.
+/** Parse `git ls-remote` output into bare ref names under `prefix`.
   *
-  * Each line is "<sha>\trefs/tags/<tagname>"; the `refs/tags/` prefix is
-  * stripped. Shared by `gitListRemoteTags` and `GitRepository.listRemoteTags`.
+  * Each line is "<sha>\t<refname>"; refs matching `prefix` are returned with
+  * the prefix stripped, everything else (including `HEAD` and peeled `^{}`
+  * entries, which carry no matching prefix or are filtered by `--refs`) is
+  * skipped. Shared by the tag and branch listings.
   **/
-package(odood) string[] parseLsRemoteTags(in string output) {
-    auto tags = appender!(string[]);
+package(odood) string[] parseLsRemoteRefs(in string output, in string prefix) {
+    auto refs = appender!(string[]);
     foreach(line; output.splitLines) {
         auto tab = line.indexOf('\t');
         if (tab < 0) continue;
         auto refname = line[tab + 1 .. $];
-        enum prefix = "refs/tags/";
         if (refname.startsWith(prefix))
-            tags ~= refname[prefix.length .. $];
+            refs ~= refname[prefix.length .. $];
     }
-    return tags.data;
+    return refs.data;
+}
+
+/** Parse `git ls-remote --refs --tags` output into bare tag names.
+  *
+  * Shared by `gitListRemoteTags` and `GitRepository.listRemoteTags`.
+  **/
+package(odood) string[] parseLsRemoteTags(in string output) {
+    return parseLsRemoteRefs(output, "refs/tags/");
+}
+
+/** List all branch names available on a remote without cloning it.
+  *
+  * Wraps `git ls-remote --heads <url>`.
+  * Returns branch names only (the `refs/heads/` prefix is stripped).
+  **/
+string[] gitListRemoteBranches(in string url, in string[string] env = null) {
+    auto proc = Process("git")
+        .withArgs("ls-remote", "--heads", url);
+    if (env !is null && env.length > 0)
+        proc = proc.withEnv(env);
+    return parseLsRemoteRefs(proc.execute.ensureOk(true).output, "refs/heads/");
 }
 
 ///
