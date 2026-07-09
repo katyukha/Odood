@@ -69,6 +69,10 @@ OdooRequirementsLine[] parseOdooRequirements(in string content) {
                     args.popFront;
                     break;
                 case "-m", "--module":
+                    // No-op for repo lines, kept for backward compatibility
+                    // with the odoo-helper-scripts format: the whole
+                    // repository is always fetched and linked; consumers
+                    // ignore `addon` for repo-type lines.
                     rline.addon = args.front;
                     args.popFront;
                     break;

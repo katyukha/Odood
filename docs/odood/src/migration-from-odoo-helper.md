@@ -77,7 +77,10 @@ Most commands map directly. The main differences are:
 
 | odoo-helper-scripts | odood |
 |:---|:---|
-| `odoo-helper test -m addon` | `odood test -m addon` |
+| `odoo-helper test -m addon` | `odood test -t addon` |
+
+Note: `odood test` takes module names as positional arguments (no `-m` flag);
+`-t` runs the tests on a temporary database.
 
 ### Translations
 
@@ -90,7 +93,7 @@ Most commands map directly. The main differences are:
 | odoo-helper-scripts | odood |
 |:---|:---|
 | `odoo-helper update-odoo` | `odood venv update-odoo` |
-| `odoo-helper exec CMD` | `odood venv exec CMD` |
+| `odoo-helper exec CMD` | `odood venv run -- CMD` |
 | `odoo-helper pip` | `odood venv pip` |
 | `odoo-helper python` | `odood venv python` |
 | `odoo-helper ipython` | `odood venv ipython` |

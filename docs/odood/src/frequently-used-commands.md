@@ -17,6 +17,7 @@ just call if with `-h` option.
 
 ### Addons management
 - `odood addons list <path>` - list odoo addons in specified directory
+- `odood addons where <name>` - show where an addon is located (Odoo core / custom repo / download), and whether it is linked and installable
 - `odood addons update-list` - update list of available addons in all databases available for this server
 - `odood addons install <addon1> [addonN]` - install specified odoo addons for all databases available for this server; use `--missing-only` to skip already-installed ones
 - `odood addons update <addon1> [addonN]` - update specified odoo addons for all databases available for this server; use `--installed-only` to skip non-installed ones
@@ -45,6 +46,7 @@ Thus following commands are used to deal with it:
 - `odood pre-commit run` - Run pre-commit hooks for this repo manually.
 
 ### Repository management
+- `odood repo list` - list git repositories of this project with branch and addon count
 - `odood repo add <url>` - fetch repository with third-party addons from git repo specified by `url`. Local repositories are supported via `file://` URLs with absolute paths (for example `file:///data/repos/my-addons`) - useful for local mirrors or pre-fetched repositories in CI.
 - `odood repo add --oca <name>` - fetch OCA repository named `name` from OCA git repo. For example, `--oca web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo add --github <username/repository>` - shortcut to easily fetch repo from github, by specifying only github username and repo name. For example: `--github oca/web` means repo [web](https://github.com/OCA/web) from OCA.
@@ -77,6 +79,6 @@ Thus following commands are used to deal with it:
 - `odood venv run -- <command and args>` - Run some command inside virtualenv of this instance.
 - `odood venv install-py-packages` - Install specified python packages in this virtualenv.
 - `odood venv install-dev-tools` - Install development tools inside virtualenv of this instance.
-- `odood ipython` - run ipython inside virtualenv of this instance.
-- `odood venv reinstall` - resinstall virtual environment.
+- `odood venv ipython` - run ipython inside virtualenv of this instance.
+- `odood venv reinstall` - reinstall virtual environment.
 - `odood venv update-odoo` - update Odoo in this instance.

@@ -16,14 +16,14 @@ Also, production installation expects that it is running on a clean system, and 
 
 ## Indirect dependencies
 
-**Note**, that *Odood* will not automatically install indirect dependencies, thus you have to manually install following system packages (if needed):
-- [postgresql](https://www.postgresql.org/) - it is required to install postgresql server manually, before running `odood deploy` command if you use `--local-postgres` option.
-- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - Required to generate pdf reports. See [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
-- [nginx](https://nginx.org/) - if you want to exopose installed Odoo to external world via `nginx`. In this case, `Odood` will automatically generate template config for `nginx`.
+**Note** that *Odood* will not automatically install indirect dependencies, so you have to manually install the following system packages (if needed):
+- [postgresql](https://www.postgresql.org/) - the PostgreSQL server must be installed manually before running `odood deploy` with the `--local-postgres` option.
+- [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - required to generate PDF reports. See the [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
+- [nginx](https://nginx.org/) - if you want to expose the installed Odoo to the external world via `nginx`. In this case, Odood will automatically generate a template config for `nginx`.
 - [certbot](https://certbot.eff.org/) - if you want to automatically generate [Let's Encrypt](https://letsencrypt.org/) certificates.
 - [fail2ban](https://github.com/fail2ban/fail2ban) [Optional] - if you want to automatically block incorrect logins by IP. In this case Odood will automatically generate configs for `fail2ban`.
 
-In case of *Ubuntu:24.04* system required dependencies could be installed via command:
+On *Ubuntu 24.04* the required dependencies can be installed via:
 
 ```bash
 sudo apt install postgresql nginx certbot
@@ -32,25 +32,25 @@ wget -O /tmp/wkhtmltopdf-0.12.6.1-3.deb https://github.com/wkhtmltopdf/packaging
 sudo apt install /tmp/wkhtmltopdf-0.12.6.1-3.deb
 ```
 
-**Note**: choose right release for your operation sysmte, when installing [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases)
+**Note**: choose the right release for your operating system when installing [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases).
 
 ## Deployment
 
-So, let's assume that all needed indirect system dependencises (in example it is only postgresql server) already installed.
-Then, use following command to install Odoo 18 for production with local postgres:
+Assuming all needed indirect system dependencies (in this example only the PostgreSQL server) are already installed,
+use the following command to install Odoo 18 for production with local postgres:
 
 ```bash
 sudo odood deploy -v 18 --local-postgres --supervisor=systemd
 ```
 
-After this command completed, there will be installed Odoo and it will be configured to use local postgresql.
-This Odoo instance will be managed by `systemd` service.
+After this command completes, Odoo is installed and configured to use the local postgresql.
+This Odoo instance will be managed by a `systemd` service.
 
-**Note:** on production installation each call to `odood` have to be run as `sudo` or from superuser.
+**Note:** on a production installation each call to `odood` has to be run with `sudo` or as superuser.
 Odood will automatically handle switching access rights when needed.
 
-Also, it is recommended to use [assembly](./assembly.md) functionality to manage third-party addons on production instances.
-This way, it is possible to deploy server in following way:
+Also, it is recommended to use the [assembly](./assembly.md) functionality to manage third-party addons on production instances.
+With an assembly the server can be deployed as follows:
 
 ```bash
 sudo odood deploy -v 18 \
@@ -59,7 +59,34 @@ sudo odood deploy -v 18 \
     --assembly-repo=https://github.com/my/assembly
 ```
 
-This way, server will be automatically configured to use assembly `https://github.com/my/assembly`
+This way, the server will be automatically configured to use the assembly `https://github.com/my/assembly`.
+
+## Key `odood deploy` flags
+
+| Flag | Description |
+|---|---|
+| `-v <series>` / `--odoo-version` | Odoo series to deploy (default: `17.0`) |
+| `--supervisor=<name>` | Process supervisor: `systemd`, `init-script`, or `odood` (default: `systemd`) |
+| `--local-postgres` | Configure the local PostgreSQL server (requires PostgreSQL installed) |
+| `--db-host` / `--db-port` / `--db-user` / `--db-password` | Connection to an external PostgreSQL (instead of `--local-postgres`) |
+| `-w <n>` / `--workers` | Number of Odoo workers; `0` = threaded mode (default: `0`) |
+| `--proxy-mode` | Enable `proxy_mode` in the Odoo config (behind a reverse proxy) |
+| `--local-nginx` | Autoconfigure local nginx (requires nginx installed) |
+| `--local-nginx-server-name=<name>` | Server name for the generated nginx config |
+| `--local-nginx-ssl` | Enable SSL in the nginx config |
+| `--local-nginx-ssl-cert` / `--local-nginx-ssl-key` | Paths to the SSL certificate/key (e.g. self-signed) |
+| `--tls12-compat` | Also allow TLS 1.2 for older clients (default: TLS 1.3 only) |
+| `--letsencrypt` | Enable [Let's Encrypt](https://letsencrypt.org/) configuration (requires certbot) |
+| `--letsencrypt-email=<email>` | Email for the Let's Encrypt account |
+| `--enable-logrotate` | Configure logrotate for Odoo logs |
+| `--enable-fail2ban` | Configure fail2ban to block repeated failed logins (requires fail2ban installed) |
+| `--assembly-repo=<url>` | Configure the instance to use an [assembly](./assembly.md) from this git repository |
+| `--log-to-stderr` | No log file; log to stdout/stderr (for container builds) |
+| `--use-system-ca-bundle` | Make Odoo use the system CA certificate store instead of the bundled certifi bundle |
+| `--server-user-uid` / `--server-user-gid` | Create the Odoo system user/group with a fixed UID/GID (for container builds with a matching `securityContext`) |
+| `--py-version` / `--node-version` | Build a specific Python / install a specific Node.js version |
+
+Run `odood deploy --help` for the full list of options.
 
 ## Backup and restore
 
@@ -126,19 +153,17 @@ sudo odood addons update-list
 sudo odood addons update --dir custom_addons
 ```
 
-For more details on upgrade scenarios — including local development and cross-series
-migration — see [Upgrading Odoo](./upgrading.md).
+For more details on upgrade scenarios see [Upgrading Odoo](./upgrading.md).
 
 ## Complete sample: Public server
 
-Following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on server available in public space.
+The following list of commands will install Odoo with configured nginx, postgresql, certbot and fail2ban on a publicly available server.
 
-This sample, assumes, that you have control over your domain, and already point your domain to server where Odoo have to be installed.
+This sample assumes that you have control over your domain and have already pointed it at the server where Odoo is to be installed.
 
-**Note**, you have to update command below with your correct architecture.
+**Note**: update the wkhtmltopdf command below to match your architecture.
 
-So,
-Let 's run following commands to get complete production ready Odoo installation on **Ubuntu 24.04**:
+Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04**:
 
 ```bash
 sudo apt-get update -yq    # update list of packages
@@ -169,14 +194,13 @@ sudo odood deploy \
 
 ## Complete sample: Private network server with self-signed SSL certificates
 
-Following list of commands will install Odoo with configured nginx, postgresql, on server in a private network with self-signed SSL certificates under following paths:
+The following list of commands will install Odoo with configured nginx and postgresql on a server in a private network, with self-signed SSL certificates under the following paths:
 - /etc/nginx/ssl/my.test.server.int.crt
 - /etc/nginx/ssl/my.test.server.int.key
 
-This sample assumes that you have already generated self-signed certificates.
+This sample assumes that you have already generated the self-signed certificates.
 
-So,
-Let 's run following commands to get complete production ready Odoo installation on **Ubuntu 24.04**:
+Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04**:
 
 ```bash
 sudo apt-get update -yq    # update list of packages

@@ -11,6 +11,7 @@ Odood project root directory contains following folders:
 - `custom_addons` - directory for all addons that are not part of Odoo. Contains only *symlinks* to actual addon directories — see below.
 - `data` - Odoo data directory used to store files and sessions
 - `downloads` - directory containing addons downloaded directly from [Odoo Apps](https://apps.odoo.com/apps)
+- `logs` - server log location (`logs/odoo.log`), unless the project is configured to log to stdout/stderr (`--log-to-stderr`)
 - `odoo` - Odoo source code
 - `repositories` - stores git repositories containing additional (non-standard) Odoo addons
 - `venv` - [virtualenv](https://virtualenv.pypa.io/en/stable/) directory
@@ -19,6 +20,7 @@ Odood project root directory contains following folders:
 Optional directories:
 - `assembly` - if the project is configured to use assembly, this directory contains the assembly repository
 - `cache` - various caches; for example, git sources defined in an assembly spec are cloned here and reused for subsequent sync operations
+- `scripts` - project-level [custom scripts](./custom-scripts.md) resolvable by name in `odood script py|sql` and the test-runner script hooks
 
 ## How addon paths work
 

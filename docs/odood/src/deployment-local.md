@@ -51,13 +51,13 @@ After the command completes, Odoo is installed in the `odoo-18` directory. Any s
 | Flag | Description |
 |---|---|
 | `--http-port=<port>` | Port Odoo listens on (default: `8069`) |
-| `--longpolling-port=<port>` | Gevent / long-polling port (default: `8072`) |
+| `--http-host=<host>` | Interface Odoo binds to (default: `0.0.0.0`) |
 
 ### Python and Node
 
 | Flag | Description |
 |---|---|
-| `--python=<path>` | Path to the Python executable to use for the virtualenv |
+| `--py-version=<version>` | Build and use a specific Python version for the virtualenv (default: system Python) |
 | `--node-version=<ver>` | Node.js version to install (for frontend assets) |
 | `--pyenv` | Use pyenv to manage the Python version (see macOS section) |
 
@@ -65,8 +65,12 @@ After the command completes, Odoo is installed in the `odoo-18` directory. Any s
 
 | Flag | Description |
 |---|---|
-| `--repo=<url>` | Git URL of a third-party addon repository to add during init |
-| `--branch=<ref>` | Branch/ref for the `--repo` repository |
+| `--odoo-repo=<url>` | Install **Odoo itself** from a specific repository (default: `https://github.com/odoo/odoo.git`). Useful for forks. Used for both install types: cloned for `git`, archive downloaded from it for `archive`. |
+| `--odoo-branch=<ref>` | Branch in the Odoo repository to install from (default: the serie, e.g. `18.0`) |
+| `--log-to-stderr` | Configure the project without a log file (logs to stdout/stderr). Recommended for container setups. |
+
+To add third-party addon repositories, use `odood repo add` after init — see
+[Adding third-party repositories](#adding-third-party-repositories) below.
 
 Run `odood init --help` to see the full list of options.
 

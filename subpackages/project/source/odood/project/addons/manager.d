@@ -802,8 +802,11 @@ struct AddonManager {
             req_path.exists,
             "odoo_requirements.txt not found: %s".format(req_path));
         foreach(line; parseOdooRequirements(req_path))
-            // TODO: In case when only single module requested,
-            //       add only single module
+            // `-m/--module` on repo lines (line.addon) is intentionally
+            // ignored: documented as a no-op kept for backward compatibility
+            // with odoo-helper-scripts — the whole repository is added.
+            // If single-module fetch is ever implemented, update
+            // docs/odood/src/odoo-requirements-txt.md accordingly.
             final switch (line.type) {
                 case OdooRequirementsLineType.repo:
                     addRepo(
