@@ -1,19 +1,14 @@
 module odood.project.assembly.project_assembly;
 
-private import std.exception: enforce;
-private import std.format: format;
 private import std.logger: infof;
-private import std.array: empty, join, array;
-private import std.algorithm: map, canFind, uniq;
-private import std.range: chain;
+private import std.array: empty, array;
+private import std.algorithm: map;
 
 private import thepath: Path;
 
 private import odood.lib.assembly.assembly: Assembly, ASSEMBLY_REQUIREMENTS_LOCK;
-private import odood.lib.assembly.exception: OdoodAssemblyException;
 private import odood.project: Project;
 private import odood.git: GitURL;
-private import odood.utils.addons.addon;
 private import odood.lib.python.venv: PyRequirements;
 private import odood.project.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
@@ -62,27 +57,14 @@ class ProjectAssembly {
     }
 
     /** Validate that every assembly addon's dependencies are satisfiable
-      * (by the project's system addons, other assembly addons, or known addons).
+      * against the project's system addons (delegates to the base assembly,
+      * passing the project's system addon names).
       **/
     void validateAddonsDependencies() const {
-        auto assembly_addons = findAddons(dist_dir);
-        auto available_addons = _project.addons.getSystemAddonsList()
-            .map!((a) => a.name)
-            .chain(assembly_addons.map!((a) => a.name))
-            .chain(spec.known_addons)
-            .uniq.array;
-
-        string[] missing_dependencies;
-        foreach(addon; assembly_addons)
-            foreach(dep; addon.manifest.dependencies)
-                if (!available_addons.canFind(dep))
-                    missing_dependencies ~= "%s (required by %s)".format(
-                        dep, addon.name);
-
-        enforce!OdoodAssemblyException(
-            missing_dependencies.empty,
-            "Cannot find following dependencies:\n%s".format(
-                missing_dependencies.join("\n")));
+        _assembly.validateAddonsDependencies(
+            _project.addons.getSystemAddonsList()
+                .map!((a) => a.name)
+                .array);
     }
 
     /** Link assembly addons into the project's custom addons.

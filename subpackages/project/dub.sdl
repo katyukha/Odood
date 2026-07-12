@@ -13,8 +13,6 @@ dependency "peque" version=">=0.0.4"
 dependency "requests" version=">=2.0.0"
 dependency "darktemple" version=">=0.0.6"
 
-subConfiguration "peque" "libraryDynamic"
-
 targetPath "build"
 targetType "library"
 

@@ -435,6 +435,40 @@ class Assembly {
         infof("Assembly: All addons synced.");
     }
 
+    /** Validate that every assembly addon's dependencies are satisfiable
+      * (by the provided system addons, other assembly addons, or the spec's
+      * known-addons list).
+      *
+      * Project-free: the caller supplies the names of addons the target Odoo
+      * instance provides. A `ProjectAssembly` passes the project's system
+      * addons; a standalone packager may source that list from a bundled
+      * per-serie manifest or an Odoo checkout.
+      *
+      * Params:
+      *    system_addons = names of addons provided by the target Odoo instance
+      *        (core plus any always-available addons).
+      **/
+    void validateAddonsDependencies(in string[] system_addons) const {
+        auto assembly_addons = findAddons(dist_dir);
+        auto available_addons = chain(
+                system_addons,
+                assembly_addons.map!((a) => a.name),
+                spec.known_addons)
+            .uniq.array;
+
+        string[] missing_dependencies;
+        foreach(addon; assembly_addons)
+            foreach(dep; addon.manifest.dependencies)
+                if (!available_addons.canFind(dep))
+                    missing_dependencies ~= "%s (required by %s)".format(
+                        dep, addon.name);
+
+        enforce!OdoodAssemblyException(
+            missing_dependencies.empty,
+            "Cannot find following dependencies:\n%s".format(
+                missing_dependencies.join("\n")));
+    }
+
     /** Get info about changes between current version and series version
       *
       * Params:
