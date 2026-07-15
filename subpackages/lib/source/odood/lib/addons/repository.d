@@ -327,10 +327,13 @@ class AddonRepository : GitRepository{
                 auto start_info = start_map[name];
                 // Read changelog entries newer than the start version, from the
                 // end ref (works for both the worktree and historical refs).
-                auto changelog = readAddonChangelog(
-                    end_info.path, end_ref,
-                    cast(Nullable!Version)
-                        start_info.addon_version.semver.nullable);
+                // Changelogs are only supported for standard-versioned addons.
+                auto changelog = start_info.addon_version.isStandard
+                    ? readAddonChangelog(
+                        end_info.path, end_ref,
+                        cast(Nullable!Version)
+                            start_info.addon_version.semver.nullable)
+                    : cast(OdooAddonChangelogEntry[]) [];
                 changes.logAddonUpdated(
                     name,
                     start_info.path,
@@ -875,6 +878,32 @@ unittest {
     auto cc_dir_name = repo.collectChanges(rev_v7, rev_v8);
     cc_dir_name.addons_updated.length.should == 1;
     cc_dir_name.addons_updated[0].name.should == "addon_a";  // directory name, not "My Addon A (Display Name)"
+
+    // collectChanges — tolerates a non-standard start version (e.g. a plain
+    // "1.0.0" without a serie prefix, common in third-party addons). The
+    // start version's semver drives the changelog range filter, and semver
+    // carries an `in (isStandard)` contract; collectChanges must skip the
+    // filter for such addons rather than asserting/crashing.
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "addon_a", "version": "1.0.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_a", "__manifest__.py"));
+    repo.commit("Set addon_a to a non-standard version");
+    auto rev_v9 = repo.getCurrCommit();
+
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "addon_a", "version": "1.1.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_a", "__manifest__.py"));
+    repo.commit("Bump addon_a non-standard version");
+    auto rev_v10 = repo.getCurrCommit();
+
+    auto cc_nonstd = repo.collectChanges(rev_v9, rev_v10);  // must not throw
+    cc_nonstd.addons_updated.length.should == 1;
+    cc_nonstd.addons_updated[0].name.should == "addon_a";
+    cc_nonstd.addons_updated[0].old_version.toString.should == "1.0.0";
+    cc_nonstd.addons_updated[0].new_version.toString.should == "1.1.0";
+    // Changelogs are unsupported for non-standard versions: the changelog is
+    // skipped rather than read, so no notable-changes entry is recorded.
+    cc_nonstd.notable_changes.length.should == 0;
 }
 
 
