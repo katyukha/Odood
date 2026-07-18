@@ -7,6 +7,7 @@ private import std.algorithm: map;
 private import thepath: Path;
 
 private import odood.lib.assembly.assembly: Assembly, ASSEMBLY_REQUIREMENTS_LOCK;
+private import odood.lib.assembly.source_provider_cached: AssemblySourceProviderCached;
 private import odood.project: Project;
 private import odood.git: GitURL;
 private import odood.lib.python.venv: PyRequirements;
@@ -205,7 +206,7 @@ class ProjectAssembly {
             project,
             Assembly.initialize(
                 path, project.odoo.serie,
-                project.directories.cache.join("assembly")));
+                new AssemblySourceProviderCached(project.directories.cache.join("assembly"))));
     }
 
     /// ditto
@@ -214,13 +215,13 @@ class ProjectAssembly {
             project,
             Assembly.initialize(
                 path, project.odoo.serie,
-                project.directories.cache.join("assembly"), git_url));
+                new AssemblySourceProviderCached(project.directories.cache.join("assembly")), git_url));
     }
 
     static ProjectAssembly maybeLoad(Project project, in Path path) {
         auto base = Assembly.maybeLoad(
             path, project.odoo.serie,
-            project.directories.cache.join("assembly"));
+            new AssemblySourceProviderCached(project.directories.cache.join("assembly")));
         return base is null ? null : new ProjectAssembly(project, base);
     }
 
@@ -229,6 +230,6 @@ class ProjectAssembly {
             project,
             Assembly.load(
                 path, project.odoo.serie,
-                project.directories.cache.join("assembly")));
+                new AssemblySourceProviderCached(project.directories.cache.join("assembly"))));
     }
 }
