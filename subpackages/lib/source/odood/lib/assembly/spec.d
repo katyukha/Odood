@@ -118,7 +118,12 @@ struct AssemblySpecSource {
     /// Do not search for addons in this repo, unless it is mentioned as source in addon definition.
     bool no_search=false;
 
-    /// Hash
+    /** Materialization key: sha1 of url[@ref][#commit]. Excludes `name` so the
+      * same repo@ref caches once; the spec identity is `getKey` (with `name`).
+      *
+      * TODO: materialization/cache concern, not the spec's — move to the
+      * assembly/source-provider level.
+      **/
     @property string hashString() const {
         string res = git_url.toString();
         if (git_ref)
@@ -128,10 +133,18 @@ struct AssemblySpecSource {
         return sha1Of(res).toHexString().idup;
     }
 
-    private this(GitURL git_url, in string name=null, in string git_ref=null, in string access_group=null) {
+    /** Spec identity key (url, name, ref, commit), usable as an AA key. Excludes
+      * access_group/no_search (config, not identity); differs from hashString,
+      * which omits `name`.
+      **/
+    auto getKey() const => tuple(git_url, name, git_ref, git_commit);
+
+    private this(GitURL git_url, in string name=null, in string git_ref=null,
+            in string git_commit=null, in string access_group=null) {
         this.git_url = git_url;
         this.name = name;
         this.git_ref = git_ref;
+        this.git_commit = git_commit;
         this.access_group = access_group;
     }
 
@@ -269,12 +282,20 @@ struct AssemblySpec {
     /// These addons will be ignored during dependency validation
     @property auto known_addons() const => _known_addons;
 
-    package(odood) void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
+    package(odood) void addSource(in GitURL git_url, in string name=null,
+            in string git_ref=null, in string git_commit=null) {
+        // A pinned commit requires the ref it is fetched from — fail up front.
+        enforce!OdoodAssemblyInvalidSpecException(
+            git_commit.empty || !git_ref.empty,
+            "Cannot pin source '%s' to commit '%s' without a ref".format(
+                git_url, git_commit));
         foreach(source; _sources)
-            if (source.git_url == git_url && source.name == name && source.git_ref == git_ref)
+            if (source.git_url == git_url && source.name == name
+                    && source.git_ref == git_ref && source.git_commit == git_commit)
                 // This source already exists
                 return;
-        _sources ~= AssemblySpecSource(git_url: git_url, name: name, git_ref: git_ref);
+        _sources ~= AssemblySpecSource(
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
     }
 
     package(odood) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
@@ -283,6 +304,78 @@ struct AssemblySpec {
 
     package(odood) void addKnownAddon(in string name) {
         _known_addons ~= name;
+    }
+
+    /// Remove an addon by name. No-op if no such addon exists.
+    package(odood) void removeAddon(in string name) {
+        _addons = _addons.filter!((a) => a.name != name).array;
+    }
+
+    // Names of addons that reference the given (non-empty) source name.
+    private string[] addonsUsingSource(in string source_name) {
+        if (source_name.empty)
+            return [];
+        return _addons
+            .filter!((a) => a.source_name == source_name)
+            .map!((a) => a.name).array;
+    }
+
+    /** Remove a source by its full key. Refuses if an addon references it by
+      * name; no-op if no source matches.
+      **/
+    package(odood) void removeSource(in AssemblySpecSource source) {
+        auto dependents = addonsUsingSource(source.name);
+        enforce!OdoodAssemblyInvalidSpecException(
+            dependents.empty,
+            "Cannot remove source '%s': referenced by addons %s".format(
+                source.name, dependents));
+        _sources = _sources.filter!((s) => s.getKey() != source.getKey()).array;
+    }
+
+    /// ditto — identify the source by name (uses the first source with that name).
+    package(odood) void removeSource(in string name) {
+        auto src = getSource(name);
+        if (src.isNull)
+            return;
+        removeSource(src.get);
+    }
+
+    /// ditto — identify the source by its individual key fields.
+    package(odood) void removeSource(in GitURL git_url, in string name=null,
+            in string git_ref=null, in string git_commit=null) {
+        removeSource(AssemblySpecSource(
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit));
+    }
+
+    /** Replace the source named `name` in place. `new_name` defaults to keeping
+      * the current name (re-pin); a rename is refused while addons reference it.
+      **/
+    package(odood) void replaceSource(in string name, in GitURL git_url,
+            in string new_name=null, in string git_ref=null, in string git_commit=null) {
+        enforce!OdoodAssemblyInvalidSpecException(
+            git_commit.empty || !git_ref.empty,
+            "Cannot pin source '%s' to commit '%s' without a ref".format(
+                git_url, git_commit));
+
+        immutable effective_new_name = new_name.empty ? name : new_name;
+        if (effective_new_name != name) {
+            auto dependents = addonsUsingSource(name);
+            enforce!OdoodAssemblyInvalidSpecException(
+                dependents.empty,
+                "Cannot rename source '%s' to '%s': referenced by addons %s".format(
+                    name, effective_new_name, dependents));
+        }
+
+        // Replace in place, preserving the source's position.
+        foreach(ref source; _sources)
+            if (source.name == name) {
+                source = AssemblySpecSource(
+                    git_url: git_url, name: effective_new_name,
+                    git_ref: git_ref, git_commit: git_commit);
+                return;
+            }
+        throw new OdoodAssemblyInvalidSpecException(
+            "Cannot replace source: no source named '%s'".format(name));
     }
 
     /// Find source by name
@@ -310,10 +403,32 @@ struct AssemblySpec {
             "There are duplicated addons:\n%s".format(
                 duplicated_addons.map!((a) => "%s: %s".format(a[0], a[1])).join(",\n")));
 
+        // Source names (when set) must be unique — addons reference them by name.
+        auto duplicated_sources = _sources
+            .filter!((s) => !s.name.empty).map!((s) => s.name)
+            .array.dup.sort.group.filter!((t) => t[1] > 1).array;
+        enforce!OdoodAssemblyInvalidSpecException(
+            duplicated_sources.length == 0,
+            "There are sources with duplicated names:\n%s".format(
+                duplicated_sources.map!((s) => "%s: %s".format(s[0], s[1])).join(",\n")));
+
         foreach(source; _sources)
             enforce!OdoodAssemblyInvalidSpecException(
                 source.git_commit.empty || !source.git_ref.empty,
                 "Source '%s': 'commit' requires 'ref' to be set".format(source.git_url));
+
+        foreach(addon; _addons) {
+            // 'source' and 'odoo_apps' are mutually exclusive addon origins.
+            enforce!OdoodAssemblyInvalidSpecException(
+                !(addon.from_odoo_apps && !addon.source_name.empty),
+                "Addon '%s': 'source' and 'odoo_apps' are mutually exclusive".format(addon.name));
+            // A named source reference must resolve to a known source.
+            if (!addon.source_name.empty)
+                enforce!OdoodAssemblyInvalidSpecException(
+                    !getSource(addon.source_name).isNull,
+                    "Addon '%s' references unknown source '%s'".format(
+                        addon.name, addon.source_name));
+        }
     }
 
     auto toYAML() const {
@@ -470,6 +585,160 @@ unittest {
 
     // Spec is not valid, because it defines same addon two times
     spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// addSource: pin a source to a specific commit (in-memory spec construction).
+unittest {
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec.init;
+
+    // url + ref + commit is accepted and preserved.
+    spec.addSource(
+        GitURL("https://github.com/OCA/server-tools"),
+        git_ref: "17.0", git_commit: "abc123");
+    spec.sources.length.should == 1;
+    spec.sources[0].git_ref.should == "17.0";
+    spec.sources[0].git_commit.should == "abc123";
+    spec.validate;  // commit + ref is a valid combination
+
+    // A commit without a ref is rejected up front (not deferred to validate).
+    spec.addSource(
+        GitURL("https://github.com/OCA/web"), git_commit: "deadbeef")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+
+    // Same url + ref but a different commit is a distinct source.
+    spec.addSource(
+        GitURL("https://github.com/OCA/server-tools"),
+        git_ref: "17.0", git_commit: "def456");
+    spec.sources.length.should == 2;
+
+    // The exact same pinned source again is a no-op.
+    spec.addSource(
+        GitURL("https://github.com/OCA/server-tools"),
+        git_ref: "17.0", git_commit: "abc123");
+    spec.sources.length.should == 2;
+}
+
+// removeAddon / removeSource / replaceSource and validate integrity checks.
+unittest {
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec.init;
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"), name: "st");
+    spec.addSource(GitURL("https://github.com/OCA/web"), name: "web");
+    spec.addAddon("server_env", source_name: "st");
+    spec.addAddon("web_responsive", source_name: "web");
+    spec.validate;
+
+    // removeAddon by name; no-op when absent.
+    spec.removeAddon("web_responsive");
+    spec.hasAddon("web_responsive").shouldBeFalse;
+    spec.addons.length.should == 1;
+    spec.removeAddon("does_not_exist");
+    spec.addons.length.should == 1;
+
+    // removeSource refuses while an addon still references it...
+    spec.removeSource("st").shouldThrow!OdoodAssemblyInvalidSpecException;
+    spec.sources.length.should == 2;
+    // ...and succeeds once the reference is gone.
+    spec.removeAddon("server_env");
+    spec.removeSource("st");
+    spec.sources.length.should == 1;
+    spec.getSource("st").isNull.shouldBeTrue;
+
+    // removeSource by key fields (unnamed sources are removable only this way).
+    spec.addSource(GitURL("https://github.com/OCA/misc"));
+    spec.sources.length.should == 2;
+    spec.removeSource(GitURL("https://github.com/OCA/misc"));
+    spec.sources.length.should == 1;
+
+    // replaceSource: re-pin in place keeps the name, so references stay valid.
+    spec.addAddon("website_extra", source_name: "web");
+    spec.replaceSource("web", GitURL("https://github.com/OCA/web"),
+        git_ref: "17.0", git_commit: "cafe");
+    spec.getSource("web").get.git_commit.should == "cafe";
+    spec.getSource("web").get.git_ref.should == "17.0";
+    spec.validate;  // reference preserved
+
+    // A reference-breaking rename is refused.
+    spec.replaceSource("web", GitURL("https://github.com/OCA/web"), new_name: "web2")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+
+    // Replacing a non-existent source errors.
+    spec.replaceSource("nope", GitURL("https://x/y"))
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// validate: source-name uniqueness, dangling reference, source/odoo_apps clash.
+unittest {
+    import unit_threaded.assertions;
+
+    // Duplicate non-empty source names.
+    {
+        auto spec = AssemblySpec.init;
+        spec.addSource(GitURL("https://x/a"), name: "dup");
+        spec.addSource(GitURL("https://x/b"), name: "dup");
+        spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+    }
+    // Addon references a source that does not exist.
+    {
+        auto spec = AssemblySpec.init;
+        spec.addAddon("some_addon", source_name: "ghost");
+        spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+    }
+    // Addon with both a source and odoo_apps origin.
+    {
+        auto spec = AssemblySpec.init;
+        spec.addSource(GitURL("https://x/a"), name: "src");
+        spec.addAddon("clash", source_name: "src", from_odoo_apps: true);
+        spec.validate.shouldThrow!OdoodAssemblyInvalidSpecException;
+    }
+}
+
+// getKey(): spec identity (includes name), usable as an associative-array key.
+unittest {
+    import unit_threaded.assertions;
+
+    auto a1 = AssemblySpec.init;
+    a1.addSource(GitURL("https://x/repo"), name: "a", git_ref: "17.0");
+    auto sa = a1.getSource("a").get;
+
+    // An independently-built source with identical key fields has an equal key
+    // and round-trips through an AA keyed by getKey() (exercises toHash+opEquals).
+    auto a2 = AssemblySpec.init;
+    a2.addSource(GitURL("https://x/repo"), name: "a", git_ref: "17.0");
+    auto sa_again = a2.getSource("a").get;
+
+    (sa.getKey() == sa_again.getKey()).shouldBeTrue;
+    int[typeof(sa.getKey())] registry;
+    registry[sa.getKey()] = 1;
+    ((sa_again.getKey() in registry) !is null).shouldBeTrue;
+
+    // name is part of identity: same url+ref, different name => different key.
+    auto b = AssemblySpec.init;
+    b.addSource(GitURL("https://x/repo"), name: "b", git_ref: "17.0");
+    auto sb = b.getSource("b").get;
+    (sb.getKey() == sa.getKey()).shouldBeFalse;
+    ((sb.getKey() in registry) !is null).shouldBeFalse;
+}
+
+// AA-key safety guard: fails to COMPILE if GitURL ever gains an opEquals without
+// a matching toHash. D enforces the pairing for a struct AA key and propagates
+// it through a containing struct — but not through a Tuple, so getKey()'s tuple
+// can't be the guard; GitURL and AssemblySpecSource (which contains it) can.
+unittest {
+    import unit_threaded.assertions;
+
+    int[GitURL] by_url;
+    by_url[GitURL("https://x/repo")] = 1;
+    (by_url.length).should == 1;
+
+    auto spec = AssemblySpec.init;
+    spec.addSource(GitURL("https://x/repo"), name: "a");
+    int[AssemblySpecSource] by_source;
+    by_source[spec.getSource("a").get] = 1;
+    (by_source.length).should == 1;
 }
 
 // Load assembly with addons only

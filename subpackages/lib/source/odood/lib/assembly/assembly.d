@@ -457,13 +457,43 @@ class Assembly {
     }
 
     /// Add source to assembly
-    void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
-        _spec.addSource(git_url: git_url, name: name,  git_ref: git_ref);
+    void addSource(in GitURL git_url, in string name=null, in string git_ref=null,
+            in string git_commit=null) {
+        _spec.addSource(
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
     }
 
     /// Add addon to assembly
     void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+    }
+
+    /// Remove an addon from assembly by name. No-op if absent.
+    void removeAddon(in string name) {
+        _spec.removeAddon(name);
+    }
+
+    /// Remove a source from assembly. Refuses if any addon references it.
+    void removeSource(in string name) {
+        _spec.removeSource(name);
+    }
+
+    /// ditto
+    void removeSource(in AssemblySpecSource source) {
+        _spec.removeSource(source);
+    }
+
+    /// ditto
+    void removeSource(in GitURL git_url, in string name=null,
+            in string git_ref=null, in string git_commit=null) {
+        _spec.removeSource(git_url, name, git_ref, git_commit);
+    }
+
+    /// Replace the source named `name` in place (re-pin); refuses a rename while
+    /// addons reference it.
+    void replaceSource(in string name, in GitURL git_url, in string new_name=null,
+            in string git_ref=null, in string git_commit=null) {
+        _spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
     }
 
     /** For each source, query the remote for tags matching the project's Odoo serie,
