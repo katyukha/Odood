@@ -41,6 +41,7 @@ struct OdooAddonManifest {
     string summary;
     OdooStdVersion module_version = OdooStdVersion("1.0");
     string author;
+    string website;
     string category;
     string description;
     string license="LGPL-3";
@@ -97,6 +98,8 @@ auto parseOdooManifest(in string manifest_content) {
         manifest.module_version = OdooStdVersion(val.convertPyToD!string);
     if (auto val = PyDict_GetItemString(parsed, "author".toStringz))
         manifest.author = val.convertPyToD!string;
+    if (auto val = PyDict_GetItemString(parsed, "website".toStringz))
+        manifest.website = val.convertPyToD!string;
     if (auto val = PyDict_GetItemString(parsed, "category".toStringz))
         manifest.category = val.convertPyToD!string;
     if (auto val = PyDict_GetItemString(parsed, "description".toStringz))

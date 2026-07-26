@@ -28,6 +28,8 @@ private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isG
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
+private import odood.utils.addons.addon_list:
+    addonListRows, renderMarkdownTable, renderCsv;
 private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
@@ -46,6 +48,10 @@ package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
 
 // Path to requirements lock file in assembly repo
 package(odood) immutable ASSEMBLY_REQUIREMENTS_LOCK = Path("requirements.lock.txt");
+
+// Paths to generated addon-list files in the assembly repo
+package(odood) immutable ASSEMBLY_ADDONS_MD_PATH = Path("ADDONS.md");
+package(odood) immutable ASSEMBLY_ADDONS_CSV_PATH = Path("ADDONS.csv");
 
 
 class Assembly {
@@ -383,6 +389,28 @@ class Assembly {
                 "Or, base revision to compare changes to have to be provided.");
     }
 
+    /** Generate ADDONS.md / ADDONS.csv listing the addons currently in dist.
+      *
+      * Params:
+      *    md  = generate ADDONS.md
+      *    csv = generate ADDONS.csv
+      **/
+    void generateAddonsList(in bool md=true, in bool csv=true) {
+        auto rows = addonListRows(findAddons(dist_dir));
+        if (md) {
+            infof("Assembly: Generating ADDONS.md ...");
+            auto md_path = path.join(ASSEMBLY_ADDONS_MD_PATH);
+            md_path.writeFile("### Addons list\n\n" ~ renderMarkdownTable(rows));
+            repo.add(md_path);
+        }
+        if (csv) {
+            infof("Assembly: Generating ADDONS.csv ...");
+            auto csv_path = path.join(ASSEMBLY_ADDONS_CSV_PATH);
+            csv_path.writeFile(renderCsv(rows));
+            repo.add(csv_path);
+        }
+    }
+
     void generateDockerfile() {
         infof("Assembly: Preparing Dockerfile...");
         auto assembly = this;
@@ -607,4 +635,12 @@ unittest {
     provider.ensured.shouldBeTrue;                                   // ensureSources was called
     assembly.dist_dir.join("my_addon").exists.shouldBeTrue;         // addon copied into dist
     assembly.dist_dir.join("my_addon", "__manifest__.py").exists.shouldBeTrue;
+
+    // generateAddonsList writes ADDONS.md / ADDONS.csv from the dist addons.
+    import std.algorithm: canFind;
+    assembly.generateAddonsList();
+    assembly.path.join("ADDONS.md").exists.shouldBeTrue;
+    assembly.path.join("ADDONS.csv").exists.shouldBeTrue;
+    assembly.path.join("ADDONS.md").readFileText.canFind("| my_addon |").shouldBeTrue;
+    assembly.path.join("ADDONS.csv").readFileText.canFind(`"my_addon"`).shouldBeTrue;
 }
