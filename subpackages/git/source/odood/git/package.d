@@ -17,6 +17,15 @@ public import odood.git.repository: GitRepository, GitTag;
 immutable string GIT_REF_WORKTREE = "-working-tree-";
 
 
+/** Base runner for git CLI with locale pinned to C, so git's output and
+  * error text is stable for parsing regardless of the user's locale.
+  * Caller-provided env applied on top (via withEnv) can still override it.
+  **/
+package(odood) auto gitProcess() {
+    return Process("git").withEnv("LC_ALL", "C");
+}
+
+
 /// Parse git url for further processing
 GitURL parseGitURL(in string url) {
     return GitURL(url);
@@ -43,7 +52,7 @@ GitRepository gitClone(
         "It seems that repo %s already clonned to %s!".format(repo, dest));
     infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
-    auto proc = Process("git")
+    auto proc = gitProcess
         .withEnv(env)
         .withArgs("clone");
     if (branch)
@@ -69,7 +78,7 @@ bool isGitRepo(in Path path) {
     if (path.join(".git").exists)
         return true;
 
-    const auto result = Process("git")
+    const auto result = gitProcess
         .withArgs("rev-parse", "--git-dir")
         .inWorkDir(path)
         .execute();
@@ -115,7 +124,7 @@ unittest {
   * Peeled dereference lines (`tag^{}`) are excluded by `--refs`.
   **/
 string[] gitListRemoteTags(in string url, in string[string] env = null) {
-    auto proc = Process("git")
+    auto proc = gitProcess
         .withArgs("ls-remote", "--refs", "--tags", url);
     if (env !is null && env.length > 0)
         proc = proc.withEnv(env);
@@ -155,7 +164,7 @@ package(odood) string[] parseLsRemoteTags(in string output) {
   * Returns branch names only (the `refs/heads/` prefix is stripped).
   **/
 string[] gitListRemoteBranches(in string url, in string[string] env = null) {
-    auto proc = Process("git")
+    auto proc = gitProcess
         .withArgs("ls-remote", "--heads", url);
     if (env !is null && env.length > 0)
         proc = proc.withEnv(env);
@@ -202,7 +211,7 @@ Path getGitTopLevel(in Path path) {
         path.isGitRepo,
         "Expected that %s is git repository".format(path));
     return Path(
-        Process("git")
+        gitProcess
             .inWorkDir(path)
             .withArgs("rev-parse", "--show-toplevel")
             .execute

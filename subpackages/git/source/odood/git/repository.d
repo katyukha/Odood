@@ -15,7 +15,7 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import theprocess;
-private import odood.git: getGitTopLevel, GIT_REF_WORKTREE, GitURL;
+private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
 
 
 /** Representation of result of `git status` command.
@@ -97,9 +97,12 @@ class GitRepository {
         return path;
     }
 
-    /// Preconfigured runner for git CLI
+    /// Preconfigured runner for git CLI.
+    /// Locale is pinned to C so git's output and error text is stable for
+    /// parsing regardless of the user's locale (an explicit LC_ALL in the
+    /// repo's env still wins, as _env is applied on top).
     auto gitCmd() const {
-        return Process("git")
+        return gitProcess
             .withEnv(_env)
             .inWorkDir(_path);
     }
@@ -112,7 +115,7 @@ class GitRepository {
       * Returns: GitRepository instance
       **/
     static auto initialize(in Path path) {
-        Process("git").withArgs("init", path.toString).execute.ensureOk(true);
+        gitProcess.withArgs("init", path.toString).execute.ensureOk(true);
         return new GitRepository(path);
     }
 
@@ -1144,7 +1147,6 @@ class GitRepository {
         // TODO: Split parsing of status output to separate method/function and add unittests for it.
         //       Or, may be move parsing to struct GitStatus
         auto status_str = gitCmd
-            .withEnv("LC_ALL", "C")
             .withArgs("status", "--untracked-files=all", "--porcelain", "--branch")
             .execute
             .ensureOk("Cannot get git status", true)

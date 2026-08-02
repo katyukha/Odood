@@ -5,7 +5,7 @@ private import std.regex: regex, matchFirst;
 private import std.exception: enforce;
 private import std.format: format;
 private import std.process: environment;
-private import std.string: startsWith;
+private import std.string: startsWith, endsWith, toLower;
 private import std.algorithm.iteration: splitter;
 
 private import thepath: Path;
@@ -128,6 +128,80 @@ struct GitURL {
 
         res ~= "/" ~ path;
         return res;
+    }
+
+    /** Normalized identity key of the repository this URL points to.
+      *
+      * Different spellings of the same remote — https vs ssh (scp form),
+      * with or without embedded credentials, trailing `.git` or a trailing
+      * slash — all collapse to one key of the form `host/path`, case-folded.
+      * Scheme, credentials, and port are ignored (the same repo is typically
+      * reachable over several transports). Local repositories key by their
+      * absolute path with case preserved (filesystem paths are
+      * case-sensitive), normalized only for trailing slashes.
+      *
+      * Intended for identity comparison and dictionary keys (see `sameRepo`);
+      * it is NOT a clonable URL.
+      **/
+    string normalizedKey() const {
+        string p = _path;
+        if (isLocal) {
+            while (p.length > 1 && p[$ - 1] == '/')
+                p = p[0 .. $ - 1];
+            return p;
+        }
+        while (p.length && p[0] == '/')
+            p = p[1 .. $];
+        while (p.length && p[$ - 1] == '/')
+            p = p[0 .. $ - 1];
+        if (p.endsWith(".git"))
+            p = p[0 .. $ - 4];
+        return (_host ~ "/" ~ p).toLower;
+    }
+
+    /** Check if this URL and `other` refer to the same repository,
+      * comparing their normalized keys (see `normalizedKey`).
+      **/
+    bool sameRepo(in GitURL other) const {
+        return normalizedKey == other.normalizedKey;
+    }
+
+    /// normalizedKey / sameRepo: spelling variants of one remote collapse.
+    unittest {
+        import unit_threaded.assertions;
+
+        const k = GitURL("https://github.com/oca/web").normalizedKey;
+        k.shouldEqual("github.com/oca/web");
+
+        // https / https+.git / scp-form ssh / trailing slash → one key.
+        GitURL("https://github.com/oca/web.git").normalizedKey.shouldEqual(k);
+        GitURL("git@github.com:oca/web.git").normalizedKey.shouldEqual(k);
+        GitURL("https://github.com/oca/web/").normalizedKey.shouldEqual(k);
+        // Embedded credentials and port do not change identity.
+        GitURL("https://user:secret@github.com/oca/web.git")
+            .normalizedKey.shouldEqual(k);
+        GitURL("ssh://git@github.com:2222/oca/web.git")
+            .normalizedKey.shouldEqual(k);
+        // Host and path are case-folded.
+        GitURL("https://GitHub.com/OCA/web").normalizedKey.shouldEqual(k);
+
+        // Different repo → different key.
+        GitURL("https://github.com/oca/server").normalizedKey.shouldNotEqual(k);
+
+        GitURL("git@github.com:oca/web.git")
+            .sameRepo(GitURL("https://github.com/oca/web")).shouldBeTrue;
+        GitURL("https://github.com/oca/web")
+            .sameRepo(GitURL("https://github.com/oca/server")).shouldBeFalse;
+
+        // Local repositories key by absolute path; trailing slash ignored,
+        // case preserved.
+        GitURL("file:///tmp/repo").normalizedKey.shouldEqual("/tmp/repo");
+        GitURL("file:///tmp/repo/").normalizedKey
+            .shouldEqual(GitURL("file:///tmp/repo").normalizedKey);
+        GitURL(Path("/tmp/Repo")).normalizedKey.shouldEqual("/tmp/Repo");
+        // A local path never collides with a remote key.
+        GitURL(Path("/tmp/repo"))
+            .sameRepo(GitURL("https://github.com/tmp/repo")).shouldBeFalse;
     }
 
     /** Split path on segments
