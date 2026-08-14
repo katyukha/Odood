@@ -514,7 +514,9 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
                 "Use --ignore-unfinished-updates to proceed anyway.");
     }
 
-    protected auto findAddons(in Project project) {
+    /** Predicate over addon names implementing --skip / --skip-re / --skip-file.
+      **/
+    protected bool delegate(in string) buildSkipFilter(in Project project) {
         string[] skip_addons = skip;
         auto skip_regexes = skipRe.map!(r => regex(r)).array;
 
@@ -522,47 +524,58 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             foreach(a; project.addons.parseAddonsList(path))
                 skip_addons ~= a.name;
 
+        return (in string name) =>
+            skip_addons.canFind(name) ||
+            skip_regexes.canFind!((re, n) => !n.matchFirst(re).empty)(name);
+    }
+
+    /** Addons selected by the disk-based options (--dir, --dir-r, -f/--file,
+      * --assembly), with the skip filter applied. Plain addon-name arguments
+      * are NOT included here — their resolution policy differs per command
+      * (see findAddons and CommandAddonsUninstall).
+      **/
+    protected OdooAddon[] scanAddons(
+            in Project project, bool delegate(in string) skip_filter) {
         OdooAddon[] addons;
         foreach(search_path; dir)
-            foreach(a; project.addons.scan(search_path, false)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
+            foreach(a; project.addons.scan(search_path, false))
+                if (!skip_filter(a.name))
+                    addons ~= a;
 
         foreach(search_path; dirR)
-            foreach(a; project.addons.scan(search_path, true)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
+            foreach(a; project.addons.scan(search_path, true))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+
+        foreach(path; file)
+            foreach(a; project.addons.parseAddonsList(path))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+
+        if (assembly) {
+            enforce!OdoodCLIException(
+                project.assembly !is null,
+                "No assembly configured for this project!");
+            foreach(a; project.addons.scan(path: project.assembly.raw.dist_dir, recursive: true))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+        }
+
+        return addons;
+    }
+
+    protected auto findAddons(in Project project) {
+        auto skip_filter = buildSkipFilter(project);
+        auto addons = scanAddons(project, skip_filter);
 
         foreach(addon_name; addonNames) {
-            if (skip_addons.canFind(addon_name)) continue;
-            if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(addon_name)) continue;
+            if (skip_filter(addon_name)) continue;
 
             auto a = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
                 !a.isNull,
                 "Cannot find addon %s!".format(addon_name));
             addons ~= a.get;
-        }
-        foreach(path; file) {
-            foreach(a; project.addons.parseAddonsList(path)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
-        }
-        if (assembly) {
-            enforce!OdoodCLIException(
-                project.assembly !is null,
-                "No assembly configured for this project!");
-            foreach(a; project.addons.scan(path: project.assembly.raw.dist_dir, recursive: true)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
         }
 
         return addons;
@@ -686,8 +699,46 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
     override int execute() {
         auto project = Project.loadProject;
 
+        // Uninstall is a database-side operation: Odoo uninstalls modules by
+        // name whether or not their code is still present. So a plain addon
+        // name must work even when the addon is gone from disk — that is the
+        // primary cleanup case (repo removed, module still installed in the
+        // database). Disk-based selectors (--dir, --dir-r, -f, --assembly)
+        // still resolve by scanning.
+        auto skip_filter = buildSkipFilter(project);
+        string[] names;
+        foreach(a; scanAddons(project, skip_filter))
+            names ~= a.name;
+        foreach(addon_name; addonNames) {
+            if (skip_filter(addon_name)) continue;
+
+            auto a = project.addons.getByString(addon_name);
+            if (a.isNull) {
+                warningf(
+                    "Addon '%s' not found on disk. " ~
+                    "It will be uninstalled by name from the database(s).",
+                    addon_name);
+                names ~= addon_name;
+            } else {
+                names ~= a.get.name;
+            }
+        }
+
         applyForDatabases(project, (in string dbname) {
-            project.addons.uninstall(dbname, findAddons(project));
+            auto db = project.dbSQL(dbname);
+            string[] to_uninstall;
+            foreach(name; names)
+                if (db.isAddonInstalled(name))
+                    to_uninstall ~= name;
+                else
+                    warningf(
+                        "Addon '%s' is not installed in database '%s'. Skipping.",
+                        name, dbname);
+            if (to_uninstall.empty) {
+                infof("Nothing to uninstall in database '%s'.", dbname);
+                return;
+            }
+            project.addons.uninstall(dbname, to_uninstall);
         });
         return 0;
     }

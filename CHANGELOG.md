@@ -11,6 +11,13 @@
   Could be used to maintain readable list of addons available in assembly.
 - `odood repo release` and `odood repo hotfix release` now got `-n`/`--dry-run` options
 
+### Fixed
+
+- Now it is possible to `uninstall` from database addon that is not availble on disk
+  (for example because it was removed)
+
+---
+
 ## Release 0.6.4 (2026-07-09)
 
 ### Added
