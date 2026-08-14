@@ -1108,11 +1108,29 @@ struct OdooTestRunner {
                 _test_migration_repo.fetchTag(tag);
                 _test_migration_repo.switchBranchTo(tag);
             } else if (_test_migration_start_ref) {
+                _test_migration_repo.fetchOrigin();
+                // Prefer the origin/-qualified spelling: a local branch of
+                // the same name may be stale (fetch only advances origin/*),
+                // while tags and commit hashes have no origin/ form and fall
+                // through to the plain spelling.
+                string start_ref;
+                foreach(candidate; [
+                        "origin/" ~ _test_migration_start_ref,
+                        _test_migration_start_ref])
+                    if (_test_migration_repo.tryRevParse(candidate).length > 0) {
+                        start_ref = candidate;
+                        break;
+                    }
+                enforce!OdoodException(
+                    start_ref.length > 0,
+                    ("Migration start ref '%s' does not resolve in repository " ~
+                     "%s (tried both 'origin/%s' and '%s' after fetch).").format(
+                        _test_migration_start_ref, _test_migration_repo.path,
+                        _test_migration_start_ref, _test_migration_start_ref));
                 infof(
                     "Switching to %s ref before running migration tests...",
-                    _test_migration_start_ref);
-                _test_migration_repo.fetchOrigin();
-                _test_migration_repo.switchBranchTo(_test_migration_start_ref);
+                    start_ref);
+                _test_migration_repo.switchBranchTo(start_ref);
             } else {
                 infof(
                     "Switching to origin/%s ref before running migration tests...",

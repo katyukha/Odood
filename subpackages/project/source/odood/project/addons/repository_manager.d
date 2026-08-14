@@ -3,7 +3,7 @@ module odood.project.addons.repository_manager;
 private import std.logger: warningf;
 private import std.string: toLower;
 private import std.algorithm: map;
-private import std.array: array;
+private import std.array: array, split;
 private import std.exception: enforce;
 private import std.format: format;
 
@@ -100,9 +100,16 @@ struct RepositoryManager {
 
         auto git_url = parseGitURL(url);
 
-        // TODO: Handle .git suffix here. chomp it
+        // A credential embedded in the URL would be stored in the clear in
+        // the clone's git config and echoed in git's own error messages.
+        enforce!OdoodException(
+            !git_url.hasCredentials,
+            ("Cannot add repository '%s': the URL contains embedded " ~
+             "credentials. Use SSH or a git credential helper instead.").format(
+                git_url));
+
         auto dest = _project.directories.repositories.join(
-                git_url.toPathSegments.map!((p) => p.toLower).array);
+                git_url.repoName.toLower.split("/"));
 
         if (dest.exists) {
             warningf(

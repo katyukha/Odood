@@ -165,6 +165,79 @@ class GitRepository {
             "Commit mismatch: expected %s, HEAD is %s".format(expected, actual));
     }
 
+    /** Resolve `commitish` to a commit SHA in this repository.
+      *
+      * A non-throwing probe: lets a caller pick between a plain ref and its
+      * `origin/`-qualified spelling before acting on it. Annotated tags are
+      * peeled to the tagged commit.
+      *
+      * Returns:
+      *     Full SHA of the commit, or an empty string when `commitish`
+      *     does not resolve.
+      **/
+    string tryRevParse(in string commitish) const {
+        auto result = gitCmd
+            .withArgs(
+                "rev-parse", "--verify", "--quiet", commitish ~ "^{commit}")
+            .execute();
+        if (result.status != 0)
+            return "";
+        return result.output.strip();
+    }
+
+    /** Check if `ancestor` is reachable from `descendant` — i.e. whether the
+      * former has been merged into the latter (`git merge-base --is-ancestor`).
+      *
+      * A ref that does not resolve answers false rather than throwing, since
+      * callers ask about refs that may have vanished.
+      **/
+    bool isAncestor(in string ancestor, in string descendant) const {
+        if (tryRevParse(ancestor).empty || tryRevParse(descendant).empty)
+            return false;
+        return gitCmd
+            .withArgs("merge-base", "--is-ancestor", ancestor, descendant)
+            .execute()
+            .isOk;
+    }
+
+    /// Test tryRevParse + isAncestor
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("v1");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable first = repo.getCurrCommit;
+
+        // Annotated tag on the first commit — must peel to that commit.
+        repo.setTag("17.0.1.0.0");
+
+        repo.path.join("f.txt").writeFile("v2");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("second");
+        immutable second = repo.getCurrCommit;
+
+        repo.tryRevParse("HEAD").shouldEqual(second);
+        repo.tryRevParse("17.0.1.0.0").shouldEqual(first);
+        repo.tryRevParse(first).shouldEqual(first);
+        repo.tryRevParse("no-such-ref").shouldEqual("");
+
+        repo.isAncestor(first, second).shouldBeTrue;
+        repo.isAncestor(second, first).shouldBeFalse;
+        // A commit is its own ancestor.
+        repo.isAncestor(first, first).shouldBeTrue;
+        // Tag spelling works as either side.
+        repo.isAncestor("17.0.1.0.0", "HEAD").shouldBeTrue;
+        // Unresolvable refs answer false, not an error.
+        repo.isAncestor("no-such-ref", "HEAD").shouldBeFalse;
+        repo.isAncestor("HEAD", "no-such-ref").shouldBeFalse;
+    }
+
     /** Fetch remote 'origin'
       *
       * Params:

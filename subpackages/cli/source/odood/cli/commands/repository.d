@@ -20,7 +20,7 @@ private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.repository:
     AddonRepository, PrepareReleaseResult,
-    ChangelogRequirement, ChangelogCheckResult;
+    ChangelogRequirement, ChangelogCheckResult, renderChangelog;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
@@ -446,6 +446,13 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
 
         repo.fetchOrigin(source);
 
+        if (repo.isAncestor("origin/%s".format(source), "HEAD")) {
+            infof(
+                "Branch 'origin/%s' is already merged into the current branch. "
+                ~ "Nothing to forward-port.", source);
+            return 0;
+        }
+
         if (!repo.gitCmd
                 .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source))
                 .execute.isOk)
@@ -607,6 +614,7 @@ class CommandRepositoryRelease: OdoodCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
     Nullable!string commitEmail;
@@ -631,6 +639,9 @@ class CommandRepositoryRelease: OdoodCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(dryRun)("n", "dry-run",
+            "Only show what would be released; do not tag, commit, or push. "
+            ~ "Combined with --changelog, also prints the changelog preview.");
         this.addOption!(commitMessage)("", "commit-message",
             "Commit message for the changelog commit (default: 'Release <version>').");
         this.addOption!(commitUser)("", "commit-user",
@@ -680,6 +691,10 @@ class CommandRepositoryRelease: OdoodCommand {
                 "--changelog is not valid with --initial (no changes to report).");
 
             auto new_version = repo.initialRelease(project.odoo.serie);
+            if (dryRun) {
+                infof("Would create tag: %s", new_version);
+                return 0;
+            }
             repo.setTag(new_version.toString);
             infof("Created tag: %s", new_version);
 
@@ -691,6 +706,24 @@ class CommandRepositoryRelease: OdoodCommand {
         }
 
         repo.fetchOrigin(serie_str);
+
+        // The branch-name guard above cannot see whether the local branch
+        // actually carries the remote state: releasing from a branch that is
+        // behind origin would tag an outdated tree.
+        immutable remote_ref = "origin/" ~ serie_str;
+        if (on_stable
+                && repo.tryRevParse(remote_ref).length > 0
+                && !repo.isAncestor(remote_ref, "HEAD")) {
+            enforce!OdoodCLIException(
+                !push,
+                ("Local branch '%s' is behind '%s'. "
+                ~ "Pull the latest changes before releasing with --push.").format(
+                    serie_str, remote_ref));
+            warningf(
+                "Local branch '%s' does not include the latest commits from "
+                ~ "'%s'. The release will not cover them.",
+                serie_str, remote_ref);
+        }
 
         Nullable!VersionPart override_part;
         if (major)
@@ -709,6 +742,15 @@ class CommandRepositoryRelease: OdoodCommand {
             infof("Nothing to release: no changed addons detected.");
             if (failNothingToRelease)
                 exitWith(1);
+            return 0;
+        }
+
+        if (dryRun) {
+            infof("Would release version %s.", result.get.new_version);
+            if (changelog) {
+                infof("Changelog preview:");
+                writeln(renderChangelog(result.get.addon_changes));
+            }
             return 0;
         }
 
@@ -918,6 +960,7 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
     Nullable!string commitEmail;
@@ -934,6 +977,9 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(dryRun)("n", "dry-run",
+            "Only show what would be released; do not tag, commit, or push. "
+            ~ "Combined with --changelog, also prints the changelog preview.");
         this.addOption!(commitMessage)("", "commit-message",
             "Commit message for the changelog commit (default: 'Release <version>').");
         this.addOption!(commitUser)("", "commit-user",
@@ -959,6 +1005,15 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
             infof("Nothing to release: no changed addons detected.");
             if (failNothingToRelease)
                 exitWith(1);
+            return 0;
+        }
+
+        if (dryRun) {
+            infof("Would release version %s.", result.get.new_version);
+            if (changelog) {
+                infof("Changelog preview:");
+                writeln(renderChangelog(result.get.addon_changes));
+            }
             return 0;
         }
 

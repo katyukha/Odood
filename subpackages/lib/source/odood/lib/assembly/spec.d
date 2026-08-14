@@ -289,6 +289,14 @@ struct AssemblySpec {
             git_commit.empty || !git_ref.empty,
             "Cannot pin source '%s' to commit '%s' without a ref".format(
                 git_url, git_commit));
+        // The spec is committed to git — a credential embedded in a source
+        // URL would be persisted in the clear. Credentials go out-of-band.
+        enforce!OdoodAssemblyInvalidSpecException(
+            !git_url.hasCredentials,
+            ("Cannot add source '%s': the URL contains embedded credentials. " ~
+             "odood-assembly.yml is committed to git — configure access via " ~
+             "the ODOOD_ASSEMBLY_<name>_CRED environment variable instead.").format(
+                git_url));
         foreach(source; _sources)
             if (source.git_url == git_url && source.name == name
                     && source.git_ref == git_ref && source.git_commit == git_commit)

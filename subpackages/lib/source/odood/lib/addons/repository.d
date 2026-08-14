@@ -658,13 +658,7 @@ class AddonRepository : GitRepository{
     void generateChangelog(in PrepareReleaseResult result) {
         infof("Generating changelog for release %s ...", result.new_version);
 
-        // Local alias required: darktemple binds template arg names to template vars.
-        // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
-        auto changes = result.addon_changes;
-        auto release_date = cast(DateTime)Clock.currTime();
-        auto changelog_text = renderFile!(
-            "templates/repository/changelog.md.tmpl",
-            changes, release_date);
+        auto changelog_text = renderChangelog(result.addon_changes);
 
         auto changelog_path = path.join("CHANGELOG.md");
         auto changelog_latest_path = path.join("CHANGELOG.latest.md");
@@ -689,6 +683,22 @@ class AddonRepository : GitRepository{
         add(changelog_path);
         infof("Changelog generated.");
     }
+}
+
+
+/** Render the changelog section for a set of addon changes — the exact text
+  * `AddonRepository.generateChangelog` writes, without touching any files.
+  * Lets callers preview a release (or a diff between arbitrary refs) with no
+  * risk of the preview drifting from the published file.
+  **/
+string renderChangelog(in AddonRepositoryChanges changes_) {
+    // Local alias required: darktemple binds template arg names to template vars.
+    // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
+    auto changes = changes_;
+    auto release_date = cast(DateTime)Clock.currTime();
+    return renderFile!(
+        "templates/repository/changelog.md.tmpl",
+        changes, release_date);
 }
 
 unittest {

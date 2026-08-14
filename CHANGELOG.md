@@ -9,6 +9,7 @@
 - `odood assembly sync` now supports `--addons-list-md` and `--addons-list-csv`
   to generate `ADDONS.md` / `ADDONS.csv` listing the assembly's addons.
   Could be used to maintain readable list of addons available in assembly.
+- `odood repo release` and `odood repo hotfix release` now got `-n`/`--dry-run` options
 
 ## Release 0.6.4 (2026-07-09)
 
