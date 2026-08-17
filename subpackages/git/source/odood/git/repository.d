@@ -532,6 +532,65 @@ class GitRepository {
         cmd.execute().ensureStatus(true);
     }
 
+    /** Create branch `branch_name` at `start_point` and switch to it,
+      * resetting the branch to `start_point` if it already exists.
+      *
+      * The create-or-reset counterpart of `createBranch` (which refuses to
+      * touch an existing branch). DESTRUCTIVE for an existing branch: its
+      * pointer is moved to `start_point`, so commits not reachable from
+      * there are discarded (same caveat as `resetBranchToRemote`, which is
+      * built on this method).
+      *
+      * When start_point is null (default), a missing branch is created from
+      * the current HEAD and an existing one is reset to the current HEAD.
+      *
+      * Equivalent to: git checkout -B <branch_name> [start_point]
+      **/
+    void checkoutBranchAt(in string branch_name, in string start_point = null) const {
+        auto cmd = gitCmd.withArgs("checkout", "-B", branch_name);
+        if (start_point !is null)
+            cmd.addArgs(start_point);
+        cmd.execute().ensureStatus(true);
+    }
+
+    /// Test checkoutBranchAt (create-or-reset)
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("v1");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable first = repo.getCurrCommit;
+        immutable main_branch = repo.getCurrBranch.get;
+
+        repo.path.join("f.txt").writeFile("v2");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("second");
+        immutable second = repo.getCurrCommit;
+
+        // Creates a missing branch (at HEAD when no start point is given).
+        repo.hasLocalBranch("work").shouldBeFalse;
+        repo.checkoutBranchAt("work");
+        repo.getCurrBranch.get.should == "work";
+        repo.getCurrCommit.should == second;
+
+        // createBranch (-b) refuses to touch an existing branch...
+        repo.createBranch("work").shouldThrow;
+        // ...while checkoutBranchAt resets it to the given start point.
+        repo.checkoutBranchAt("work", first);
+        repo.getCurrBranch.get.should == "work";
+        repo.getCurrCommit.should == first;
+
+        // Other branches are untouched by the reset.
+        repo.switchBranchTo(main_branch);
+        repo.getCurrCommit.should == second;
+    }
+
     /** Check whether `remote` has a branch named `name`.
       *
       * Queries the remote directly via `git ls-remote`, so the result does not
@@ -620,10 +679,7 @@ class GitRepository {
                 "%s:refs/remotes/%s/%s".format(name, remote, name))
             .execute
             .ensureStatus(true);
-        gitCmd
-            .withArgs("checkout", "-B", name, "%s/%s".format(remote, name))
-            .execute
-            .ensureStatus(true);
+        checkoutBranchAt(name, "%s/%s".format(remote, name));
     }
 
     /** Checkout specific files to specific version
