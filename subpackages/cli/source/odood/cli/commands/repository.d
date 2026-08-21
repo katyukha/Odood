@@ -453,10 +453,12 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
             return 0;
         }
 
-        if (!repo.gitCmd
-                .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source))
-                .execute.isOk)
+        if (!repo.merge("origin/%s".format(source), no_ff: true, no_commit: true))
             warningf("Merge failed, there are conflicts. Please, resolve them manually");
+        else if (!repo.status.hasStagedChanges)
+            infof(
+                "Merge of 'origin/%s' brought no changes. Nothing to forward-port.",
+                source);
 
         repo.gitCmd
             .withArgs("reset", "-q", "--", "*.po", "*.pot")

@@ -429,7 +429,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
         src.setTag("17.0.1.0.0");
         src.pushTag("17.0.1.0.0");
@@ -470,7 +470,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
 
         src.createBranch("hotfix/18.0.1.0.x");
@@ -512,7 +512,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
         immutable default_branch = src.getCurrBranch.get;
         immutable sha_default = src.getCurrCommit;
@@ -615,6 +615,22 @@ class GitRepository {
     /// ditto
     auto getRemoteUrl() const {
         return getRemoteUrl("origin");
+    }
+
+    /** Register remote `name` at `url` (`git remote add`) — for repositories
+      * created locally (e.g. assembly bootstrap) rather than cloned.
+      **/
+    void remoteAdd(in string name, in string url) const {
+        gitCmd
+            .withArgs("remote", "add", name, url)
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .ensureOk("Cannot add remote '%s' at '%s'".format(name, url), true);
+    }
+
+    /// ditto. Uses the clone-ready URL form (credentials included).
+    void remoteAdd(in string name, in GitURL url) const {
+        remoteAdd(name, url.toUrl);
     }
 
     /** Check if repo has local branch with specified name
@@ -801,6 +817,142 @@ class GitRepository {
         checkoutBranchAt(name, "%s/%s".format(remote, name));
     }
 
+    /** Merge `merge_ref` into the current branch.
+      *
+      * A conflict is an expected outcome, not an exception: the method
+      * returns false on it, and `abort_on_conflict` selects the tree state
+      * left behind.
+      *
+      * Params:
+      *     merge_ref = ref to merge (branch, tag, or commit). Must resolve
+      *         in this repository — an unresolvable ref throws instead of
+      *         being reported as a conflict.
+      *     no_ff = always create a merge commit instead of fast-forwarding
+      *         (`--no-ff`). Rejected in combination with `squash`.
+      *     no_commit = stage the merge result without committing
+      *         (`--no-commit`) — the caller reviews and commits.
+      *     squash = stage the cumulative diff of `merge_ref` without
+      *         committing and without recording a merge (`--squash`) — the
+      *         caller commits it as ONE commit.
+      *     abort_on_conflict = on conflict, restore a clean tree via
+      *         `git reset --merge` (works for both regular merges and
+      *         `--squash`, which writes no MERGE_HEAD, making `merge
+      *         --abort` unavailable). DESTRUCTIVE to staged state — callers
+      *         using it should start from a clean tree. When false,
+      *         conflicts are left in place for manual resolution.
+      *
+      * Returns:
+      *     true when the merge succeeded — including "nothing to do": after
+      *     a `no_commit`/`squash` merge, true with
+      *     `status().hasStagedChanges == false` means `merge_ref` carried no
+      *     net change. false on conflict.
+      **/
+    bool merge(
+            in string merge_ref,
+            in bool no_ff = false,
+            in bool no_commit = false,
+            in bool squash = false,
+            in bool abort_on_conflict = false) const {
+        enforce!OdoodException(
+            !(squash && no_ff),
+            "Cannot merge with both squash and no_ff: " ~
+            "git rejects --squash together with --no-ff.");
+        enforce!OdoodException(
+            !tryRevParse(merge_ref).empty,
+            "Cannot merge '%s': it does not resolve to a commit in this repository.".format(
+                merge_ref));
+
+        auto cmd = gitCmd.withArgs("merge");
+        if (no_ff) cmd.addArgs("--no-ff");
+        if (no_commit) cmd.addArgs("--no-commit");
+        if (squash) cmd.addArgs("--squash");
+        cmd.addArgs(merge_ref);
+        if (cmd.execute.isOk)
+            return true;
+
+        if (abort_on_conflict)
+            // Best-effort: cleanup must not mask the merge outcome.
+            gitCmd.withArgs("reset", "--merge").execute();
+        return false;
+    }
+
+    /// Test merge: clean/ff, no_commit, squash, conflict policies, bad args
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("base\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable main_branch = repo.getCurrBranch.get;
+        immutable initial = repo.getCurrCommit;
+
+        // Feature branch with a non-conflicting change (separate file).
+        repo.createBranch("feature");
+        repo.path.join("feature.txt").writeFile("feature\n");
+        repo.add(repo.path.join("feature.txt"));
+        repo.commit("feature");
+        immutable feature_sha = repo.getCurrCommit;
+        repo.switchBranchTo(main_branch);
+
+        // Invalid combination and unresolvable ref throw (not "conflict").
+        repo.merge("feature", squash: true, no_ff: true)
+            .shouldThrow!OdoodException;
+        repo.merge("no-such-ref").shouldThrow!OdoodException;
+
+        // no_commit merge: stages the result, creates no commit.
+        repo.merge("feature", no_ff: true, no_commit: true).shouldBeTrue;
+        repo.getCurrCommit.should == initial;
+        repo.status.hasStagedChanges.shouldBeTrue;
+        repo.gitCmd.withArgs("reset", "--merge").execute.ensureOk(true);
+
+        // Plain merge fast-forwards when possible.
+        repo.merge("feature").shouldBeTrue;
+        repo.getCurrCommit.should == feature_sha;
+
+        // Prepare a conflict: same line changed on both branches.
+        repo.createBranch("conflicting");
+        repo.path.join("f.txt").writeFile("theirs\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("theirs");
+        repo.switchBranchTo(main_branch);
+        repo.path.join("f.txt").writeFile("ours\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("ours");
+        immutable ours_sha = repo.getCurrCommit;
+
+        // Conflict without cleanup: false, conflicts left for manual resolution.
+        repo.merge("conflicting").shouldBeFalse;
+        repo.status.hasConflicts.shouldBeTrue;
+        repo.gitCmd.withArgs("merge", "--abort").execute.ensureOk(true);
+
+        // Conflict with cleanup: false, tree restored clean, HEAD unmoved.
+        repo.merge("conflicting", abort_on_conflict: true).shouldBeFalse;
+        repo.status.isClean.shouldBeTrue;
+        repo.getCurrCommit.should == ours_sha;
+
+        // Squash of a conflicting branch with cleanup behaves the same.
+        repo.merge("conflicting", squash: true, abort_on_conflict: true)
+            .shouldBeFalse;
+        repo.status.isClean.shouldBeTrue;
+
+        // Squash of a clean branch: stages the diff, HEAD unmoved.
+        repo.createBranch("sq");
+        repo.path.join("sq.txt").writeFile("sq\n");
+        repo.add(repo.path.join("sq.txt"));
+        repo.commit("sq change");
+        repo.switchBranchTo(main_branch);
+        repo.merge("sq", squash: true).shouldBeTrue;
+        repo.getCurrCommit.should == ours_sha;
+        repo.status.hasStagedChanges.shouldBeTrue;
+        repo.commit("squashed");
+        repo.path.join("sq.txt").exists.shouldBeTrue;
+    }
+
     /** Checkout specific files to specific version
       **/
     void checkoutFile(in string branch_name, in bool force, in Path[] paths...) const
@@ -952,7 +1104,7 @@ class GitRepository {
         repo.commit("Init");
 
         // Point origin at the bare remote and push the initial branch
-        repo.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        repo.remoteAdd("origin", remote_path.toString);
         repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
 
         // No tags yet
