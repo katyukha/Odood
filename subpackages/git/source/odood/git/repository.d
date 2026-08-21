@@ -5,7 +5,7 @@ private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith, filter;
-private import std.array: array, split;
+private import std.array: array, split, join;
 private import std.regex: regex, matchFirst;
 private import std.conv: to;
 private static import std.process;
@@ -173,6 +173,87 @@ protected struct GitStatus {
 struct GitTag {
     string name;
     string sha;
+}
+
+/** One git ref as reported by `for-each-ref` (see `GitRepository.listRefs`).
+  **/
+struct GitRef {
+    /// Short ref name (e.g. "origin/main", "17.0.1.0.0").
+    string name;
+    /// The object the ref points at (for an annotated tag: the tag object).
+    string sha;
+    /// For annotated tags: the tagged commit. Empty otherwise.
+    string peeled_sha;
+    /// Creation date as unix timestamp: committer date for commits, tagger
+    /// date for annotated tags — i.e. when a release was cut, whoever cut
+    /// it. 0 = unknown.
+    long date = 0;
+    /// Author of the commit, or tagger of an annotated tag. "" if unknown.
+    string author;
+    /// Subject line of the commit/tag message.
+    string subject;
+
+    /// The commit this ref ultimately points at (peeled for annotated tags).
+    string commit_sha() const => peeled_sha.length > 0 ? peeled_sha : sha;
+
+    /* %09 = tab. Control characters are forbidden in refnames, so tab is a
+     * safe field separator; the subject (which MAY contain tabs) goes last,
+     * so a tab inside it cannot shift the other columns.
+     */
+    package(odood) enum FORMAT =
+        "%(refname:short)%09%(objectname)%09%(*objectname)%09" ~
+        "%(creatordate:unix)%09%(authorname)%09%(taggername)%09%(subject)";
+
+    /** Parse one line of `for-each-ref` output produced with `FORMAT`.
+      *
+      * Returns: null result for an unparsable line; an unparsable date
+      *     yields 0.
+      **/
+    static Nullable!GitRef parse(in string line) {
+        auto parts = line.split("\t");
+        if (parts.length < 7 || parts[0].length == 0)
+            return Nullable!GitRef.init;
+        GitRef r;
+        r.name = parts[0];
+        r.sha = parts[1];
+        r.peeled_sha = parts[2];
+        try r.date = parts[3].to!long;
+        catch (Exception) r.date = 0;
+        // A commit has an author; an annotated tag has a tagger.
+        r.author = parts[4].length > 0 ? parts[4] : parts[5];
+        r.subject = parts[6 .. $].join("\t");
+        return r.nullable;
+    }
+
+    unittest {
+        import unit_threaded.assertions;
+
+        // Branch head: commit → no peeled sha, author set, no tagger.
+        with (GitRef.parse("origin/main\tsha-a\t\t1700000000\tAlice\t\tInitial commit").get) {
+            name.shouldEqual("origin/main");
+            sha.shouldEqual("sha-a");
+            peeled_sha.shouldEqual("");
+            commit_sha.shouldEqual("sha-a");
+            date.shouldEqual(1700000000);
+            author.shouldEqual("Alice");
+            subject.shouldEqual("Initial commit");
+        }
+
+        // Annotated tag: peeled sha set, tagger set, no author; the subject
+        // contains a tab that must survive (subject is the LAST field).
+        with (GitRef.parse("17.0.1.0.0\tsha-tag\tsha-commit\t1700000001\t\tBob\tRelease\t17.0.1.0.0").get) {
+            commit_sha.shouldEqual("sha-commit");       // peeled
+            author.shouldEqual("Bob");                  // tagger fallback
+            subject.shouldEqual("Release\t17.0.1.0.0"); // tab preserved
+        }
+
+        // Unparsable date yields 0 instead of throwing.
+        GitRef.parse("t\ts\t\tnot-a-date\tA\t\tmsg").get.date.shouldEqual(0);
+
+        // Unparsable lines yield a null result.
+        GitRef.parse("broken line without tabs").isNull.shouldBeTrue;
+        GitRef.parse("").isNull.shouldBeTrue;
+    }
 }
 
 /** Simple class to manage git repositories
@@ -1035,32 +1116,132 @@ class GitRepository {
         return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
     }
 
-    /** List all local tags together with the commit each points at.
+    /** List refs matching `pattern` — e.g. `refs/tags` or
+      * `refs/remotes/origin` — in one `for-each-ref` call, without a
+      * checkout. See `GitRef` for the reported fields.
       *
-      * Annotated tags are peeled to the tagged commit (`%(*objectname)`);
-      * for lightweight tags the ref itself is the commit. See `GitTag`.
+      * Reflects LOCAL refs: remote-tracking refs and tags are only as fresh
+      * as the last fetch (unlike the live `ls-remote`-based queries such as
+      * `listRemoteBranches`/`listRemoteTags`).
       **/
-    GitTag[] listTags() const {
-        // %09 = tab. Control characters are forbidden in refnames, so tab is
-        // a safe field separator. The peeled field is empty for lightweight
-        // tags.
+    GitRef[] listRefs(in string pattern) const {
         auto output = gitCmd
-            .withArgs(
-                "for-each-ref", "refs/tags",
-                "--format=%(refname:short)%09%(objectname)%09%(*objectname)")
+            .withArgs("for-each-ref", pattern, "--format=" ~ GitRef.FORMAT)
             .execute
             .ensureOk(true)
             .output;
-        GitTag[] res;
+        GitRef[] res;
         foreach(line; output.splitLines) {
-            auto parts = line.split("\t");
-            if (parts.length < 3)
-                continue;
-            res ~= GitTag(
-                parts[0],
-                parts[2].length > 0 ? parts[2] : parts[1]);
+            auto r = GitRef.parse(line);
+            if (!r.isNull)
+                res ~= r.get;
         }
         return res;
+    }
+
+    /** Last commit of every branch of `remote`, read from its remote-tracking
+      * refs in one call and without a checkout. Requires a prior fetch.
+      *
+      * Returned `GitRef.name`s are bare branch names (the "<remote>/" prefix
+      * is stripped); the symbolic `<remote>/HEAD` entry is excluded.
+      **/
+    GitRef[] branchHeads(in string remote = "origin") const {
+        GitRef[] res;
+        immutable prefix = remote ~ "/";
+        foreach(r; listRefs("refs/remotes/" ~ remote)) {
+            // Skip the symbolic <remote>/HEAD ref — it is not a branch. Note
+            // that refname:short renders it as just "<remote>" (a branch
+            // actually named like the remote would render "<remote>/<name>",
+            // so it is not shadowed by this check).
+            if (r.name == remote || r.name == prefix ~ "HEAD")
+                continue;
+            r.name = r.name.chompPrefix(prefix);
+            res ~= r;
+        }
+        return res;
+    }
+
+    /** List all local tags together with the commit each points at.
+      *
+      * Annotated tags are peeled to the tagged commit; for lightweight tags
+      * the ref itself is the commit. See `GitTag`. For tag dates and
+      * messages, use `listRefs("refs/tags")` directly.
+      **/
+    GitTag[] listTags() const {
+        GitTag[] res;
+        foreach(r; listRefs("refs/tags"))
+            res ~= GitTag(r.name, r.commit_sha);
+        return res;
+    }
+
+    /// Test listRefs + branchHeads on a real repository
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial commit");
+        src.remoteAdd("origin", remote_path.toString);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable default_branch = src.getCurrBranch.get;
+        immutable sha_initial = src.getCurrCommit;
+
+        src.setTag("17.0.1.0.0", "Release 17.0.1.0.0");
+
+        src.createBranch("feature/x");
+        src_path.join("f2.txt").writeFile("f2");
+        src.add(src_path.join("f2.txt"));
+        src.commit("feature commit");
+        immutable sha_feature = src.getCurrCommit;
+        src.gitCmd.withArgs("push", "-u", "origin", "feature/x").execute.ensureOk(true);
+
+        // Tags via listRefs: the annotated tag is peeled, date/author/subject
+        // are populated from the tag object.
+        auto tag_refs = src.listRefs("refs/tags");
+        tag_refs.length.shouldEqual(1);
+        with (tag_refs[0]) {
+            name.shouldEqual("17.0.1.0.0");
+            sha.shouldNotEqual(sha_initial);        // the tag object itself
+            peeled_sha.shouldEqual(sha_initial);
+            commit_sha.shouldEqual(sha_initial);
+            (date > 0).shouldBeTrue;
+            (author.length > 0).shouldBeTrue;       // tagger
+            subject.shouldEqual("Release 17.0.1.0.0");
+        }
+
+        // listTags still agrees with listRefs after the refactor.
+        src.listTags().shouldEqual([GitTag("17.0.1.0.0", sha_initial)]);
+
+        // branchHeads on a fresh clone: bare names, HEAD symref excluded.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+        auto heads = clone.branchHeads();
+        heads.length.shouldEqual(2);
+        heads.map!(h => h.name).canFind(default_branch).shouldBeTrue;
+        heads.map!(h => h.name).canFind("feature/x").shouldBeTrue;
+        // The symbolic origin/HEAD is excluded (refname:short renders it
+        // as just "origin").
+        heads.map!(h => h.name).canFind("HEAD").shouldBeFalse;
+        heads.map!(h => h.name).canFind("origin").shouldBeFalse;
+        foreach(h; heads)
+            if (h.name == "feature/x") {
+                h.sha.shouldEqual(sha_feature);
+                h.subject.shouldEqual("feature commit");
+                (h.date > 0).shouldBeTrue;
+                (h.author.length > 0).shouldBeTrue;
+            }
     }
 
     /** Set annotation tag on current commit in repo
