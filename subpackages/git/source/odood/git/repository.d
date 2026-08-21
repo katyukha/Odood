@@ -1702,24 +1702,86 @@ class GitRepository {
     }
 
     /// Push current branch to a remote, optionally to a different branch name.
-    void push(in string branch_name=null, in string remote="origin") const {
+    /** Push the current branch to a remote.
+      *
+      * Params:
+      *     branch_name = remote branch to push to (default: the current
+      *         branch's own name).
+      *     remote = remote to push to (default: origin).
+      *     force_with_lease = overwrite the remote branch even when the
+      *         push is not fast-forward (`--force-with-lease`) —
+      *         DESTRUCTIVE to remote history. The lease guards against
+      *         clobbering commits never seen locally: the push is refused
+      *         when the remote branch does not match its local
+      *         remote-tracking ref (i.e. the remote moved since the last
+      *         fetch).
+      **/
+    void push(in string branch_name=null, in string remote="origin",
+            in bool force_with_lease=false) const {
         auto current_branch = getCurrBranch();
         enforce!OdoodException(
             !current_branch.isNull,
             "Repository push operation is not allowed in detached tree mode");
+        immutable target = branch_name ? branch_name : current_branch.get;
 
-        if (branch_name)
-            gitCmd
-                .withArgs(
-                    "push", remote, "%s:%s".format(current_branch.get, branch_name))
-                .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
-        else
-            gitCmd
-                .withArgs(
-                    "push", remote, current_branch.get)
-                .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
+        auto cmd = gitCmd.withArgs("push");
+        if (force_with_lease)
+            cmd.addArgs("--force-with-lease");
+        cmd.addArgs(remote, "%s:%s".format(current_branch.get, target));
+        cmd.execute.ensureOk(
+            "Cannot push changes to %s branch".format(target), true);
+    }
+
+    /// Test push: plain, non-ff rejection, and force_with_lease semantics
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("f.txt").writeFile("v1");
+        src.add(src_path.join("f.txt"));
+        src.commit("initial");
+        src.remoteAdd("origin", remote_path.toString);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable branch = src.getCurrBranch.get;
+
+        // Two independent clones.
+        auto a_path = root.join("clone-a");
+        Process("git").withArgs("clone", remote_path.toString, a_path.toString).execute.ensureOk(true);
+        auto a = new GitRepository(a_path);
+        auto b_path = root.join("clone-b");
+        Process("git").withArgs("clone", remote_path.toString, b_path.toString).execute.ensureOk(true);
+        auto b = new GitRepository(b_path);
+
+        // B advances the remote.
+        b_path.join("b.txt").writeFile("b");
+        b.add(b_path.join("b.txt"));
+        b.commit("b move");
+        b.push();
+
+        // A diverges locally.
+        a_path.join("a.txt").writeFile("a");
+        a.add(a_path.join("a.txt"));
+        a.commit("a move");
+        immutable sha_a = a.getCurrCommit;
+
+        // Plain push: rejected (non fast-forward).
+        a.push().shouldThrow;
+        // Lease push with a STALE remote-tracking ref: still rejected — the
+        // remote moved past what A last fetched, so the lease protects B's
+        // commit from being clobbered unseen.
+        a.push(force_with_lease: true).shouldThrow;
+        // After a fetch the lease matches, so the overwrite is allowed.
+        a.fetchOrigin();
+        a.push(force_with_lease: true);
+        a.tryRevParse("origin/" ~ branch).shouldEqual(sha_a);
     }
 
     /** Check git status and return minimal status information
