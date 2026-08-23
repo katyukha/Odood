@@ -12,7 +12,9 @@ private import odood.exception: OdoodException;
 private import theprocess: Process;
 
 public import odood.git.url: GitURL;
-public import odood.git.repository: GitRepository, GitTag;
+public import odood.git.repository: GitRepository;
+public import odood.git.refs: GitTag, GitRef;
+public import odood.git.status: GitStatus;
 
 immutable string GIT_REF_WORKTREE = "-working-tree-";
 
