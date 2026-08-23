@@ -15,9 +15,9 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
+private import odood.git.remote: GitRemote;
 
-// Data types moved to their own modules; re-exported here so existing
-// `odood.git.repository: GitTag, ...` imports keep working.
+// Re-exported for compatibility: these types used to be defined here.
 public import odood.git.status: GitStatus;
 public import odood.git.refs: GitTag, GitRef;
 
@@ -580,13 +580,7 @@ class GitRepository {
       * Returns false when the remote is unreachable or has no such branch.
       **/
     bool hasRemoteBranch(in string name, in string remote = "origin") const {
-        return gitCmd
-            .withArgs(
-                "ls-remote", "--heads", "--exit-code",
-                remote, "refs/heads/%s".format(name))
-            .withFlag(std.process.Config.stderrPassThrough)
-            .execute
-            .isOk;
+        return this.remote(remote).hasBranch(name);
     }
 
     /** List all branch names available on the given remote.
@@ -599,14 +593,7 @@ class GitRepository {
       * helper and env apply and no credentials leak into process argv.
       **/
     string[] listRemoteBranches(in string remote = "origin") const {
-        import odood.git: parseLsRemoteRefs;
-        return parseLsRemoteRefs(
-            gitCmd
-                .withArgs("ls-remote", "--heads", remote)
-                .execute
-                .ensureOk(true)
-                .output,
-            "refs/heads/");
+        return this.remote(remote).listBranches();
     }
 
     /** Create a local branch tracking `remote`'s branch of the same name and
@@ -863,13 +850,15 @@ class GitRepository {
       * leak into the process argv.
       **/
     string[] listRemoteTags(in string remote = "origin") const {
-        import odood.git: parseLsRemoteTags;
-        return parseLsRemoteTags(
-            gitCmd
-                .withArgs("ls-remote", "--refs", "--tags", remote)
-                .execute
-                .ensureOk(true)
-                .output);
+        return this.remote(remote).listTags();
+    }
+
+    /** Live query interface for this repository's configured remote (by
+      * NAME — the repository's credential helper and env apply). See
+      * `GitRemote`.
+      **/
+    GitRemote remote(in string remote_name = "origin") const {
+        return GitRemote.of(this, remote_name);
     }
 
     /** List all local tag names in the repository. **/
@@ -905,20 +894,18 @@ class GitRepository {
         return res;
     }
 
-    /** Last commit of every branch of `remote`, read from its remote-tracking
-      * refs in one call and without a checkout. Requires a prior fetch.
-      *
-      * Returned `GitRef.name`s are bare branch names (the "<remote>/" prefix
-      * is stripped); the symbolic `<remote>/HEAD` entry is excluded.
+    /** Last commit of every branch of `remote`, read from its
+      * remote-tracking refs in one call, no checkout. Requires a prior
+      * fetch. Names are bare branch names; the `<remote>/HEAD` symref is
+      * excluded.
       **/
     GitRef[] branchHeads(in string remote = "origin") const {
         GitRef[] res;
         immutable prefix = remote ~ "/";
         foreach(r; listRefs("refs/remotes/" ~ remote)) {
-            // Skip the symbolic <remote>/HEAD ref — it is not a branch. Note
-            // that refname:short renders it as just "<remote>" (a branch
-            // actually named like the remote would render "<remote>/<name>",
-            // so it is not shadowed by this check).
+            // The <remote>/HEAD symref is not a branch; refname:short
+            // renders it as just "<remote>" (a real branch named like the
+            // remote renders "<remote>/<name>", so it is not shadowed).
             if (r.name == remote || r.name == prefix ~ "HEAD")
                 continue;
             r.name = r.name.chompPrefix(prefix);

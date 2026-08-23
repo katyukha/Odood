@@ -25,9 +25,8 @@ struct GitRef {
     string sha;
     /// For annotated tags: the tagged commit. Empty otherwise.
     string peeled_sha;
-    /// Creation date as unix timestamp: committer date for commits, tagger
-    /// date for annotated tags — i.e. when a release was cut, whoever cut
-    /// it. 0 = unknown.
+    /// Creation date as unix timestamp: committer date for commits,
+    /// tagger date for annotated tags. 0 = unknown.
     long date = 0;
     /// Author of the commit, or tagger of an annotated tag. "" if unknown.
     string author;
