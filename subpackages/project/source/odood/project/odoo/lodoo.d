@@ -10,6 +10,7 @@ private import std.process: Config;
 private static import std.process;
 
 private import thepath: Path;
+private import theprocess: getSystemUser;
 
 private import odood.project: Project;
 private import odood.utils: generateRandomString;
@@ -48,8 +49,15 @@ const struct LOdoo {
         auto runner() const {
             auto process = _project.venv.runner()
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
-            if (_project.odoo.server_user)
+            if (_project.odoo.server_user) {
+                /* Point HOME to home directory of server user,
+                 * see comment in OdooServer.getServerEnv for details.
+                 */
+                auto server_user = getSystemUser(_project.odoo.server_user);
+                if (!server_user.isNull)
+                    process.setEnv("HOME", server_user.get.homeDir);
                 process.setUser(_project.odoo.server_user);
+            }
             if (_project.odoo.logfile.isNull)
                 process.setStderrPassThrough;
             return process;

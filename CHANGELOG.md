@@ -10,11 +10,20 @@
   to generate `ADDONS.md` / `ADDONS.csv` listing the assembly's addons.
   Could be used to maintain readable list of addons available in assembly.
 - `odood repo release` and `odood repo hotfix release` now got `-n`/`--dry-run` options
+- The CI docker image (`odoo-ci/{serie}`) now ships headless Google Chrome,
+  thus it is not needed to install it manually to run tours (`HttpCase` /
+  `browser_js` tests) anymore. The production image (`odoo/{serie}`) is not affected.
 
 ### Fixed
 
 - Now it is possible to `uninstall` from database addon that is not availble on disk
   (for example because it was removed)
+- Odoo server and `lodoo` processes now run with `HOME` pointing to home directory
+  of the server user, instead of inheriting `HOME` of the caller.
+  Previously, when Odood dropped privileges to the server user, the process kept
+  `HOME` of the caller (usually `root`), that server user has no write access to.
+  This is also fixed for the init-script deployments,
+  because `start-stop-daemon --chuid` does not set `HOME` either.
 
 ---
 

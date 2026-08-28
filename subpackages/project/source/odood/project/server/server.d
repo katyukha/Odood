@@ -14,7 +14,7 @@ private import std.string: join, strip;
 private import std.algorithm.iteration: map;
 
 private import thepath: Path;
-private import theprocess: Process, isProcessRunning;
+private import theprocess: Process, isProcessRunning, getSystemUser;
 
 private import odood.project: Project, ProjectServerSupervisor;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -161,6 +161,20 @@ struct OdooServer {
 
         string odoo_rc_env_var = _project.odoo.serie > 10 ? "ODOO_RC" : "OPENERP_SERVER";
         res[odoo_rc_env_var] = getConfigPath.toString;
+
+        /* When we drop privileges to server user, the process would otherwise
+         * inherit HOME of the caller (usually root), that server user has no
+         * write access to. This breaks anything that writes to home directory,
+         * for example Chrome, that is used to run tours (browser_js tests).
+         * Thus, point HOME to home directory of server user itself.
+         * If there is no such user, then we leave HOME as is,
+         * and let setUser fail with its own clear error message.
+         */
+        if (_project.odoo.server_user) {
+            auto server_user = getSystemUser(_project.odoo.server_user);
+            if (!server_user.isNull)
+                res["HOME"] = server_user.get.homeDir;
+        }
 
         // TODO: Add ability to parse .env files and forward environment variables to Odoo process
         //       This will allow to run Odoo in docker containers and locally in similar way.

@@ -401,11 +401,14 @@ For deployment context (not CI), see [Docker Compose deployment](./deployment-do
 ### Key concept: the CI image
 
 The `odoo-ci/{serie}` image is a drop-in CI variant of the production image (same
-`--config-from-env` / `ODOOD_OPT_*` mechanism), used by the examples below. It differs in two ways:
+`--config-from-env` / `ODOOD_OPT_*` mechanism), used by the examples below. It differs in three ways:
 
 - **No `HEALTHCHECK`** — the container is a disposable test runner, not a server.
 - **Dev/test tooling pre-installed** (`odood venv install-dev-tools`): `pre-commit`, `eslint`,
   `flake8`, `pylint-odoo`, `coverage`, etc. — so lint and coverage jobs don't reinstall it each run.
+- **Headless browser pre-installed** — Google Chrome, so tours (`HttpCase` / `browser_js` tests)
+  run out of the box. Without a browser on `PATH`, Odoo silently skips them. The Python side
+  (`websocket-client`) comes with the dev tooling above.
 
 > **Tip:** `pre-commit` is baked in, but its hook environments are still built from your repo's
 > `.pre-commit-config.yaml` on first run — cache `~/.cache/pre-commit` between runs.
