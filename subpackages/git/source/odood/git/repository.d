@@ -1537,6 +1537,107 @@ class GitRepository {
         a.tryRevParse("origin/" ~ branch).shouldEqual(sha_a);
     }
 
+    /** Delete a ref on a remote (`git push --delete`).
+      *
+      * Idempotent: deleting an already-absent ref is not an error.
+      * DESTRUCTIVE — commits reachable only from `refname` become
+      * unreferenced on the remote.
+      *
+      * Params:
+      *     refname = full refname (e.g. `refs/heads/feature`). Bare names
+      *         are rejected: git cannot tell a branch from a tag of the
+      *         same name.
+      *     remote = remote to delete from (default: origin).
+      *     expected_sha = when set, delete only while the ref still points
+      *         at this commit (`--force-with-lease`); a ref that moved, or
+      *         that no longer exists, is refused.
+      **/
+    void deleteRemoteRef(
+            in string refname,
+            in string remote = "origin",
+            in string expected_sha = null) const {
+        enforce!OdoodException(
+            refname.startsWith("refs/"),
+            ("Cannot delete remote ref '%s': a full refname is required " ~
+             "(refs/heads/... or refs/tags/...).").format(refname));
+
+        auto cmd = gitCmd.withArgs("push");
+        if (expected_sha.length > 0)
+            cmd.addArgs(
+                "--force-with-lease=%s:%s".format(refname, expected_sha));
+        cmd.addArgs(remote, "--delete", refname);
+        cmd.execute.ensureOk(
+            "Cannot delete ref %s on remote %s".format(refname, remote), true);
+    }
+
+    /// Delete a branch on a remote. See deleteRemoteRef.
+    void deleteRemoteBranch(
+            in string branch,
+            in string remote = "origin",
+            in string expected_sha = null) const
+    in (branch.length > 0) {
+        deleteRemoteRef("refs/heads/" ~ branch, remote, expected_sha);
+    }
+
+    /// Delete a tag on a remote. See deleteRemoteRef.
+    void deleteRemoteTag(
+            in string tag_name,
+            in string remote = "origin",
+            in string expected_sha = null) const
+    in (tag_name.length > 0) {
+        deleteRemoteRef("refs/tags/" ~ tag_name, remote, expected_sha);
+    }
+
+    /// Test remote ref deletion: branches, tags, idempotency, leases
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto local_path = root.join("local");
+        auto repo = GitRepository.initialize(local_path);
+        local_path.join("f.txt").writeFile("v1");
+        repo.add(local_path.join("f.txt"));
+        repo.commit("initial");
+        repo.remoteAdd("origin", remote_path.toString);
+        repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable head = repo.getCurrCommit;
+
+        // A branch and a tag sharing a name delete independently.
+        repo.push("dup");
+        repo.setTag("dup");
+        repo.pushTag("dup");
+        repo.deleteRemoteBranch("dup");
+        repo.remote.hasBranch("dup").shouldBeFalse;
+        repo.remote.listTags.canFind("dup").shouldBeTrue;
+        repo.deleteRemoteTag("dup");
+        repo.remote.listTags.canFind("dup").shouldBeFalse;
+
+        // Deleting an absent ref is a no-op, not an error.
+        repo.deleteRemoteBranch("dup");
+        repo.deleteRemoteRef("refs/heads/never-existed");
+
+        // Bare refnames are rejected.
+        repo.deleteRemoteRef("dup").shouldThrow!OdoodException;
+
+        // A stale lease refuses the delete; a matching one performs it.
+        repo.push("leased");
+        repo.deleteRemoteBranch(
+            "leased", "origin",
+            "1111111111111111111111111111111111111111").shouldThrow;
+        repo.remote.hasBranch("leased").shouldBeTrue;
+        repo.deleteRemoteBranch("leased", "origin", head);
+        repo.remote.hasBranch("leased").shouldBeFalse;
+
+        // An unknown remote is a real failure.
+        repo.deleteRemoteBranch("whatever", "no-such-remote").shouldThrow;
+    }
+
     /** Check git status and return minimal status information
       **/
     auto status() const {
