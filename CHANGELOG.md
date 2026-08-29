@@ -22,8 +22,10 @@
   of the server user, instead of inheriting `HOME` of the caller.
   Previously, when Odood dropped privileges to the server user, the process kept
   `HOME` of the caller (usually `root`), that server user has no write access to.
-  This is also fixed for the init-script deployments,
-  because `start-stop-daemon --chuid` does not set `HOME` either.
+  The home directory is taken from the passwd database, the same way as `su`,
+  `sudo -H` and systemd do it.
+- `psql` commands that `odood deploy` runs as the `postgres` user now run with
+  `HOME` of that user too, instead of reading `~/.psqlrc` of the caller.
 
 ---
 

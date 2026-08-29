@@ -22,9 +22,6 @@ LOGFILE="{{ project.odoo.logfile }}"
 PIDFILE="{{project.odoo.pidfile }}.pid"
 USER="{{ project.odoo.server_user }}"
 export LOGNAME=$USER
-# start-stop-daemon --chuid does not set HOME, thus without this Odoo would
-# inherit HOME of root, that server user has no write access to.
-export HOME="{{ project.project_root }}"
 {% if !config.odoo.system_ca_bundle_path.isNull %}
 export REQUESTS_CA_BUNDLE={{ config.odoo.system_ca_bundle_path.get }}
 {% endif %}

@@ -77,7 +77,7 @@ bool postgresCheckUserExists(in string username) {
             "-t", "-A", "-c",
             i"SELECT count(*) FROM pg_user WHERE usename = '$(username)';".text,
         ])
-        .withUser(username: "postgres", userWorkDir: true)
+        .withUser(username: "postgres", userWorkDir: true, userHomeDir: true)
         .withFlag(std.process.Config.stderrPassThrough)
         .execute
         .ensureOk(true)
@@ -112,7 +112,7 @@ void postgresCreateUser(in string username, in string password) {
             "-c",
             i"CREATE USER \"$(username)\" WITH CREATEDB PASSWORD '$(password)'".text,
         ])
-        .withUser(username: "postgres", userWorkDir: true)
+        .withUser(username: "postgres", userWorkDir: true, userHomeDir: true)
         .execute
         .ensureOk(true);
     infof("Postgresql user '%s' for Odoo created successfully.", username);
