@@ -73,7 +73,9 @@ jobs:
           - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
+          - "ubuntu:26.04"
         odoo_version:
+          - "19.0"
           - "18.0"
           - "17.0"
           - "16.0"
@@ -173,7 +175,9 @@ jobs:
           - "debian:bookworm"
           - "ubuntu:22.04"
           - "ubuntu:24.04"
+          - "ubuntu:26.04"
         odoo_version:
+          - "19.0"
           - "18.0"
           - "17.0"
           - "16.0"
