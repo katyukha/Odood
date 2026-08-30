@@ -7,7 +7,7 @@ module odood.utils.addons.addon_list;
 
 private import std.algorithm: sort, map;
 private import std.array: array, join, appender;
-private import std.string: replace;
+private import std.string: replace, splitLines;
 private import std.conv: to;
 private import std.format: format;
 
@@ -45,18 +45,31 @@ private string columnHeader(in string column) {
     }
 }
 
-/// Cell value for an addon-list column key. Text fields are newline-flattened.
+/** Cell value for an addon-list column key.
+  *
+  * Every value is newline-flattened: a cell has to stay on a single line,
+  * and any manifest field may contain line breaks, not only the obviously
+  * free-form ones.
+  **/
 private string columnValue(in OdooAddon addon, in string column) {
-    string flatten(in string s) => s.replace("\n", " ").replace("\r", " ");
+    return flattenCell(columnRawValue(addon, column));
+}
+
+/// Replace line breaks in a cell value with spaces.
+private string flattenCell(in string s) =>
+    s.replace("\r\n", " ").replace("\n", " ").replace("\r", " ");
+
+/// ditto columnValue, before flattening.
+private string columnRawValue(in OdooAddon addon, in string column) {
     switch(column) {
         case "system_name":  return addon.name;
-        case "name":         return flatten(addon.manifest.name);
+        case "name":         return addon.manifest.name;
         case "license":      return addon.manifest.license;
         case "version":      return addon.manifest.module_version.rawVersion;
         case "installable":  return addon.manifest.installable.to!string;
-        case "summary":      return flatten(addon.manifest.summary);
+        case "summary":      return addon.manifest.summary;
         case "price":        return addon.manifest.price.is_set ? addon.manifest.price.toString : "";
-        case "author":              return flatten(addon.manifest.author);
+        case "author":              return addon.manifest.author;
         case "website":             return addon.manifest.website;
         case "category":            return addon.manifest.category;
         case "maintainer":          return addon.manifest.maintainer;
@@ -89,7 +102,7 @@ string[][] addonListRows(
 string renderMarkdownTable(in string[][] table) {
     if (table.length == 0)
         return "";
-    string cell(in string s) => s.replace("|", "\\|").replace("\n", " ");
+    string cell(in string s) => flattenCell(s).replace("|", "\\|");
     auto app = appender!string;
     app ~= "| " ~ table[0].map!(c => cell(c)).join(" | ") ~ " |\n";
     app ~= "|" ~ table[0].map!(_ => "---").join("|") ~ "|\n";
@@ -98,9 +111,30 @@ string renderMarkdownTable(in string[][] table) {
     return app.data;
 }
 
-/// Render a header+rows table as CSV (every field quoted, embedded quotes doubled).
+/** Neutralize a value that a spreadsheet would treat as a formula.
+  *
+  * Addon manifests come from third-party repositories, thus any text in
+  * them is untrusted input. A cell starting with `=`, `+`, `-`, `@`, tab or
+  * carriage return is evaluated as a formula by Excel and LibreOffice when
+  * the file is opened (for example `=HYPERLINK("http://evil", "Click")`),
+  * and quoting the field does not prevent it. Prefixing with a single quote
+  * makes the spreadsheet treat the value as text.
+  **/
+private string csvGuardFormula(in string s) {
+    import std.algorithm: canFind;
+    if (s.length > 0 && "=+-@\t\r".canFind(s[0]))
+        return "'" ~ s;
+    return s;
+}
+
+/** Render a header+rows table as CSV.
+  *
+  * Every field is quoted and embedded quotes are doubled (RFC 4180), line
+  * breaks are flattened, and formula-like values are neutralized.
+  **/
 string renderCsv(in string[][] table) {
-    string cell(in string s) => `"` ~ s.replace(`"`, `""`).replace("\n", " ") ~ `"`;
+    string cell(in string s) =>
+        `"` ~ csvGuardFormula(flattenCell(s)).replace(`"`, `""`) ~ `"`;
     auto app = appender!string;
     foreach(row; table)
         app ~= row.map!(c => cell(c)).join(",") ~ "\n";
@@ -165,4 +199,45 @@ unittest {
     rows3[0].should == ["System Name", "Website", "Dependencies"];
     rows3[1].should == ["a_addon", "https://example.com", "base, web"];
     rows3[2].should == ["b_addon", "", ""];
+}
+
+
+/// Untrusted manifest text must not break out of a cell, nor become a formula.
+unittest {
+    import unit_threaded.assertions;
+    import std.algorithm: canFind;
+    import thepath: createTempPath;
+    import odood.utils.addons.addon: findAddons;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    /* A manifest from a third-party repository, with:
+     *  - a formula in a text field,
+     *  - CR and CRLF line breaks in fields that are not free-form text.
+     */
+    root.join("evil_addon").mkdir(true);
+    root.join("evil_addon", "__manifest__.py").writeFile(
+        `{"name": "Evil", "version": "17.0.1.0.0", ` ~
+        `"summary": "=HYPERLINK(\"http://evil\", \"Click\")", ` ~
+        `"license": "LGPL-3\r\nInjected", "website": "https://e.com\rInjected", ` ~
+        `"installable": True}`);
+
+    auto rows = addonListRows(
+        findAddons(root).array,
+        ["system_name", "summary", "license", "website"]);
+
+    // Every column is flattened, not only the free-form ones.
+    rows[1][2].should == "LGPL-3 Injected";
+    rows[1][3].should == "https://e.com Injected";
+
+    auto csv = renderCsv(rows);
+    // One header line + one data line: nothing broke the row apart.
+    csv.splitLines.length.should == 2;
+    // The formula is neutralized, and quotes are still doubled.
+    csv.canFind(`"'=HYPERLINK(""http://evil"", ""Click"")"`).shouldBeTrue;
+    csv.canFind("\n=").shouldBeFalse;
+
+    // Markdown keeps one row per addon too.
+    renderMarkdownTable(rows).splitLines.length.should == 3;  // header, ---, data
 }
