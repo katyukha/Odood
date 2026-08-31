@@ -10,6 +10,8 @@ ARG TARGETARCH
 ARG ODOOD_SERVER_USER_UID=999
 ARG ODOOD_SERVER_USER_GID=999
 
+# Security fix (CVE-2026-64564): linux kernel userspace headers are pinned to
+# a version >= 6.8.0-136.136 (the fix version). 6.8.0-138.138 satisfies this.
 RUN apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove \
         locales \
@@ -18,6 +20,9 @@ RUN apt-get update -qq && \
         gnupg \
         lsb-release \
         xfonts-75dpi xfonts-base libx11-6 libxcb1 libxext6 libxrender1 libsqlite3-dev\
+        linux-libc-dev=6.8.0-138.138 \
+        build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+        libffi-dev liblzma-dev libncursesw5-dev tk-dev uuid-dev libgdbm-dev xz-utils \
         tzdata && \
     locale-gen en_US.UTF-8 && \
     locale-gen en_GB.UTF-8 && \
@@ -39,7 +44,12 @@ ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 COPY ./bin/${TARGETARCH}/odood /usr/bin/odood
 COPY ./bin/${TARGETARCH}/odood.bash /etc/bash_completion.d/odood.bash
 
-RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --supervisor=odood --log-to-stderr --db-password=odoo \
+# Build and use Python 3.12.14 for the Odoo virtualenv.
+# The base image (ubuntu:24.04) ships Python 3.12.3, which Odood would otherwise
+# reuse as-is (PyInstallType.System). Passing --py-version forces Odood to build
+# CPython 3.12.14 from source (PyInstallType.Build), so the shipped image runs
+# the pinned patch release instead of the distro's Python.
+RUN /usr/bin/odood deploy -v "$ODOO_VERSION" --py-version=3.12.14 --supervisor=odood --log-to-stderr --db-password=odoo \
         --server-user-uid="$ODOOD_SERVER_USER_UID" --server-user-gid="$ODOOD_SERVER_USER_GID" && \
     rm -rf /root/.cache/pip/*
 

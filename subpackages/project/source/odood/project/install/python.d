@@ -30,12 +30,17 @@ void installVirtualenv(in Project project,
         project.venv.installPyPackages("setuptools>=45,<58");
     } else if (project.odoo.serie >= OdooSerie(16) && project.odoo.serie < OdooSerie(19)) {
         // This is fix, for recent update of python package zope.index (5.1), that is used by gevent and that breaks odoo startup.
-        infof("Enforce setuptools version between 76 and 81 to correctly handle pkg_resources (that is deprecated but still used)");
-        project.venv.installPyPackages("setuptools>=76,<81");
+        // Lower bound raised to 78.1.1 to fix CVE-2025-47273 (path traversal
+        // in setuptools' PackageIndex); still capped below 81 to keep the
+        // deprecated-but-required pkg_resources behaviour.
+        infof("Enforce setuptools version between 78.1.1 and 81 to correctly handle pkg_resources (that is deprecated but still used), and to fix CVE-2025-47273");
+        project.venv.installPyPackages("setuptools>=78.1.1,<81");
     } else if (project.odoo.serie >= OdooSerie(19)) {
         // Ensure that we use recent version of setuptools
-        infof("Enforce setuptools version is greater that 76)");
-        project.venv.installPyPackages("setuptools>=76");
+        // Use the latest setuptools (>=83.0.0). This also covers CVE-2025-47273
+        // (path traversal in setuptools' PackageIndex), fixed in 78.1.1.
+        infof("Enforce latest setuptools version (>=83.0.0, also fixes CVE-2025-47273)");
+        project.venv.installPyPackages("setuptools>=83.0.0");
     }
 
     // Install javascript dependecies

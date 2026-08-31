@@ -308,6 +308,38 @@ const struct VirtualEnv {
       *
       **/
     auto installJSPackages(in string[] packages...) {
+        // Security fixes: several npm packages are pulled in as *transitive*
+        // dependencies of the JS tooling installed here (e.g. rtlcss, less).
+        // Installing patched versions as separate top-level global packages
+        // does NOT change the nested copies that the requested packages
+        // resolve into their own dependency trees (that is why, for example,
+        // `ip-address` stayed at 10.2.0 under `less`). npm forces a transitive
+        // version only via an `overrides` block in a package.json it reads
+        // during resolution, so we write such a package.json into the global
+        // npm prefix before running the global install.
+        //   - CVE-2026-59873 / CVE-2026-73566 : tar             >= 7.5.21
+        //   - CVE-2026-14257                   : brace-expansion >= 5.0.9
+        //   - CVE-2026-69192                   : ip-address      >= 10.3.1
+        // Note: the brace-expansion fix for CVE-2026-14257 landed in 5.0.9
+        // (5.0.8 is not a patched release), so the lower bound must be 5.0.9.
+        immutable overrides = `{
+  "name": "odood-global-overrides",
+  "private": true,
+  "overrides": {
+    "tar": ">=7.5.21",
+    "brace-expansion": ">=5.0.9",
+    "ip-address": ">=10.3.1"
+  }
+}
+`;
+
+        // Resolve the global npm prefix; its package.json is consulted by npm
+        // when installing global packages, so overrides declared there apply
+        // to the nested dependencies of the installed tooling.
+        immutable prefix = Path(
+            npm("prefix", "-g").output.strip);
+        prefix.join("package.json").writeFile(overrides);
+
         return npm(["install", "-g"] ~ packages);
     }
 
@@ -505,9 +537,10 @@ const struct VirtualEnv {
             case PyInstallType.Build:
                 buildPython(opts.py_version);
 
-                // Install virtualenv inside built python environment
+                // Install virtualenv inside built python environment.
+                // Security fix (CVE-2024-53899): require virtualenv >= 20.26.6.
                 Process(_path.join("python", "bin", "pip"))
-                    .withArgs("install", "virtualenv")
+                    .withArgs("install", "virtualenv>=20.26.6")
                     .execute()
                     .ensureStatus(true);
 
@@ -547,9 +580,10 @@ const struct VirtualEnv {
 
                 infof("Using python %s available at prefix %s...", opts.py_version, python_prefix.toString);
 
-                // Ensure virtualenv is installed in this pyenv python version
+                // Ensure virtualenv is installed in this pyenv python version.
+                // Security fix (CVE-2024-53899): require virtualenv >= 20.26.6.
                 Process(python_prefix.join("bin", "pip"))
-                    .withArgs("install", "virtualenv")
+                    .withArgs("install", "virtualenv>=20.26.6")
                     .execute
                     .ensureOk(true);
 
@@ -569,6 +603,16 @@ const struct VirtualEnv {
 
         // Add bash script to run any command in virtual env
         initRunInVenvScript();
+
+        // Security fix (CVE-2025-8869): pip < 25.3 is vulnerable when
+        // extracting source distributions. Enforce the latest pip inside the
+        // freshly created virtualenv. Recent pip requires Python >= 3.9, so the
+        // upgrade is gated on the virtualenv Python version to avoid breaking
+        // installs on older interpreters.
+        if (py_version >= Version(3, 9, 0)) {
+            info("Enforcing latest pip version (>=26.2, fixes CVE-2025-8869)...");
+            installPyPackages("pip>=26.2");
+        }
 
         // Install nodeenv and node
         infof("Installing nodejs version %s", opts.node_version);

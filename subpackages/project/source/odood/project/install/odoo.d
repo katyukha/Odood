@@ -180,6 +180,36 @@ void installOdoo(in Project project) {
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));
+
+        /* Security fixes: Odoo's requirements.txt pins vulnerable versions of
+         * some transitive dependencies. Enforce patched minimum versions here,
+         * after requirements.txt is installed so these upgrades take effect.
+         *   - CVE-2025-66471 : urllib3      >= 2.6.0
+         *   - CVE-2026-59204 : Pillow       >= 12.3.0
+         *   - CVE-2026-69249 : cryptography >= 49.0.0
+         *   - GHSA-6v7p-g79w-8964 : msgpack  >= 1.2.1
+         * Each patched release requires a recent Python, so the upgrade is
+         * gated on the virtualenv Python version to avoid breaking installs on
+         * older interpreters (where the vulnerable-but-compatible version is
+         * kept as installed by Odoo's requirements.txt).
+         */
+        info("Enforcing patched versions of security-sensitive dependencies...");
+        // cryptography >= 49.0.0 requires Python >= 3.9. It must be upgraded in
+        // lockstep with pyOpenSSL: an older pyOpenSSL (as pinned by Odoo's
+        // requirements.txt) references OpenSSL binding symbols (e.g.
+        // _lib.GEN_EMAIL) that newer cryptography no longer exposes, producing
+        // "AttributeError: module 'lib' has no attribute 'GEN_EMAIL'" at import.
+        // pyOpenSSL >= 26.4.0 declares cryptography >= 49.0.0 as its minimum, so
+        // the two are compatible.
+        if (project.venv.py_version >= Version(3, 9, 0))
+            project.venv.installPyPackages(
+                "cryptography>=49.0.0", "pyOpenSSL>=26.4.0");
+        // urllib3 >= 2.6.0, Pillow >= 12.3.0 and msgpack >= 1.2.1 require Python >= 3.9
+        if (project.venv.py_version >= Version(3, 9, 0))
+            project.venv.installPyPackages(
+                "urllib3>=2.7.0",
+                "Pillow>=12.3.0",
+                "msgpack>=1.2.1");
     }
 
     infof("Installing odoo to %s", project.odoo.path);

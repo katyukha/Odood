@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Enforce patched versions of security-sensitive dependencies installed into
+  the Odoo virtualenv / nodeenv:
+  - `tar` npm package bumped to `>=7.5.21` (CVE-2026-73566, also covers
+    CVE-2026-59873).
+  - `brace-expansion` npm package enforced at `>=5.0.9` (CVE-2026-14257;
+    the fix landed in 5.0.9, not 5.0.8).
+  - `ip-address` npm package enforced at `>=10.3.1` (CVE-2026-69192).
+    These npm packages are transitive dependencies of the installed JS
+    tooling (e.g. `less`, `rtlcss`); the patched versions are now enforced
+    through an `overrides` block written into the global npm prefix's
+    `package.json` so the nested copies are upgraded (a plain global install
+    of the patched package left the vulnerable nested version in place).
+  - `setuptools` lower bound raised to `78.1.1` for Odoo 16–18 (kept `<81`
+    for `pkg_resources`) and to the latest `>=83.0.0` for Odoo 19+
+    (CVE-2025-47273).
+  - `msgpack` Python package enforced at `>=1.2.1` (GHSA-6v7p-g79w-8964).
+  - `cryptography` Python package enforced at `>=49.0.0` (CVE-2026-69249),
+    together with `pyOpenSSL>=26.4.0`. The two must be upgraded in lockstep:
+    with an older `pyOpenSSL` (as pinned by Odoo's `requirements.txt`), the
+    newer `cryptography` no longer exposes OpenSSL binding symbols such as
+    `_lib.GEN_EMAIL`, which broke Odoo import with
+    `AttributeError: module 'lib' has no attribute 'GEN_EMAIL'`.
+  - `pip` enforced at the latest `>=26.2` inside newly created virtualenvs
+    (CVE-2025-8869).
+
 ## Release 0.6.4 (2026-07-09)
 
 ### Added
