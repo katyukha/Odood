@@ -172,6 +172,20 @@ const struct VirtualEnv {
         _path.join("bin", "run-in-venv").setAttributes(octal!755);
     }
 
+    /** Install (or update) virtualenv, using provided pip.
+      *
+      * Minimal version is enforced for python3 only: virtualenv releases that
+      * still support python2 are older than that.
+      **/
+    private void installVirtualEnv(in Path pip_path) const {
+        Process(pip_path)
+            .withArgs(
+                "install",
+                _py_serie == PySerie.py3 ? "virtualenv>=20.26.6" : "virtualenv")
+            .execute
+            .ensureOk(true);
+    }
+
     /** Create run-in-env script if it does not exists yet.
       **/
     void ensureRunInVenvExists() const {
@@ -506,10 +520,7 @@ const struct VirtualEnv {
                 buildPython(opts.py_version);
 
                 // Install virtualenv inside built python environment
-                Process(_path.join("python", "bin", "pip"))
-                    .withArgs("install", "virtualenv")
-                    .execute()
-                    .ensureStatus(true);
+                installVirtualEnv(_path.join("python", "bin", "pip"));
 
                 // Initialize virtualenv inside built python env
                 Process(_path.join("python", "bin", "python"))
@@ -548,10 +559,7 @@ const struct VirtualEnv {
                 infof("Using python %s available at prefix %s...", opts.py_version, python_prefix.toString);
 
                 // Ensure virtualenv is installed in this pyenv python version
-                Process(python_prefix.join("bin", "pip"))
-                    .withArgs("install", "virtualenv")
-                    .execute
-                    .ensureOk(true);
+                installVirtualEnv(python_prefix.join("bin", "pip"));
 
                 // Init virtualenv
                 infof(
@@ -569,6 +577,12 @@ const struct VirtualEnv {
 
         // Add bash script to run any command in virtual env
         initRunInVenvScript();
+
+        // pip 26.2 requires python >= 3.10, older interpreters keep their pip.
+        if (py_version >= Version(3, 10, 0)) {
+            info("Enforcing minimal pip version (>=26.2)");
+            installPyPackages("pip>=26.2");
+        }
 
         // Install nodeenv and node
         infof("Installing nodejs version %s", opts.node_version);
