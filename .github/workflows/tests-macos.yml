@@ -47,6 +47,13 @@ jobs:
         if: matrix.py_install_type == 'pyenv'
         run: |
           brew install pyenv
+          # `brew install` does not update the preinstalled pyenv, and an old
+          # pyenv has no definitions for the python versions Odood pins.
+          brew update && brew upgrade pyenv
+          pyenv --version
+          for m in 3.10 3.11 3.12; do
+            echo "latest known $m: $(pyenv latest -k $m 2>&1 || true)"
+          done
 
       - name: Configure git (to make git tests work)
         run: |
