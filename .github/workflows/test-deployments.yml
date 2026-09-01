@@ -82,6 +82,22 @@ jobs:
         os:
           - ubuntu-22.04
           - ubuntu-22.04-arm
+        # PostgreSQL server version must match the major version of the
+        # postgresql-client shipped by the image, because both directions of
+        # a backup/restore round-trip constrain it:
+        #   - pg_dump refuses to dump from a server newer than itself;
+        #   - a dump made by a newer pg_dump does not load into an older
+        #     server, because it sets parameters the server does not know
+        #     (pg_dump 17+ emits `SET transaction_timeout`, added in PG 17).
+        include:
+          - image: "debian:bookworm"
+            pg_version: "15"
+          - image: "ubuntu:22.04"
+            pg_version: "14"
+          - image: "ubuntu:24.04"
+            pg_version: "16"
+          - image: "ubuntu:26.04"
+            pg_version: "18"
     runs-on: ${{ matrix.os }}
     needs:
       - compile-ubuntu
@@ -91,7 +107,7 @@ jobs:
     services:
       # Label used to access the service container
       postgres:
-        image: postgres:12
+        image: postgres:${{ matrix.pg_version }}
         env:
           POSTGRES_PASSWORD: odoo
           POSTGRES_USER: odoo
