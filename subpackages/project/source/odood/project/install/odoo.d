@@ -177,6 +177,28 @@ void installOdoo(in Project project) {
         }
 
 
+        /* Patch requirements txt to avoid using reportlab==3.5.59, that has no
+         * wheel for python3.10 and thus has to be compiled from sources.
+         * Its C sources do not compile with GCC 14+ (Ubuntu 24.10+), that turned
+         * -Wincompatible-pointer-types into an error, and use `bool` as an
+         * identifier, that is a keyword in the C23 standard GCC 15 defaults to.
+         *
+         * We switch to reportlab==3.6.8, that is the version Odoo 17+ pin for
+         * python3.10 themselves, and that has wheels for both amd64 and arm64,
+         * thus nothing has to be compiled at all. It requires pillow>=4.0.0,
+         * that is satisfied by every serie pinning reportlab 3.5.59 (they pin
+         * Pillow 9.0.1).
+         */
+        if (project.venv.py_version >= Version(3, 10, 0) && project.odoo.serie <= 19) {
+            info("Patching Odoo requirements.txt to avoid usage of old reportlab...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"reportlab==3\.5\.59(?=[\s;]|$)", "g"),
+                    "reportlab==3.6.8");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));
