@@ -10,6 +10,9 @@
   to generate `ADDONS.md` / `ADDONS.csv` listing the assembly's addons.
   Could be used to maintain readable list of addons available in assembly.
 - `odood repo release` and `odood repo hotfix release` now got `-n`/`--dry-run` options
+- `odood repo release` and `odood repo hotfix release` now got
+  `--addons-list-md` and `--addons-list-csv` options to generate
+  `ADDONS.md` / `ADDONS.csv` and commit them together with the release.
 - The CI docker image (`odoo-ci/{serie}`) now ships headless Google Chrome,
   thus it is not needed to install it manually to run tours (`HttpCase` /
   `browser_js` tests) anymore. The production image (`odoo/{serie}`) is not affected.
@@ -26,6 +29,10 @@
   `sudo -H` and systemd do it.
 - `psql` commands that `odood deploy` runs as the `postgres` user now run with
   `HOME` of that user too, instead of reading `~/.psqlrc` of the caller.
+- `odood repo do-forward-port` now keeps our own `CHANGELOG.md`,
+  `CHANGELOG.latest.md`, `ADDONS.md` and `ADDONS.csv`, as it already did for
+  translations. Also, it no longer skips resolving translations in repos that
+  have no `.pot` files: `git add` aborts when a path matches nothing.
 
 ---
 

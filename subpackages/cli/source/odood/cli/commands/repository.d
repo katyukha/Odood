@@ -465,7 +465,9 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
          * changelogs describe releases of this branch only.
          */
         auto keep_ours = [
-            "*.po", "*.pot", "CHANGELOG.md", "CHANGELOG.latest.md"];
+            "*.po", "*.pot",
+            "CHANGELOG.md", "CHANGELOG.latest.md",
+            "ADDONS.md", "ADDONS.csv"];
 
         /* `git add` and `git checkout` abort when any pathspec matches
          * nothing, thus a repo without translations or without changelogs
@@ -638,6 +640,8 @@ class CommandRepositoryRelease: OdoodCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool addonsListMd;
+    bool addonsListCsv;
     bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
@@ -663,6 +667,10 @@ class CommandRepositoryRelease: OdoodCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(addonsListMd)("", "addons-list-md",
+            "Generate ADDONS.md and commit it before tagging.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv",
+            "Generate ADDONS.csv and commit it before tagging.");
         this.addFlag!(dryRun)("n", "dry-run",
             "Only show what would be released; do not tag, commit, or push. "
             ~ "Combined with --changelog, also prints the changelog preview.");
@@ -778,8 +786,16 @@ class CommandRepositoryRelease: OdoodCommand {
             return 0;
         }
 
-        if (changelog) {
-            repo.generateChangelog(result.get);
+        /* All generated release artifacts go into one commit before the tag,
+         * thus the tag points at a tree that already contains them.
+         * generate* only write and stage; committing is up to us.
+         */
+        if (changelog || addonsListMd || addonsListCsv) {
+            if (changelog)
+                repo.generateChangelog(result.get);
+            if (addonsListMd || addonsListCsv)
+                repo.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+
             auto msg = commitMessage.isNull
                 ? "Release %s".format(result.get.new_version)
                 : commitMessage.get;
@@ -787,7 +803,7 @@ class CommandRepositoryRelease: OdoodCommand {
                 msg,
                 commitUser.isNull ? null : commitUser.get,
                 commitEmail.isNull ? null : commitEmail.get);
-            infof("Changelog committed.");
+            infof("Release artifacts committed.");
         }
 
         repo.setTag(result.get.new_version.toString);
@@ -984,6 +1000,8 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool addonsListMd;
+    bool addonsListCsv;
     bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
@@ -1001,6 +1019,10 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(addonsListMd)("", "addons-list-md",
+            "Generate ADDONS.md and commit it before tagging.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv",
+            "Generate ADDONS.csv and commit it before tagging.");
         this.addFlag!(dryRun)("n", "dry-run",
             "Only show what would be released; do not tag, commit, or push. "
             ~ "Combined with --changelog, also prints the changelog preview.");
@@ -1041,8 +1063,16 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
             return 0;
         }
 
-        if (changelog) {
-            repo.generateChangelog(result.get);
+        /* All generated release artifacts go into one commit before the tag,
+         * thus the tag points at a tree that already contains them.
+         * generate* only write and stage; committing is up to us.
+         */
+        if (changelog || addonsListMd || addonsListCsv) {
+            if (changelog)
+                repo.generateChangelog(result.get);
+            if (addonsListMd || addonsListCsv)
+                repo.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+
             auto msg = commitMessage.isNull
                 ? "Release %s".format(result.get.new_version)
                 : commitMessage.get;
@@ -1050,7 +1080,7 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
                 msg,
                 commitUser.isNull ? null : commitUser.get,
                 commitEmail.isNull ? null : commitEmail.get);
-            infof("Changelog committed.");
+            infof("Release artifacts committed.");
         }
 
         repo.setTag(result.get.new_version.toString);

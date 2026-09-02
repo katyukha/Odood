@@ -18,6 +18,8 @@ private import versioned: Version, VersionPart;
 private import thepath: Path;
 
 private import odood.utils.addons.addon: OdooAddon, findAddons;
+private import odood.utils.addons.addon_list:
+    addonListRows, renderMarkdownTable, renderCsv;
 private import odood.utils.addons.addon_changelog:
     OdooAddonChangelogEntry, matchChangelogFileVersion;
 private import odood.utils.odoo.std_version: OdooStdVersion;
@@ -683,6 +685,71 @@ class AddonRepository : GitRepository{
         add(changelog_path);
         infof("Changelog generated.");
     }
+
+    /** Generate ADDONS.md / ADDONS.csv listing the addons of this repository.
+      *
+      * Stages the generated files; does NOT commit — the caller decides.
+      *
+      * Params:
+      *    md  = generate ADDONS.md
+      *    csv = generate ADDONS.csv
+      **/
+    void generateAddonsList(in bool md=true, in bool csv=true) {
+        auto rows = addonListRows(addons);
+        if (md) {
+            infof("Generating ADDONS.md ...");
+            auto md_path = path.join("ADDONS.md");
+            md_path.writeFile("### Addons list\n\n" ~ renderMarkdownTable(rows));
+            add(md_path);
+        }
+        if (csv) {
+            infof("Generating ADDONS.csv ...");
+            auto csv_path = path.join("ADDONS.csv");
+            csv_path.writeFile(renderCsv(rows));
+            add(csv_path);
+        }
+    }
+}
+
+
+/// Test generateAddonsList: writes ADDONS.md / ADDONS.csv and stages them.
+unittest {
+    import std.algorithm: canFind;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("test-repo")));
+    foreach(name; ["addon_a", "addon_b"]) {
+        repo.path.join(name).mkdir(false);
+        repo.path.join(name, "__manifest__.py").writeFile(
+            `{"name": "%s", "version": "17.0.1.0.0", "license": "LGPL-3"}`.format(name));
+    }
+    repo.add(repo.path.join("addon_a"));
+    repo.add(repo.path.join("addon_b"));
+    repo.commit("Initial commit");
+
+    repo.generateAddonsList();
+
+    auto md = repo.path.join("ADDONS.md");
+    auto csv = repo.path.join("ADDONS.csv");
+    md.exists.shouldBeTrue;
+    csv.exists.shouldBeTrue;
+    md.readFileText.canFind("addon_a").shouldBeTrue;
+    md.readFileText.canFind("| System Name |").shouldBeTrue;
+    csv.readFileText.canFind(`"addon_b"`).shouldBeTrue;
+
+    // Generated files must be staged, so the caller's commit picks them up.
+    repo.status.hasStagedChanges.shouldBeTrue;
+
+    // Each format can be generated on its own.
+    md.remove();
+    csv.remove();
+    repo.generateAddonsList(md: true, csv: false);
+    md.exists.shouldBeTrue;
+    csv.exists.shouldBeFalse;
 }
 
 
