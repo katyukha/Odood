@@ -460,21 +460,43 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
                 "Merge of 'origin/%s' brought no changes. Nothing to forward-port.",
                 source);
 
+        /* Files that belong to the branch itself rather than to the changes
+         * being forward-ported: translations are regenerated per serie, and
+         * changelogs describe releases of this branch only.
+         */
+        auto keep_ours = [
+            "*.po", "*.pot", "CHANGELOG.md", "CHANGELOG.latest.md"];
+
+        /* `git add` and `git checkout` abort when any pathspec matches
+         * nothing, thus a repo without translations or without changelogs
+         * would silently skip the paths that do match. `reset` and `clean`
+         * tolerate it, and `clean` has to keep the full list anyway, to
+         * remove files the merge brought as untracked.
+         */
+        string[] tracked_keep_ours;
+        foreach(pathspec; keep_ours)
+            if (repo.gitCmd
+                    .withArgs("ls-files", "--", pathspec)
+                    .execute.output.length > 0)
+                tracked_keep_ours ~= pathspec;
+
         repo.gitCmd
-            .withArgs("reset", "-q", "--", "*.po", "*.pot")
+            .withArgs(["reset", "-q", "--"] ~ keep_ours)
             .execute
             .ensureOk(true);
 
         repo.gitCmd
-            .withArgs("clean", "-fdx", " --", "*.po", "*.pot")
+            .withArgs(["clean", "-fdx", "--"] ~ keep_ours)
             .execute
             .ensureOk(true);
-        repo.gitCmd
-            .withArgs("checkout", "--ours", "--", "*.po", "*.pot")
-            .execute;
-        repo.gitCmd
-            .withArgs("add", "*.po", "*.pot")
-            .execute;
+        if (tracked_keep_ours.length > 0) {
+            repo.gitCmd
+                .withArgs(["checkout", "--ours", "--"] ~ tracked_keep_ours)
+                .execute;
+            repo.gitCmd
+                .withArgs(["add"] ~ tracked_keep_ours)
+                .execute;
+        }
 
         foreach(addon; repo.addons) {
             addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);

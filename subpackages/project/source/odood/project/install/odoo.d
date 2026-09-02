@@ -17,7 +17,7 @@ private import odood.utils.odoo.serie: OdooSerie;
 
 private import odood.git;
 private import odood.utils;
-private import odood.utils.versioned: Version;
+private import versioned: Version;
 
 
 /** Download Odoo to odoo.path specified by project
