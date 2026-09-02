@@ -3,11 +3,13 @@
   **/
 module odood.project.odoo.db_manager;
 
+private import core.stdc.errno: EPIPE;
+
 private import std.logger;
 private import std.array: array;
 private import std.json;
 private import std.format: format;
-private import std.exception: enforce;
+private import std.exception: enforce, ErrnoException;
 private import std.typecons;
 private import std.datetime.systime: Clock;
 private import std.datetime.date: DateTime;
@@ -149,6 +151,78 @@ struct OdooDatabaseManager {
         return res[0][0].get!bool;
     }
 
+    /** Major version of the PostgreSQL server the given database lives on.
+      *
+      * Returns: major version, or null if it cannot be determined.
+      **/
+    private Nullable!uint _serverPgMajor(in string dbname) const nothrow {
+        try {
+            /* PQserverVersion, wrapped by peque, is answered from the
+             * connection itself, thus no query is sent to the server.
+             */
+            return _project.openPgConnection(dbname).serverVersion.major.nullable;
+        } catch (Exception) {
+            // Version check is a diagnostic, it must never break the backup.
+            return Nullable!uint.init;
+        }
+    }
+
+    /** Major version of the given PostgreSQL client program (pg_dump, psql).
+      *
+      * Returns: major version, or null if it cannot be determined.
+      **/
+    private Nullable!uint _clientPgMajor(in string program) const nothrow {
+        import std.conv: to;
+        import std.regex: matchFirst, ctRegex;
+        try {
+            // For example: "pg_dump (PostgreSQL) 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)"
+            auto output = Process(program)
+                .withArgs("--version")
+                .execute
+                .ensureOk(true)
+                .output;
+            auto m = output.matchFirst(ctRegex!(r"\(PostgreSQL\)\s+(\d+)"));
+            if (!m)
+                return Nullable!uint.init;
+            return m[1].to!uint.nullable;
+        } catch (Exception) {
+            return Nullable!uint.init;
+        }
+    }
+
+    /** Warn if PostgreSQL client tools are newer than the server.
+      *
+      * pg_dump writes `SET` commands for every parameter it knows about,
+      * thus a dump taken by a newer pg_dump cannot be loaded back into an
+      * older server. For example pg_dump 17+ emits `SET transaction_timeout`,
+      * that was introduced in PostgreSQL 17, and a PostgreSQL 16 or older
+      * server rejects it, failing the whole restore.
+      *
+      * We cannot fix such a combination, but we can report it while the dump
+      * is being created, instead of leaving the user with a backup that only
+      * fails when it is needed.
+      **/
+    private void _warnOnPgVersionMismatch(
+            in string program, in string dbname) const nothrow {
+        auto client = _clientPgMajor(program);
+        auto server = _serverPgMajor(dbname);
+        if (client.isNull || server.isNull)
+            return;
+        if (client.get <= server.get)
+            return;
+        try
+            warningf(
+                "%s is version %s, while PostgreSQL server is version %s. " ~
+                "A dump taken by a newer %s may fail to restore into this " ~
+                "older server, because the dump uses configuration " ~
+                "parameters the server does not know about. " ~
+                "Consider using %s of the same major version as the server.",
+                program, client.get, server.get, program, program);
+        catch (Exception) {
+            // Nothing sensible to do if even logging fails.
+        }
+    }
+
     /** Rename database
       **/
     auto rename(in string old_name, in string new_name) const {
@@ -280,6 +354,8 @@ struct OdooDatabaseManager {
 
         auto sw = StopWatch(AutoStart.yes);
         auto db_config = _project.parseOdooDatabaseConfig;
+
+        _warnOnPgVersionMismatch("pg_dump", dbname);
 
         // TODO: Use resolveProgramPath here
         auto pg_dump = Process("pg_dump")
@@ -566,14 +642,30 @@ struct OdooDatabaseManager {
             scope(exit) psql_pid.wait();
 
             tracef("Restoring database %s dump", name);
-            auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
-            reader.processEntries(["dump.sql"],
-                (scope ref item) {
-                    item.data.readChunks((const(ubyte)[] chunk) {
-                        psql_pipe.writeEnd.rawWrite(chunk);
+
+            /* psql runs with ON_ERROR_STOP=1, thus it exits on the first SQL
+             * error, while we are still streaming the dump into its stdin.
+             * Writing to the pipe then fails with EPIPE, and that error would
+             * hide the real cause, that psql has already printed on stderr.
+             * Thus we only remember that the write failed, and let the exit
+             * code of psql below tell what actually happened.
+             */
+            bool write_failed = false;
+            try {
+                auto reader = DarkArchiveReader!(DarkArchiveFormat.zip)(backup_path);
+                reader.processEntries(["dump.sql"],
+                    (scope ref item) {
+                        item.data.readChunks((const(ubyte)[] chunk) {
+                            psql_pipe.writeEnd.rawWrite(chunk);
+                        });
                     });
-                });
-            psql_pipe.writeEnd.flush();
+                psql_pipe.writeEnd.flush();
+            } catch (ErrnoException e) {
+                // Any other IO error is not ours to interpret.
+                if (e.errno != EPIPE)
+                    throw e;
+                write_failed = true;
+            }
             psql_pipe.writeEnd.close();
 
             auto psql_exit_code = psql_pid.wait();
@@ -581,7 +673,18 @@ struct OdooDatabaseManager {
                 psql_exit_code == 0,
                 "Cannot restore database %s: psql exited with status %s. ".format(
                     name, psql_exit_code) ~
-                "The database dump could not be applied cleanly.");
+                "The database dump could not be applied cleanly. " ~
+                "See the output of psql above for the error that caused it.");
+
+            /* psql stopped reading the dump, but still reported success.
+             * We have no idea how much of the dump was applied, thus we
+             * cannot report this as a successful restore.
+             */
+            enforce!OdoodException(
+                !write_failed,
+                ("Cannot restore database %s: psql stopped reading the dump " ~
+                 "before it was completely written, but exited successfully. " ~
+                 "The database may be restored only partially.").format(name));
             tracef("Dump of database %s successfully restored!", name);
         });
 

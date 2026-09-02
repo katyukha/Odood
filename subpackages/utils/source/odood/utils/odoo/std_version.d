@@ -75,43 +75,54 @@ private import odood.exception;
     auto rawVersion() const pure { return _raw_version; }
 
     /// True if version is valid (X.X.Y.Y.Y format)
-    auto isStandard() const pure { return _is_standard; }
+    bool isStandard() const pure { return _is_standard; }
 
 
     /// Display version as string
     string toString() const pure { return _raw_version; }
 
+    // The part accessors below throw OdoodException (via ensureIsStandard)
+    // on a non-standard version instead of using assert contracts: an
+    // AssertError is an Error that escapes `catch (Exception)` handlers in
+    // library consumers, and contracts vanish in release builds entirely.
+
     /// Odoo Serie extracted from addon's version
-    auto serie() const pure
-    in (isStandard) {
+    auto serie() const pure {
+        ensureIsStandard();
         return _serie;
     }
 
     /// semver part of version
-    auto semver() const pure
-    in (isStandard) {
+    auto semver() const pure {
+        ensureIsStandard();
         return _version;
     }
 
     /// Major addon version (first number after serie)
-    auto major() const pure
-    in (isStandard) {
+    auto major() const pure {
+        ensureIsStandard();
         return _version.major;
     }
 
     /// Minor addon version (second number after serie)
-    auto minor() const pure
-    in (isStandard) {
+    auto minor() const pure {
+        ensureIsStandard();
         return _version.minor;
     }
 
     /// Patch addon version (third number after serie)
-    auto patch() const pure
-    in (isStandard) {
+    auto patch() const pure {
+        ensureIsStandard();
         return _version.patch;
     }
 
-    // Comparison operators
+    /** Compare versions.
+      *
+      * Note: when either side is non-standard, comparison falls back to raw
+      * string comparison, so e.g. a descending sort ranks `milestone-1`
+      * above `18.0.1.0.0`. When looking for the "latest" version in a mixed
+      * set, filter on `isStandard` BEFORE comparing.
+      **/
     int opCmp(in OdooStdVersion other) const pure {
         // If both versions are standard, then we have to compare parts
         // of versions.
@@ -211,9 +222,18 @@ private import odood.exception;
         OdooStdVersion("18.0.1.2.3").incPatch.should == OdooStdVersion("18.0.1.2.4");
     }
 
-    /// Determine if version differs on major, minor or patch level
-    VersionPart differAt(in OdooStdVersion other) const pure
-    in (this != other && this.isStandard && other.isStandard && this.serie == other.serie) {
+    /// Determine if version differs on major, minor or patch level.
+    /// Both versions must be standard, of the same serie, and not equal.
+    VersionPart differAt(in OdooStdVersion other) const pure {
+        ensureIsStandard();
+        other.ensureIsStandard();
+        enforce!OdoodException(
+            this._serie == other._serie,
+            "Cannot compute differAt for versions of different series: '%s' and '%s'!".format(
+                rawVersion, other.rawVersion));
+        enforce!OdoodException(
+            this != other,
+            "Cannot compute differAt for equal versions '%s'!".format(rawVersion));
         return this._version.differAt(other._version);
     }
 
@@ -231,7 +251,6 @@ private import odood.exception;
 }
 
 @safe unittest {
-    import core.exception: AssertError;
     import unit_threaded.assertions;
 
     auto v = OdooStdVersion("15.0.1.2.3");
@@ -258,13 +277,43 @@ private import odood.exception;
     v.patch.should == 3;
     v.toString.should == "15.0.1.2.3";
 
+    // Part accessors on a non-standard version throw a catchable
+    // OdoodException (NOT an AssertError, which would escape
+    // `catch (Exception)` in library consumers).
     v = OdooStdVersion("15.0.1.2");
     v.isStandard.shouldBeFalse();
-    v.serie.shouldThrow!AssertError;
-    v.major.shouldThrow!AssertError;
-    v.minor.shouldThrow!AssertError;
-    v.patch.shouldThrow!AssertError;
+    v.serie.shouldThrow!OdoodException;
+    v.semver.shouldThrow!OdoodException;
+    v.major.shouldThrow!OdoodException;
+    v.minor.shouldThrow!OdoodException;
+    v.patch.shouldThrow!OdoodException;
     v.toString.should == "15.0.1.2";
+
+    // isStandard is usable directly as a sort/filter predicate
+    // (returns plain bool, not const(bool)).
+    import std.algorithm: sort;
+    auto vs = [OdooStdVersion("15.0.1.2"), OdooStdVersion("15.0.1.2.3")];
+    vs.sort!((a, b) => a.isStandard && !b.isStandard);
+    vs[0].isStandard.shouldBeTrue();
+}
+
+// differAt guards: non-standard, mixed-serie, and equal inputs throw
+// a catchable OdoodException.
+@safe unittest {
+    import unit_threaded.assertions;
+
+    OdooStdVersion("15.0.1.2.3").differAt(OdooStdVersion("15.0.1.2"))
+        .shouldThrow!OdoodException;
+    OdooStdVersion("15.0.1.2").differAt(OdooStdVersion("15.0.1.2.3"))
+        .shouldThrow!OdoodException;
+    OdooStdVersion("15.0.1.2.3").differAt(OdooStdVersion("16.0.1.2.3"))
+        .shouldThrow!OdoodException;
+    OdooStdVersion("15.0.1.2.3").differAt(OdooStdVersion("15.0.1.2.3"))
+        .shouldThrow!OdoodException;
+
+    import versioned: VersionPart;
+    OdooStdVersion("15.0.1.2.3").differAt(OdooStdVersion("15.0.2.0.0"))
+        .should == VersionPart.MAJOR;
 }
 
 

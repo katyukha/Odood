@@ -1,6 +1,6 @@
 module odood.cli.commands.addons;
 
-private import std.stdio: writeln, writefln, File;
+private import std.stdio: write, writeln, writefln, File;
 private import std.json: JSONValue;
 private import std.logger;
 private import std.format: format;
@@ -21,6 +21,7 @@ private import odood.cli.utils: printLogRecordSimplified, printJSON, displayPath
 private import odood.project: Project;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.addons.addon_list: renderMarkdownTable, renderCsv;
 private import odood.lib.odoo.log: OdooLogProcessor;
 private import odood.project.addons.manager:
     AddonsInstallUpdateException, AddonLocationSource, toKey;
@@ -56,6 +57,8 @@ class CommandAddonsList: OdoodCommand {
     bool assembly;
     bool table;
     bool json;
+    bool md;
+    bool csv;
     bool absolute;
     string[] field;
     Nullable!string color;
@@ -82,6 +85,10 @@ class CommandAddonsList: OdoodCommand {
         this.addFlag!(assembly)("", "assembly",
             "Show addons available in assembly");
         this.addFlag!(table)("t", "table", "Display list of addons as table");
+        this.addFlag!(md)("", "md",
+            "Output the addon list as a Markdown table. Honors --field.");
+        this.addFlag!(csv)("", "csv",
+            "Output the addon list as CSV. Honors --field.");
         this.addFlag!(json)("", "json",
             "Output the addon catalog as JSON (name, path, version, source, " ~
             "repo, linked, installable). Honors the same filters.");
@@ -89,8 +96,9 @@ class CommandAddonsList: OdoodCommand {
             "Show absolute paths instead of paths relative to the project root.");
         this.addOption!(field)("f", "field",
             "Display field in table. Either a manifest field (e.g. version, " ~
-            "author, license, summary, category, application, auto_install, " ~
-            "installable, price, tags), or a computed field: " ~
+            "author, website, maintainer, license, summary, category, " ~
+            "application, auto_install, installable, price, tags, dependencies, " ~
+            "python_dependencies, bin_dependencies), or a computed field: " ~
             "'source' (odoo-core/custom-repo/downloads), 'repo' (owning " ~
             "repository), or 'linked' (whether linked into custom_addons).");
         this.addOption!(color)("c", "color",
@@ -194,21 +202,19 @@ class CommandAddonsList: OdoodCommand {
             writeln(getColoredAddonLine(project, addon, display_type));
     }
 
-    private string[] prepareAddonsTableHeader(in string[] fields) {
-        string[] header = ["Name".bold.to!string];
+    private string[] prepareAddonsTableHeader(in string[] fields, in bool styled) {
+        string hdr(in string s) => styled ? s.bold.to!string : s;
+        string[] header = [hdr("Name")];
         foreach(f; fields)
             switch(f) {
                 case "version":
-                    header ~= ["Version".bold.to!string];
+                    header ~= [hdr("Version")];
                     break;
                 case "price":
-                    header ~= [
-                        "Price".bold.to!string,
-                        "Currency".bold.to!string,
-                    ];
+                    header ~= [hdr("Price"), hdr("Currency")];
                     break;
                 default:
-                    header ~= [f.capitalize.bold.to!string];
+                    header ~= [hdr(f.capitalize)];
                     break;
             }
         return header;
@@ -218,9 +224,12 @@ class CommandAddonsList: OdoodCommand {
             in string[] fields,
             in Project project,
             OdooAddon addon,
-            in AddonDisplayType display_type) {
+            in AddonDisplayType display_type,
+            in bool styled) {
         string[] row = [
-            getColoredAddonLine(project, addon, display_type).to!string,
+            styled ?
+                getColoredAddonLine(project, addon, display_type).to!string :
+                getAddonDisplayName(project, addon, display_type),
         ];
         foreach(f; fields) {
             switch(f) {
@@ -235,6 +244,18 @@ class CommandAddonsList: OdoodCommand {
                     break;
                 case "author":
                     row ~= [addon.manifest.author];
+                    break;
+                case "website":
+                    row ~= [addon.manifest.website];
+                    break;
+                case "dependencies":
+                    row ~= [addon.manifest.dependencies.join(", ")];
+                    break;
+                case "python_dependencies":
+                    row ~= [addon.manifest.python_dependencies.join(", ")];
+                    break;
+                case "bin_dependencies":
+                    row ~= [addon.manifest.bin_dependencies.join(", ")];
                     break;
                 case "category":
                     row ~= [addon.manifest.category];
@@ -287,21 +308,24 @@ class CommandAddonsList: OdoodCommand {
         return row;
     }
 
-    private void displayAddonsTable(in Project project) {
-        import tabletool;
-        string[][] table_data;
+    private string[][] buildTableData(in Project project, in bool styled) {
         auto display_type = parseDisplayType();
-
         string[] fields = field.length > 0 ?
             field : ["version", "price", "installable"];
 
-        table_data ~= prepareAddonsTableHeader(fields);
-
+        string[][] table_data;
+        table_data ~= prepareAddonsTableHeader(fields, styled);
         foreach(addon; findAddons(project))
-            table_data ~= prepareAddonsTableRow(fields, project, addon, display_type);
+            table_data ~= prepareAddonsTableRow(
+                fields, project, addon, display_type, styled);
+        return table_data;
+    }
+
+    private void displayAddonsTable(in Project project) {
+        import tabletool;
         writeln(
             tabulate(
-                table_data,
+                buildTableData(project, styled: true),
                 tabletool.Config(
                     tabletool.Style.grid,
                     tabletool.Align.left,
@@ -309,6 +333,14 @@ class CommandAddonsList: OdoodCommand {
                 )
             )
         );
+    }
+
+    private void displayAddonsMarkdown(in Project project) {
+        write(renderMarkdownTable(buildTableData(project, styled: false)));
+    }
+
+    private void displayAddonsCsv(in Project project) {
+        write(renderCsv(buildTableData(project, styled: false)));
     }
 
     private void displayAddonsJson(in Project project) {
@@ -336,6 +368,10 @@ class CommandAddonsList: OdoodCommand {
             displayAddonsJson(project);
         else if (table)
             displayAddonsTable(project);
+        else if (md)
+            displayAddonsMarkdown(project);
+        else if (csv)
+            displayAddonsCsv(project);
         else
             displayAddonsList(project);
         return 0;
@@ -478,7 +514,9 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
                 "Use --ignore-unfinished-updates to proceed anyway.");
     }
 
-    protected auto findAddons(in Project project) {
+    /** Predicate over addon names implementing --skip / --skip-re / --skip-file.
+      **/
+    protected bool delegate(in string) buildSkipFilter(in Project project) {
         string[] skip_addons = skip;
         auto skip_regexes = skipRe.map!(r => regex(r)).array;
 
@@ -486,47 +524,58 @@ class CommandAddonsUpdateInstallUninstall: OdoodCommand {
             foreach(a; project.addons.parseAddonsList(path))
                 skip_addons ~= a.name;
 
+        return (in string name) =>
+            skip_addons.canFind(name) ||
+            skip_regexes.canFind!((re, n) => !n.matchFirst(re).empty)(name);
+    }
+
+    /** Addons selected by the disk-based options (--dir, --dir-r, -f/--file,
+      * --assembly), with the skip filter applied. Plain addon-name arguments
+      * are NOT included here — their resolution policy differs per command
+      * (see findAddons and CommandAddonsUninstall).
+      **/
+    protected OdooAddon[] scanAddons(
+            in Project project, bool delegate(in string) skip_filter) {
         OdooAddon[] addons;
         foreach(search_path; dir)
-            foreach(a; project.addons.scan(search_path, false)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
+            foreach(a; project.addons.scan(search_path, false))
+                if (!skip_filter(a.name))
+                    addons ~= a;
 
         foreach(search_path; dirR)
-            foreach(a; project.addons.scan(search_path, true)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
+            foreach(a; project.addons.scan(search_path, true))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+
+        foreach(path; file)
+            foreach(a; project.addons.parseAddonsList(path))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+
+        if (assembly) {
+            enforce!OdoodCLIException(
+                project.assembly !is null,
+                "No assembly configured for this project!");
+            foreach(a; project.addons.scan(path: project.assembly.raw.dist_dir, recursive: true))
+                if (!skip_filter(a.name))
+                    addons ~= a;
+        }
+
+        return addons;
+    }
+
+    protected auto findAddons(in Project project) {
+        auto skip_filter = buildSkipFilter(project);
+        auto addons = scanAddons(project, skip_filter);
 
         foreach(addon_name; addonNames) {
-            if (skip_addons.canFind(addon_name)) continue;
-            if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(addon_name)) continue;
+            if (skip_filter(addon_name)) continue;
 
             auto a = project.addons.getByString(addon_name);
             enforce!OdoodCLIException(
                 !a.isNull,
                 "Cannot find addon %s!".format(addon_name));
             addons ~= a.get;
-        }
-        foreach(path; file) {
-            foreach(a; project.addons.parseAddonsList(path)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
-        }
-        if (assembly) {
-            enforce!OdoodCLIException(
-                project.assembly !is null,
-                "No assembly configured for this project!");
-            foreach(a; project.addons.scan(path: project.assembly.raw.dist_dir, recursive: true)) {
-                if (skip_addons.canFind(a.name)) continue;
-                if (skip_regexes.canFind!((re, name) => !name.matchFirst(re).empty)(a.name)) continue;
-                addons ~= a;
-            }
         }
 
         return addons;
@@ -650,8 +699,46 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
     override int execute() {
         auto project = Project.loadProject;
 
+        // Uninstall is a database-side operation: Odoo uninstalls modules by
+        // name whether or not their code is still present. So a plain addon
+        // name must work even when the addon is gone from disk — that is the
+        // primary cleanup case (repo removed, module still installed in the
+        // database). Disk-based selectors (--dir, --dir-r, -f, --assembly)
+        // still resolve by scanning.
+        auto skip_filter = buildSkipFilter(project);
+        string[] names;
+        foreach(a; scanAddons(project, skip_filter))
+            names ~= a.name;
+        foreach(addon_name; addonNames) {
+            if (skip_filter(addon_name)) continue;
+
+            auto a = project.addons.getByString(addon_name);
+            if (a.isNull) {
+                warningf(
+                    "Addon '%s' not found on disk. " ~
+                    "It will be uninstalled by name from the database(s).",
+                    addon_name);
+                names ~= addon_name;
+            } else {
+                names ~= a.get.name;
+            }
+        }
+
         applyForDatabases(project, (in string dbname) {
-            project.addons.uninstall(dbname, findAddons(project));
+            auto db = project.dbSQL(dbname);
+            string[] to_uninstall;
+            foreach(name; names)
+                if (db.isAddonInstalled(name))
+                    to_uninstall ~= name;
+                else
+                    warningf(
+                        "Addon '%s' is not installed in database '%s'. Skipping.",
+                        name, dbname);
+            if (to_uninstall.empty) {
+                infof("Nothing to uninstall in database '%s'.", dbname);
+                return;
+            }
+            project.addons.uninstall(dbname, to_uninstall);
         });
         return 0;
     }

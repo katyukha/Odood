@@ -5,8 +5,7 @@ private import std.exception: enforce;
 private import std.string: chompPrefix, strip, empty, splitLines, toLower;
 private import std.format: format;
 private import std.algorithm: map, canFind, startsWith, filter;
-private import std.array: array, split;
-private import std.regex: regex, matchFirst;
+private import std.array: array;
 private import std.conv: to;
 private static import std.process;
 
@@ -15,46 +14,13 @@ private import thepath: Path;
 
 private import odood.exception: OdoodException;
 private import theprocess;
-private import odood.git: getGitTopLevel, GIT_REF_WORKTREE, GitURL;
+private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
+private import odood.git.remote: GitRemote;
 
+// Re-exported for compatibility: these types used to be defined here.
+public import odood.git.status: GitStatus;
+public import odood.git.refs: GitTag, GitRef;
 
-/** Representation of result of `git status` command.
-  **/
-protected struct GitStatus {
-    bool hasChanges = false;
-    bool hasUntracked = false;
-    bool hasConflicts = false;
-    int ahead = 0;
-    int behind = 0;
-    string localBranch;
-    string remoteBranch;
-
-    /** Check if repository is clean:
-      * - no untracked files
-      * - no conflicts
-      * - no changes
-      **/
-    bool isClean() const {
-        return !hasChanges && !hasUntracked && !hasConflicts;
-    }
-
-    /** Check if repo is in diverged status
-      **/
-    bool isDiverged() const {
-        return ahead > 0 && behind > 0;
-    }
-}
-
-/** Tag together with the commit it points at.
-  *
-  * For annotated tags `sha` is the peeled (dereferenced) commit, not the tag
-  * object itself; for lightweight tags it is the commit directly — so `sha`
-  * always identifies the tagged commit regardless of the tag kind.
-  **/
-struct GitTag {
-    string name;
-    string sha;
-}
 
 /** Simple class to manage git repositories
   **/
@@ -97,9 +63,12 @@ class GitRepository {
         return path;
     }
 
-    /// Preconfigured runner for git CLI
+    /// Preconfigured runner for git CLI.
+    /// Locale is pinned to C so git's output and error text is stable for
+    /// parsing regardless of the user's locale (an explicit LC_ALL in the
+    /// repo's env still wins, as _env is applied on top).
     auto gitCmd() const {
-        return Process("git")
+        return gitProcess
             .withEnv(_env)
             .inWorkDir(_path);
     }
@@ -112,7 +81,7 @@ class GitRepository {
       * Returns: GitRepository instance
       **/
     static auto initialize(in Path path) {
-        Process("git").withArgs("init", path.toString).execute.ensureOk(true);
+        gitProcess.withArgs("init", path.toString).execute.ensureOk(true);
         return new GitRepository(path);
     }
 
@@ -160,6 +129,79 @@ class GitRepository {
         enforce!OdoodException(
             actual.startsWith(expected.toLower),
             "Commit mismatch: expected %s, HEAD is %s".format(expected, actual));
+    }
+
+    /** Resolve `commitish` to a commit SHA in this repository.
+      *
+      * A non-throwing probe: lets a caller pick between a plain ref and its
+      * `origin/`-qualified spelling before acting on it. Annotated tags are
+      * peeled to the tagged commit.
+      *
+      * Returns:
+      *     Full SHA of the commit, or an empty string when `commitish`
+      *     does not resolve.
+      **/
+    string tryRevParse(in string commitish) const {
+        auto result = gitCmd
+            .withArgs(
+                "rev-parse", "--verify", "--quiet", commitish ~ "^{commit}")
+            .execute();
+        if (result.status != 0)
+            return "";
+        return result.output.strip();
+    }
+
+    /** Check if `ancestor` is reachable from `descendant` — i.e. whether the
+      * former has been merged into the latter (`git merge-base --is-ancestor`).
+      *
+      * A ref that does not resolve answers false rather than throwing, since
+      * callers ask about refs that may have vanished.
+      **/
+    bool isAncestor(in string ancestor, in string descendant) const {
+        if (tryRevParse(ancestor).empty || tryRevParse(descendant).empty)
+            return false;
+        return gitCmd
+            .withArgs("merge-base", "--is-ancestor", ancestor, descendant)
+            .execute()
+            .isOk;
+    }
+
+    /// Test tryRevParse + isAncestor
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("v1");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable first = repo.getCurrCommit;
+
+        // Annotated tag on the first commit — must peel to that commit.
+        repo.setTag("17.0.1.0.0");
+
+        repo.path.join("f.txt").writeFile("v2");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("second");
+        immutable second = repo.getCurrCommit;
+
+        repo.tryRevParse("HEAD").shouldEqual(second);
+        repo.tryRevParse("17.0.1.0.0").shouldEqual(first);
+        repo.tryRevParse(first).shouldEqual(first);
+        repo.tryRevParse("no-such-ref").shouldEqual("");
+
+        repo.isAncestor(first, second).shouldBeTrue;
+        repo.isAncestor(second, first).shouldBeFalse;
+        // A commit is its own ancestor.
+        repo.isAncestor(first, first).shouldBeTrue;
+        // Tag spelling works as either side.
+        repo.isAncestor("17.0.1.0.0", "HEAD").shouldBeTrue;
+        // Unresolvable refs answer false, not an error.
+        repo.isAncestor("no-such-ref", "HEAD").shouldBeFalse;
+        repo.isAncestor("HEAD", "no-such-ref").shouldBeFalse;
     }
 
     /** Fetch remote 'origin'
@@ -234,7 +276,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
         src.setTag("17.0.1.0.0");
         src.pushTag("17.0.1.0.0");
@@ -275,7 +317,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
 
         src.createBranch("hotfix/18.0.1.0.x");
@@ -317,7 +359,7 @@ class GitRepository {
         src_path.join("file.txt").writeFile("v1");
         src.add(src_path.join("file.txt"));
         src.commit("initial");
-        src.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        src.remoteAdd("origin", remote_path.toString);
         src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
         immutable default_branch = src.getCurrBranch.get;
         immutable sha_default = src.getCurrCommit;
@@ -422,6 +464,22 @@ class GitRepository {
         return getRemoteUrl("origin");
     }
 
+    /** Register remote `name` at `url` (`git remote add`) — for repositories
+      * created locally (e.g. assembly bootstrap) rather than cloned.
+      **/
+    void remoteAdd(in string name, in string url) const {
+        gitCmd
+            .withArgs("remote", "add", name, url)
+            .withFlag(std.process.Config.stderrPassThrough)
+            .execute
+            .ensureOk("Cannot add remote '%s' at '%s'".format(name, url), true);
+    }
+
+    /// ditto. Uses the clone-ready URL form (credentials included).
+    void remoteAdd(in string name, in GitURL url) const {
+        remoteAdd(name, url.toUrl);
+    }
+
     /** Check if repo has local branch with specified name
       **/
     bool hasLocalBranch(in string name) const {
@@ -456,6 +514,65 @@ class GitRepository {
         cmd.execute().ensureStatus(true);
     }
 
+    /** Create branch `branch_name` at `start_point` and switch to it,
+      * resetting the branch to `start_point` if it already exists.
+      *
+      * The create-or-reset counterpart of `createBranch` (which refuses to
+      * touch an existing branch). DESTRUCTIVE for an existing branch: its
+      * pointer is moved to `start_point`, so commits not reachable from
+      * there are discarded (same caveat as `resetBranchToRemote`, which is
+      * built on this method).
+      *
+      * When start_point is null (default), a missing branch is created from
+      * the current HEAD and an existing one is reset to the current HEAD.
+      *
+      * Equivalent to: git checkout -B <branch_name> [start_point]
+      **/
+    void checkoutBranchAt(in string branch_name, in string start_point = null) const {
+        auto cmd = gitCmd.withArgs("checkout", "-B", branch_name);
+        if (start_point !is null)
+            cmd.addArgs(start_point);
+        cmd.execute().ensureStatus(true);
+    }
+
+    /// Test checkoutBranchAt (create-or-reset)
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("v1");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable first = repo.getCurrCommit;
+        immutable main_branch = repo.getCurrBranch.get;
+
+        repo.path.join("f.txt").writeFile("v2");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("second");
+        immutable second = repo.getCurrCommit;
+
+        // Creates a missing branch (at HEAD when no start point is given).
+        repo.hasLocalBranch("work").shouldBeFalse;
+        repo.checkoutBranchAt("work");
+        repo.getCurrBranch.get.should == "work";
+        repo.getCurrCommit.should == second;
+
+        // createBranch (-b) refuses to touch an existing branch...
+        repo.createBranch("work").shouldThrow;
+        // ...while checkoutBranchAt resets it to the given start point.
+        repo.checkoutBranchAt("work", first);
+        repo.getCurrBranch.get.should == "work";
+        repo.getCurrCommit.should == first;
+
+        // Other branches are untouched by the reset.
+        repo.switchBranchTo(main_branch);
+        repo.getCurrCommit.should == second;
+    }
+
     /** Check whether `remote` has a branch named `name`.
       *
       * Queries the remote directly via `git ls-remote`, so the result does not
@@ -463,13 +580,7 @@ class GitRepository {
       * Returns false when the remote is unreachable or has no such branch.
       **/
     bool hasRemoteBranch(in string name, in string remote = "origin") const {
-        return gitCmd
-            .withArgs(
-                "ls-remote", "--heads", "--exit-code",
-                remote, "refs/heads/%s".format(name))
-            .withFlag(std.process.Config.stderrPassThrough)
-            .execute
-            .isOk;
+        return this.remote(remote).hasBranch(name);
     }
 
     /** List all branch names available on the given remote.
@@ -482,14 +593,7 @@ class GitRepository {
       * helper and env apply and no credentials leak into process argv.
       **/
     string[] listRemoteBranches(in string remote = "origin") const {
-        import odood.git: parseLsRemoteRefs;
-        return parseLsRemoteRefs(
-            gitCmd
-                .withArgs("ls-remote", "--heads", remote)
-                .execute
-                .ensureOk(true)
-                .output,
-            "refs/heads/");
+        return this.remote(remote).listBranches();
     }
 
     /** Create a local branch tracking `remote`'s branch of the same name and
@@ -544,10 +648,143 @@ class GitRepository {
                 "%s:refs/remotes/%s/%s".format(name, remote, name))
             .execute
             .ensureStatus(true);
-        gitCmd
-            .withArgs("checkout", "-B", name, "%s/%s".format(remote, name))
-            .execute
-            .ensureStatus(true);
+        checkoutBranchAt(name, "%s/%s".format(remote, name));
+    }
+
+    /** Merge `merge_ref` into the current branch.
+      *
+      * A conflict is an expected outcome, not an exception: the method
+      * returns false on it, and `abort_on_conflict` selects the tree state
+      * left behind.
+      *
+      * Params:
+      *     merge_ref = ref to merge (branch, tag, or commit). Must resolve
+      *         in this repository — an unresolvable ref throws instead of
+      *         being reported as a conflict.
+      *     no_ff = always create a merge commit instead of fast-forwarding
+      *         (`--no-ff`). Rejected in combination with `squash`.
+      *     no_commit = stage the merge result without committing
+      *         (`--no-commit`) — the caller reviews and commits.
+      *     squash = stage the cumulative diff of `merge_ref` without
+      *         committing and without recording a merge (`--squash`) — the
+      *         caller commits it as ONE commit.
+      *     abort_on_conflict = on conflict, restore a clean tree via
+      *         `git reset --merge` (works for both regular merges and
+      *         `--squash`, which writes no MERGE_HEAD, making `merge
+      *         --abort` unavailable). DESTRUCTIVE to staged state — callers
+      *         using it should start from a clean tree. When false,
+      *         conflicts are left in place for manual resolution.
+      *
+      * Returns:
+      *     true when the merge succeeded — including "nothing to do": after
+      *     a `no_commit`/`squash` merge, true with
+      *     `status().hasStagedChanges == false` means `merge_ref` carried no
+      *     net change. false on conflict.
+      **/
+    bool merge(
+            in string merge_ref,
+            in bool no_ff = false,
+            in bool no_commit = false,
+            in bool squash = false,
+            in bool abort_on_conflict = false) const {
+        enforce!OdoodException(
+            !(squash && no_ff),
+            "Cannot merge with both squash and no_ff: " ~
+            "git rejects --squash together with --no-ff.");
+        enforce!OdoodException(
+            !tryRevParse(merge_ref).empty,
+            "Cannot merge '%s': it does not resolve to a commit in this repository.".format(
+                merge_ref));
+
+        auto cmd = gitCmd.withArgs("merge");
+        if (no_ff) cmd.addArgs("--no-ff");
+        if (no_commit) cmd.addArgs("--no-commit");
+        if (squash) cmd.addArgs("--squash");
+        cmd.addArgs(merge_ref);
+        if (cmd.execute.isOk)
+            return true;
+
+        if (abort_on_conflict)
+            // Best-effort: cleanup must not mask the merge outcome.
+            gitCmd.withArgs("reset", "--merge").execute();
+        return false;
+    }
+
+    /// Test merge: clean/ff, no_commit, squash, conflict policies, bad args
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("f.txt").writeFile("base\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("initial");
+        immutable main_branch = repo.getCurrBranch.get;
+        immutable initial = repo.getCurrCommit;
+
+        // Feature branch with a non-conflicting change (separate file).
+        repo.createBranch("feature");
+        repo.path.join("feature.txt").writeFile("feature\n");
+        repo.add(repo.path.join("feature.txt"));
+        repo.commit("feature");
+        immutable feature_sha = repo.getCurrCommit;
+        repo.switchBranchTo(main_branch);
+
+        // Invalid combination and unresolvable ref throw (not "conflict").
+        repo.merge("feature", squash: true, no_ff: true)
+            .shouldThrow!OdoodException;
+        repo.merge("no-such-ref").shouldThrow!OdoodException;
+
+        // no_commit merge: stages the result, creates no commit.
+        repo.merge("feature", no_ff: true, no_commit: true).shouldBeTrue;
+        repo.getCurrCommit.should == initial;
+        repo.status.hasStagedChanges.shouldBeTrue;
+        repo.gitCmd.withArgs("reset", "--merge").execute.ensureOk(true);
+
+        // Plain merge fast-forwards when possible.
+        repo.merge("feature").shouldBeTrue;
+        repo.getCurrCommit.should == feature_sha;
+
+        // Prepare a conflict: same line changed on both branches.
+        repo.createBranch("conflicting");
+        repo.path.join("f.txt").writeFile("theirs\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("theirs");
+        repo.switchBranchTo(main_branch);
+        repo.path.join("f.txt").writeFile("ours\n");
+        repo.add(repo.path.join("f.txt"));
+        repo.commit("ours");
+        immutable ours_sha = repo.getCurrCommit;
+
+        // Conflict without cleanup: false, conflicts left for manual resolution.
+        repo.merge("conflicting").shouldBeFalse;
+        repo.status.hasConflicts.shouldBeTrue;
+        repo.gitCmd.withArgs("merge", "--abort").execute.ensureOk(true);
+
+        // Conflict with cleanup: false, tree restored clean, HEAD unmoved.
+        repo.merge("conflicting", abort_on_conflict: true).shouldBeFalse;
+        repo.status.isClean.shouldBeTrue;
+        repo.getCurrCommit.should == ours_sha;
+
+        // Squash of a conflicting branch with cleanup behaves the same.
+        repo.merge("conflicting", squash: true, abort_on_conflict: true)
+            .shouldBeFalse;
+        repo.status.isClean.shouldBeTrue;
+
+        // Squash of a clean branch: stages the diff, HEAD unmoved.
+        repo.createBranch("sq");
+        repo.path.join("sq.txt").writeFile("sq\n");
+        repo.add(repo.path.join("sq.txt"));
+        repo.commit("sq change");
+        repo.switchBranchTo(main_branch);
+        repo.merge("sq", squash: true).shouldBeTrue;
+        repo.getCurrCommit.should == ours_sha;
+        repo.status.hasStagedChanges.shouldBeTrue;
+        repo.commit("squashed");
+        repo.path.join("sq.txt").exists.shouldBeTrue;
     }
 
     /** Checkout specific files to specific version
@@ -613,13 +850,15 @@ class GitRepository {
       * leak into the process argv.
       **/
     string[] listRemoteTags(in string remote = "origin") const {
-        import odood.git: parseLsRemoteTags;
-        return parseLsRemoteTags(
-            gitCmd
-                .withArgs("ls-remote", "--refs", "--tags", remote)
-                .execute
-                .ensureOk(true)
-                .output);
+        return this.remote(remote).listTags();
+    }
+
+    /** Live query interface for this repository's configured remote (by
+      * NAME — the repository's credential helper and env apply). See
+      * `GitRemote`.
+      **/
+    GitRemote remote(in string remote_name = "origin") const {
+        return GitRemote.of(this, remote_name);
     }
 
     /** List all local tag names in the repository. **/
@@ -632,32 +871,130 @@ class GitRepository {
         return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
     }
 
-    /** List all local tags together with the commit each points at.
+    /** List refs matching `pattern` — e.g. `refs/tags` or
+      * `refs/remotes/origin` — in one `for-each-ref` call, without a
+      * checkout. See `GitRef` for the reported fields.
       *
-      * Annotated tags are peeled to the tagged commit (`%(*objectname)`);
-      * for lightweight tags the ref itself is the commit. See `GitTag`.
+      * Reflects LOCAL refs: remote-tracking refs and tags are only as fresh
+      * as the last fetch (unlike the live `ls-remote`-based queries such as
+      * `listRemoteBranches`/`listRemoteTags`).
       **/
-    GitTag[] listTags() const {
-        // %09 = tab. Control characters are forbidden in refnames, so tab is
-        // a safe field separator. The peeled field is empty for lightweight
-        // tags.
+    GitRef[] listRefs(in string pattern) const {
         auto output = gitCmd
-            .withArgs(
-                "for-each-ref", "refs/tags",
-                "--format=%(refname:short)%09%(objectname)%09%(*objectname)")
+            .withArgs("for-each-ref", pattern, "--format=" ~ GitRef.FORMAT)
             .execute
             .ensureOk(true)
             .output;
-        GitTag[] res;
+        GitRef[] res;
         foreach(line; output.splitLines) {
-            auto parts = line.split("\t");
-            if (parts.length < 3)
-                continue;
-            res ~= GitTag(
-                parts[0],
-                parts[2].length > 0 ? parts[2] : parts[1]);
+            auto r = GitRef.parse(line);
+            if (!r.isNull)
+                res ~= r.get;
         }
         return res;
+    }
+
+    /** Last commit of every branch of `remote`, read from its
+      * remote-tracking refs in one call, no checkout. Requires a prior
+      * fetch. Names are bare branch names; the `<remote>/HEAD` symref is
+      * excluded.
+      **/
+    GitRef[] branchHeads(in string remote = "origin") const {
+        GitRef[] res;
+        immutable prefix = remote ~ "/";
+        foreach(r; listRefs("refs/remotes/" ~ remote)) {
+            // The <remote>/HEAD symref is not a branch; refname:short
+            // renders it as just "<remote>" (a real branch named like the
+            // remote renders "<remote>/<name>", so it is not shadowed).
+            if (r.name == remote || r.name == prefix ~ "HEAD")
+                continue;
+            r.name = r.name.chompPrefix(prefix);
+            res ~= r;
+        }
+        return res;
+    }
+
+    /** List all local tags together with the commit each points at.
+      *
+      * Annotated tags are peeled to the tagged commit; for lightweight tags
+      * the ref itself is the commit. See `GitTag`. For tag dates and
+      * messages, use `listRefs("refs/tags")` directly.
+      **/
+    GitTag[] listTags() const {
+        GitTag[] res;
+        foreach(r; listRefs("refs/tags"))
+            res ~= GitTag(r.name, r.commit_sha);
+        return res;
+    }
+
+    /// Test listRefs + branchHeads on a real repository
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("file.txt").writeFile("v1");
+        src.add(src_path.join("file.txt"));
+        src.commit("initial commit");
+        src.remoteAdd("origin", remote_path.toString);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable default_branch = src.getCurrBranch.get;
+        immutable sha_initial = src.getCurrCommit;
+
+        src.setTag("17.0.1.0.0", "Release 17.0.1.0.0");
+
+        src.createBranch("feature/x");
+        src_path.join("f2.txt").writeFile("f2");
+        src.add(src_path.join("f2.txt"));
+        src.commit("feature commit");
+        immutable sha_feature = src.getCurrCommit;
+        src.gitCmd.withArgs("push", "-u", "origin", "feature/x").execute.ensureOk(true);
+
+        // Tags via listRefs: the annotated tag is peeled, date/author/subject
+        // are populated from the tag object.
+        auto tag_refs = src.listRefs("refs/tags");
+        tag_refs.length.shouldEqual(1);
+        with (tag_refs[0]) {
+            name.shouldEqual("17.0.1.0.0");
+            sha.shouldNotEqual(sha_initial);        // the tag object itself
+            peeled_sha.shouldEqual(sha_initial);
+            commit_sha.shouldEqual(sha_initial);
+            (date > 0).shouldBeTrue;
+            (author.length > 0).shouldBeTrue;       // tagger
+            subject.shouldEqual("Release 17.0.1.0.0");
+        }
+
+        // listTags still agrees with listRefs after the refactor.
+        src.listTags().shouldEqual([GitTag("17.0.1.0.0", sha_initial)]);
+
+        // branchHeads on a fresh clone: bare names, HEAD symref excluded.
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+        auto heads = clone.branchHeads();
+        heads.length.shouldEqual(2);
+        heads.map!(h => h.name).canFind(default_branch).shouldBeTrue;
+        heads.map!(h => h.name).canFind("feature/x").shouldBeTrue;
+        // The symbolic origin/HEAD is excluded (refname:short renders it
+        // as just "origin").
+        heads.map!(h => h.name).canFind("HEAD").shouldBeFalse;
+        heads.map!(h => h.name).canFind("origin").shouldBeFalse;
+        foreach(h; heads)
+            if (h.name == "feature/x") {
+                h.sha.shouldEqual(sha_feature);
+                h.subject.shouldEqual("feature commit");
+                (h.date > 0).shouldBeTrue;
+                (h.author.length > 0).shouldBeTrue;
+            }
     }
 
     /** Set annotation tag on current commit in repo
@@ -701,7 +1038,7 @@ class GitRepository {
         repo.commit("Init");
 
         // Point origin at the bare remote and push the initial branch
-        repo.gitCmd.withArgs("remote", "add", "origin", remote_path.toString).execute.ensureOk(true);
+        repo.remoteAdd("origin", remote_path.toString);
         repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
 
         // No tags yet
@@ -1118,80 +1455,197 @@ class GitRepository {
     }
 
     /// Push current branch to a remote, optionally to a different branch name.
-    void push(in string branch_name=null, in string remote="origin") const {
+    /** Push the current branch to a remote.
+      *
+      * Params:
+      *     branch_name = remote branch to push to (default: the current
+      *         branch's own name).
+      *     remote = remote to push to (default: origin).
+      *     force_with_lease = overwrite the remote branch even when the
+      *         push is not fast-forward (`--force-with-lease`) —
+      *         DESTRUCTIVE to remote history. The lease guards against
+      *         clobbering commits never seen locally: the push is refused
+      *         when the remote branch does not match its local
+      *         remote-tracking ref (i.e. the remote moved since the last
+      *         fetch).
+      **/
+    void push(in string branch_name=null, in string remote="origin",
+            in bool force_with_lease=false) const {
         auto current_branch = getCurrBranch();
         enforce!OdoodException(
             !current_branch.isNull,
             "Repository push operation is not allowed in detached tree mode");
+        immutable target = branch_name ? branch_name : current_branch.get;
 
-        if (branch_name)
-            gitCmd
-                .withArgs(
-                    "push", remote, "%s:%s".format(current_branch.get, branch_name))
-                .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
-        else
-            gitCmd
-                .withArgs(
-                    "push", remote, current_branch.get)
-                .execute
-                .ensureOk("Cannot push changes to %s branch".format(branch_name), true);
+        auto cmd = gitCmd.withArgs("push");
+        if (force_with_lease)
+            cmd.addArgs("--force-with-lease");
+        cmd.addArgs(remote, "%s:%s".format(current_branch.get, target));
+        cmd.execute.ensureOk(
+            "Cannot push changes to %s branch".format(target), true);
+    }
+
+    /// Test push: plain, non-ff rejection, and force_with_lease semantics
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("f.txt").writeFile("v1");
+        src.add(src_path.join("f.txt"));
+        src.commit("initial");
+        src.remoteAdd("origin", remote_path.toString);
+        src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable branch = src.getCurrBranch.get;
+
+        // Two independent clones.
+        auto a_path = root.join("clone-a");
+        Process("git").withArgs("clone", remote_path.toString, a_path.toString).execute.ensureOk(true);
+        auto a = new GitRepository(a_path);
+        auto b_path = root.join("clone-b");
+        Process("git").withArgs("clone", remote_path.toString, b_path.toString).execute.ensureOk(true);
+        auto b = new GitRepository(b_path);
+
+        // B advances the remote.
+        b_path.join("b.txt").writeFile("b");
+        b.add(b_path.join("b.txt"));
+        b.commit("b move");
+        b.push();
+
+        // A diverges locally.
+        a_path.join("a.txt").writeFile("a");
+        a.add(a_path.join("a.txt"));
+        a.commit("a move");
+        immutable sha_a = a.getCurrCommit;
+
+        // Plain push: rejected (non fast-forward).
+        a.push().shouldThrow;
+        // Lease push with a STALE remote-tracking ref: still rejected — the
+        // remote moved past what A last fetched, so the lease protects B's
+        // commit from being clobbered unseen.
+        a.push(force_with_lease: true).shouldThrow;
+        // After a fetch the lease matches, so the overwrite is allowed.
+        a.fetchOrigin();
+        a.push(force_with_lease: true);
+        a.tryRevParse("origin/" ~ branch).shouldEqual(sha_a);
+    }
+
+    /** Delete a ref on a remote (`git push --delete`).
+      *
+      * Idempotent: deleting an already-absent ref is not an error.
+      * DESTRUCTIVE — commits reachable only from `refname` become
+      * unreferenced on the remote.
+      *
+      * Params:
+      *     refname = full refname (e.g. `refs/heads/feature`). Bare names
+      *         are rejected: git cannot tell a branch from a tag of the
+      *         same name.
+      *     remote = remote to delete from (default: origin).
+      *     expected_sha = when set, delete only while the ref still points
+      *         at this commit (`--force-with-lease`); a ref that moved, or
+      *         that no longer exists, is refused.
+      **/
+    void deleteRemoteRef(
+            in string refname,
+            in string remote = "origin",
+            in string expected_sha = null) const {
+        enforce!OdoodException(
+            refname.startsWith("refs/"),
+            ("Cannot delete remote ref '%s': a full refname is required " ~
+             "(refs/heads/... or refs/tags/...).").format(refname));
+
+        auto cmd = gitCmd.withArgs("push");
+        if (expected_sha.length > 0)
+            cmd.addArgs(
+                "--force-with-lease=%s:%s".format(refname, expected_sha));
+        cmd.addArgs(remote, "--delete", refname);
+        cmd.execute.ensureOk(
+            "Cannot delete ref %s on remote %s".format(refname, remote), true);
+    }
+
+    /// Delete a branch on a remote. See deleteRemoteRef.
+    void deleteRemoteBranch(
+            in string branch,
+            in string remote = "origin",
+            in string expected_sha = null) const
+    in (branch.length > 0) {
+        deleteRemoteRef("refs/heads/" ~ branch, remote, expected_sha);
+    }
+
+    /// Delete a tag on a remote. See deleteRemoteRef.
+    void deleteRemoteTag(
+            in string tag_name,
+            in string remote = "origin",
+            in string expected_sha = null) const
+    in (tag_name.length > 0) {
+        deleteRemoteRef("refs/tags/" ~ tag_name, remote, expected_sha);
+    }
+
+    /// Test remote ref deletion: branches, tags, idempotency, leases
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto local_path = root.join("local");
+        auto repo = GitRepository.initialize(local_path);
+        local_path.join("f.txt").writeFile("v1");
+        repo.add(local_path.join("f.txt"));
+        repo.commit("initial");
+        repo.remoteAdd("origin", remote_path.toString);
+        repo.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        immutable head = repo.getCurrCommit;
+
+        // A branch and a tag sharing a name delete independently.
+        repo.push("dup");
+        repo.setTag("dup");
+        repo.pushTag("dup");
+        repo.deleteRemoteBranch("dup");
+        repo.remote.hasBranch("dup").shouldBeFalse;
+        repo.remote.listTags.canFind("dup").shouldBeTrue;
+        repo.deleteRemoteTag("dup");
+        repo.remote.listTags.canFind("dup").shouldBeFalse;
+
+        // Deleting an absent ref is a no-op, not an error.
+        repo.deleteRemoteBranch("dup");
+        repo.deleteRemoteRef("refs/heads/never-existed");
+
+        // Bare refnames are rejected.
+        repo.deleteRemoteRef("dup").shouldThrow!OdoodException;
+
+        // A stale lease refuses the delete; a matching one performs it.
+        repo.push("leased");
+        repo.deleteRemoteBranch(
+            "leased", "origin",
+            "1111111111111111111111111111111111111111").shouldThrow;
+        repo.remote.hasBranch("leased").shouldBeTrue;
+        repo.deleteRemoteBranch("leased", "origin", head);
+        repo.remote.hasBranch("leased").shouldBeFalse;
+
+        // An unknown remote is a real failure.
+        repo.deleteRemoteBranch("whatever", "no-such-remote").shouldThrow;
     }
 
     /** Check git status and return minimal status information
       **/
     auto status() const {
-        // TODO: Split parsing of status output to separate method/function and add unittests for it.
-        //       Or, may be move parsing to struct GitStatus
-        auto status_str = gitCmd
-            .withEnv("LC_ALL", "C")
-            .withArgs("status", "--untracked-files=all", "--porcelain", "--branch")
-            .execute
-            .ensureOk("Cannot get git status", true)
-            .output;
-
-        GitStatus status;
-        auto lines = status_str.splitLines();
-        if (lines.length == 0) return status;
-
-        // Example: ## main...origin/main [ahead 1, behind 2]
-        auto header = lines[0];
-
-        /* Regex description
-         * 1. (?P<local>[^\s\.]+) - local branch name
-         * 2. (?:\.\.\.(?P<remote>[^\s\[]+))? - optional remote branch name (separated from local branch via '...)
-         * 3. statistics ahead/behind that is used to check for diverged state
-         *
-         * Sample: ## main...origin/main [ahead 1, behind 2]
-         */
-        auto headerRegex = regex(r"^##\s+(?P<local>[^\s\.]+)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?:ahead\s+(?P<ahead>\d+))?(?:,\s+)?(?:behind\s+(?P<behind>\d+))?\])?");
-
-        if (auto m = lines[0].matchFirst(headerRegex)) {
-            status.localBranch = m["local"];
-            status.remoteBranch = m["remote"].length ? m["remote"] : null;
-
-            if (m["ahead"].length) status.ahead = m["ahead"].to!int;
-            if (m["behind"].length) status.behind = m["behind"].to!int;
-        }
-
-        foreach (line; lines[1..$]) {
-            if (line.length < 3)
-                /* Minimal meaningful line is `XY PATH`, where:
-                 *   X - status in index,
-                 *   Y - status in tree,
-                 *   PATH - file path separated by space.
-                 *
-                 * Thus, here we skip empty or unparsable lines.
-                 */
-                continue;
-            if (["DD", "AU", "UD", "UA", "DU", "AA", "UU"].canFind(line[0 .. 2]))
-                status.hasConflicts = true;
-            else if (line.startsWith("??"))
-                status.hasUntracked = true;
-            else
-                // "M ", " A", "D " ...
-                status.hasChanges = true;  
-        }
-        return status;
+        return GitStatus.parse(
+            gitCmd
+                .withArgs("status", "--untracked-files=all", "--porcelain", "--branch")
+                .execute
+                .ensureOk("Cannot get git status", true)
+                .output);
     }
 }

@@ -69,3 +69,14 @@ FROM base AS ci
 
 RUN /usr/bin/odood venv install-dev-tools && \
     rm -rf /root/.cache
+
+# Headless browser for Odoo tour / HttpCase (browser_js) tests: Odoo probes PATH
+# for google-chrome/chromium and raises SkipTest when none is found. Google
+# publishes google-chrome-stable for both amd64 and arm64. Kept out of the
+# production image, which has no use for a browser.
+RUN wget --quiet -O /tmp/google-chrome.deb \
+        https://dl.google.com/linux/direct/google-chrome-stable_current_$(dpkg --print-architecture).deb && \
+    apt-get update -qq && \
+    apt-get install -qqq -y --no-install-recommends /tmp/google-chrome.deb && \
+    rm -f /tmp/google-chrome.deb && \
+    rm -rf /var/lib/apt/lists/*

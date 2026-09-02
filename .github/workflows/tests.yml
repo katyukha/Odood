@@ -9,12 +9,14 @@ jobs:
     name: Tests
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
         dc: [dmd-2.111.0, dmd-latest, ldc-1.41.0, ldc-latest]
         include:
           - os: ubuntu-22.04-arm
             dc: ldc-1.41.0
           - os: ubuntu-24.04-arm
+            dc: ldc-1.41.0
+          - os: ubuntu-26.04-arm
             dc: ldc-1.41.0
 
     runs-on: ${{ matrix.os }}
@@ -40,10 +42,17 @@ jobs:
         with:
           linux: libpq-dev python3-dev
 
-      - name: Configure git user (to make git tests work)
+      - name: Configure git (to make git tests work)
         run: |
           git config --global user.email "odood@odood.dev"
           git config --global user.name "Odood"
+          # Git detaches automatic maintenance by default, so it outlives the
+          # git command and keeps writing to .git/objects (maintenance.lock)
+          # while a test is already removing the temporary repository. Run it
+          # in foreground instead. Set globally, so it also applies to git
+          # processes we do not spawn ourselves (receive-pack on local remotes).
+          git config --global maintenance.autoDetach false
+          git config --global gc.autoDetach false
 
       - name: Run tests
         run: dub test -b unittest-cov

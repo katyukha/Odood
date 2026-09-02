@@ -19,6 +19,9 @@ subPackage "./subpackages/lib"
 subPackage "./subpackages/project"
 subPackage "./subpackages/cli"
 
+dependency "peque" version=">=0.0.4"
+subConfiguration "peque" "libraryDynamic"
+
 targetPath "build"
 
 configuration "executable" {

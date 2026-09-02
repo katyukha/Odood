@@ -119,7 +119,7 @@ final class OdooAddon {
 }
 
 unittest {
-    import odood.utils.versioned: Version;
+    import versioned: Version;
     import odood.utils.odoo.std_version: OdooStdVersion;
 
     import unit_threaded.assertions;

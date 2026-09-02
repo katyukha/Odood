@@ -6,7 +6,7 @@
 		"bindbc-loader": "1.1.5",
 		"cachetools": "0.4.2",
 		"darkarchive": "0.0.11",
-		"dshould": "1.8.0",
+		"dshould": "1.9.0",
 		"odood": {"path":"../../"},
 		"prettyprint": "1.0.9",
 		"requests": "2.2.1",

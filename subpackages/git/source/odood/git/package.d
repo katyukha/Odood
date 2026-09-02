@@ -12,9 +12,21 @@ private import odood.exception: OdoodException;
 private import theprocess: Process;
 
 public import odood.git.url: GitURL;
-public import odood.git.repository: GitRepository, GitTag;
+public import odood.git.repository: GitRepository;
+public import odood.git.refs: GitTag, GitRef;
+public import odood.git.status: GitStatus;
+public import odood.git.remote: GitRemote;
 
 immutable string GIT_REF_WORKTREE = "-working-tree-";
+
+
+/** Base runner for git CLI with locale pinned to C, so git's output and
+  * error text is stable for parsing regardless of the user's locale.
+  * Caller-provided env applied on top (via withEnv) can still override it.
+  **/
+package(odood) auto gitProcess() {
+    return Process("git").withEnv("LC_ALL", "C");
+}
 
 
 /// Parse git url for further processing
@@ -43,7 +55,7 @@ GitRepository gitClone(
         "It seems that repo %s already clonned to %s!".format(repo, dest));
     infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
-    auto proc = Process("git")
+    auto proc = gitProcess
         .withEnv(env)
         .withArgs("clone");
     if (branch)
@@ -69,7 +81,7 @@ bool isGitRepo(in Path path) {
     if (path.join(".git").exists)
         return true;
 
-    const auto result = Process("git")
+    const auto result = gitProcess
         .withArgs("rev-parse", "--git-dir")
         .inWorkDir(path)
         .execute();
@@ -115,38 +127,7 @@ unittest {
   * Peeled dereference lines (`tag^{}`) are excluded by `--refs`.
   **/
 string[] gitListRemoteTags(in string url, in string[string] env = null) {
-    auto proc = Process("git")
-        .withArgs("ls-remote", "--refs", "--tags", url);
-    if (env !is null && env.length > 0)
-        proc = proc.withEnv(env);
-    return parseLsRemoteTags(proc.execute.ensureOk(true).output);
-}
-
-/** Parse `git ls-remote` output into bare ref names under `prefix`.
-  *
-  * Each line is "<sha>\t<refname>"; refs matching `prefix` are returned with
-  * the prefix stripped, everything else (including `HEAD` and peeled `^{}`
-  * entries, which carry no matching prefix or are filtered by `--refs`) is
-  * skipped. Shared by the tag and branch listings.
-  **/
-package(odood) string[] parseLsRemoteRefs(in string output, in string prefix) {
-    auto refs = appender!(string[]);
-    foreach(line; output.splitLines) {
-        auto tab = line.indexOf('\t');
-        if (tab < 0) continue;
-        auto refname = line[tab + 1 .. $];
-        if (refname.startsWith(prefix))
-            refs ~= refname[prefix.length .. $];
-    }
-    return refs.data;
-}
-
-/** Parse `git ls-remote --refs --tags` output into bare tag names.
-  *
-  * Shared by `gitListRemoteTags` and `GitRepository.listRemoteTags`.
-  **/
-package(odood) string[] parseLsRemoteTags(in string output) {
-    return parseLsRemoteRefs(output, "refs/tags/");
+    return GitRemote(url, env).listTags();
 }
 
 /** List all branch names available on a remote without cloning it.
@@ -155,11 +136,7 @@ package(odood) string[] parseLsRemoteTags(in string output) {
   * Returns branch names only (the `refs/heads/` prefix is stripped).
   **/
 string[] gitListRemoteBranches(in string url, in string[string] env = null) {
-    auto proc = Process("git")
-        .withArgs("ls-remote", "--heads", url);
-    if (env !is null && env.length > 0)
-        proc = proc.withEnv(env);
-    return parseLsRemoteRefs(proc.execute.ensureOk(true).output, "refs/heads/");
+    return GitRemote(url, env).listBranches();
 }
 
 ///
@@ -202,7 +179,7 @@ Path getGitTopLevel(in Path path) {
         path.isGitRepo,
         "Expected that %s is git repository".format(path));
     return Path(
-        Process("git")
+        gitProcess
             .inWorkDir(path)
             .withArgs("rev-parse", "--show-toplevel")
             .execute

@@ -182,7 +182,13 @@ struct OdooServer {
             .withEnv(getServerEnv);
 
         if (_project.odoo.server_user)
-            runner.setUser(_project.odoo.server_user);
+            /* userHomeDir points HOME at home directory of the server user.
+             * Otherwise the server would inherit HOME of the caller (usually
+             * root), that server user has no write access to, breaking
+             * everything that writes to home directory, for example Chrome,
+             * that is used to run tours.
+             */
+            runner.setUser(_project.odoo.server_user, userHomeDir: true);
 
         if (coverage.enable) {
             enforce!OdoodException(

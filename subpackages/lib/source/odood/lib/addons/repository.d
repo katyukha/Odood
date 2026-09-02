@@ -18,6 +18,8 @@ private import versioned: Version, VersionPart;
 private import thepath: Path;
 
 private import odood.utils.addons.addon: OdooAddon, findAddons;
+private import odood.utils.addons.addon_list:
+    addonListRows, renderMarkdownTable, renderCsv;
 private import odood.utils.addons.addon_changelog:
     OdooAddonChangelogEntry, matchChangelogFileVersion;
 private import odood.utils.odoo.std_version: OdooStdVersion;
@@ -327,10 +329,13 @@ class AddonRepository : GitRepository{
                 auto start_info = start_map[name];
                 // Read changelog entries newer than the start version, from the
                 // end ref (works for both the worktree and historical refs).
-                auto changelog = readAddonChangelog(
-                    end_info.path, end_ref,
-                    cast(Nullable!Version)
-                        start_info.addon_version.semver.nullable);
+                // Changelogs are only supported for standard-versioned addons.
+                auto changelog = start_info.addon_version.isStandard
+                    ? readAddonChangelog(
+                        end_info.path, end_ref,
+                        cast(Nullable!Version)
+                            start_info.addon_version.semver.nullable)
+                    : cast(OdooAddonChangelogEntry[]) [];
                 changes.logAddonUpdated(
                     name,
                     start_info.path,
@@ -655,13 +660,7 @@ class AddonRepository : GitRepository{
     void generateChangelog(in PrepareReleaseResult result) {
         infof("Generating changelog for release %s ...", result.new_version);
 
-        // Local alias required: darktemple binds template arg names to template vars.
-        // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
-        auto changes = result.addon_changes;
-        auto release_date = cast(DateTime)Clock.currTime();
-        auto changelog_text = renderFile!(
-            "templates/repository/changelog.md.tmpl",
-            changes, release_date);
+        auto changelog_text = renderChangelog(result.addon_changes);
 
         auto changelog_path = path.join("CHANGELOG.md");
         auto changelog_latest_path = path.join("CHANGELOG.latest.md");
@@ -686,6 +685,87 @@ class AddonRepository : GitRepository{
         add(changelog_path);
         infof("Changelog generated.");
     }
+
+    /** Generate ADDONS.md / ADDONS.csv listing the addons of this repository.
+      *
+      * Stages the generated files; does NOT commit — the caller decides.
+      *
+      * Params:
+      *    md  = generate ADDONS.md
+      *    csv = generate ADDONS.csv
+      **/
+    void generateAddonsList(in bool md=true, in bool csv=true) {
+        auto rows = addonListRows(addons);
+        if (md) {
+            infof("Generating ADDONS.md ...");
+            auto md_path = path.join("ADDONS.md");
+            md_path.writeFile("### Addons list\n\n" ~ renderMarkdownTable(rows));
+            add(md_path);
+        }
+        if (csv) {
+            infof("Generating ADDONS.csv ...");
+            auto csv_path = path.join("ADDONS.csv");
+            csv_path.writeFile(renderCsv(rows));
+            add(csv_path);
+        }
+    }
+}
+
+
+/// Test generateAddonsList: writes ADDONS.md / ADDONS.csv and stages them.
+unittest {
+    import std.algorithm: canFind;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("test-repo")));
+    foreach(name; ["addon_a", "addon_b"]) {
+        repo.path.join(name).mkdir(false);
+        repo.path.join(name, "__manifest__.py").writeFile(
+            `{"name": "%s", "version": "17.0.1.0.0", "license": "LGPL-3"}`.format(name));
+    }
+    repo.add(repo.path.join("addon_a"));
+    repo.add(repo.path.join("addon_b"));
+    repo.commit("Initial commit");
+
+    repo.generateAddonsList();
+
+    auto md = repo.path.join("ADDONS.md");
+    auto csv = repo.path.join("ADDONS.csv");
+    md.exists.shouldBeTrue;
+    csv.exists.shouldBeTrue;
+    md.readFileText.canFind("addon_a").shouldBeTrue;
+    md.readFileText.canFind("| System Name |").shouldBeTrue;
+    csv.readFileText.canFind(`"addon_b"`).shouldBeTrue;
+
+    // Generated files must be staged, so the caller's commit picks them up.
+    repo.status.hasStagedChanges.shouldBeTrue;
+
+    // Each format can be generated on its own.
+    md.remove();
+    csv.remove();
+    repo.generateAddonsList(md: true, csv: false);
+    md.exists.shouldBeTrue;
+    csv.exists.shouldBeFalse;
+}
+
+
+/** Render the changelog section for a set of addon changes — the exact text
+  * `AddonRepository.generateChangelog` writes, without touching any files.
+  * Lets callers preview a release (or a diff between arbitrary refs) with no
+  * risk of the preview drifting from the published file.
+  **/
+string renderChangelog(in AddonRepositoryChanges changes_) {
+    // Local alias required: darktemple binds template arg names to template vars.
+    // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
+    auto changes = changes_;
+    auto release_date = cast(DateTime)Clock.currTime();
+    return renderFile!(
+        "templates/repository/changelog.md.tmpl",
+        changes, release_date);
 }
 
 unittest {
@@ -875,6 +955,32 @@ unittest {
     auto cc_dir_name = repo.collectChanges(rev_v7, rev_v8);
     cc_dir_name.addons_updated.length.should == 1;
     cc_dir_name.addons_updated[0].name.should == "addon_a";  // directory name, not "My Addon A (Display Name)"
+
+    // collectChanges — tolerates a non-standard start version (e.g. a plain
+    // "1.0.0" without a serie prefix, common in third-party addons). The
+    // start version's semver drives the changelog range filter, and semver
+    // carries an `in (isStandard)` contract; collectChanges must skip the
+    // filter for such addons rather than asserting/crashing.
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "addon_a", "version": "1.0.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_a", "__manifest__.py"));
+    repo.commit("Set addon_a to a non-standard version");
+    auto rev_v9 = repo.getCurrCommit();
+
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "addon_a", "version": "1.1.0", "depends": ["base"]}`);
+    repo.add(repo_path.join("addon_a", "__manifest__.py"));
+    repo.commit("Bump addon_a non-standard version");
+    auto rev_v10 = repo.getCurrCommit();
+
+    auto cc_nonstd = repo.collectChanges(rev_v9, rev_v10);  // must not throw
+    cc_nonstd.addons_updated.length.should == 1;
+    cc_nonstd.addons_updated[0].name.should == "addon_a";
+    cc_nonstd.addons_updated[0].old_version.toString.should == "1.0.0";
+    cc_nonstd.addons_updated[0].new_version.toString.should == "1.1.0";
+    // Changelogs are unsupported for non-standard versions: the changelog is
+    // skipped rather than read, so no notable-changes entry is recorded.
+    cc_nonstd.notable_changes.length.should == 0;
 }
 
 

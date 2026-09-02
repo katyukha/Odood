@@ -11,6 +11,11 @@ KillMode=mixed
 {% if !config.odoo.system_ca_bundle_path.isNull %}
 Environment="REQUESTS_CA_BUNDLE={{ config.odoo.system_ca_bundle_path.get }}"
 {% endif %}
+Restart=always
+RestartSec=5s
+RestartSteps=5
+RestartMaxDelaySec=160s
+
 
 [Install]
 WantedBy=multi-user.target

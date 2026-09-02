@@ -20,7 +20,7 @@ private import odood.utils.addons.addon_manifest: tryParseOdooManifest;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.lib.addons.repository:
     AddonRepository, PrepareReleaseResult,
-    ChangelogRequirement, ChangelogCheckResult;
+    ChangelogRequirement, ChangelogCheckResult, renderChangelog;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.git: GIT_REF_WORKTREE, isGitRepo;
@@ -446,26 +446,59 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
 
         repo.fetchOrigin(source);
 
-        if (!repo.gitCmd
-                .withArgs("merge", "--no-ff", "--no-commit", "--edit", "origin/%s".format(source))
-                .execute.isOk)
+        if (repo.isAncestor("origin/%s".format(source), "HEAD")) {
+            infof(
+                "Branch 'origin/%s' is already merged into the current branch. "
+                ~ "Nothing to forward-port.", source);
+            return 0;
+        }
+
+        if (!repo.merge("origin/%s".format(source), no_ff: true, no_commit: true))
             warningf("Merge failed, there are conflicts. Please, resolve them manually");
+        else if (!repo.status.hasStagedChanges)
+            infof(
+                "Merge of 'origin/%s' brought no changes. Nothing to forward-port.",
+                source);
+
+        /* Files that belong to the branch itself rather than to the changes
+         * being forward-ported: translations are regenerated per serie, and
+         * changelogs describe releases of this branch only.
+         */
+        auto keep_ours = [
+            "*.po", "*.pot",
+            "CHANGELOG.md", "CHANGELOG.latest.md",
+            "ADDONS.md", "ADDONS.csv"];
+
+        /* `git add` and `git checkout` abort when any pathspec matches
+         * nothing, thus a repo without translations or without changelogs
+         * would silently skip the paths that do match. `reset` and `clean`
+         * tolerate it, and `clean` has to keep the full list anyway, to
+         * remove files the merge brought as untracked.
+         */
+        string[] tracked_keep_ours;
+        foreach(pathspec; keep_ours)
+            if (repo.gitCmd
+                    .withArgs("ls-files", "--", pathspec)
+                    .execute.output.length > 0)
+                tracked_keep_ours ~= pathspec;
 
         repo.gitCmd
-            .withArgs("reset", "-q", "--", "*.po", "*.pot")
+            .withArgs(["reset", "-q", "--"] ~ keep_ours)
             .execute
             .ensureOk(true);
 
         repo.gitCmd
-            .withArgs("clean", "-fdx", " --", "*.po", "*.pot")
+            .withArgs(["clean", "-fdx", "--"] ~ keep_ours)
             .execute
             .ensureOk(true);
-        repo.gitCmd
-            .withArgs("checkout", "--ours", "--", "*.po", "*.pot")
-            .execute;
-        repo.gitCmd
-            .withArgs("add", "*.po", "*.pot")
-            .execute;
+        if (tracked_keep_ours.length > 0) {
+            repo.gitCmd
+                .withArgs(["checkout", "--ours", "--"] ~ tracked_keep_ours)
+                .execute;
+            repo.gitCmd
+                .withArgs(["add"] ~ tracked_keep_ours)
+                .execute;
+        }
 
         foreach(addon; repo.addons) {
             addon.path.join("__manifest__.py").fixVersionConflict(project.odoo.serie);
@@ -607,6 +640,9 @@ class CommandRepositoryRelease: OdoodCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool addonsListMd;
+    bool addonsListCsv;
+    bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
     Nullable!string commitEmail;
@@ -631,6 +667,13 @@ class CommandRepositoryRelease: OdoodCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(addonsListMd)("", "addons-list-md",
+            "Generate ADDONS.md and commit it before tagging.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv",
+            "Generate ADDONS.csv and commit it before tagging.");
+        this.addFlag!(dryRun)("n", "dry-run",
+            "Only show what would be released; do not tag, commit, or push. "
+            ~ "Combined with --changelog, also prints the changelog preview.");
         this.addOption!(commitMessage)("", "commit-message",
             "Commit message for the changelog commit (default: 'Release <version>').");
         this.addOption!(commitUser)("", "commit-user",
@@ -680,6 +723,10 @@ class CommandRepositoryRelease: OdoodCommand {
                 "--changelog is not valid with --initial (no changes to report).");
 
             auto new_version = repo.initialRelease(project.odoo.serie);
+            if (dryRun) {
+                infof("Would create tag: %s", new_version);
+                return 0;
+            }
             repo.setTag(new_version.toString);
             infof("Created tag: %s", new_version);
 
@@ -691,6 +738,24 @@ class CommandRepositoryRelease: OdoodCommand {
         }
 
         repo.fetchOrigin(serie_str);
+
+        // The branch-name guard above cannot see whether the local branch
+        // actually carries the remote state: releasing from a branch that is
+        // behind origin would tag an outdated tree.
+        immutable remote_ref = "origin/" ~ serie_str;
+        if (on_stable
+                && repo.tryRevParse(remote_ref).length > 0
+                && !repo.isAncestor(remote_ref, "HEAD")) {
+            enforce!OdoodCLIException(
+                !push,
+                ("Local branch '%s' is behind '%s'. "
+                ~ "Pull the latest changes before releasing with --push.").format(
+                    serie_str, remote_ref));
+            warningf(
+                "Local branch '%s' does not include the latest commits from "
+                ~ "'%s'. The release will not cover them.",
+                serie_str, remote_ref);
+        }
 
         Nullable!VersionPart override_part;
         if (major)
@@ -712,8 +777,25 @@ class CommandRepositoryRelease: OdoodCommand {
             return 0;
         }
 
-        if (changelog) {
-            repo.generateChangelog(result.get);
+        if (dryRun) {
+            infof("Would release version %s.", result.get.new_version);
+            if (changelog) {
+                infof("Changelog preview:");
+                writeln(renderChangelog(result.get.addon_changes));
+            }
+            return 0;
+        }
+
+        /* All generated release artifacts go into one commit before the tag,
+         * thus the tag points at a tree that already contains them.
+         * generate* only write and stage; committing is up to us.
+         */
+        if (changelog || addonsListMd || addonsListCsv) {
+            if (changelog)
+                repo.generateChangelog(result.get);
+            if (addonsListMd || addonsListCsv)
+                repo.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+
             auto msg = commitMessage.isNull
                 ? "Release %s".format(result.get.new_version)
                 : commitMessage.get;
@@ -721,7 +803,7 @@ class CommandRepositoryRelease: OdoodCommand {
                 msg,
                 commitUser.isNull ? null : commitUser.get,
                 commitEmail.isNull ? null : commitEmail.get);
-            infof("Changelog committed.");
+            infof("Release artifacts committed.");
         }
 
         repo.setTag(result.get.new_version.toString);
@@ -918,6 +1000,9 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
     bool failNothingToRelease;
     bool push;
     bool changelog;
+    bool addonsListMd;
+    bool addonsListCsv;
+    bool dryRun;
     Nullable!string commitMessage;
     Nullable!string commitUser;
     Nullable!string commitEmail;
@@ -934,6 +1019,13 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
         this.addFlag!(changelog)("", "changelog",
             "Generate CHANGELOG.md and CHANGELOG.latest.md and commit them before tagging.");
+        this.addFlag!(addonsListMd)("", "addons-list-md",
+            "Generate ADDONS.md and commit it before tagging.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv",
+            "Generate ADDONS.csv and commit it before tagging.");
+        this.addFlag!(dryRun)("n", "dry-run",
+            "Only show what would be released; do not tag, commit, or push. "
+            ~ "Combined with --changelog, also prints the changelog preview.");
         this.addOption!(commitMessage)("", "commit-message",
             "Commit message for the changelog commit (default: 'Release <version>').");
         this.addOption!(commitUser)("", "commit-user",
@@ -962,8 +1054,25 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
             return 0;
         }
 
-        if (changelog) {
-            repo.generateChangelog(result.get);
+        if (dryRun) {
+            infof("Would release version %s.", result.get.new_version);
+            if (changelog) {
+                infof("Changelog preview:");
+                writeln(renderChangelog(result.get.addon_changes));
+            }
+            return 0;
+        }
+
+        /* All generated release artifacts go into one commit before the tag,
+         * thus the tag points at a tree that already contains them.
+         * generate* only write and stage; committing is up to us.
+         */
+        if (changelog || addonsListMd || addonsListCsv) {
+            if (changelog)
+                repo.generateChangelog(result.get);
+            if (addonsListMd || addonsListCsv)
+                repo.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+
             auto msg = commitMessage.isNull
                 ? "Release %s".format(result.get.new_version)
                 : commitMessage.get;
@@ -971,7 +1080,7 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
                 msg,
                 commitUser.isNull ? null : commitUser.get,
                 commitEmail.isNull ? null : commitEmail.get);
-            infof("Changelog committed.");
+            infof("Release artifacts committed.");
         }
 
         repo.setTag(result.get.new_version.toString);

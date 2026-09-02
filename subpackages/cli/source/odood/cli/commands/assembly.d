@@ -13,7 +13,7 @@ private import colored;
 private import darkcommand;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK;
+private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
@@ -127,6 +127,8 @@ class CommandAssemblySync: AssemblyCommandBase {
     Nullable!string pushTo;
     bool changelog;
     bool dockerfile;
+    bool addonsListMd;
+    bool addonsListCsv;
     bool generateLock;
     bool withOdooRequirements;
 
@@ -142,6 +144,8 @@ class CommandAssemblySync: AssemblyCommandBase {
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
         this.addFlag!(changelog)("", "changelog", "Generate changelog for assembly.");
         this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
+        this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
         this.addFlag!(generateLock)("", "generate-lock",
             "Generate requirements.lock.txt after syncing");
         this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
@@ -161,6 +165,10 @@ class CommandAssemblySync: AssemblyCommandBase {
         if (dockerfile)
             project.assembly.raw.generateDockerfile;
 
+        if (addonsListMd || addonsListCsv)
+            project.assembly.raw.generateAddonsList(
+                md: addonsListMd, csv: addonsListCsv);
+
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
@@ -175,6 +183,8 @@ class CommandAssemblySync: AssemblyCommandBase {
                         ":(exclude)CHANGELOG.latest.md",
                         ":(exclude)Dockerfile",
                         ":(exclude).dockerignore",
+                        ":(exclude)%s".format(ASSEMBLY_ADDONS_MD_PATH),
+                        ":(exclude)%s".format(ASSEMBLY_ADDONS_CSV_PATH),
                     ],
                     staged: true
                 ).length == 0,
@@ -188,6 +198,8 @@ class CommandAssemblySync: AssemblyCommandBase {
                         "%s".format(ASSEMBLY_REQUIREMENTS_LOCK),
                         "Dockerfile",
                         ".dockerignore",
+                        "%s".format(ASSEMBLY_ADDONS_MD_PATH),
+                        "%s".format(ASSEMBLY_ADDONS_CSV_PATH),
                     ],
                     staged: true)
             ) {

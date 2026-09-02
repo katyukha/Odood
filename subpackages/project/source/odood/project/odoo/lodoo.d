@@ -49,7 +49,10 @@ const struct LOdoo {
             auto process = _project.venv.runner()
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
-                process.setUser(_project.odoo.server_user);
+                /* userHomeDir points HOME at home directory of the server
+                 * user, instead of inheriting HOME of the caller.
+                 */
+                process.setUser(_project.odoo.server_user, userHomeDir: true);
             if (_project.odoo.logfile.isNull)
                 process.setStderrPassThrough;
             return process;

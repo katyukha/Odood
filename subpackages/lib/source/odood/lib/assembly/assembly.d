@@ -12,12 +12,9 @@ private import std.algorithm: map, filter, canFind, uniq, startsWith, maxElement
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
 private import std.string: strip;
-private import std.process: environment;
-private import std.parallelism: taskPool;
 
 private import dyaml;
-private import darkarchive: DarkArchiveReader, DarkArchiveFormat;
-private import thepath: Path, createTempPath;
+private import thepath: Path;
 private import darktemple: renderFile;
 private import versioned: Version, VersionPart;
 
@@ -25,11 +22,14 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
+private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
+private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo, gitListRemoteTags;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
-private import odood.utils: download;
+private import odood.utils.addons.addon_list:
+    addonListRows, renderMarkdownTable, renderCsv;
 private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
@@ -49,24 +49,30 @@ package(odood) immutable ASSEMBLY_VERSION_PATH = Path("VERSION");
 // Path to requirements lock file in assembly repo
 package(odood) immutable ASSEMBLY_REQUIREMENTS_LOCK = Path("requirements.lock.txt");
 
+// Paths to generated addon-list files in the assembly repo
+package(odood) immutable ASSEMBLY_ADDONS_MD_PATH = Path("ADDONS.md");
+package(odood) immutable ASSEMBLY_ADDONS_CSV_PATH = Path("ADDONS.csv");
+
 
 class Assembly {
     private AssemblySpec _spec;
     private Path _path;  // assembly root directory
     private OdooSerie _serie;      // target Odoo serie
-    private Path _cache_dir;       // assembly cache directory
+    private AssemblySourceProviderInterface _source_provider;  // materializes sources/addons
     private AddonRepository _repo = null;
 
-    this(in Path path, AssemblySpec spec, in OdooSerie serie, in Path cache_dir) {
+    this(in Path path, AssemblySpec spec, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider) {
         _serie = serie;
-        _cache_dir = cache_dir;
+        _source_provider = source_provider;
         _spec = spec;
         _path = path;
     }
 
-    this(in Path path, in Node yaml_data, in OdooSerie serie, in Path cache_dir) {
+    this(in Path path, in Node yaml_data, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider) {
         _serie = serie;
-        _cache_dir = cache_dir;
+        _source_provider = source_provider;
         _path = path;
         _spec = AssemblySpec(yaml_data);
     }
@@ -102,9 +108,6 @@ class Assembly {
     /// Path to repo version file
     @property version_path() const => _path.join(ASSEMBLY_VERSION_PATH);
 
-    /// Cache directory
-    @property cache_dir() const => _cache_dir;
-
     /// Git repository instance for this assembly
     @property repo() {
         if (!_repo) {
@@ -124,22 +127,24 @@ class Assembly {
 
     /** Try to load asembly spec from specified location
       **/
-    static Assembly maybeLoad(in Path path, in OdooSerie serie, in Path cache_dir) {
+    static Assembly maybeLoad(in Path path, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider) {
         if (path.exists && path.isFile) {
             dyaml.Node assembly_spec = dyaml.Loader.fromFile(path.toString()).load();
-            return new Assembly(path.parent, assembly_spec, serie, cache_dir);
+            return new Assembly(path.parent, assembly_spec, serie, source_provider);
         } else if (path.exists && path.isDir && path.join("odood-assembly.yml").exists) {
             auto load_path = path.join("odood-assembly.yml");
             Node assembly_spec = dyaml.Loader.fromFile(load_path.toString()).load();
-            return new Assembly(path, assembly_spec, serie, cache_dir);
+            return new Assembly(path, assembly_spec, serie, source_provider);
         }
         return null;
     }
 
     /** Load assembly spec from specified path
       **/
-    static Assembly load(in Path path, in OdooSerie serie, in Path cache_dir) {
-        auto assembly = maybeLoad(path, serie, cache_dir);
+    static Assembly load(in Path path, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider) {
+        auto assembly = maybeLoad(path, serie, source_provider);
         enforce!OdoodAssemblyException(
             assembly !is null,
             "Cannot find and load Odood Assembly config at %s!".format(path));
@@ -168,9 +173,10 @@ class Assembly {
 
     /** Initialize new assembly
       **/
-    static Assembly initialize(in Path path, in OdooSerie serie, in Path cache_dir) {
+    static Assembly initialize(in Path path, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, cache_dir);
+        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -186,7 +192,8 @@ class Assembly {
     }
 
     /// ditto
-    static Assembly initialize(in Path path, in OdooSerie serie, in Path cache_dir, in GitURL git_url) {
+    static Assembly initialize(in Path path, in OdooSerie serie,
+            AssemblySourceProviderInterface source_provider, in GitURL git_url) {
         auto repo = gitClone(
                 repo: git_url,
                 dest: path,
@@ -195,157 +202,16 @@ class Assembly {
         enforce!OdoodAssemblyException(
             repo.path.join("odood-assembly.yml").exists,
             "Cannot find assembly config in this repo (%s)".format(git_url.toString));
-        return load(repo.path, serie, cache_dir);
-    }
-
-    private Path getSourceCachePath(in AssemblySpecSource source) const {
-        cache_dir.join("sources").mkdir(true);
-        return cache_dir.join("sources", source.hashString);
-    }
-    private Path getSourceCachePath(in Nullable!AssemblySpecSource source) const {
-        return getSourceCachePath(source.get);
-    }
-
-    /** Get cache path for addon
-      **/
-    private Path getAddonCachePath(in string addon_name) const {
-        cache_dir.join("addons").mkdir(true);
-        return cache_dir.join("addons", addon_name);
-    }
-
-    /// ditto
-    private Path getAddonCachePath(in AssemblySpecAddon addon) const {
-        return getAddonCachePath(addon.name);
-    }
-
-    /// ditto
-    private Path getAddonCachePath(in Nullable!AssemblySpecAddon addon) const {
-        return getAddonCachePath(addon.get);
-    }
-
-    private auto getSourceExtraEnv(in AssemblySpecSource source) const {
-        string[string] result;
-
-        // Try to find creds in environment
-        string[] creds;
-        if (!source.name.empty && "ODOOD_ASSEMBLY_%s_CRED".format(source.name) in environment)
-            creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.name)].split(":");
-        else if (!source.access_group.empty && "ODOOD_ASSEMBLY_%s_CRED".format(source.access_group) in environment)
-            creds = environment["ODOOD_ASSEMBLY_%s_CRED".format(source.access_group)].split(":");
-
-        if (creds.length > 0) {
-            enforce!OdoodAssemblyException(
-                creds.length == 2,
-                "Cannot parse creds from environment for %s".format(source.name.empty ? source.access_group : source.name));
-            enforce!OdoodAssemblyException(
-                "GIT_CONFIG_COUNT" !in environment,
-                "Assembly source creds via environment not supported, when GIT_CONFIG_COUNT is present in environment.");
-            enforce!OdoodAssemblyException(
-                source.git_url.scheme == "https",
-                "Assembly source creds via environment not supported for non-https sources.");
-            string user = creds[0];
-            string pass = creds[1];
-            result["ODOOD__INT__ASSEMBLY_SOURCE_PASS"] = pass;
-            result["GIT_CONFIG_COUNT"] = "2";
-            result["GIT_CONFIG_KEY_0"] = "credential.username";
-            result["GIT_CONFIG_VALUE_0"] = user;
-            result["GIT_CONFIG_KEY_1"] = "credential.helper";
-            result["GIT_CONFIG_VALUE_1"] = "!f() { test \"$1\" = get && echo \"password=${ODOOD__INT__ASSEMBLY_SOURCE_PASS}\"; }; f";
-        }
-        return result;
-    }
-
-    /** Sync sources for assembly
-      *
-      * This method will clone sources related to this assembly to the cache
-      **/
-    package(odood) void syncSources() const {
-        infof("Assembly: syncing sources...");
-        // TODO: add timing to understand time consumed by sync of specific repo
-        foreach(source; taskPool.parallel(_spec.sources)) {
-            infof("Assembly: syncing source %s ...", source);
-            auto repo_path = getSourceCachePath(source);
-            if (repo_path.exists && !repo_path.isGitRepo)
-                repo_path.remove();
-            if (repo_path.exists) {
-                auto repo = new GitRepository(repo_path, env: getSourceExtraEnv(source));
-                if (source.git_ref) {
-                    immutable is_tag = OdooStdVersion(source.git_ref).isStandard;
-                    if (is_tag)
-                        repo.fetchTag(source.git_ref);
-                    else
-                        repo.fetchOrigin(source.git_ref);
-
-                    if (source.git_commit) {
-                        repo.switchBranchTo(source.git_commit);
-                        repo.ensureAtCommit(source.git_commit);
-                    } else if (is_tag) {
-                        repo.switchBranchTo(source.git_ref);
-                    } else {
-                        repo.switchBranchTo("origin/%s".format(source.git_ref));
-                    }
-                } else {
-                    repo.pull;
-                }
-            } else {
-                // git clone -b accepts both branch names and tag names.
-                auto repo = gitClone(
-                    repo: source.git_url,
-                    dest: repo_path,
-                    branch: source.git_ref ? source.git_ref : serie.toString,
-                    single_branch: true,
-                    env: getSourceExtraEnv(source));
-                if (source.git_commit) {
-                    repo.switchBranchTo(source.git_commit);
-                    repo.ensureAtCommit(source.git_commit);
-                }
-            }
-            infof("Assembly: source %s synced.", source);
-        }
-        infof("Assembly: all sources synced.");
-    }
-
-    package(odood) auto ensureOdooAppsAddonDownloaded(in string addon_name) {
-        auto cache_path = getAddonCachePath(addon_name);
-        if (cache_path.exists)
-            return cache_path;
-
-        auto temp_dir = createTempPath();
-        scope(exit) temp_dir.remove();
-
-        auto download_path = temp_dir.join("%s.zip".format(addon_name));
-        infof("Downloading addon %s from odoo apps...", addon_name);
-        download(
-            "https://apps.odoo.com/loempia/download/%s/%s/%s.zip?deps".format(
-                addon_name, serie, addon_name),
-            download_path);
-        infof("Unpacking addon %s from odoo apps...", addon_name);
-        DarkArchiveReader!(DarkArchiveFormat.zip)(download_path.toAbsolute).extractTo(temp_dir.join("apps"));
-
-
-        enforce!OdoodAssemblyException(
-            isOdooAddon(temp_dir.join("apps", addon_name)),
-            "Downloaded archive does not contain requested odoo app!");
-
-        foreach(addon; findAddons(temp_dir.join("apps"))) {
-            auto addon_cache_path = getAddonCachePath(addon.name);
-            if (!addon_cache_path.exists)
-                addon.path.copyTo(addon_cache_path);
-        }
-
-        enforce!OdoodAssemblyException(
-            cache_path.exists,
-            "Addon %s download failed!".format(addon_name));
-        return cache_path;
+        return load(repo.path, serie, source_provider);
     }
 
     /** Scan sources for available addons.
       * This method will return mapping with source[hashString][addon.name] -> addon
       **/
-    package(odood) auto scanSources() const {
+    package(odood) auto scanSources() {
         OdooAddon[string][string] res;
         foreach(source; spec.sources) {
-            auto source_path = getSourceCachePath(source);
+            auto source_path = _source_provider.resolveSource(source, serie);
             res[source.hashString] = findAddons(source_path, recursive: true).map!((a) => tuple(a.name, a)).assocArray;
         }
         return res;
@@ -386,7 +252,7 @@ class Assembly {
         foreach(addon; _spec.addons) {
             infof("Assembly: Syncing addon %s ...", addon);
             if (addon.from_odoo_apps) {
-                auto addon_path = ensureOdooAppsAddonDownloaded(addon.name);
+                auto addon_path = _source_provider.resolveExternalAddon(addon, serie);
                 addon_path.copyTo(dist_dir.join(addon.name));
                 repo.add(dist_dir.join(addon.name));
                 infof("Assembly: Addon %s synced from Odoo Apps.", addon);
@@ -433,6 +299,40 @@ class Assembly {
             missing_addon_names.empty,
             "Cannot find addons:\n%s".format(missing_addon_names.join("\n")));
         infof("Assembly: All addons synced.");
+    }
+
+    /** Validate that every assembly addon's dependencies are satisfiable
+      * (by the provided system addons, other assembly addons, or the spec's
+      * known-addons list).
+      *
+      * Project-free: the caller supplies the names of addons the target Odoo
+      * instance provides. A `ProjectAssembly` passes the project's system
+      * addons; a standalone packager may source that list from a bundled
+      * per-serie manifest or an Odoo checkout.
+      *
+      * Params:
+      *    system_addons = names of addons provided by the target Odoo instance
+      *        (core plus any always-available addons).
+      **/
+    void validateAddonsDependencies(in string[] system_addons) const {
+        auto assembly_addons = findAddons(dist_dir);
+        auto available_addons = chain(
+                system_addons,
+                assembly_addons.map!((a) => a.name),
+                spec.known_addons)
+            .uniq.array;
+
+        string[] missing_dependencies;
+        foreach(addon; assembly_addons)
+            foreach(dep; addon.manifest.dependencies)
+                if (!available_addons.canFind(dep))
+                    missing_dependencies ~= "%s (required by %s)".format(
+                        dep, addon.name);
+
+        enforce!OdoodAssemblyException(
+            missing_dependencies.empty,
+            "Cannot find following dependencies:\n%s".format(
+                missing_dependencies.join("\n")));
     }
 
     /** Get info about changes between current version and series version
@@ -489,6 +389,28 @@ class Assembly {
                 "Or, base revision to compare changes to have to be provided.");
     }
 
+    /** Generate ADDONS.md / ADDONS.csv listing the addons currently in dist.
+      *
+      * Params:
+      *    md  = generate ADDONS.md
+      *    csv = generate ADDONS.csv
+      **/
+    void generateAddonsList(in bool md=true, in bool csv=true) {
+        auto rows = addonListRows(findAddons(dist_dir));
+        if (md) {
+            infof("Assembly: Generating ADDONS.md ...");
+            auto md_path = path.join(ASSEMBLY_ADDONS_MD_PATH);
+            md_path.writeFile("### Addons list\n\n" ~ renderMarkdownTable(rows));
+            repo.add(md_path);
+        }
+        if (csv) {
+            infof("Assembly: Generating ADDONS.csv ...");
+            auto csv_path = path.join(ASSEMBLY_ADDONS_CSV_PATH);
+            csv_path.writeFile(renderCsv(rows));
+            repo.add(csv_path);
+        }
+    }
+
     void generateDockerfile() {
         infof("Assembly: Preparing Dockerfile...");
         auto assembly = this;
@@ -539,8 +461,7 @@ class Assembly {
             // Fetch origin/serie branch if origin repo is configured
             repo.fetchOrigin(serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
-        cache_dir.mkdir(true);  // ensure cache dir exists
-        syncSources();
+        _source_provider.ensureSources(_spec.sources, serie);
         syncAddons();
     }
 
@@ -564,13 +485,43 @@ class Assembly {
     }
 
     /// Add source to assembly
-    void addSource(in GitURL git_url, in string name=null, in string git_ref=null) {
-        _spec.addSource(git_url: git_url, name: name,  git_ref: git_ref);
+    void addSource(in GitURL git_url, in string name=null, in string git_ref=null,
+            in string git_commit=null) {
+        _spec.addSource(
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
     }
 
     /// Add addon to assembly
     void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
         _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+    }
+
+    /// Remove an addon from assembly by name. No-op if absent.
+    void removeAddon(in string name) {
+        _spec.removeAddon(name);
+    }
+
+    /// Remove a source from assembly. Refuses if any addon references it.
+    void removeSource(in string name) {
+        _spec.removeSource(name);
+    }
+
+    /// ditto
+    void removeSource(in AssemblySpecSource source) {
+        _spec.removeSource(source);
+    }
+
+    /// ditto
+    void removeSource(in GitURL git_url, in string name=null,
+            in string git_ref=null, in string git_commit=null) {
+        _spec.removeSource(git_url, name, git_ref, git_commit);
+    }
+
+    /// Replace the source named `name` in place (re-pin); refuses a rename while
+    /// addons reference it.
+    void replaceSource(in string name, in GitURL git_url, in string new_name=null,
+            in string git_ref=null, in string git_commit=null) {
+        _spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
     }
 
     /** For each source, query the remote for tags matching the project's Odoo serie,
@@ -595,7 +546,7 @@ class Assembly {
             infof("Assembly: Checking %s for new version tags ...", src_name);
             auto versions = gitListRemoteTags(
                     source.git_url.toString,
-                    getSourceExtraEnv(source))
+                    resolveSourceGitEnv(source))
                 .map!(t => OdooStdVersion(t))
                 .filter!(v => v.isStandard && v.serie == serie)
                 .array;
@@ -634,4 +585,62 @@ class Assembly {
         return results;
     }
 
+}
+
+
+// Assembly.sync() materializes entirely through the injected provider: a fake
+// provider serves a local fixture tree, so the flow runs with no network.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+    import odood.git: GitURL;
+    import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Fixture "source" tree containing one addon.
+    auto src = root.join("fake-source");
+    src.join("my_addon").mkdir(true);
+    src.join("my_addon", "__init__.py").writeFile("");
+    src.join("my_addon", "__manifest__.py").writeFile(
+        `{"name": "my_addon", "version": "17.0.1.0.0", "depends": ["base"]}`);
+
+    // Fake provider: serves the fixture tree for any source, never fetches.
+    static class FakeProvider : AssemblySourceProviderInterface {
+        Path src_path;
+        bool ensured = false;
+        this(Path p) { src_path = p; }
+        override void ensureSources(in AssemblySpecSource[] sources, in OdooSerie serie) {
+            ensured = true;
+        }
+        override Path resolveSource(in AssemblySpecSource source, in OdooSerie serie) {
+            return src_path;
+        }
+        override Path resolveExternalAddon(in AssemblySpecAddon specAddon, in OdooSerie serie) {
+            assert(false, "no external addons expected in this test");
+        }
+    }
+    auto provider = new FakeProvider(src);
+
+    auto assembly_path = root.join("assembly");
+    assembly_path.mkdir(true);  // initialize() writes the spec before git-init'ing
+    auto assembly = Assembly.initialize(assembly_path, OdooSerie("17.0"), provider);
+    assembly.addSource(GitURL("https://example.test/repo"));
+    assembly.addAddon("my_addon");
+
+    assembly.dist_dir.join("my_addon").exists.shouldBeFalse;
+    assembly.sync();
+
+    provider.ensured.shouldBeTrue;                                   // ensureSources was called
+    assembly.dist_dir.join("my_addon").exists.shouldBeTrue;         // addon copied into dist
+    assembly.dist_dir.join("my_addon", "__manifest__.py").exists.shouldBeTrue;
+
+    // generateAddonsList writes ADDONS.md / ADDONS.csv from the dist addons.
+    import std.algorithm: canFind;
+    assembly.generateAddonsList();
+    assembly.path.join("ADDONS.md").exists.shouldBeTrue;
+    assembly.path.join("ADDONS.csv").exists.shouldBeTrue;
+    assembly.path.join("ADDONS.md").readFileText.canFind("| my_addon |").shouldBeTrue;
+    assembly.path.join("ADDONS.csv").readFileText.canFind(`"my_addon"`).shouldBeTrue;
 }

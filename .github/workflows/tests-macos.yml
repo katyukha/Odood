@@ -47,11 +47,25 @@ jobs:
         if: matrix.py_install_type == 'pyenv'
         run: |
           brew install pyenv
+          # `brew install` does not update the preinstalled pyenv, and an old
+          # pyenv has no definitions for the python versions Odood pins.
+          brew update && brew upgrade pyenv
+          pyenv --version
+          for m in 3.10 3.11 3.12; do
+            echo "latest known $m: $(pyenv latest -k $m 2>&1 || true)"
+          done
 
-      - name: Configure git user (to make git tests work)
+      - name: Configure git (to make git tests work)
         run: |
           git config --global user.email "odood@odood.dev"
           git config --global user.name "Odood"
+          # Git detaches automatic maintenance by default, so it outlives the
+          # git command and keeps writing to .git/objects (maintenance.lock)
+          # while a test is already removing the temporary repository. Run it
+          # in foreground instead. Set globally, so it also applies to git
+          # processes we do not spawn ourselves (receive-pack on local remotes).
+          git config --global maintenance.autoDetach false
+          git config --global gc.autoDetach false
 
       - name: Run simple tests tests
         run: dub test -b unittest-cov
