@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `odood assembly release` - assign the next assembly version, generate the
+  release artifacts, commit them and create the release tag.
+- `odood assembly status` now shows the current assembly version.
+
+### Changed
+
+- Assembly versions are now tracked by git tags, the same way `odood repo release`
+  already works. The `VERSION` file is kept as an optional artifact: if an assembly
+  has one, every release updates it; otherwise it is only created with
+  `--version-file`. No migration step is needed - when there is no tag yet, the
+  first release picks up the version from `VERSION` and tags from there.
+- **Breaking:** `odood assembly sync --changelog` was removed. Generating a
+  changelog means assigning a version, which now belongs to `odood assembly release`.
+  Drop the flag from the sync step and add an `odood assembly release` step after it.
+  CI checkouts need full history to reach the previous release tag
+  (`fetch-depth: 0` on GitHub Actions, `GIT_DEPTH: 0` on GitLab CI); a missing
+  tag is fetched automatically, and a shallow clone that would silently produce
+  a wrong or empty release is rejected with a clear error.
+- `Assembly.generateChangelog(base_rev)` is deprecated for library users: it
+  couples version assignment, changelog and `VERSION` in one call. Use
+  `prepareRelease` + `generateChangelog(result)` + `generateVersionFile`.
+- `odood assembly release` requires a clean working tree, so the tagged commit
+  holds exactly the content the version was computed from.
+
+### Fixed
+
+- Docker image version label no longer drifts from the release it belongs to.
+  It was read back from the `VERSION` file, so generating a Dockerfile without
+  also generating a changelog stamped the previous release into
+  `org.opencontainers.image.version`.
+- Generated `.dockerignore` no longer excludes `odood-assembly.yml`, which the
+  generated `Dockerfile` copies into the image - the docker build failed with
+  `"/odood-assembly.yml": not found`. Assemblies with a `.dockerignore` already
+  committed need that line removed by hand; `assembly sync --dockerfile` warns
+  when it finds one.
+
 ## Release 0.6.6 (2026-09-12)
 
 ### Fixed

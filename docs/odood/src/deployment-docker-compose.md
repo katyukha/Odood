@@ -282,9 +282,18 @@ in your CI workflow and it will be created (or updated) on every sync:
 
 ```bash
 odood --config-from-env assembly sync \
-    --changelog \
     --dockerfile \
     --commit --push
+```
+
+The image version label is stamped when the assembly is released, so the release
+step regenerates the Dockerfile too:
+
+```bash
+odood --config-from-env assembly release \
+    --changelog \
+    --dockerfile \
+    --push
 ```
 
 The generated Dockerfile:

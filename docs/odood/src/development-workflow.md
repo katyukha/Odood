@@ -234,7 +234,7 @@ Odood reads these entries in three places:
 | --- | --- |
 | `odood repo ensure-changelog` | Verifies that addons changed since the release branch (or last tag) carry a changelog entry covering their version bump. Useful as a CI / pre-merge gate. |
 | `odood repo release --changelog` | Generates and commits repo-level `CHANGELOG.md` and `CHANGELOG.latest.md` while cutting a release (see [Release Management](./release-management.md)). |
-| `odood assembly sync --changelog` | Aggregates per-addon entries across all updated modules into a single assembly-level `CHANGELOG.md` (and `CHANGELOG.latest.md`) — see the assembly [*Notable changes*](./assembly.md#notable-changes) section. |
+| `odood assembly release --changelog` | Aggregates per-addon entries across all updated modules into a single assembly-level `CHANGELOG.md` (and `CHANGELOG.latest.md`) — see the assembly [*Notable changes*](./assembly.md#notable-changes) section. |
 
 #### Enforcing changelog entries
 

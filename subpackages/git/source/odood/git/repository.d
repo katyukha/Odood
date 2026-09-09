@@ -151,6 +151,146 @@ class GitRepository {
         return result.output.strip();
     }
 
+    /** Check if this clone has shallow (truncated) history.
+      *
+      * History-walking answers from a shallow clone are silently wrong: the
+      * shallow boundary looks like a root commit that introduced every file.
+      * Callers that walk history should refuse to run on one.
+      **/
+    bool isShallow() const {
+        return gitCmd
+            .withArgs("rev-parse", "--is-shallow-repository")
+            .execute()
+            .output.strip == "true";
+    }
+
+    /// Test isShallow
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto src = GitRepository.initialize(root.join("src"));
+        src.path.join("a.txt").writeFile("a");
+        src.add(Path("a.txt"));
+        src.commit("first");
+        src.path.join("b.txt").writeFile("b");
+        src.add(Path("b.txt"));
+        src.commit("second");
+
+        src.isShallow.shouldBeFalse;
+
+        /* --depth needs the file:// transport: a plain local-path clone
+         * hardlinks objects and ignores the depth option. */
+        auto clone_path = root.join("shallow");
+        Process("git")
+            .withArgs(
+                "clone", "--depth", "1",
+                "file://" ~ src.path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        clone.isShallow.shouldBeTrue;
+        // The boundary masquerades as a root — the reason callers must check.
+        clone.rootCommit.should == src.getCurrCommit;
+    }
+
+    /** Root (parentless) commit reachable from `rev`.
+      *
+      * Useful as a diff base meaning "before any of this existed". With more
+      * than one root — histories that were merged — the oldest is returned.
+      * In a shallow clone the boundary commit is returned instead of the true
+      * root; check `isShallow` first.
+      *
+      * Returns: full SHA, or an empty string for a repository with no commits.
+      **/
+    string rootCommit(in string rev = "HEAD") const {
+        auto result = gitCmd
+            .withArgs("rev-list", "--max-parents=0", rev)
+            .execute();
+        if (result.status != 0)
+            return "";
+        auto lines = result.output.strip.splitLines;
+        return lines.empty ? "" : lines[$ - 1].strip;
+    }
+
+    /// Test rootCommit
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.rootCommit.empty.shouldBeTrue;   // no commits yet
+
+        repo.path.join("a.txt").writeFile("a");
+        repo.add(Path("a.txt"));
+        repo.commit("first");
+        immutable first = repo.getCurrCommit;
+
+        repo.path.join("b.txt").writeFile("b");
+        repo.add(Path("b.txt"));
+        repo.commit("second");
+
+        repo.rootCommit.should == first;
+    }
+
+    /** Last commit that changed `path`, looking back from `rev`.
+      *
+      * In a shallow clone the boundary commit appears to introduce every file,
+      * so the answer may be wrong; check `isShallow` first.
+      *
+      * Params:
+      *     path = path relative to the repository root.
+      *     rev = revision to start the search from.
+      *
+      * Returns:
+      *     Full SHA of the commit, or an empty string when the path has no
+      *     history at `rev`.
+      **/
+    string lastCommitFor(in Path path, in string rev = "HEAD") const {
+        auto result = gitCmd
+            .withArgs("log", "-1", "--format=%H", rev, "--", path.toString)
+            .execute();
+        if (result.status != 0)
+            return "";
+        return result.output.strip();
+    }
+
+    /// Test lastCommitFor
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("tracked.txt").writeFile("one");
+        repo.add(Path("tracked.txt"));
+        repo.commit("Add tracked.txt");
+        immutable first = repo.getCurrCommit;
+
+        repo.path.join("other.txt").writeFile("x");
+        repo.add(Path("other.txt"));
+        repo.commit("Add other.txt");
+
+        // A commit that did not touch the path does not move its answer.
+        repo.lastCommitFor(Path("tracked.txt")).should == first;
+
+        repo.path.join("tracked.txt").writeFile("two");
+        repo.add(Path("tracked.txt"));
+        repo.commit("Update tracked.txt");
+        repo.lastCommitFor(Path("tracked.txt")).should == repo.getCurrCommit;
+
+        // Unknown paths answer with an empty string rather than throwing.
+        repo.lastCommitFor(Path("never-existed.txt")).empty.shouldBeTrue;
+    }
+
     /** Check if `ancestor` is reachable from `descendant` — i.e. whether the
       * former has been merged into the latter (`git merge-base --is-ancestor`).
       *

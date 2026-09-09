@@ -399,12 +399,22 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.raw.changelog_latest_path.exists.shouldBeFalse;
     assembly.raw.version_path.exists.shouldBeFalse;
 
-    // Generate changelog, end ensure that changelog was written
-    assembly.raw.generateChangelog(base_commit);
+    // Prepare the release and ensure the changelog was written
+    auto release1 = assembly.raw.prepareRelease(base_commit);
+    release1.isNull.shouldBeFalse;
+    // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
+    release1.get.new_version.toString.shouldEqual(
+        "%s.0.1.0".format(project.odoo.serie));
+    assembly.raw.generateChangelog(release1.get);
     assembly.raw.changelog_path.exists.shouldBeTrue;
     assembly.raw.changelog_latest_path.exists.shouldBeTrue;
+
+    // VERSION is opt-in: an assembly without one does not grow a file it did
+    // not ask for.
+    assembly.raw.generateVersionFile(release1.get.new_version);
+    assembly.raw.version_path.exists.shouldBeFalse;
+    assembly.raw.generateVersionFile(release1.get.new_version, create: true);
     assembly.raw.version_path.exists.shouldBeTrue;
-    // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
     assembly.raw.version_path.readFileText.shouldEqual("%s.0.1.0\n".format(project.odoo.serie));
 
     // Link assembly and change that symlinks were created in custom_addons dir
@@ -434,8 +444,12 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.raw.dist_dir.join("generic_tag").exists.shouldBeTrue;
 
-    // Generate (update) changelog and check that assembly version updated.
-    assembly.raw.generateChangelog(base_commit);
+    // Prepare the next release and check that the assembly version updated.
+    auto release2 = assembly.raw.prepareRelease(base_commit);
+    release2.isNull.shouldBeFalse;
+    assembly.raw.generateChangelog(release2.get);
+    // An existing VERSION file is updated without having to ask.
+    assembly.raw.generateVersionFile(release2.get.new_version);
     // Another added addon -> another MINOR bump: 18.0.0.1.0 -> 18.0.0.2.0.
     assembly.raw.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
 

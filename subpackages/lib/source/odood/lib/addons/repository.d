@@ -473,10 +473,15 @@ class AddonRepository : GitRepository{
       *
       * Params:
       *     serie = Odoo serie (e.g. OdooSerie("18.0")).
+      *     include_remote = also consider tags that exist only on the remote.
+      *         Costs a `git ls-remote`, which may block on the network or
+      *         prompt for credentials — pass false where a local answer is
+      *         good enough.
       **/
-    Nullable!OdooStdVersion getLatestRelease(in OdooSerie serie) const {
+    Nullable!OdooStdVersion getLatestRelease(
+            in OdooSerie serie, in bool include_remote = true) const {
         string[] all_tags = listLocalTags();
-        if (hasRemoteUrl("origin")) {
+        if (include_remote && hasRemoteUrl("origin")) {
             try {
                 all_tags ~= listRemoteTags("origin");
             } catch (Exception e) {
