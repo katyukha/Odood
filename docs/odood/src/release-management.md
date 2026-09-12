@@ -154,7 +154,11 @@ odood repo release --changelog --push
    (the most significant change wins):
    - Any addon had a **major** bump, or an addon was **removed** → `X` incremented, `Y` and `Z` reset to `0`.
    - Any addon had a **minor** or **patch** bump, or an addon was **added** → `Y` incremented, `Z` reset to `0`.
-4. Optionally generate `CHANGELOG.md` / `CHANGELOG.latest.md` and commit them.
+4. Optionally generate release artifacts and commit them: `CHANGELOG.md` /
+   `CHANGELOG.latest.md` with `--changelog`, and `ADDONS.md` / `ADDONS.csv`
+   with `--addons-list-md` / `--addons-list-csv`. Everything requested goes
+   into a single commit made before the tag. The same options are available
+   for `odood repo hotfix release`.
 5. Create a git tag with the new version.
 6. Push the branch and tag if `--push` is given.
 

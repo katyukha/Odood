@@ -1,5 +1,16 @@
 # Changelog
 
+## Release 0.6.6 (2026-09-12)
+
+### Fixed
+
+- Loading a project whose `odood.yml` has an `assembly-path` bound the assembly
+  to an invalid Odoo serie, so `odood assembly sync` failed with
+  `fatal: invalid refspec '<invalid odoo serie>'` (and source resolution would
+  target wrong branches). Now fixed.
+
+---
+
 ## Release 0.6.5 (2026-09-02)
 
 ### Added

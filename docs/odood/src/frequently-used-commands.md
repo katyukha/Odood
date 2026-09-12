@@ -54,6 +54,7 @@ Thus following commands are used to deal with it:
 - `odood repo release --initial` - create the first release tag (`<serie>.1.0.0`) for a repository with no prior tags.
 - `odood repo release` - auto-detect changed addons since the last tag, verify versions are bumped, and create the next release tag.
 - `odood repo release --changelog --push` - generate `CHANGELOG.md`, commit it, tag, and push branch + tag to origin.
+- `odood repo release --addons-list-md --addons-list-csv` - additionally generate `ADDONS.md` / `ADDONS.csv` listing the repository's addons.
 
 ### Database management
 - `odood db list` - list all databases available for current odoo instance

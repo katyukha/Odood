@@ -160,13 +160,11 @@ class Project {
     this(in Path project_root,
             in ProjectConfigDirectories directories,
             in ProjectConfigOdoo odoo,
-            in VirtualEnv venv,
-            ProjectAssembly assembly=null) {
+            in VirtualEnv venv) {
         this._project_root = project_root.toAbsolute;
         this._directories = directories;
         this._odoo = odoo;
         this._venv = venv;
-        this._assembly = assembly;
     }
 
     /// ditto
@@ -214,31 +212,44 @@ class Project {
 
     /// ditto
     this(in Node yaml_config) {
+        this(
+            Path(yaml_config["project_root"].as!string),
+            ProjectConfigDirectories(
+                Path(yaml_config["project_root"].as!string),
+                yaml_config["directories"]),
+            ProjectConfigOdoo(yaml_config["odoo"]),
+            venvFromYAML(yaml_config["virtualenv"]),
+        );
+        /* The assembly captures the project's Odoo serie at load time, so it
+         * must be loaded only after this project is fully constructed */
         if (yaml_config.containsKey("assembly-path"))
-            this(
-                Path(yaml_config["project_root"].as!string),
-                ProjectConfigDirectories(
-                    Path(yaml_config["project_root"].as!string),
-                    yaml_config["directories"]),
-                ProjectConfigOdoo(yaml_config["odoo"]),
-                venvFromYAML(yaml_config["virtualenv"]),
-                ProjectAssembly.maybeLoad(this, Path(yaml_config["assembly-path"].as!string)),
-            );
-        else
-            this(
-                Path(yaml_config["project_root"].as!string),
-                ProjectConfigDirectories(
-                    Path(yaml_config["project_root"].as!string),
-                    yaml_config["directories"]),
-                ProjectConfigOdoo(yaml_config["odoo"]),
-                venvFromYAML(yaml_config["virtualenv"]),
-            );
+            this._assembly = ProjectAssembly.maybeLoad(
+                this, Path(yaml_config["assembly-path"].as!string));
     }
 
     /// ditto
     this(in Node yaml_config, in Path config_path) {
         this(yaml_config);
         _config_path = Nullable!Path(config_path);
+    }
+
+    // A project loaded from YAML must hand its (already parsed) serie to the
+    // assembly it loads: the assembly captures the serie once, and everything
+    // downstream — branch to fetch, source resolution — trusts it.
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        Path temp_dir = createTempPath();
+        scope(exit) temp_dir.remove();
+
+        auto project = new Project(temp_dir, OdooSerie("18.0"));
+        project.initializeAssembly();
+        project.assembly.raw.serie.toString.should == "18.0";
+
+        auto loaded = Project.loadProject(temp_dir);
+        (loaded.assembly !is null).shouldBeTrue;
+        loaded.assembly.raw.serie.toString.should == "18.0";
     }
 
     /** (De)serialize the project's virtualenv to/from YAML.

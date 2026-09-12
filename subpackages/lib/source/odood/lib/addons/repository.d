@@ -675,8 +675,15 @@ class AddonRepository : GitRepository{
             remove(changelog_path, force: true, ignore_unmatch: true);
 
         if (changelog_path.exists) {
+            /* The replacement is generated text that embeds addon changelog
+             * entries, i.e. arbitrary content from the addons themselves. It
+             * must not go through the replacement-format overload: an
+             * unmatched '${' throws, and '$&' / '$1' would silently splice
+             * the matched text into the changelog. The callback overload
+             * inserts the string verbatim.
+             */
             auto existing = changelog_path.readFileText
-                .replaceFirst(regex("# Changelog\n"), changelog_text);
+                .replaceFirst!(_ => changelog_text)(regex("# Changelog\n"));
             changelog_path.writeFile(existing);
         } else {
             changelog_path.writeFile(changelog_text);
@@ -750,6 +757,48 @@ unittest {
     repo.generateAddonsList(md: true, csv: false);
     md.exists.shouldBeTrue;
     csv.exists.shouldBeFalse;
+}
+
+
+/** Changelog text is inserted verbatim.
+  *
+  * A changelog entry is arbitrary text written by an addon author, so it
+  * routinely contains '$' sequences ('${...}' template syntax, '$&', '$1').
+  * Read as a regex replacement format those either throw or splice the
+  * matched text into the output.
+  **/
+unittest {
+    import std.algorithm: canFind;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+    import odood.utils.addons.addon_changelog: OdooAddonChangelogEntry;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("test-repo")));
+    repo.path.join("CHANGELOG.md").writeFile("# Changelog\n\n## Release 17.0.1.0.0\n");
+    repo.add(repo.path.join("CHANGELOG.md"));
+    repo.commit("Initial commit");
+
+    immutable entry_data =
+        "Interpolate ${config in templates. Keep $& and $1 and $$ as written.";
+
+    auto changes = new AddonRepositoryChanges(OdooStdVersion("17.0.1.1.0"));
+    changes.logAddonUpdated(
+        "addon_a",
+        Path("addon_a"), Path("addon_a"),
+        OdooStdVersion("17.0.1.0.0"), OdooStdVersion("17.0.1.1.0"),
+        [OdooAddonChangelogEntry("17.0.1.1.0", entry_data)]);
+
+    repo.generateChangelog(
+        PrepareReleaseResult(OdooStdVersion("17.0.1.1.0"), changes, "HEAD"));
+
+    auto changelog = repo.path.join("CHANGELOG.md").readFileText;
+    changelog.canFind(entry_data).shouldBeTrue;
+    // The new section is prepended, the previous release is kept below it.
+    changelog.canFind("## Release 17.0.1.0.0").shouldBeTrue;
+    repo.path.join("CHANGELOG.latest.md").readFileText.canFind(entry_data).shouldBeTrue;
 }
 
 

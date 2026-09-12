@@ -420,11 +420,16 @@ class Assembly {
         auto assembly_version = version_path.exists ? version_path.readFileText.strip : "";
         auto assembly_source_url = repo.hasRemoteUrl("origin") ? repo.getRemoteUrl().toString : "";
         if (path.join("Dockerfile").exists) {
+            /* The rendered template is inserted verbatim via the callback
+             * overload: the replacement-format overload would read '$&',
+             * '$1' and '${...}' in it as substitution tokens, which is
+             * ordinary Dockerfile syntax (and throws when unbalanced).
+             */
+            auto dockerfile_tmpl = renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, handle_requirements_lock_txt, assembly_version, assembly_source_url);
             string dockerfile_content = path.join("Dockerfile")
                 .readFileText
-                .replaceFirst(
-                    regex(".*# ---- ODOOD END DYNAMIC DOCKER CONFIG ----\n", "s"),
-                    renderFile!("templates/assembly/Dockerfile.tmpl", assembly, handle_requirements_txt, handle_requirements_lock_txt, assembly_version, assembly_source_url));
+                .replaceFirst!(_ => dockerfile_tmpl)(
+                    regex(".*# ---- ODOOD END DYNAMIC DOCKER CONFIG ----\n", "s"));
             path.join("Dockerfile").writeFile(dockerfile_content);
         } else {
             path.join("Dockerfile").writeFile(
