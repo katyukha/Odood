@@ -439,8 +439,8 @@ The version of an assembly is its latest release tag, in the format
 
 Following rules are applied to generate new repo version:
 - Odoo serie (`<odoo major>.<odoo minor>`) will be set to project's Odoo version
-- If new addon added to assembly, **major** version part will be increased
 - If some addons were deleted, then **major** version part will be increased
+- If new addon added to assembly, **minor** version part will be increased (an addition is not breaking)
 - If some of assembly addons changed **major** part, then **major** version part of assembly will be increased.
 - If some of assembly addons changed **minor** part, then **minor** version part will be increased
 - All other cases will increase **patch** part of assembly version.
@@ -585,61 +585,6 @@ This workflow runs on all branches matching `18.0-*`. Usual flow:
 4. Review and merge the pull request
 5. Delete the `18.0-update` branch (or configure automatic stale-branch deletion)
 
-### Release the assembly on GitHub CI
-
-Once a sync has been merged into the stable branch, a second workflow assigns
-the version and creates the tag:
-
-```yaml
-name: Release assembly
-on:
-  push:
-    branches:
-      - '18.0'
-  workflow_dispatch:
-
-jobs:
-  release-assembly:
-    name: Release assembly
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    container:
-      image: ghcr.io/katyukha/odood/odoo/18.0:latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Version resolution needs the history back to the last release tag.
-          fetch-depth: 0
-
-      - name: Add current directory as safe directory for git
-        run: git config --global --add safe.directory "$(pwd)"
-
-      - name: Use current repo as assembly
-        run: odood -v -d --config-from-env assembly use .
-
-      - name: Release assembly
-        run: |
-          odood -v -d --config-from-env assembly release \
-            --changelog \
-            --dockerfile \
-            --commit-user='Github Action' \
-            --commit-email='github-action@odood.dev' \
-            --push
-```
-
-`fetch-depth: 0` matters: a shallow clone does not reach the previous release
-tag, so the set of changes to describe cannot be computed. On GitLab CI the
-equivalent is `GIT_DEPTH: 0`. The release commit and the tag are pushed to the
-stable branch, so the job needs write access to it.
-
-The working tree has to be clean when the release runs — commit the sync first
-(or run both steps in the same job) so the tag points at exactly the content the
-version was computed from.
-
-If nothing changed since the last release, the command reports that and exits
-successfully; add `--fail-nothing-to-release` to make that an error instead.
-
 #### Semi-automatic update cycle (recommended)
 
 The workflow above commits directly to the current branch.
@@ -726,122 +671,6 @@ Triggering this workflow creates a draft PR from `18.0-assembly-update` into `18
 not already exist). Pushing to `18.0-assembly-update` also triggers the `Sync assembly` workflow
 above (it matches `18.0-*`), which re-runs with `--dockerfile` to regenerate the Dockerfile.
 
-#### Releasing a Docker image
-
-Once the update PR is merged to the stable branch, trigger this workflow manually to tag the release
-and build a multi-architecture Docker image published to GHCR:
-
-```yaml
-name: Do Release
-on: workflow_dispatch
-
-jobs:
-  set-tag:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Read version
-        id: version
-        run: echo "version=v$(cat VERSION)" >> $GITHUB_OUTPUT
-      - name: Create version tag
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/${{ steps.version.outputs.version }}',
-              sha: context.sha
-            }).catch(err => {
-              if (err.status !== 422) throw err;
-              github.rest.git.updateRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: 'tags/${{ steps.version.outputs.version }}',
-                sha: context.sha
-              });
-            })
-
-  build-and-push-docker-image:
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
-      ODOO_SERIE: '18.0'
-    permissions:
-      contents: write
-      packages: write
-      attestations: write
-    runs-on: ubuntu-latest
-    needs: set-tag
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read version
-        id: version
-        run: echo "version=v$(cat VERSION)" >> $GITHUB_OUTPUT
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=match,pattern=v(.*),group=1,value=${{ steps.version.outputs.version }}
-            type=match,pattern=v(\d+\.\d+)\.(.*),group=1,value=${{ steps.version.outputs.version }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Docker image
-        id: push
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
-```
-
-The `metadata-action` step derives two image tags from the assembly `VERSION` file
-(e.g. `18.0.1.2.3`):
-- **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml` for reproducibility and rollback.
-- **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor version.
-
-Multi-arch builds (`linux/amd64,linux/arm64`) require QEMU and Docker Buildx.
-Remove the `platforms` line if you only need `amd64`.
-
-#### Full release cycle
-
-```
-1. Trigger "Init assembly sync" (workflow_dispatch)
-      → syncs addons, commits, pushes to 18.0-assembly-update, opens draft PR
-      → "Sync assembly" fires automatically on the new branch, regenerates Dockerfile
-2. Review and merge the PR to 18.0
-3. Trigger "Do Release" (workflow_dispatch)
-      → reads VERSION file, creates git tag, builds and pushes Docker image with version tags
-4. Deploy using the upgrade workflow:
-      → see Upgrading assembly-based deployments in Docker Compose docs
-```
-
 #### Private repo notes
 
 In case when private repo have to be added to assembly, following additional steps have to be applied:
@@ -866,6 +695,170 @@ For example, in case when private git source is hosted on github, the *Sync asse
 
 It is expected, that assembly contains git-source named `myrepo` or that has `access-group` equal to `myrepo`.
 Also, it is expected that access-token for this git repo added to [GitHub Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets) under name `GH_MY_REPO_PAT`
+
+### Release the assembly on GitHub CI
+
+Once a sync has been merged into the stable branch, a second workflow assigns
+the version and creates the tag:
+
+```yaml
+name: Release assembly
+on:
+  push:
+    branches:
+      - '18.0'
+  workflow_dispatch:
+
+jobs:
+  release-assembly:
+    name: Release assembly
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: ghcr.io/katyukha/odood/odoo/18.0:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Version resolution needs the history back to the last release tag.
+          fetch-depth: 0
+
+      - name: Add current directory as safe directory for git
+        run: git config --global --add safe.directory "$(pwd)"
+
+      - name: Use current repo as assembly
+        run: odood -v -d --config-from-env assembly use .
+
+      - name: Release assembly
+        run: |
+          odood -v -d --config-from-env assembly release \
+            --changelog \
+            --dockerfile \
+            --commit-user='Github Action' \
+            --commit-email='github-action@odood.dev' \
+            --push
+```
+
+`fetch-depth: 0` matters: a shallow clone does not reach the previous release
+tag, so the set of changes to describe cannot be computed. On GitLab CI the
+equivalent is `GIT_DEPTH: 0`. The release commit and the tag are pushed to the
+stable branch, so the job needs write access to it.
+
+The working tree has to be clean when the release runs — commit the sync first
+(or run both steps in the same job) so the tag points at exactly the content the
+version was computed from.
+
+If nothing changed since the last release, the command reports that and exits
+successfully; add `--fail-nothing-to-release` to make that an error instead.
+
+#### Releasing a Docker image
+
+Once `odood assembly release --push` has pushed a release tag, a second workflow
+builds a multi-architecture Docker image from that tag and publishes it to GHCR:
+
+```yaml
+name: Build release image
+on:
+  push:
+    tags:
+      - '18.0.*'
+  workflow_dispatch:
+
+jobs:
+  build-and-push-docker-image:
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=match,pattern=(\d+\.\d+\.\d+\.\d+)\.\d+,group=1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+```
+
+The image is built from the tagged commit, which already contains everything the
+release generated: the synced `dist/`, the changelog, and the Dockerfile whose
+`org.opencontainers.image.version` label matches the tag.
+
+The `metadata-action` step derives two image tags from the release tag
+(e.g. `18.0.1.2.3`):
+- **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml` for reproducibility and rollback.
+- **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor version.
+
+Multi-arch builds (`linux/amd64,linux/arm64`) require QEMU and Docker Buildx.
+Remove the `platforms` line if you only need `amd64`.
+
+**Note on triggering:** a tag pushed with the default `GITHUB_TOKEN` does not
+trigger other workflows — GitHub suppresses events from that token to prevent
+workflow loops. So after the "Release assembly" workflow pushes the tag, either
+run this workflow manually (`workflow_dispatch`, choosing the release tag as the
+ref), or make the release workflow check out with a personal access token, so
+that its pushes do emit events:
+
+```yaml
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+```
+
+#### Full release cycle
+
+```
+1. Trigger "Init assembly sync" (workflow_dispatch)
+      → syncs addons, commits, pushes to 18.0-assembly-update, opens draft PR
+      → "Sync assembly" fires automatically on the new branch, regenerates Dockerfile
+2. Review and merge the PR to 18.0
+3. "Release assembly" fires on the push to 18.0
+      → computes the next version from the changes since the last release tag,
+        generates changelog / VERSION / Dockerfile, commits, tags and pushes
+4. "Build release image" fires on the tag push (or is triggered manually — see
+   the note on triggering above)
+      → builds and pushes the multi-arch Docker image tagged with the version
+5. Deploy using the upgrade workflow:
+      → see Upgrading assembly-based deployments in Docker Compose docs
+```
 
 ### Build assembly on GitLab CI
 

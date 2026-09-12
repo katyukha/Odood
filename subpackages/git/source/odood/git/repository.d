@@ -1001,14 +1001,49 @@ class GitRepository {
         return GitRemote.of(this, remote_name);
     }
 
-    /** List all local tag names in the repository. **/
-    string[] listLocalTags() const {
-        auto output = gitCmd
-            .withArgs("tag", "--list")
+    /** List all local tag names in the repository.
+      *
+      * Params:
+      *     points_at = only tags pointing at this revision
+      *         (`git tag --points-at`), in one git call instead of a
+      *         rev-parse per tag.
+      **/
+    string[] listLocalTags(in string points_at = null) const {
+        auto cmd = gitCmd.withArgs("tag", "--list");
+        if (!points_at.empty)
+            cmd.addArgs("--points-at", points_at);
+        auto output = cmd
             .execute
             .ensureOk(true)
             .output;
         return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
+    }
+
+    /// Test listLocalTags points_at filter
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import std.algorithm: canFind;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto repo = GitRepository.initialize(root.join("repo"));
+        repo.path.join("a.txt").writeFile("a");
+        repo.add(Path("a.txt"));
+        repo.commit("first");
+        repo.setTag("tag-on-first");
+
+        repo.path.join("b.txt").writeFile("b");
+        repo.add(Path("b.txt"));
+        repo.commit("second");
+        repo.setTag("tag-on-head");
+
+        repo.listLocalTags().canFind("tag-on-first").shouldBeTrue;
+        repo.listLocalTags().canFind("tag-on-head").shouldBeTrue;
+
+        repo.listLocalTags(points_at: "HEAD").should == ["tag-on-head"];
+        repo.listLocalTags(points_at: "HEAD~1").should == ["tag-on-first"];
     }
 
     /** List refs matching `pattern` — e.g. `refs/tags` or

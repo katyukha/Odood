@@ -369,12 +369,9 @@ class Assembly {
       * Returns: null when HEAD carries no release tag for this serie.
       **/
     Nullable!OdooStdVersion releasedAtHead() {
-        immutable head = repo.getCurrCommit;
-        foreach(tag; repo.listLocalTags()) {
+        foreach(tag; repo.listLocalTags(points_at: "HEAD")) {
             auto ver = OdooStdVersion(tag);
-            if (!ver.isStandard || ver.serie != serie)
-                continue;
-            if (repo.tryRevParse(tag) == head)
+            if (ver.isStandard && ver.serie == serie)
                 return ver.nullable;
         }
         return Nullable!OdooStdVersion.init;

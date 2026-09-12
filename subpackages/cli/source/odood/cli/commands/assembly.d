@@ -23,27 +23,33 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
-/* Files the sync and release commands generate themselves. Anything else being
- * dirty means the working tree holds changes the command did not make, which
- * have to be handled by hand. */
-private string[] assemblyGeneratedPaths() {
+/* Files the sync command generates itself. Anything else being dirty means
+ * the working tree holds changes the command did not make, which have to be
+ * handled by hand. */
+private string[] syncGeneratedPaths() {
     return [
-        ASSEMBLY_VERSION_PATH.toString,
         ASSEMBLY_REQUIREMENTS_LOCK.toString,
         ASSEMBLY_ADDONS_MD_PATH.toString,
         ASSEMBLY_ADDONS_CSV_PATH.toString,
-        "CHANGELOG.md",
-        "CHANGELOG.latest.md",
         "Dockerfile",
         ".dockerignore",
     ];
 }
 
-/// The same paths as `:(exclude)` pathspecs, plus any extra paths to exclude.
-private string[] assemblyGeneratedExcludes(in string[] extra...) {
-    return (assemblyGeneratedPaths ~ extra.dup)
-        .map!(pth => ":(exclude)%s".format(pth))
-        .array;
+/* Files the release command generates: the sync set plus the versioning
+ * artifacts, which only a release may write. To sync, a dirty changelog or
+ * VERSION is a hand edit — never something to sweep into the sync commit. */
+private string[] releaseGeneratedPaths() {
+    return syncGeneratedPaths ~ [
+        ASSEMBLY_VERSION_PATH.toString,
+        "CHANGELOG.md",
+        "CHANGELOG.latest.md",
+    ];
+}
+
+/// The given paths as `:(exclude)` pathspecs.
+private string[] asExcludePathspecs(in string[] paths) {
+    return paths.map!(pth => ":(exclude)%s".format(pth)).array;
 }
 
 
@@ -210,14 +216,14 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: assemblyGeneratedExcludes("dist"),
+                    path_filters: asExcludePathspecs(syncGeneratedPaths ~ "dist"),
                     staged: true
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: assemblyGeneratedPaths ~ "dist",
+                    path_filters: syncGeneratedPaths ~ "dist",
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");
@@ -377,6 +383,16 @@ class CommandAssemblyRelease: AssemblyCommandBase {
 
         immutable tag_name = result.get.new_version.toString;
 
+        /* Checked before any artifact is generated or committed: failing after
+         * the release commit would leave a commit whose CHANGELOG/VERSION name
+         * a version that never gets tagged. The computed version is always
+         * above the latest tag known to this clone, so an existing tag with
+         * this name means the version was computed from stale information. */
+        enforce!OdoodCLIException(
+            !repo.listLocalTags().canFind(tag_name),
+            ("Tag %s already exists. "
+            ~ "Fetch the latest changes and re-run.").format(tag_name));
+
         /* generateChangelog restores CHANGELOG.md from the base ref before
          * prepending, so a base older than the last release would drop every
          * section written since. */
@@ -414,7 +430,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             assembly.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
 
         if (repo.getChangedFiles(
-                path_filters: assemblyGeneratedPaths, staged: true).length > 0) {
+                path_filters: releaseGeneratedPaths, staged: true).length > 0) {
             repo.commit(
                 message: commitMessage.isNull
                     ? "Release %s".format(tag_name) : commitMessage.get,
@@ -423,10 +439,6 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             infof("Assembly Release: release artifacts committed.");
         }
 
-        enforce!OdoodCLIException(
-            !repo.listLocalTags().canFind(tag_name),
-            ("Tag %s already exists and points at another commit. "
-            ~ "Fetch the latest changes and re-run.").format(tag_name));
         repo.setTag(tag_name);
         infof("Assembly Release: created tag %s.", tag_name);
 

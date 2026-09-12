@@ -68,6 +68,26 @@ string genDbName(in Project project, in string name, in string ukey="n") {
     return "odood%s-r%s-u%s-%s".format(project.odoo.serie.major, ci_run_id, ukey, name);
 }
 
+/* The CLI discovers the project from the process-wide working directory, so
+ * in-process CLI runs from concurrently running tests must not interleave. */
+private __gshared Object _odood_cli_lock;
+shared static this() { _odood_cli_lock = new Object; }
+
+/** Run the odood CLI in-process, with the working directory set to the
+  * project root so the command discovers `project`.
+  *
+  * Returns: the command's exit code (the CLI reports errors itself).
+  **/
+int runOdoodCLI(in Project project, string[] args...) {
+    import odood.cli.app: App;
+    synchronized (_odood_cli_lock) {
+        auto saved_cwd = std.file.getcwd;
+        scope(exit) std.file.chdir(saved_cwd);
+        std.file.chdir(project.project_root.toString);
+        return (new App()).run("odood" ~ args.dup);
+    }
+}
+
 
 /// Test server management functions
 void testServerManagement(in Project project, in string ukey="n") {
@@ -464,7 +484,98 @@ void testAssembly(Project project, in string ukey="n") {
     project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
     project.directories.addons.join("generic_tag").readLink == assembly.raw.dist_dir.join("generic_tag");
 
+    // Test the release CLI command on top of the state built above
+    testAssemblyReleaseCLI(project);
+
     infof("Testing assembly for %s. Complete: Ok.", project);
+}
+
+/** Test `odood assembly release` CLI command
+  *
+  * Covers the command-level guard logic on top of the library API already
+  * exercised by `testAssembly`: nothing-to-release, the dirty-tree refusal,
+  * sync refusing staged hand edits of release artifacts, dry run, a real
+  * release, and re-running on a released HEAD.
+  **/
+void testAssemblyReleaseCLI(Project project) {
+    infof("Testing assembly release CLI for %s", project);
+
+    auto assembly = project.assembly.raw;
+    auto repo = assembly.repo;
+    immutable serie = project.odoo.serie.toString;
+
+    // Start from a clean tree holding everything generated so far, including
+    // the VERSION file recording <serie>.0.2.0 with no release tag yet.
+    repo.gitCmd.withArgs("add", "-A").execute.ensureOk(true);
+    repo.commit("Commit assembly state before release tests");
+
+    // Nothing changed since VERSION was written: nothing to release. Exit 0
+    // by default, 1 on request.
+    runOdoodCLI(project, "assembly", "release").shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(0);
+    runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
+        .shouldEqual(1);
+
+    // Removing an addon from the spec is the release-worthy change.
+    assembly.removeAddon("generic_tag");
+    assembly.save();
+    repo.add(assembly.spec_path);
+    repo.commit("Remove generic_tag from assembly spec");
+
+    // A hand-edited changelog staged at sync time is not sync's to commit.
+    assembly.changelog_path.writeFile("# hand edit\n");
+    repo.add(assembly.changelog_path);
+    runOdoodCLI(project, "assembly", "sync", "--commit").shouldEqual(1);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+
+    // Sync the spec change and commit the synced content.
+    runOdoodCLI(project, "assembly", "sync", "--commit").shouldEqual(0);
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+
+    // Release refuses a dirty working tree.
+    assembly.spec_path.writeFile(
+        assembly.spec_path.readFileText ~ "# dirty\n");
+    runOdoodCLI(project, "assembly", "release").shouldEqual(1);
+    repo.listLocalTags().length.shouldEqual(0);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "odood-assembly.yml")
+        .execute.ensureOk(true);
+
+    // Dry run predicts without writing, committing or tagging.
+    runOdoodCLI(project, "assembly", "release", "--dry-run", "--changelog")
+        .shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(0);
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
+
+    // The real release: a removed addon is a MAJOR bump, so the recorded
+    // <serie>.0.2.0 becomes <serie>.1.0.0.
+    immutable expected = "%s.1.0.0".format(serie);
+    runOdoodCLI(project, "assembly", "release", "--changelog").shouldEqual(0);
+    repo.listLocalTags().canFind(expected).shouldBeTrue;
+    assembly.version_path.readFileText.shouldEqual(expected ~ "\n");
+    assembly.changelog_latest_path.readFileText
+        .canFind("generic_tag").shouldBeTrue;
+    assembly.releasedAtHead.get.toString.shouldEqual(expected);
+    // Everything the release generated went into its commit before the tag.
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
+
+    // Re-running on the released HEAD recognises the release instead of
+    // measuring from it and concluding there is nothing to do.
+    runOdoodCLI(project, "assembly", "release").shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(1);
+
+    // A commit that changes no addon leaves nothing to release again.
+    assembly.path.join("NOTES.md").writeFile("notes\n");
+    repo.add(assembly.path.join("NOTES.md"));
+    repo.commit("Add notes");
+    runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
+        .shouldEqual(1);
+    repo.listLocalTags().length.shouldEqual(1);
+
+    infof("Testing assembly release CLI for %s. Complete: Ok.", project);
 }
 
 
