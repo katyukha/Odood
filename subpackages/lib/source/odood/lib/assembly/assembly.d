@@ -434,9 +434,12 @@ class Assembly {
         /* Both are written by the same release commit, so when base_rev IS the
          * tagged commit a disagreement means a hand edit or a release made
          * outside Odood. The tag wins. At any other base_rev an older value is
-         * simply the version of that time — nothing to warn about. */
+         * simply the version of that time — nothing to warn about. Peeled to
+         * commits: the tags are annotated, so a raw rev-parse of one names
+         * the tag object, not the commit a SHA base would name. */
         if (!from_file.isNull && from_file.get != latest.get
-                && repo.tryRevParse(base_rev) == repo.tryRevParse(latest.get.toString))
+                && repo.tryRevParse(base_rev ~ "^{commit}")
+                    == repo.tryRevParse(latest.get.toString ~ "^{commit}"))
             warningf(
                 "Assembly: VERSION at %s says %s, but the release tag there " ~
                 "is %s. Using the tag.", base_rev, from_file.get, latest.get);
@@ -494,6 +497,46 @@ class Assembly {
             changes.repo_version, changes, start_ref).nullable;
     }
 
+    /** Check the release invariants before any artifact is generated.
+      *
+      * These are invariants of a correct release, not CLI policy, so a
+      * library consumer building its own release flow needs them too.
+      *
+      * Throws when:
+      * $(UL
+      *   $(LI the release tag already exists — the version was computed from
+      *     stale information, and generating artifacts for it would leave
+      *     them naming a version that never gets tagged;)
+      *   $(LI the working tree or index has uncommitted changes — the release
+      *     commit takes the whole index, and requiring a clean tree is what
+      *     keeps the tagged tree to exactly the content the version was
+      *     computed from.))
+      *
+      * Params:
+      *     new_version = the version about to be released.
+      *     check_working_tree = also require a clean working tree. Disable
+      *         only for a preview: its predicted version then includes
+      *         uncommitted content that a real release would refuse.
+      **/
+    void validateRelease(
+            in OdooStdVersion new_version,
+            in bool check_working_tree = true) {
+        enforce!OdoodAssemblyException(
+            !repo.listLocalTags().canFind(new_version.toString),
+            ("Release tag %s already exists. The version was computed from " ~
+             "stale information — fetch the latest changes and recompute.")
+                .format(new_version));
+
+        if (check_working_tree)
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(staged: false).length == 0
+                && repo.getChangedFiles(staged: true).length == 0,
+                "The assembly has uncommitted changes. Commit them (for " ~
+                "example with 'odood assembly sync --commit') or stash them " ~
+                "before releasing: the release tag must point at exactly " ~
+                "the content the version was computed from.");
+    }
+
     /** Make sure `tag` can be used as a local revision, fetching it if needed.
       *
       * The latest release is resolved from local tags merged with the remote
@@ -538,8 +581,28 @@ class Assembly {
     /** Generate CHANGELOG.md and CHANGELOG.latest.md for a release.
       *
       * Stages both files; does NOT commit — the caller decides.
+      *
+      * Refuses a base older than the latest release: the changelog is
+      * restored from the base ref before the new section is prepended, so
+      * such a base would silently discard every section written since.
       **/
     void generateChangelog(in PrepareReleaseResult result) {
+        /* Local tags suffice: the normal path fetches the winning tag before
+         * diffing, so a remote-only tag here means the caller went around
+         * prepareRelease anyway. Revisions are peeled to commits — the tags
+         * are annotated, so a raw rev-parse of one names the tag object. */
+        auto latest = repo.getLatestRelease(serie, include_remote: false);
+        enforce!OdoodAssemblyException(
+            latest.isNull
+            || !repo.isAncestor(result.start_ref, latest.get.toString)
+            || repo.tryRevParse(result.start_ref ~ "^{commit}")
+                == repo.tryRevParse(latest.get.toString ~ "^{commit}"),
+            ("Cannot generate a changelog from base '%s': it is older than " ~
+             "the latest release (%s), so the entries written since would " ~
+             "be discarded. Use a later base.").format(
+                result.start_ref,
+                latest.isNull ? "none" : latest.get.toString));
+
         infof("Assembly: Generating changelog for release %s ...",
             result.new_version);
         repo.generateChangelog(result);
@@ -930,6 +993,25 @@ unittest {
 
     // Nothing changed since the tagged commit.
     assembly.prepareRelease.isNull.shouldBeTrue;
+
+    // Release invariants: an already-existing tag is refused ...
+    assembly.validateRelease(
+        OdooStdVersion("17.0.3.0.0"), check_working_tree: false)
+        .shouldThrow!OdoodAssemblyException;
+    // ... and so is a dirty tree (VERSION was rewritten and staged above).
+    assembly.validateRelease(OdooStdVersion("17.0.4.0.0"))
+        .shouldThrow!OdoodAssemblyException;
+    assembly.validateRelease(
+        OdooStdVersion("17.0.4.0.0"), check_working_tree: false);
+    assembly.repo.commit("Update VERSION");
+    assembly.validateRelease(OdooStdVersion("17.0.4.0.0"));
+
+    // A changelog from a base older than the latest release would discard
+    // the sections written since: refused.
+    auto stale = assembly.prepareRelease(base_rev);
+    stale.isNull.shouldBeFalse;
+    assembly.generateChangelog(stale.get)
+        .shouldThrow!OdoodAssemblyException;
 }
 
 

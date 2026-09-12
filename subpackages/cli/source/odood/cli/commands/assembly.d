@@ -344,17 +344,6 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             }
         }
 
-        /* The release commit is a plain `git commit`, so it takes whatever is
-         * in the index. Requiring a clean tree is what keeps the tagged tree
-         * to exactly the content the version was computed from. */
-        if (!dryRun)
-            enforce!OdoodCLIException(
-                repo.getChangedFiles(staged: false).length == 0
-                && repo.getChangedFiles(staged: true).length == 0,
-                "Assembly Release: the assembly has uncommitted changes. "
-                ~ "Commit them (for example with 'odood assembly sync --commit') "
-                ~ "or stash them before releasing.");
-
         /* A previous run may have tagged and then failed to push. Detect that
          * before computing a release: the bump is measured from the latest tag,
          * so an unpushed tag at HEAD makes the next run find no changes and
@@ -383,31 +372,13 @@ class CommandAssemblyRelease: AssemblyCommandBase {
 
         immutable tag_name = result.get.new_version.toString;
 
-        /* Checked before any artifact is generated or committed: failing after
-         * the release commit would leave a commit whose CHANGELOG/VERSION name
-         * a version that never gets tagged. The computed version is always
-         * above the latest tag known to this clone, so an existing tag with
-         * this name means the version was computed from stale information. */
-        enforce!OdoodCLIException(
-            !repo.listLocalTags().canFind(tag_name),
-            ("Tag %s already exists. "
-            ~ "Fetch the latest changes and re-run.").format(tag_name));
-
-        /* generateChangelog restores CHANGELOG.md from the base ref before
-         * prepending, so a base older than the last release would drop every
-         * section written since. */
-        if (changelog && !baseRef.isNull) {
-            auto latest = assembly.currentVersion;
-            enforce!OdoodCLIException(
-                latest.isNull
-                || !repo.isAncestor(baseRef.get, latest.get.toString)
-                || repo.tryRevParse(baseRef.get)
-                    == repo.tryRevParse(latest.get.toString),
-                ("--base-ref '%s' is older than the latest release (%s). "
-                ~ "Generating a changelog from it would discard the entries "
-                ~ "written since. Use a later base, or drop --changelog.").format(
-                    baseRef.get, latest.isNull ? "none" : latest.get.toString));
-        }
+        /* The release invariants (no such tag yet, clean working tree) are
+         * enforced by the library, before any artifact is generated or
+         * committed. A dry run keeps the tag check but tolerates a dirty
+         * tree — its prediction then includes uncommitted content that a
+         * real release would refuse. */
+        assembly.validateRelease(
+            result.get.new_version, check_working_tree: !dryRun);
 
         if (dryRun) {
             infof("Assembly Release: would release version %s.", tag_name);

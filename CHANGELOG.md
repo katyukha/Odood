@@ -25,6 +25,11 @@
 - `Assembly.generateChangelog(base_rev)` is deprecated for library users: it
   couples version assignment, changelog and `VERSION` in one call. Use
   `prepareRelease` + `generateChangelog(result)` + `generateVersionFile`.
+- The release invariants moved into the library so consumers do not have to
+  reimplement them: `Assembly.validateRelease` checks that the computed
+  version is not already tagged and that the working tree is clean, and
+  `Assembly.generateChangelog(result)` refuses a base older than the latest
+  release (it would discard the changelog sections written since).
 - `odood assembly release` requires a clean working tree, so the tagged commit
   holds exactly the content the version was computed from.
 
