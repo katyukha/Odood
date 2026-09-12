@@ -34,14 +34,14 @@ private string[] syncGeneratedPaths() {
     ];
 }
 
+private string[] changelogPaths() {
+    return ["CHANGELOG.md", "CHANGELOG.latest.md"];
+}
+
 /* Files release generates: the sync set plus the versioning artifacts. To
  * sync, a dirty changelog or VERSION is a hand edit, not its own output. */
 private string[] releaseGeneratedPaths() {
-    return syncGeneratedPaths ~ [
-        ASSEMBLY_VERSION_PATH.toString,
-        "CHANGELOG.md",
-        "CHANGELOG.latest.md",
-    ];
+    return syncGeneratedPaths ~ ASSEMBLY_VERSION_PATH.toString ~ changelogPaths;
 }
 
 
@@ -151,6 +151,7 @@ class CommandAssemblySync: AssemblyCommandBase {
     bool push;
     Nullable!string pushTo;
     bool changelog;
+    bool changelogPreview;
     bool dockerfile;
     bool addonsListMd;
     bool addonsListCsv;
@@ -169,6 +170,10 @@ class CommandAssemblySync: AssemblyCommandBase {
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
         this.addFlag!(changelog)("", "changelog",
             "Removed - use 'odood assembly release' instead.");
+        this.addFlag!(changelogPreview)("", "changelog-preview",
+            "Write CHANGELOG.md with the pending changes under an "
+            ~ "'## Unreleased' heading. No version is assigned; "
+            ~ "'odood assembly release --changelog' replaces the section.");
         this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
@@ -194,6 +199,9 @@ class CommandAssemblySync: AssemblyCommandBase {
             generate_lock: generateLock,
             with_odoo_requirements: withOdooRequirements);
 
+        if (changelogPreview)
+            project.assembly.raw.generateChangelogPreview;
+
         if (dockerfile)
             project.assembly.raw.generateDockerfile;
 
@@ -201,13 +209,18 @@ class CommandAssemblySync: AssemblyCommandBase {
             project.assembly.raw.generateAddonsList(
                 md: addonsListMd, csv: addonsListCsv);
 
+        // With --changelog-preview the changelog files are sync's own output.
+        auto generated_paths = changelogPreview
+            ? syncGeneratedPaths ~ changelogPaths
+            : syncGeneratedPaths;
+
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: (syncGeneratedPaths ~ "dist")
+                    path_filters: (generated_paths ~ "dist")
                         .map!(pth => ":(exclude)%s".format(pth)).array,
                     staged: true
                 ).length == 0,
@@ -215,7 +228,7 @@ class CommandAssemblySync: AssemblyCommandBase {
 
             if (
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: syncGeneratedPaths ~ "dist",
+                    path_filters: generated_paths ~ "dist",
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");

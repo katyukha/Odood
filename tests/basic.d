@@ -529,10 +529,23 @@ void testAssemblyReleaseCLI(Project project) {
     repo.gitCmd.withArgs("checkout", "HEAD", "--", "CHANGELOG.md")
         .execute.ensureOk(true);
 
-    // Sync the spec change and commit the synced content.
-    runOdoodCLI(project, "assembly", "sync", "--commit").shouldEqual(0);
+    // An unstaged hand edit to the changelog refuses the preview.
+    assembly.changelog_path.writeFile(
+        assembly.changelog_path.readFileText ~ "hand edit\n");
+    runOdoodCLI(project, "assembly", "sync", "--commit", "--changelog-preview")
+        .shouldEqual(1);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+
+    // Sync the spec change, with the changelog preview, and commit.
+    runOdoodCLI(project, "assembly", "sync", "--commit", "--changelog-preview")
+        .shouldEqual(0);
     assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    // The committed preview carries an `## Unreleased` section, no version.
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeTrue;
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
 
     // Release refuses a dirty working tree.
     assembly.spec_path.writeFile(
@@ -557,6 +570,9 @@ void testAssemblyReleaseCLI(Project project) {
     assembly.version_path.readFileText.shouldEqual(expected ~ "\n");
     assembly.changelog_latest_path.readFileText
         .canFind("generic_tag").shouldBeTrue;
+    // The `## Unreleased` preview section is replaced by the released one.
+    assembly.changelog_path.readFileText
+        .canFind("## Unreleased").shouldBeFalse;
     assembly.releasedAtHead.get.toString.shouldEqual(expected);
     // Everything the release generated went into its commit before the tag.
     repo.getChangedFiles(staged: false).length.shouldEqual(0);

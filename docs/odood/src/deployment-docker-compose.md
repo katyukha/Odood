@@ -296,6 +296,11 @@ odood --config-from-env assembly release \
     --push
 ```
 
+The image build itself is bound to the release tag: pushing the tag triggers
+the image workflow, and the tagged commit already contains everything the
+image needs — the synced `dist/` and a Dockerfile whose version label matches
+the tag. See [Releasing a Docker image](./assembly.md#releasing-a-docker-image).
+
 The generated Dockerfile:
 - Copies `odood-assembly.yml` and `dist/` into `/opt/odoo/assembly/`
 - Runs `odood assembly use /opt/odoo/assembly` to register the assembly in `odood.yml`
@@ -309,8 +314,8 @@ Actions workflows covering sync, PR creation, and image publishing.
 
 ### Image tags and docker-compose.yml
 
-The recommended CI workflow publishes two tags per release derived from the assembly `VERSION` file
-(e.g. `18.0.1.2.3`):
+The recommended CI workflow publishes two image tags per release, derived from the
+release tag (e.g. `18.0.1.2.3`):
 
 - **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml`.
 - **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor.

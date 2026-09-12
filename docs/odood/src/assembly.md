@@ -526,6 +526,22 @@ For example (in context of example above (*Sample changelog*)), we have to add `
 
 This file in same format as `CHANGELOG.md`, but contains only info from last update.
 
+### Previewing changes before release
+
+Two ways to see the pending changelog before any version is assigned:
+
+- `odood assembly release --dry-run --changelog` prints the rendered changelog
+  section to stdout, without writing, committing or tagging anything.
+- `odood assembly sync --changelog-preview` writes the pending changes into
+  `CHANGELOG.md` under an `## Unreleased` heading, so an update branch can
+  carry the changelog in its diff (for example, for review in a merge
+  request). Re-running the sync replaces the section with the current state;
+  uncommitted hand edits to the changelog are refused, not overwritten.
+
+No cleanup is needed for the `## Unreleased` section:
+`odood assembly release --changelog` regenerates the changelog from the last
+release, replacing it with the released section.
+
 
 ## Sample CI configuration to build/update assemblies automatically
 
@@ -557,6 +573,9 @@ jobs:
       image: ghcr.io/katyukha/odood/odoo/18.0:latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # --changelog-preview measures changes since the last release tag.
+          fetch-depth: 0
 
       - name: Add current directory as safe directory for git
         run: git config --global --add safe.directory "$(pwd)"
@@ -565,6 +584,7 @@ jobs:
         run: |
           odood --config-from-env -v -d assembly -p . sync \
             --dockerfile \
+            --changelog-preview \
             --commit \
             --commit-user='Github Action' \
             --commit-email='github-action@odood.dev' \
@@ -574,6 +594,10 @@ jobs:
 The `--dockerfile` flag instructs Odood to generate (or regenerate) a `Dockerfile` in the assembly
 repository root on every sync. This Dockerfile copies the synced `dist/` directory into the image
 and runs `odood addons link` — it is what enables building a Docker image from the assembly.
+
+The `--changelog-preview` flag writes the pending changelog under an
+`## Unreleased` heading, so the update branch carries it in the pull-request
+diff — see [Previewing changes before release](#previewing-changes-before-release).
 
 Note that this workflow only syncs content — it does not assign a version.
 Releasing is a separate step, see [Release the assembly on GitHub CI](#release-the-assembly-on-github-ci).
@@ -669,7 +693,8 @@ Key flags used in the sync step:
 
 Triggering this workflow creates a draft PR from `18.0-assembly-update` into `18.0` (if one does
 not already exist). Pushing to `18.0-assembly-update` also triggers the `Sync assembly` workflow
-above (it matches `18.0-*`), which re-runs with `--dockerfile` to regenerate the Dockerfile.
+above (it matches `18.0-*`), which re-runs to regenerate the Dockerfile and the
+changelog preview.
 
 #### Private repo notes
 
@@ -741,8 +766,12 @@ jobs:
 
 `fetch-depth: 0` matters: a shallow clone does not reach the previous release
 tag, so the set of changes to describe cannot be computed. On GitLab CI the
-equivalent is `GIT_DEPTH: 0`. The release commit and the tag are pushed to the
-stable branch, so the job needs write access to it.
+equivalent is `GIT_DEPTH: 0`. What is needed is the commit graph, not old file
+contents — on large assemblies add `filter: blob:none` to the checkout to keep
+the full history while historical file contents are downloaded only on demand
+(on GitLab CI: `GIT_FETCH_EXTRA_FLAGS: --filter=blob:none`). The release
+commit and the tag are pushed to the stable branch, so the job needs write
+access to it.
 
 The working tree has to be clean when the release runs — commit the sync first
 (or run both steps in the same job) so the tag points at exactly the content the
@@ -848,7 +877,8 @@ that its pushes do emit events:
 ```
 1. Trigger "Init assembly sync" (workflow_dispatch)
       → syncs addons, commits, pushes to 18.0-assembly-update, opens draft PR
-      → "Sync assembly" fires automatically on the new branch, regenerates Dockerfile
+      → "Sync assembly" fires automatically on the new branch, regenerates
+        the Dockerfile and the changelog preview
 2. Review and merge the PR to 18.0
 3. "Release assembly" fires on the push to 18.0
       → computes the next version from the changes since the last release tag,

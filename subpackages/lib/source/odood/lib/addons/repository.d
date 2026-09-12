@@ -5,7 +5,7 @@ private import std.algorithm: canFind, map, filter, maxElement, sort;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
-private import std.array: appender, array, split;
+private import std.array: appender, array, split, empty;
 private import std.string: strip, join;
 private import std.json: JSONValue;
 private import std.regex: replaceFirst, regex;
@@ -661,11 +661,15 @@ class AddonRepository : GitRepository{
       *
       * Params:
       *     result = The PrepareReleaseResult returned by prepareRelease.
+      *     heading = section heading override, e.g. `Unreleased` for a
+      *         preview; default `Release <version> (<date>)`.
       **/
-    void generateChangelog(in PrepareReleaseResult result) {
-        infof("Generating changelog for release %s ...", result.new_version);
+    void generateChangelog(
+            in PrepareReleaseResult result, in string heading = null) {
+        infof("Generating changelog for %s ...",
+            heading.empty ? "release " ~ result.new_version.toString : heading);
 
-        auto changelog_text = renderChangelog(result.addon_changes);
+        auto changelog_text = renderChangelog(result.addon_changes, heading);
 
         auto changelog_path = path.join("CHANGELOG.md");
         auto changelog_latest_path = path.join("CHANGELOG.latest.md");
@@ -811,15 +815,22 @@ unittest {
   * `AddonRepository.generateChangelog` writes, without touching any files.
   * Lets callers preview a release (or a diff between arbitrary refs) with no
   * risk of the preview drifting from the published file.
+  *
+  * Params:
+  *     heading_ = section heading; default `Release <version> (<date>)`.
   **/
-string renderChangelog(in AddonRepositoryChanges changes_) {
-    // Local alias required: darktemple binds template arg names to template vars.
-    // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
+string renderChangelog(
+        in AddonRepositoryChanges changes_, in string heading_ = null) {
+    // Local aliases required: darktemple binds template arg names to template
+    // vars, so the D variables must be named 'changes' and 'heading'.
     auto changes = changes_;
-    auto release_date = cast(DateTime)Clock.currTime();
+    auto heading = heading_.empty
+        ? "Release %s (%s)".format(
+            changes.repo_version, cast(DateTime)Clock.currTime())
+        : heading_;
     return renderFile!(
         "templates/repository/changelog.md.tmpl",
-        changes, release_date);
+        changes, heading);
 }
 
 unittest {

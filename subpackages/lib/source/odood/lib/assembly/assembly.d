@@ -584,7 +584,43 @@ class Assembly {
         infof("Assembly: Generating changelog for release %s ...",
             result.new_version);
         repo.generateChangelog(result);
+        // Single assignment: the heading must name the version being
+        // released — the same value the tag and VERSION are written from.
+        assert(changelog_latest_path.readFileText.canFind(
+                "## Release %s (".format(result.new_version)),
+            "changelog heading does not name the released version");
         infof("Assembly: Changelog generated.");
+    }
+
+    /** Write the changelog for the pending changes under an `## Unreleased`
+      * heading — no version is assigned.
+      *
+      * Lets an update branch carry the changelog in its diff. A release
+      * regenerates the changelog from the same base, so the section is
+      * replaced by the released one — nothing to clean up by hand. Stages
+      * the files; does NOT commit.
+      *
+      * Returns: false when there are no changes to describe.
+      **/
+    bool generateChangelogPreview() {
+        /* The preview overwrites the changelog (restore-from-base + prepend)
+         * and stages it, so its own output never sits unstaged — an unstaged
+         * change here is a hand edit about to be lost. */
+        enforce!OdoodAssemblyException(
+            repo.getChangedFiles(
+                path_filters: ["CHANGELOG.md", "CHANGELOG.latest.md"],
+                staged: false).length == 0,
+            "The changelog has uncommitted hand edits, which the preview " ~
+            "would overwrite. Commit or discard them first.");
+
+        auto result = prepareRelease();
+        if (result.isNull) {
+            infof("Assembly: no changes since the last release, " ~
+                  "no changelog preview to generate.");
+            return false;
+        }
+        repo.generateChangelog(result.get, heading: "Unreleased");
+        return true;
     }
 
     /** Write the assembly version into the `VERSION` file and stage it.
@@ -1049,11 +1085,32 @@ unittest {
         .withArgs("push", "origin", "HEAD:17.0").execute.ensureOk(true);
     assembly.repo.fetchOrigin("17.0");
 
+    // The pending changes can be previewed under an `## Unreleased` heading.
+    assembly.generateChangelogPreview.shouldBeTrue;
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeTrue;
+    assembly.changelog_path.readFileText.canFind("addon_two").shouldBeTrue;
+
+    // An unstaged hand edit is refused, not overwritten ...
+    assembly.changelog_path.writeFile(
+        assembly.changelog_path.readFileText ~ "hand edit\n");
+    assembly.generateChangelogPreview.shouldThrow!OdoodAssemblyException;
+    assembly.repo.gitCmd.withArgs("checkout", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+    // ... while a re-run over the preview's own (staged) output is fine.
+    assembly.generateChangelogPreview.shouldBeTrue;
+
     // The base is the commit that wrote VERSION, not the branch tip, so the
     // added addon is still visible: a MINOR bump from what the file recorded.
     auto release = assembly.prepareRelease;
     release.isNull.shouldBeFalse;
     release.get.new_version.toString.should == "17.0.2.4.0";
+
+    // The release regenerates the changelog from the same base: the
+    // `## Unreleased` section is replaced by the released one.
+    assembly.generateChangelog(release.get);
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeFalse;
+    assembly.changelog_path.readFileText
+        .canFind("## Release 17.0.2.4.0").shouldBeTrue;
 
     assembly.generateVersionFile(release.get.new_version);
     assembly.version_path.readFileText.should == "17.0.2.4.0\n";
@@ -1063,6 +1120,7 @@ unittest {
     // With a tag in place, the tag — not the file — decides the version.
     assembly.currentVersion.get.toString.should == "17.0.2.4.0";
     assembly.prepareRelease.isNull.shouldBeTrue;
+    assembly.generateChangelogPreview.shouldBeFalse;
 }
 
 

@@ -9,6 +9,11 @@
   working tree, so the tag points at exactly the content the version was
   computed from.
 - `odood assembly status` now shows the current assembly version.
+- `odood assembly sync --changelog-preview` - write the pending changes into
+  `CHANGELOG.md` under an `## Unreleased` heading; the next release replaces
+  the section with the released one. Uncommitted hand edits are refused, not
+  overwritten. (`odood assembly release --dry-run --changelog` prints the
+  same preview to stdout.)
 
 ### Changed
 
@@ -19,7 +24,8 @@
 - **Breaking:** `odood assembly sync --changelog` was removed - changelog
   generation and version assignment belong to `odood assembly release`. CI
   checkouts need full history and tags (`fetch-depth: 0` on GitHub Actions,
-  `GIT_DEPTH: 0` on GitLab CI); shallow clones are rejected.
+  `GIT_DEPTH: 0` on GitLab CI; add `filter: blob:none` to keep large clones
+  cheap); shallow clones are rejected.
 - Library API: `Assembly.prepareRelease` computes a release without writes,
   `Assembly.validateRelease` checks the release invariants (version not yet
   tagged, clean tree), `generateChangelog(result)` refuses a base older than
