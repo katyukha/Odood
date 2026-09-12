@@ -684,7 +684,7 @@ For example, in case when private git source is hosted on github, the *Sync asse
 ```yaml
       - name: Sync assembly
         env:
-            ODOOD_ASSEMBLY_myrepo_CRED: "x-access-token:${{ secrets.GH_MY_REPO_PAT }}
+            ODOOD_ASSEMBLY_myrepo_CRED: "x-access-token:${{ secrets.GH_MY_REPO_PAT }}"
         run: |
           odood --config-from-env -v -d assembly -p . sync \
             --commit \

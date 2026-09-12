@@ -341,9 +341,8 @@ class Assembly {
       * for an assembly that has no release tag yet.
       *
       * Params:
-      *     include_remote = also consider tags that exist only on the remote.
-      *         Costs a `git ls-remote`; pass false where a local answer is
-      *         good enough.
+      *     include_remote = also consider tags that exist only on the remote
+      *         (a `git ls-remote`).
       *
       * Returns: null when the assembly has never been released.
       **/
@@ -379,19 +378,14 @@ class Assembly {
 
     /** Revision to compare against when the assembly has no release tag yet.
       *
-      * Never the stable branch: by the time a release runs, the content being
-      * released is already on it, so that comparison finds nothing and the
-      * first release could never happen.
-      *
-      * With a `VERSION` file, the commit that last wrote it is the previous
-      * release point. Without one the assembly has never been released, so the
-      * base is the start of history and everything currently in `dist` counts
-      * as new.
+      * Never the stable branch: by release time the content is already on it,
+      * so that comparison finds nothing and the first release could never
+      * happen. With a `VERSION` file, the commit that last wrote it is the
+      * previous release point; otherwise the base is the start of history.
       **/
     private string defaultBaseRev() {
-        /* On a shallow clone the boundary commit looks like a root that
-         * introduced every file, so both lookups below would return it and the
-         * release would silently find nothing to describe. */
+        /* A shallow boundary looks like a root commit that introduced every
+         * file, so both lookups below would silently return it. */
         enforce!OdoodAssemblyException(
             !repo.isShallow,
             "Cannot determine the previous release point in a shallow " ~
@@ -431,12 +425,10 @@ class Assembly {
         if (latest.isNull)
             return from_file.isNull ? OdooStdVersion(serie, 0) : from_file.get;
 
-        /* Both are written by the same release commit, so when base_rev IS the
-         * tagged commit a disagreement means a hand edit or a release made
-         * outside Odood. The tag wins. At any other base_rev an older value is
-         * simply the version of that time — nothing to warn about. Peeled to
-         * commits: the tags are annotated, so a raw rev-parse of one names
-         * the tag object, not the commit a SHA base would name. */
+        /* Both are written by the same release commit, so a disagreement AT
+         * the tagged commit means a hand edit or a release made outside
+         * Odood — the tag wins. `^{commit}` peels: the tags are annotated,
+         * so a raw rev-parse of one names the tag object. */
         if (!from_file.isNull && from_file.get != latest.get
                 && repo.tryRevParse(base_rev ~ "^{commit}")
                     == repo.tryRevParse(latest.get.toString ~ "^{commit}"))
@@ -499,24 +491,12 @@ class Assembly {
 
     /** Check the release invariants before any artifact is generated.
       *
-      * These are invariants of a correct release, not CLI policy, so a
-      * library consumer building its own release flow needs them too.
-      *
-      * Throws when:
-      * $(UL
-      *   $(LI the release tag already exists — the version was computed from
-      *     stale information, and generating artifacts for it would leave
-      *     them naming a version that never gets tagged;)
-      *   $(LI the working tree or index has uncommitted changes — the release
-      *     commit takes the whole index, and requiring a clean tree is what
-      *     keeps the tagged tree to exactly the content the version was
-      *     computed from.))
-      *
-      * Params:
-      *     new_version = the version about to be released.
-      *     check_working_tree = also require a clean working tree. Disable
-      *         only for a preview: its predicted version then includes
-      *         uncommitted content that a real release would refuse.
+      * Throws when the release tag already exists (the version was computed
+      * from stale information) or when the tree has uncommitted changes —
+      * the release commit takes the whole index, and a clean tree is what
+      * keeps the tagged tree to exactly the content the version was computed
+      * from. Disable `check_working_tree` only for a preview, whose
+      * prediction then includes content a real release would refuse.
       **/
     void validateRelease(
             in OdooStdVersion new_version,
@@ -587,10 +567,8 @@ class Assembly {
       * such a base would silently discard every section written since.
       **/
     void generateChangelog(in PrepareReleaseResult result) {
-        /* Local tags suffice: the normal path fetches the winning tag before
-         * diffing, so a remote-only tag here means the caller went around
-         * prepareRelease anyway. Revisions are peeled to commits — the tags
-         * are annotated, so a raw rev-parse of one names the tag object. */
+        /* Local tags suffice: prepareRelease fetches the winning tag before
+         * diffing. `^{commit}` peels annotated tags to their commits. */
         auto latest = repo.getLatestRelease(serie, include_remote: false);
         enforce!OdoodAssemblyException(
             latest.isNull
@@ -611,13 +589,8 @@ class Assembly {
 
     /** Write the assembly version into the `VERSION` file and stage it.
       *
-      * Output only: the value comes from the release being made, and is never
-      * read back to decide a version. Like `ADDONS.md` the file is optional,
-      * and its presence is the opt-in.
-      *
-      * Params:
-      *     assembly_version = version to record.
-      *     create = write the file even when it does not exist yet.
+      * Output only — never read back to decide a version. The file is
+      * optional: its presence is the opt-in, `create` forces it.
       **/
     void generateVersionFile(
             in OdooStdVersion assembly_version, in bool create=false) {
@@ -653,9 +626,8 @@ class Assembly {
     /** Generate or update the Dockerfile.
       *
       * Params:
-      *     assembly_version = version to stamp as the image version label.
-      *         Taken from the release being made, so the label always matches
-      *         the tag.
+      *     assembly_version = version for the image version label; passing
+      *         the release's version keeps the label equal to the tag.
       **/
     void generateDockerfile(in string assembly_version) {
         infof("Assembly: Preparing Dockerfile...");
@@ -916,25 +888,10 @@ unittest {
 }
 
 
-// Version resolution: release tags are authoritative, the VERSION file only
-// bootstraps assemblies that predate them, and the file is written only when
-// it already exists.
-unittest {
-    import unit_threaded.assertions;
-    import thepath: createTempPath;
-    import odood.git: GitURL;
-    import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
-
-    auto root = createTempPath;
-    scope(exit) root.remove();
-
-    auto src = root.join("fake-source");
-    src.join("my_addon").mkdir(true);
-    src.join("my_addon", "__init__.py").writeFile("");
-    src.join("my_addon", "__manifest__.py").writeFile(
-        `{"name": "my_addon", "version": "17.0.1.0.0", "depends": ["base"]}`);
-
-    static class FakeProvider : AssemblySourceProviderInterface {
+// Release-test fixtures: a provider serving a local directory (no network)
+// and an assembly built over stub addons from it.
+version(unittest) {
+    private class TestSourceProvider : AssemblySourceProviderInterface {
         Path src_path;
         this(Path p) { src_path = p; }
         override void ensureSources(in AssemblySpecSource[] sources, in OdooSerie serie) {}
@@ -942,15 +899,52 @@ unittest {
             return src_path;
         }
         override Path resolveExternalAddon(in AssemblySpecAddon specAddon, in OdooSerie serie) {
-            assert(false, "no external addons expected in this test");
+            assert(false, "no external addons expected");
         }
     }
 
-    auto assembly_path = root.join("assembly");
-    assembly_path.mkdir(true);
-    auto assembly = Assembly.initialize(
-        assembly_path, OdooSerie("17.0"), new FakeProvider(src));
-    assembly.addSource(GitURL("https://example.test/repo"));
+    /* The source holds all listed addons; the caller picks which of them to
+     * add to the spec, and commits. */
+    private Assembly makeTestAssembly(Path root, in string[] source_addons) {
+        auto src = root.join("fake-source");
+        foreach(name; source_addons) {
+            src.join(name).mkdir(true);
+            src.join(name, "__init__.py").writeFile("");
+            src.join(name, "__manifest__.py").writeFile(
+                `{"name": "` ~ name ~ `", "version": "17.0.1.0.0", "depends": ["base"]}`);
+        }
+        auto assembly_path = root.join("assembly");
+        assembly_path.mkdir(true);
+        auto assembly = Assembly.initialize(
+            assembly_path, OdooSerie("17.0"), new TestSourceProvider(src));
+        assembly.addSource(GitURL("https://example.test/repo"));
+        return assembly;
+    }
+
+    /// Bare `origin` holding the current history as branch `17.0`.
+    private void addTestOrigin(Assembly assembly, Path root) {
+        import theprocess: Process;
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString)
+            .execute.ensureOk(true);
+        assembly.repo.remoteAdd("origin", remote_path.toString);
+        assembly.repo.gitCmd
+            .withArgs("push", "-u", "origin", "HEAD:17.0").execute.ensureOk(true);
+    }
+}
+
+
+// Version resolution: release tags are authoritative, the VERSION file only
+// bootstraps assemblies that predate them, and the file is written only when
+// it already exists.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
     assembly.addAddon("my_addon");
     assembly.save();
 
@@ -998,7 +992,7 @@ unittest {
     assembly.validateRelease(
         OdooStdVersion("17.0.3.0.0"), check_working_tree: false)
         .shouldThrow!OdoodAssemblyException;
-    // ... and so is a dirty tree (VERSION was rewritten and staged above).
+    // ... and so is a dirty tree (VERSION sits staged at this point).
     assembly.validateRelease(OdooStdVersion("17.0.4.0.0"))
         .shouldThrow!OdoodAssemblyException;
     assembly.validateRelease(
@@ -1021,53 +1015,20 @@ unittest {
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
-    import theprocess: Process;
-    import odood.git: GitURL;
-    import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 
     auto root = createTempPath;
     scope(exit) root.remove();
 
-    auto src = root.join("fake-source");
-    foreach(name; ["addon_one", "addon_two"]) {
-        src.join(name).mkdir(true);
-        src.join(name, "__init__.py").writeFile("");
-        src.join(name, "__manifest__.py").writeFile(
-            `{"name": "` ~ name ~ `", "version": "17.0.1.0.0", "depends": ["base"]}`);
-    }
-
-    static class FakeProvider : AssemblySourceProviderInterface {
-        Path src_path;
-        this(Path p) { src_path = p; }
-        override void ensureSources(in AssemblySpecSource[] sources, in OdooSerie serie) {}
-        override Path resolveSource(in AssemblySpecSource source, in OdooSerie serie) {
-            return src_path;
-        }
-        override Path resolveExternalAddon(in AssemblySpecAddon specAddon, in OdooSerie serie) {
-            assert(false, "no external addons expected in this test");
-        }
-    }
-
-    auto assembly_path = root.join("assembly");
-    assembly_path.mkdir(true);
-    auto assembly = Assembly.initialize(
-        assembly_path, OdooSerie("17.0"), new FakeProvider(src));
-    assembly.addSource(GitURL("https://example.test/repo"));
+    auto assembly = makeTestAssembly(root, ["addon_one", "addon_two"]);
     assembly.addAddon("addon_one");
     assembly.save();
     assembly.repo.add(assembly.spec_path);
     assembly.repo.commit("Initial commit");
 
-    /* Give the assembly an origin holding the same commits, so the stable
-     * branch is not behind: this is the state a release runs in once the sync
-     * has been merged, and the case where comparing against the branch would
-     * find nothing to release. */
-    auto remote_path = root.join("remote.git");
-    Process("git").withArgs("init", "--bare", remote_path.toString)
-        .execute.ensureOk(true);
-    assembly.repo.remoteAdd("origin", remote_path.toString);
-    assembly.repo.gitCmd
-        .withArgs("push", "-u", "origin", "HEAD:17.0").execute.ensureOk(true);
+    /* An origin holding the same commits: the state a release runs in once
+     * the sync has been merged — comparing against the branch would find
+     * nothing to release. */
+    addTestOrigin(assembly, root);
 
     // An assembly released under the old scheme: VERSION committed, no tag.
     assembly.sync();
@@ -1099,7 +1060,7 @@ unittest {
     assembly.repo.commit("Release 17.0.2.4.0");
     assembly.repo.setTag("17.0.2.4.0");
 
-    // With a tag in place the file is no longer what decides the version.
+    // With a tag in place, the tag — not the file — decides the version.
     assembly.currentVersion.get.toString.should == "17.0.2.4.0";
     assembly.prepareRelease.isNull.shouldBeTrue;
 }
@@ -1111,47 +1072,17 @@ unittest {
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
-    import theprocess: Process;
-    import odood.git: GitURL;
-    import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 
     auto root = createTempPath;
     scope(exit) root.remove();
 
-    auto src = root.join("fake-source");
-    src.join("my_addon").mkdir(true);
-    src.join("my_addon", "__init__.py").writeFile("");
-    src.join("my_addon", "__manifest__.py").writeFile(
-        `{"name": "my_addon", "version": "17.0.1.0.0", "depends": ["base"]}`);
-
-    static class FakeProvider : AssemblySourceProviderInterface {
-        Path src_path;
-        this(Path p) { src_path = p; }
-        override void ensureSources(in AssemblySpecSource[] sources, in OdooSerie serie) {}
-        override Path resolveSource(in AssemblySpecSource source, in OdooSerie serie) {
-            return src_path;
-        }
-        override Path resolveExternalAddon(in AssemblySpecAddon specAddon, in OdooSerie serie) {
-            assert(false, "no external addons expected in this test");
-        }
-    }
-
-    auto assembly_path = root.join("assembly");
-    assembly_path.mkdir(true);
-    auto assembly = Assembly.initialize(
-        assembly_path, OdooSerie("17.0"), new FakeProvider(src));
-    assembly.addSource(GitURL("https://example.test/repo"));
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
     assembly.addAddon("my_addon");
     assembly.save();
     assembly.repo.add(assembly.spec_path);
     assembly.repo.commit("Initial commit");
 
-    auto remote_path = root.join("remote.git");
-    Process("git").withArgs("init", "--bare", remote_path.toString)
-        .execute.ensureOk(true);
-    assembly.repo.remoteAdd("origin", remote_path.toString);
-    assembly.repo.gitCmd
-        .withArgs("push", "-u", "origin", "HEAD:17.0").execute.ensureOk(true);
+    addTestOrigin(assembly, root);
 
     // Sync and commit, then push: the stable branch now holds the content, and
     // there is neither a tag nor a VERSION file to measure against.

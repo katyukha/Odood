@@ -23,9 +23,7 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
-/* Files the sync command generates itself. Anything else being dirty means
- * the working tree holds changes the command did not make, which have to be
- * handled by hand. */
+/* Files sync generates itself; anything else dirty is not sync's to touch. */
 private string[] syncGeneratedPaths() {
     return [
         ASSEMBLY_REQUIREMENTS_LOCK.toString,
@@ -36,20 +34,14 @@ private string[] syncGeneratedPaths() {
     ];
 }
 
-/* Files the release command generates: the sync set plus the versioning
- * artifacts, which only a release may write. To sync, a dirty changelog or
- * VERSION is a hand edit — never something to sweep into the sync commit. */
+/* Files release generates: the sync set plus the versioning artifacts. To
+ * sync, a dirty changelog or VERSION is a hand edit, not its own output. */
 private string[] releaseGeneratedPaths() {
     return syncGeneratedPaths ~ [
         ASSEMBLY_VERSION_PATH.toString,
         "CHANGELOG.md",
         "CHANGELOG.latest.md",
     ];
-}
-
-/// The given paths as `:(exclude)` pathspecs.
-private string[] asExcludePathspecs(in string[] paths) {
-    return paths.map!(pth => ":(exclude)%s".format(pth)).array;
 }
 
 
@@ -176,8 +168,7 @@ class CommandAssemblySync: AssemblyCommandBase {
         this.addFlag!(push)("", "push", "Automatically push changes if needed.");
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
         this.addFlag!(changelog)("", "changelog",
-            "Removed: changelog generation and version bumping moved to "
-            ~ "'odood assembly release'.");
+            "Removed - use 'odood assembly release' instead.");
         this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
@@ -192,10 +183,10 @@ class CommandAssemblySync: AssemblyCommandBase {
          * two branches off the same point would claim the same number. */
         enforce!OdoodCLIException(
             !changelog,
-            "'odood assembly sync --changelog' has been removed: generating a "
-            ~ "changelog means assigning a version, which is now done by "
-            ~ "'odood assembly release'. Drop --changelog here and add a "
-            ~ "'odood assembly release' step after the sync.");
+            "'odood assembly sync --changelog' has been removed: generating "
+            ~ "a changelog assigns a version, which is the job of "
+            ~ "'odood assembly release'. Drop --changelog and add a release "
+            ~ "step after the sync.");
 
         auto project = loadProject();
 
@@ -216,7 +207,8 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: asExcludePathspecs(syncGeneratedPaths ~ "dist"),
+                    path_filters: (syncGeneratedPaths ~ "dist")
+                        .map!(pth => ":(exclude)%s".format(pth)).array,
                     staged: true
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
@@ -321,10 +313,9 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         if (repo.hasRemoteUrl("origin")) {
             repo.fetchOrigin(serie_str);
 
-            /* Version resolution merges local and remote tags, and falls back
-             * to local-only with a warning when the remote cannot be listed.
-             * That fallback is fine for a local release but not for a pushed
-             * one: a stale answer would create a duplicate tag on origin. */
+            /* Version resolution tolerates an unlistable remote (local-only
+             * fallback); with --push a stale answer would create a duplicate
+             * tag on origin, so escalate that failure here. */
             if (push)
                 repo.listRemoteTags("origin");
 
@@ -344,10 +335,9 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             }
         }
 
-        /* A previous run may have tagged and then failed to push. Detect that
-         * before computing a release: the bump is measured from the latest tag,
-         * so an unpushed tag at HEAD makes the next run find no changes and
-         * report success without ever pushing it. */
+        /* A release tag at HEAD means a prior run tagged and failed to push.
+         * The bump is measured from the latest tag, so without this check the
+         * run would find no changes and never push it. */
         auto head_tag = assembly.releasedAtHead;
         if (!head_tag.isNull) {
             infof("Assembly Release: HEAD is already released as %s.",
@@ -372,11 +362,8 @@ class CommandAssemblyRelease: AssemblyCommandBase {
 
         immutable tag_name = result.get.new_version.toString;
 
-        /* The release invariants (no such tag yet, clean working tree) are
-         * enforced by the library, before any artifact is generated or
-         * committed. A dry run keeps the tag check but tolerates a dirty
-         * tree — its prediction then includes uncommitted content that a
-         * real release would refuse. */
+        /* Library-enforced invariants: tag free, tree clean. A dry run keeps
+         * the tag check but tolerates a dirty tree. */
         assembly.validateRelease(
             result.get.new_version, check_working_tree: !dryRun);
 
@@ -389,9 +376,8 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             return 0;
         }
 
-        /* All generated artifacts go into one commit before the tag, so the tag
-         * points at a tree that already contains them. generate* only write and
-         * stage; committing is up to us. */
+        /* All generated artifacts go into one commit before the tag, so the
+         * tag points at a tree that already contains them. */
         if (changelog)
             assembly.generateChangelog(result.get);
         assembly.generateVersionFile(result.get.new_version, create: versionFile);

@@ -5,33 +5,25 @@
 ### Added
 
 - `odood assembly release` - assign the next assembly version, generate the
-  release artifacts, commit them and create the release tag.
+  release artifacts, commit them and create the release tag. Requires a clean
+  working tree, so the tag points at exactly the content the version was
+  computed from.
 - `odood assembly status` now shows the current assembly version.
 
 ### Changed
 
-- Assembly versions are now tracked by git tags, the same way `odood repo release`
-  already works. The `VERSION` file is kept as an optional artifact: if an assembly
-  has one, every release updates it; otherwise it is only created with
-  `--version-file`. No migration step is needed - when there is no tag yet, the
-  first release picks up the version from `VERSION` and tags from there.
-- **Breaking:** `odood assembly sync --changelog` was removed. Generating a
-  changelog means assigning a version, which now belongs to `odood assembly release`.
-  Drop the flag from the sync step and add an `odood assembly release` step after it.
-  CI checkouts need full history to reach the previous release tag
-  (`fetch-depth: 0` on GitHub Actions, `GIT_DEPTH: 0` on GitLab CI); a missing
-  tag is fetched automatically, and a shallow clone that would silently produce
-  a wrong or empty release is rejected with a clear error.
-- `Assembly.generateChangelog(base_rev)` is deprecated for library users: it
-  couples version assignment, changelog and `VERSION` in one call. Use
-  `prepareRelease` + `generateChangelog(result)` + `generateVersionFile`.
-- The release invariants moved into the library so consumers do not have to
-  reimplement them: `Assembly.validateRelease` checks that the computed
-  version is not already tagged and that the working tree is clean, and
-  `Assembly.generateChangelog(result)` refuses a base older than the latest
-  release (it would discard the changelog sections written since).
-- `odood assembly release` requires a clean working tree, so the tagged commit
-  holds exactly the content the version was computed from.
+- Assembly versions are tracked by git tags (like `odood repo release`).
+  `VERSION` is an optional artifact: updated by every release when present,
+  created only with `--version-file`. No migration step: with no tag yet, the
+  first release bumps from `VERSION` and tags from there.
+- **Breaking:** `odood assembly sync --changelog` was removed - changelog
+  generation and version assignment belong to `odood assembly release`. CI
+  checkouts need full history and tags (`fetch-depth: 0` on GitHub Actions,
+  `GIT_DEPTH: 0` on GitLab CI); shallow clones are rejected.
+- Library API: `Assembly.prepareRelease` computes a release without writes,
+  `Assembly.validateRelease` checks the release invariants (version not yet
+  tagged, clean tree), `generateChangelog(result)` refuses a base older than
+  the latest release; `generateChangelog(base_rev)` is deprecated.
 
 ### Fixed
 
@@ -40,10 +32,9 @@
   also generating a changelog stamped the previous release into
   `org.opencontainers.image.version`.
 - Generated `.dockerignore` no longer excludes `odood-assembly.yml`, which the
-  generated `Dockerfile` copies into the image - the docker build failed with
-  `"/odood-assembly.yml": not found`. Assemblies with a `.dockerignore` already
-  committed need that line removed by hand; `assembly sync --dockerfile` warns
-  when it finds one.
+  generated `Dockerfile` copies into the image (the build failed with
+  `"/odood-assembly.yml": not found`). Existing assemblies need that line
+  removed by hand; `assembly sync --dockerfile` warns when it finds one.
 
 ## Release 0.6.6 (2026-09-12)
 
