@@ -970,7 +970,7 @@ unittest {
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
     import odood.lib.python.venv;
-    import odood.utils.versioned: Version;
+    import versioned: Version;
 
     auto save_env = environment.toAA;
     scope(exit) {

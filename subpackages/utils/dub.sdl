@@ -6,9 +6,9 @@ license "MPL-2.0"
 
 dependency "requests" version=">=2.0.0"
 dependency "thepath" version=">=1.2.0"
-dependency "theprocess" version=">=0.1.1"
-dependency "darkarchive" version=">=0.0.8"
-dependency "versioned" version=">=0.1.0"
+dependency "theprocess" version=">=0.1.2"
+dependency "darkarchive" version=">=0.0.11"
+dependency "versioned" version=">=0.1.1"
 
 targetPath "build"
 targetType "library"

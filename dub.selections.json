@@ -14,7 +14,7 @@
 		"dshould": "1.9.0",
 		"dyaml": "0.10.0",
 		"east_asian_width": "1.1.0",
-		"peque": "0.2.0",
+		"peque": "0.3.0",
 		"prettyprint": "1.0.9",
 		"requests": "2.2.1",
 		"silly": "1.1.1",
@@ -24,6 +24,6 @@
 		"theprocess": "0.1.2",
 		"tinyendian": "0.2.0",
 		"unit-threaded": "2.1.9",
-		"versioned": "0.1.0"
+		"versioned": "0.1.1"
 	}
 }
