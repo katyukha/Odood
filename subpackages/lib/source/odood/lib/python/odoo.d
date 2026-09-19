@@ -67,10 +67,31 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
     if (serie <= OdooSerie(17))
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
     if (serie <= OdooSerie(19))
-        return (py_version >= Version(3, 10) && py_version < Version(3, 13));
+        return (py_version >= Version(3, 10) && py_version < Version(3, 15));
 
     /// Unknown odoo version
     return false;
+}
+
+unittest {
+    import unit_threaded.assertions;
+
+    // Odoo 18/19 accept system Python up to 3.14 (Ubuntu 26.04).
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(18)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 13, 1), OdooSerie(18)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(18)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(19)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 15, 0), OdooSerie(19)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 9, 21), OdooSerie(18)).shouldBeFalse;
+
+    // Odoo 17 and older keep their tighter caps.
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(17)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(17)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 10, 12), OdooSerie(16)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(16)).shouldBeFalse;
+
+    // Unknown (future) series are never auto-approved.
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(20)).shouldBeFalse;
 }
 
 
