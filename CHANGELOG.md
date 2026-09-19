@@ -23,6 +23,7 @@
 
 ### Changed
 
+- Odood docker images are now based on Ubuntu 26.04 (was 24.04).
 - Assembly versions are tracked by git tags (like `odood repo release`).
   `VERSION` is an optional artifact: updated by every release when present,
   created only with `--version-file`. No migration step: with no tag yet, the
@@ -39,6 +40,12 @@
 
 ### Fixed
 
+- Odood docker image: the PGDG apt repository is now actually enabled, so
+  `postgresql-client` comes from apt.postgresql.org. A missing `&&` in the
+  Dockerfile fed the repository line into `update-locale` instead of writing
+  `pgdg.list`, so images silently shipped the Ubuntu-archive client. The key
+  is now installed via `/etc/apt/keyrings` + `signed-by` (`apt-key` no longer
+  exists on Ubuntu 26.04).
 - Docker image version label no longer drifts from the release it belongs to.
   It was read back from the `VERSION` file, so generating a Dockerfile without
   also generating a changelog stamped the previous release into

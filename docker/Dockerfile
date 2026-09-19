@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 
 ARG ODOO_VERSION
 ARG ODOOD_DEPENDENCIES
@@ -15,17 +15,16 @@ RUN apt-get update -qq && \
         locales \
         wget \
         ca-certificates \
-        gnupg \
         lsb-release \
         xfonts-75dpi xfonts-base libx11-6 libxcb1 libxext6 libxrender1 libsqlite3-dev\
         tzdata && \
     locale-gen en_US.UTF-8 && \
     locale-gen en_GB.UTF-8 && \
-    update-locale LANG="en_US.UTF-8" && update-locale LANGUAGE="en_US:en" \
-    echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
-            apt-key add - && \
-	apt-get update -qq && \
+    update-locale LANG="en_US.UTF-8" && update-locale LANGUAGE="en_US:en" && \
+    install -d -m 0755 /etc/apt/keyrings && \
+    wget --quiet -O /etc/apt/keyrings/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update -qq && \
     apt-get install -qqq -y --no-install-recommends --auto-remove $ODOOD_DEPENDENCIES && \
     wget --quiet -O /tmp/wkhtmltopdf.deb https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.jammy_$(dpkg --print-architecture).deb && \
         dpkg -i /tmp/wkhtmltopdf.deb && \
