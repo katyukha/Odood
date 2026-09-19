@@ -28,7 +28,7 @@ class CommandScriptPy: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         enforce!OdoodCLIException(
             project.databases.exists(db),
@@ -59,7 +59,7 @@ class CommandScriptSQL: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         enforce!OdoodCLIException(
             project.databases.exists(db),

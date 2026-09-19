@@ -55,7 +55,7 @@ class CommandAssemblyInit: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Assembly already initialized!");
@@ -81,7 +81,7 @@ class CommandAssemblyUse: OdoodCommand {
 
     override int execute() {
         auto assembly_path = path.toAbsolute;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Project already has configured assembly!");
@@ -97,7 +97,7 @@ class CommandAssemblyStatus: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {
             project.useAssembly(assemblyPath.get, save_config: false);
@@ -127,8 +127,8 @@ class AssemblyCommandBase: OdoodCommand {
         super(args);
     }
 
-    auto loadProject() {
-        auto project = Project.loadProject;
+    override Project loadProject() {
+        auto project = super.loadProject;
 
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {

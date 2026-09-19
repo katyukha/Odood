@@ -20,7 +20,7 @@ class CommandVenvInstallDevTools: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         project.venv.installPyPackages(
             "coverage",
@@ -53,7 +53,7 @@ class CommandVenvInstallPyPackages: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (!requirements.isNull)
             project.venv.installPyRequirements(requirements.get);
@@ -71,7 +71,7 @@ class CommandVenvPIP: OdoodCommand {
     }
 
     override int execute() {
-        Project.loadProject.venv.runner
+        this.loadProject.venv.runner
             .withArgs("pip")
             .withArgs(argsRest)
             .execv;
@@ -87,7 +87,7 @@ class CommandVenvNPM: OdoodCommand {
     }
 
     override int execute() {
-        Project.loadProject.venv.runner
+        this.loadProject.venv.runner
             .withArgs("npm")
             .withArgs(argsRest)
             .execv;
@@ -103,7 +103,7 @@ class CommandVenvIPython: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (!project.venv.path.join("bin", "ipython").exists)
             project.venv.installPyPackages("ipython");
@@ -124,7 +124,7 @@ class CommandVenvPython: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.venv.runner
             .withArgs("python")
             .withArgs(argsRest)
@@ -141,7 +141,7 @@ class CommandVenvLOdoo: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (!project.venv.path.join("bin", "lodoo").exists)
             project.venv.installPyPackages("lodoo");
@@ -165,7 +165,7 @@ class CommandVenvRun: OdoodCommand {
     }
 
     override int execute() {
-        Project.loadProject.venv.runner.withArgs(argsRest).execv;
+        this.loadProject.venv.runner.withArgs(argsRest).execv;
         return 0;
     }
 }
@@ -182,7 +182,7 @@ class CommandVenvReinstall: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto venv_options = project.odoo.serie.guessVenvOptions;
 
@@ -219,7 +219,7 @@ class CommandVenvUpdateOdoo: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
             start_server = true;
@@ -257,7 +257,7 @@ class CommandVenvReinstallOdoo: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         bool start_server = false;
         if (project.server.isRunning()) {
             start_server = true;

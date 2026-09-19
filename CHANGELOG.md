@@ -4,6 +4,12 @@
 
 ### Added
 
+- Global `-c`/`--config` option - point any odood invocation at a specific
+  project by passing the path to its `odood.yml` (or the directory containing
+  it), instead of relying on discovery from the current working directory.
+  Useful for scripts, cron jobs and running several instances side by side.
+  Must be specified before the command name, and does not combine with
+  command shortcuts (`odood start` etc.).
 - `odood assembly release` - assign the next assembly version, generate the
   release artifacts, commit them and create the release tag. Requires a clean
   working tree, so the tag points at exactly the content the version was

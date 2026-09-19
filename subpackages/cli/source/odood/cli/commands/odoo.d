@@ -20,7 +20,7 @@ class CommandOdooShell: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto runner = project.server.getServerRunner("shell");
         runner.addArgs(project.odoo.serie > 10 ? "--no-http" : "--no-xmlrpc");
         if (!db.isNull)
@@ -46,7 +46,7 @@ class CommandOdooRecomputeField: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         string[] db_names = allDb ? project.databases.list() : db;
         enforce!OdoodCLIException(
             db_names.length > 0,

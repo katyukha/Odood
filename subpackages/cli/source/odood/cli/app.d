@@ -9,6 +9,7 @@ private import colored;
 private import odood.lib: _version;
 private import odood.exception: OdoodException;
 private import odood.cli.core.logger: OdoodLogger;
+private import odood.cli.core.program: OdoodProgram;
 private import odood.cli.commands.init: CommandInit;
 private import odood.cli.commands.server: CommandServer;
 private import odood.cli.commands.database: CommandDatabase;
@@ -32,7 +33,7 @@ version(linux) private import odood.cli.commands.deploy: CommandDeploy;
 
 /** Class that represents main OdoodProgram
   **/
-class App: Program {
+class App: OdoodProgram {
 
     int verbose;
     int quiet;
@@ -112,8 +113,10 @@ class App: Program {
     }
 
     version(OdoodInDocker) void applyOdooConfFromEnv() {
+        import thepath: Path;
         import odood.project: Project;
-        auto project = Project.maybeLoadProject;
+        auto project = config_path.isNull ?
+            Project.maybeLoadProject : Project.maybeLoadProject(Path(config_path.get));
         if (project.isNull) {
             warningf("Cannot load Odood project config. Cannot configure Odoo from env. Skipping...");
         } else {

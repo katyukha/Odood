@@ -67,7 +67,7 @@ class CommandRepositoryAdd: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         string git_url = repo;
         if (oca)
@@ -101,7 +101,7 @@ class CommandRepositoryFixVersionConflict: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get);
@@ -125,7 +125,7 @@ class CommandRepositoryFixSerie: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get);
@@ -158,7 +158,7 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto start_ref = "origin/%s".format(project.odoo.serie);
 
@@ -267,7 +267,7 @@ class CommandRepositoryCheckVersion: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
@@ -327,7 +327,7 @@ class CommandRepositoryEnsureChangelog: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
@@ -411,7 +411,7 @@ class CommandRepositoryMigrateAddons: OdoodCommand {
 
     override int execute() {
         import odood.project.devtools.migrate: migrateAddonsCode;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
@@ -439,7 +439,7 @@ class CommandRepositoryDoForwardPort: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
@@ -536,7 +536,7 @@ class CommandRepositoryPullAll: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         foreach(repo; project.repositories.list()) {
             auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
             if (repo.status.isClean) {
@@ -587,7 +587,7 @@ class CommandRepositoryList: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto repos = project.repositories.list();
         auto repos_dir = project.directories.repositories.exists ?
             project.directories.repositories.realPath :
@@ -683,7 +683,7 @@ class CommandRepositoryRelease: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
@@ -910,7 +910,7 @@ class CommandRepositoryHotfixStart: OdoodCommand {
     override int execute() {
         import std.stdio: writeln, writefln;
 
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto repo = project.addons.getRepo(
             path.isNull ? Path.current : path.get.toAbsolute);
 
@@ -984,7 +984,7 @@ class CommandRepositoryHotfixCheck: HotfixBranchCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto repo = getRepo(project);
         auto base = resolveChainBase(project, repo);
 
@@ -1035,7 +1035,7 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto repo = getRepo(project);
         auto base = resolveChainBase(project, repo);
 

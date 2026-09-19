@@ -125,7 +125,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto addons = findAddons(project);
         auto langs = parseLangs();

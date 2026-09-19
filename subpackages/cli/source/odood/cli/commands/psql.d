@@ -16,7 +16,7 @@ class CommandPSQL: OdoodCommand {
     }
 
     override int execute() {
-        Project.loadProject.psql
+        this.loadProject.psql
             .withEnv("PGDATABASE", db)
             .execv;
         return 0;

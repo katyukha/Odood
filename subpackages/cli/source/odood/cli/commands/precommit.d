@@ -30,7 +30,7 @@ class CommandPreCommitInit: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             !path.isNull ? path.get : Path.current);
@@ -54,7 +54,7 @@ class CommandPreCommitSetUp: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             !path.isNull ? path.get : Path.current);
@@ -75,7 +75,7 @@ class CommandPreCommitUpdate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto repo = project.addons.getRepo(
             !path.isNull ? path.get : Path.current);
@@ -96,7 +96,7 @@ class CommandPreCommitRun: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto repo_path = !path.isNull ? path.get : Path.current;
         project.venv.runner
             .withArgs("pre-commit", "run", "--all-files")

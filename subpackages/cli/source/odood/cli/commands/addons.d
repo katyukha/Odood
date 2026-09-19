@@ -362,7 +362,7 @@ class CommandAddonsList: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (json)
             displayAddonsJson(project);
@@ -405,7 +405,7 @@ class CommandAddonsLink: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         project.addons.link(
             path,
@@ -437,7 +437,7 @@ class CommandAddonsUpdateList: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         string[] dbnames = all ? project.databases.list() : db;
 
@@ -631,7 +631,7 @@ class CommandAddonsUpdate: CommandAddonsUpdateInstallUninstall {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         applyForDatabases(project, (in string dbname) {
             checkUnfinishedUpdates(project, dbname);
@@ -669,7 +669,7 @@ class CommandAddonsInstall: CommandAddonsUpdateInstallUninstall {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         applyForDatabases(project, (in string dbname) {
             checkUnfinishedUpdates(project, dbname);
@@ -697,7 +697,7 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         // Uninstall is a database-side operation: Odoo uninstalls modules by
         // name whether or not their code is still present. So a plain addon
@@ -774,7 +774,7 @@ class CommandAddonsAdd: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         foreach(app; odooApps)
             project.addons.downloadFromOdooApps(app);
@@ -803,7 +803,7 @@ class CommandAddonsIsInstalled: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto addon_n = project.addons.getByString(addon);
         enforce!OdoodCLIException(
@@ -843,7 +843,7 @@ class CommandAddonsGeneratePyRequirements: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         string[] dependencies;
 
@@ -957,7 +957,7 @@ class CommandAddonsFindInstalled: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         string[] addon_names = findInstalledAddons(project).array;
 
@@ -1003,7 +1003,7 @@ class CommandAddonsWhere: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto loc = project.addons.locate(addon);
 
         if (json) {

@@ -68,24 +68,17 @@ string genDbName(in Project project, in string name, in string ukey="n") {
     return "odood%s-r%s-u%s-%s".format(project.odoo.serie.major, ci_run_id, ukey, name);
 }
 
-/* The CLI discovers the project from the process-wide working directory, so
- * in-process CLI runs from concurrently running tests must not interleave. */
-private __gshared Object _odood_cli_lock;
-shared static this() { _odood_cli_lock = new Object; }
-
-/** Run the odood CLI in-process, with the working directory set to the
-  * project root so the command discovers `project`.
+/** Run the odood CLI in-process against `project` via the global `--config`
+  * option, so the run does not depend on (or mutate) the process-wide working
+  * directory and is safe under the parallel test runner. Relative paths in
+  * `args` resolve against the real CWD, not the project root.
   *
   * Returns: the command's exit code (the CLI reports errors itself).
   **/
 int runOdoodCLI(in Project project, string[] args...) {
     import odood.cli.app: App;
-    synchronized (_odood_cli_lock) {
-        auto saved_cwd = std.file.getcwd;
-        scope(exit) std.file.chdir(saved_cwd);
-        std.file.chdir(project.project_root.toString);
-        return (new App()).run("odood" ~ args.dup);
-    }
+    return (new App()).run(
+        ["odood", "--config", project.project_root.toString] ~ args.dup);
 }
 
 
