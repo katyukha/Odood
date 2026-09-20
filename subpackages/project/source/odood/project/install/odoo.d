@@ -199,6 +199,25 @@ void installOdoo(in Project project) {
         }
 
 
+        /* Patch requirements txt to avoid using libsass==0.22.0 on
+         * Python >= 3.14: its setup.py parses the package version via `ast`
+         * and reads `Constant.s`, an attribute Python 3.14 removed, so the
+         * sdist build crashes. PyPI ships no Linux arm64 libsass wheel at
+         * all, thus arm64 always builds the sdist and cannot install 0.22.0
+         * on such pythons (amd64 is unaffected: it installs the wheel).
+         *
+         * We switch to libsass==0.23.0, that does not have that setup.py
+         * code and builds fine on 3.14.
+         */
+        if (project.venv.py_version >= Version(3, 14, 0) && project.odoo.serie <= 19) {
+            info("Patching Odoo requirements.txt to avoid usage of old libsass...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"libsass==0\.22\.0(?=[\s;]|$)", "g"),
+                    "libsass==0.23.0");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));

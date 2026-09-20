@@ -40,6 +40,16 @@
 
 ### Fixed
 
+- Odoo installation on Python >= 3.14 patches `libsass==0.22.0` to
+  `libsass==0.23.0` in Odoo's `requirements.txt`: the 0.22.0 sdist does not
+  build on Python 3.14, and PyPI has no Linux arm64 libsass wheel, so arm64
+  installs (including the arm64 docker images) failed with
+  `AttributeError: 'Constant' object has no attribute 's'`.
+- `odood deploy` creates the Odoo system user with shadow's
+  `groupadd`/`useradd` instead of Debian's `addgroup`/`adduser`: the adduser
+  package does not exist on Ubuntu 26.04, so deploy failed there with
+  `Executable file not found: addgroup`. The user is created the same way as
+  before (system UID range, no home creation, `nologin` shell).
 - Odood docker image: the PGDG apt repository is now actually enabled, so
   `postgresql-client` comes from apt.postgresql.org. A missing `&&` in the
   Dockerfile fed the repository line into `update-locale` instead of writing

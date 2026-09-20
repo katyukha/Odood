@@ -14,10 +14,9 @@ private import odood.cli.core.program: OdoodProgram;
 
 /** Base class for all Odood CLI commands.
   *
-  * Provides project loading that honors the program-level `--config` option:
-  * commands must obtain the project via `this.loadProject` (or
-  * `this.maybeLoadProject`) rather than calling the static
-  * `Project.loadProject`, which only discovers from the current directory.
+  * Commands must load the project via `this.loadProject` (not the static
+  * `Project.loadProject`, which only discovers from the current directory)
+  * so the global `--config` option is honored.
   **/
 class OdoodCommand: Command {
 
@@ -25,11 +24,8 @@ class OdoodCommand: Command {
         super(args);
     }
 
-    /** Path passed via the global `--config` option, if any.
-      *
-      * Null when the option was not provided or when the command is executed
-      * outside an `OdoodProgram` (e.g. constructed standalone in tests).
-      **/
+    /// Path passed via the global `--config` option; null when not provided
+    /// or when the command runs outside an `OdoodProgram`.
     protected Nullable!string explicitConfigPath() {
         auto prog = ancestorOrNull!OdoodProgram;
         if (prog is null)
@@ -37,14 +33,10 @@ class OdoodCommand: Command {
         return prog.config_path;
     }
 
-    /** Load the project this command operates on.
-      *
-      * Uses the global `--config` option when provided (an unresolvable
-      * explicit path is an error, never a silent fallback to discovery),
-      * otherwise discovers the project from the current directory.
-      *
-      * Throws: OdoodCLIException if an explicitly configured path does not
-      *     hold a project; OdoodException if discovery finds no project.
+    /** Load the project this command operates on: from the global `--config`
+      * path when provided (an unresolvable explicit path is an error, never
+      * a silent fallback to discovery), otherwise via standard discovery
+      * from the current directory.
       **/
     Project loadProject() {
         auto config_path = explicitConfigPath;

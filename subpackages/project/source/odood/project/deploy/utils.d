@@ -21,13 +21,16 @@ void createSystemUser(
         in Nullable!uint gid = Nullable!uint.init) {
     infof("Creating system user for Odoo named '%s'", name);
 
+    // shadow's groupadd/useradd, not Debian's addgroup/adduser: the adduser
+    // package does not exist on Ubuntu >= 26.04. Service account, so no
+    // login shell.
     if (!uid.isNull || !gid.isNull) {
-        // A deterministic UID/GID was requested (container builds). adduser
+        // A deterministic UID/GID was requested (container builds). useradd
         // cannot create a *new* group with a fixed GID in the same call, so
-        // create the group first, then the user bound to it. The GID defaults
-        // to the UID when only the UID is provided (common container convention).
+        // create the group first, then the user bound to it. The GID
+        // defaults to the UID when only the UID is given.
         immutable uint group_id = gid.isNull ? uid.get : gid.get;
-        Process("addgroup")
+        Process("groupadd")
             .withArgs(
                 "--system",
                 "--gid", group_id.to!string,
@@ -35,12 +38,12 @@ void createSystemUser(
             .execute()
             .ensureOk(true);
 
-        auto user_proc = Process("adduser")
+        auto user_proc = Process("useradd")
             .withArgs(
                 "--system",
                 "--no-create-home",
-                "--home", home.toString,
-                "--quiet",
+                "--home-dir", home.toString,
+                "--shell", "/usr/sbin/nologin",
                 "--gid", group_id.to!string);
         if (!uid.isNull)
             user_proc.addArgs("--uid", uid.get.to!string);
@@ -54,13 +57,13 @@ void createSystemUser(
         return;
     }
 
-    Process("adduser")
+    Process("useradd")
         .withArgs(
             "--system",
             "--no-create-home",
-            "--home", home.toString,
-            "--quiet",
-            "--group",
+            "--home-dir", home.toString,
+            "--shell", "/usr/sbin/nologin",
+            "--user-group",
             name)
         .execute()
         .ensureOk(true);

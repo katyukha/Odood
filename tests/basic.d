@@ -69,9 +69,9 @@ string genDbName(in Project project, in string name, in string ukey="n") {
 }
 
 /** Run the odood CLI in-process against `project` via the global `--config`
-  * option, so the run does not depend on (or mutate) the process-wide working
-  * directory and is safe under the parallel test runner. Relative paths in
-  * `args` resolve against the real CWD, not the project root.
+  * option, leaving the process-wide working directory untouched (the tests
+  * run in parallel threads). Relative paths in `args` resolve against the
+  * real CWD, not the project root.
   *
   * Returns: the command's exit code (the CLI reports errors itself).
   **/
