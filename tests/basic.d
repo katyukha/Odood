@@ -24,17 +24,22 @@ import odood.exception: OdoodException;
 /// Prepare virtualenv options for test
 auto getVenvOptions(in OdooSerie serie) {
     import odood.lib.python.venv: PyInstallType;
-    import odood.lib.python.odoo: guessVenvOptions;
+    import odood.lib.python.odoo: guessVenvOptions, suggestPythonVersion;
 
     auto venv_options = serie.guessVenvOptions;
 
-    if (venv_options.install_type == PyInstallType.System)
+    immutable prefer_py_install = environment.get("ODOOD_PREFER_PY_INSTALL", "");
+    if (prefer_py_install == "build")
+        venv_options.install_type = PyInstallType.Build;
+    else if (prefer_py_install == "pyenv")
+        venv_options.install_type = PyInstallType.PyEnv;
+    else
         return venv_options;
 
-    if (environment.get("ODOOD_PREFER_PY_INSTALL") == "build")
-        venv_options.install_type = PyInstallType.Build;
-    else if (environment.get("ODOOD_PREFER_PY_INSTALL") == "pyenv")
-        venv_options.install_type = PyInstallType.PyEnv;
+    // guessVenvOptions fills the version only when it chooses to build,
+    // while both build and pyenv need an explicit one.
+    if (!venv_options.py_version.length)
+        venv_options.py_version = serie.suggestPythonVersion;
 
     return venv_options;
 }
