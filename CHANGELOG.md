@@ -69,6 +69,8 @@
   `"/odood-assembly.yml": not found`). Existing assemblies need that line
   removed by hand; `assembly sync --dockerfile` warns when it finds one.
 
+---
+
 ## Release 0.6.6 (2026-09-12)
 
 ### Fixed
