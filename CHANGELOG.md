@@ -24,6 +24,10 @@
 ### Changed
 
 - Odood docker images are now based on Ubuntu 26.04 (was 24.04).
+- Odoo 19 now accepts system Python 3.13. System Python 3.14 is not used for
+  Odoo 18 or 19: Odoo does not officially support it and parts of the addon
+  ecosystem still break on it (e.g. OCA `server_environment`). On hosts
+  shipping 3.14 (Ubuntu 26.04), odood installs a suitable Python instead.
 - Assembly versions are tracked by git tags (like `odood repo release`).
   `VERSION` is an optional artifact: updated by every release when present,
   created only with `--version-file`. No migration step: with no tag yet, the
