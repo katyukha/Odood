@@ -71,6 +71,33 @@ So `odood script py -d mydb recompute_totals.py` finds
 `.odood-scripts/recompute_totals.py` without a full path. The same resolution
 applies to the `--script-after-install` / `--script-after-migration` test hooks.
 
+### Listing available scripts
+
+`odood script list` shows the scripts that can be run by name, grouped by the
+directory they live in:
+
+```bash
+$ odood script list
+Repository scripts (repositories/my-addons/.odood-scripts):
+    recompute_totals.py
+    seed_demo.sql
+
+Project scripts (scripts):
+    cleanup.sql
+    recompute_totals.py (shadowed by the repository script)
+```
+
+Only `.py` and `.sql` files directly inside those two directories are listed;
+scripts referenced by path, or picked up from the current directory, are not.
+The repository is the one enclosing the current directory, so run the command
+from inside a repository to see its `.odood-scripts/`.
+
+Because the repository directory is searched first, a project-level script
+named like a repository one cannot be reached by name — the listing marks it as
+*shadowed*. Pass its full path to run it anyway.
+
+Use `--json` to get the same listing in machine-readable form.
+
 ## Passing parameters with environment variables
 
 Scripts inherit the environment of the `odood` process, so parameters are passed

@@ -10,6 +10,10 @@
   Useful for scripts, cron jobs and running several instances side by side.
   Must be specified before the command name, and does not combine with
   command shortcuts (`odood start` etc.).
+- `odood script list` - show the scripts that can be run by name, grouped by
+  where they live (`<repo>/.odood-scripts/` and `<project>/scripts/`).
+  Project-level scripts hidden by a repository script of the same name are
+  marked as shadowed. Supports `--json`.
 - `odood assembly release` - assign the next assembly version, generate the
   release artifacts, commit them and create the release tag. Requires a clean
   working tree, so the tag points at exactly the content the version was
