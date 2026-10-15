@@ -44,9 +44,8 @@ auto getVenvOptions(in OdooSerie serie) {
     return venv_options;
 }
 
-/// Create new database user in postgres db
-void createDbUser(in string user, in string password) {
-
+/// Connect to the postgres server the tests run against
+auto connectPostgres() {
     string[string] connection_params = [
         "host": environment.get("POSTGRES_HOST", "localhost"),
         "port": environment.get("POSTGRES_PORT", "5432"),
@@ -55,7 +54,12 @@ void createDbUser(in string user, in string password) {
         "dbname": "postgres",
     ];
     infof("Connecting to postgres via: %s", connection_params);
-    auto connection = Connection(connection_params);
+    return Connection(connection_params);
+}
+
+/// Create new database user in postgres db
+void createDbUser(in string user, in string password) {
+    auto connection = connectPostgres;
 
     auto res_user_exists = connection.exec(
         "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='%s')".format(user));
@@ -627,6 +631,14 @@ void runBasicTests(Project project, in string ukey="n") {
 
 @("Basic Test Odoo 20")
 unittest {
+    // Creating a database fails on older servers: Odoo 20 uses the
+    // `any_value()` aggregate, added in PostgreSQL 16.
+    immutable pg_version = connectPostgres.serverVersion;
+    if (pg_version.major < 16) {
+        warningf("Skipping Odoo 20 tests: they need PostgreSQL 16+, server is %s.", pg_version);
+        return;
+    }
+
     auto temp_path = createTempPath(
         environment.get("TEST_ODOO_TEMP", std.file.tempDir),
         "tmp-odood-20",
