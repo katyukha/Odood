@@ -89,7 +89,7 @@ final class AssemblySourceProviderCached : AssemblySourceProviderInterface {
                     repo.switchBranchTo("origin/%s".format(source.git_ref));
                 }
             } else {
-                repo.pull;
+                repo.pull.ensureOk;
             }
         } else {
             // git clone -b accepts both branch names and tag names.

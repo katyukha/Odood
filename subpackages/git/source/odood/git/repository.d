@@ -7,6 +7,7 @@ private import std.format: format;
 private import std.algorithm: map, canFind, startsWith, filter;
 private import std.array: array;
 private import std.conv: to;
+private import std.logger: tracef;
 private static import std.process;
 
 
@@ -16,6 +17,7 @@ private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
 private import odood.git.remote: GitRemote;
+private import odood.git.pull: GitPullStatus, GitPullResult;
 
 // Re-exported for compatibility: these types used to be defined here.
 public import odood.git.status: GitStatus;
@@ -1019,7 +1021,7 @@ class GitRepository {
         return output.splitLines.map!(l => l.strip).filter!(l => l.length > 0).array;
     }
 
-    /// Test listLocalTags points_at filter
+    /// Test listLocalTags points_at filter, and setTag on a given commit
     unittest {
         import unit_threaded.assertions;
         import thepath.utils: createTempPath;
@@ -1033,17 +1035,19 @@ class GitRepository {
         repo.add(Path("a.txt"));
         repo.commit("first");
         repo.setTag("tag-on-first");
+        immutable first = repo.getCurrCommit;
 
         repo.path.join("b.txt").writeFile("b");
         repo.add(Path("b.txt"));
         repo.commit("second");
         repo.setTag("tag-on-head");
+        repo.setTag("late-on-first", commit: first);
 
         repo.listLocalTags().canFind("tag-on-first").shouldBeTrue;
         repo.listLocalTags().canFind("tag-on-head").shouldBeTrue;
 
         repo.listLocalTags(points_at: "HEAD").should == ["tag-on-head"];
-        repo.listLocalTags(points_at: "HEAD~1").should == ["tag-on-first"];
+        repo.listLocalTags(points_at: "HEAD~1").should == ["late-on-first", "tag-on-first"];
     }
 
     /** List refs matching `pattern` — e.g. `refs/tags` or
@@ -1172,18 +1176,18 @@ class GitRepository {
             }
     }
 
-    /** Set annotation tag on current commit in repo
+    /** Set annotated tag on `commit`, or on the current commit if not given.
       **/
-    void setTag(in string tag_name, in string message = null)  const
+    void setTag(in string tag_name, in string message = null, in string commit = null)  const
     in (tag_name.length > 0) {
-        // TODO: add ability to set tag on specific commit
-        gitCmd
+        auto cmd = gitCmd
             .withArgs(
                 "tag",
                 "-a", tag_name,
-                "-m", message.length > 0 ? message : tag_name)
-            .execute()
-            .ensureOk(true);
+                "-m", message.length > 0 ? message : tag_name);
+        if (commit.length > 0)
+            cmd.addArgs(commit);
+        cmd.execute().ensureOk(true);
     }
 
     /** Push a specific tag to a remote (default: origin). **/
@@ -1242,15 +1246,239 @@ class GitRepository {
         remote_tags2.length.should == 2;
     }
 
-    /** Pull repository
+    /** Update the current branch from its upstream, when that is safe.
+      *
+      * A repository that cannot be updated is left untouched, and the reason
+      * is returned: use `ensureOk` on the result to make it an error.
+      * Nothing is fetched for a repository with uncommitted changes, on a
+      * detached HEAD, or whose branch has no upstream. Untracked files do
+      * not block it: git refuses to overwrite one with an incoming file, and
+      * that failure is thrown.
+      *
+      * When the fetch fails, the result carries git's error line only; the
+      * full output is logged at trace level.
+      *
+      * Params:
+      *     prune = remove remote-tracking branches deleted on the remote.
+      *         Without it a deleted upstream lingers as a stale ref, thus it
+      *         is not detected: the branch is reported up to date with it.
+      *     ff_only = only fast-forward: a branch that has diverged from its
+      *         upstream is reported as such. Otherwise the upstream is
+      *         merged into it, and a merge that conflicts is aborted.
+      *         Such a merge writes a commit, thus it needs a git identity
+      *         (`user.name`, `user.email`), which a fast-forward does not.
       **/
-    void pull(in bool ff_only=false) const {
-        auto cmd = gitCmd
-            .withArgs("pull");
-        if (ff_only)
-            cmd.addArgs("--ff-only");
+    GitPullResult pull(in bool prune = true, in bool ff_only = true) const {
+        auto before = status;
+        auto result = GitPullResult(
+            path: _path,
+            branch: before.localBranch,
+            upstream: before.remoteBranch);
 
-        cmd.execute().ensureOk(true);
+        if (before.hasChanges || before.hasConflicts) {
+            result.status = GitPullStatus.uncommittedChanges;
+            return result;
+        }
+        if (result.branch.empty) {
+            result.status = GitPullStatus.detached;
+            return result;
+        }
+        if (result.upstream.empty) {
+            result.status = GitPullStatus.noUpstream;
+            return result;
+        }
+
+        // Without a remote name git fetches the remote of the branch's
+        // upstream, as `git pull` does.
+        auto fetch_cmd = gitCmd.withArgs("fetch");
+        if (prune)
+            fetch_cmd.addArgs("--prune");
+        auto fetch = fetch_cmd.execute();
+        if (!fetch.isOk) {
+            tracef("git fetch failed with output:\n%s", fetch.output);
+            result.status = GitPullStatus.fetchFailed;
+            result.error = gitErrorLine(fetch.output);
+            return result;
+        }
+
+        auto after = status;
+        if (after.upstreamGone) {
+            result.status = GitPullStatus.upstreamGone;
+            return result;
+        }
+        if (after.isDiverged && ff_only) {
+            result.status = GitPullStatus.diverged;
+            return result;
+        }
+        if (after.behind == 0) {
+            result.status = GitPullStatus.upToDate;
+            return result;
+        }
+
+        immutable from_commit = getCurrCommit;
+        if (after.isDiverged) {
+            auto merge = gitCmd.withArgs("merge", "--no-edit", "@{upstream}").execute();
+            if (!merge.isOk && status.hasConflicts) {
+                gitCmd.withArgs("merge", "--abort").execute.ensureOk(true);
+                result.status = GitPullStatus.mergeConflict;
+                return result;
+            }
+            merge.ensureOk(true);
+        } else {
+            gitCmd.withArgs("merge", "--ff-only", "@{upstream}").execute.ensureOk(true);
+        }
+        result.fromCommit = from_commit;
+        result.toCommit = getCurrCommit;
+        result.status = GitPullStatus.updated;
+        return result;
+    }
+
+    /// Every outcome of pull, against a real remote.
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        // Upstream side: commits made here are pushed to the remote.
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src.remoteAdd("origin", remote_path.toString);
+        void commitAndPush(in string name, in string content = null) {
+            src_path.join(name).writeFile(content.length ? content : name);
+            src.add(src_path.join(name));
+            src.commit(name);
+            src.gitCmd.withArgs("push", "-u", "origin", "HEAD").execute.ensureOk(true);
+        }
+        commitAndPush("initial.txt");
+        immutable default_branch = src.getCurrBranch.get;
+
+        auto clone_path = root.join("clone");
+        Process("git")
+            .withArgs("clone", remote_path.toString, clone_path.toString)
+            .execute.ensureOk(true);
+        auto clone = new GitRepository(clone_path);
+
+        // ensureOk passes an ok result through.
+        with (clone.pull.ensureOk) {
+            status.should == GitPullStatus.upToDate;
+            branch.should == default_branch;
+            upstream.should == "origin/" ~ default_branch;
+        }
+
+        commitAndPush("second.txt");
+        immutable before_pull = clone.getCurrCommit;
+        with (clone.pull.ensureOk) {
+            status.should == GitPullStatus.updated;
+            fromCommit.should == before_pull;
+            toCommit.should == src.getCurrCommit;
+        }
+        clone.getCurrCommit.should == src.getCurrCommit;
+
+        // Uncommitted changes leave the repository untouched...
+        commitAndPush("third.txt");
+        clone_path.join("initial.txt").writeFile("modified");
+        clone.pull.status.should == GitPullStatus.uncommittedChanges;
+        clone.getCurrCommit.shouldNotEqual(src.getCurrCommit);
+        clone.gitCmd.withArgs("checkout", "--", "initial.txt").execute.ensureOk(true);
+
+        // ...untracked files do not, unless an incoming file would
+        // overwrite one.
+        clone_path.join("third.txt").writeFile("mine");
+        clone.pull.shouldThrow;
+        clone_path.join("third.txt").readFile.should == "mine";
+        clone_path.join("third.txt").remove();
+        clone_path.join("untracked.txt").writeFile("x");
+        clone.pull.status.should == GitPullStatus.updated;
+        clone_path.join("untracked.txt").remove();
+
+        // A local commit, while the upstream moved on.
+        commitAndPush("fourth.txt");
+        clone_path.join("local.txt").writeFile("local");
+        clone.add(clone_path.join("local.txt"));
+        clone.commit("local");
+        immutable local_head = clone.getCurrCommit;
+        clone.pull.status.should == GitPullStatus.diverged;
+        clone.getCurrCommit.should == local_head;
+        clone.pull.ensureOk.shouldThrow!OdoodException.msg.should ==
+            "Cannot pull %s: branch %s has diverged from origin/%s".format(
+                clone_path, default_branch, default_branch);
+
+        // Without ff_only the upstream is merged in.
+        with (clone.pull(ff_only: false).ensureOk) {
+            status.should == GitPullStatus.updated;
+            fromCommit.should == local_head;
+        }
+        clone.tryRevParse("HEAD^1").should == local_head;
+        clone.tryRevParse("HEAD^2").should == src.getCurrCommit;
+        clone.gitCmd.withArgs("reset", "--hard", "@{upstream}").execute.ensureOk(true);
+
+        // A merge that conflicts is aborted.
+        commitAndPush("fourth.txt", "upstream change");
+        clone_path.join("fourth.txt").writeFile("local change");
+        clone.add(clone_path.join("fourth.txt"));
+        clone.commit("conflicting");
+        immutable conflicting_head = clone.getCurrCommit;
+        clone.pull(ff_only: false).status.should == GitPullStatus.mergeConflict;
+        clone.getCurrCommit.should == conflicting_head;
+        clone.status.isClean.shouldBeTrue;
+        clone.gitCmd.withArgs("reset", "--hard", "@{upstream}").execute.ensureOk(true);
+
+        clone.gitCmd.withArgs("checkout", "--detach").execute.ensureOk(true);
+        with (clone.pull) {
+            status.should == GitPullStatus.detached;
+            branch.shouldBeNull;
+        }
+
+        clone.createBranch("local-only");
+        with (clone.pull) {
+            status.should == GitPullStatus.noUpstream;
+            branch.should == "local-only";
+            upstream.shouldBeNull;
+        }
+
+        // A tracked branch deleted on the remote: its remote-tracking ref
+        // is still there before the fetch, and stays without prune.
+        src.createBranch("18.0-dev-fx");
+        src.gitCmd.withArgs("push", "origin", "18.0-dev-fx").execute.ensureOk(true);
+        clone.gitCmd.withArgs("fetch").execute.ensureOk(true);
+        clone.createBranch("18.0-dev-fx", "origin/18.0-dev-fx");
+        src.gitCmd.withArgs("push", "origin", "--delete", "18.0-dev-fx").execute.ensureOk(true);
+        clone.pull(prune: false).status.should == GitPullStatus.upToDate;
+        clone.tryRevParse("origin/18.0-dev-fx").empty.shouldBeFalse;
+        with (clone.pull) {
+            status.should == GitPullStatus.upstreamGone;
+            upstream.should == "origin/18.0-dev-fx";
+        }
+
+        // A failing fetch carries git's first error line, not its whole output.
+        clone.switchBranchTo(default_branch);
+        immutable missing = root.join("missing.git").toString;
+        clone.gitCmd.withArgs("remote", "set-url", "origin", missing).execute.ensureOk(true);
+        with (clone.pull) {
+            status.should == GitPullStatus.fetchFailed;
+            error.should == "'%s' does not appear to be a git repository".format(missing);
+        }
+    }
+
+    /** Git's error message from the output of a failed command: the first
+      * `fatal:` or `error:` line without that prefix, or else the last
+      * non-empty line.
+      **/
+    private static string gitErrorLine(string output) {
+        string last;
+        foreach(line; output.splitLines.map!strip) {
+            foreach(prefix; ["fatal: ", "error: "])
+                if (line.startsWith(prefix))
+                    return line[prefix.length .. $];
+            if (!line.empty)
+                last = line;
+        }
+        return last;
     }
 
     /** Prepare git diff revision spec.

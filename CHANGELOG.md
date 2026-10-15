@@ -45,6 +45,15 @@
   `Assembly.validateRelease` checks the release invariants (version not yet
   tagged, clean tree), `generateChangelog(result)` refuses a base older than
   the latest release; `generateChangelog(base_rev)` is deprecated.
+- `odood repo pull-all` reports each repository it did not pull in one line
+  and ends with a summary; it exits non-zero when a fetch fails, a branch has
+  diverged or addons cannot be linked.
+- `odood venv update-odoo` (git installs), `odood assembly pull`/`upgrade`
+  and assembly sources without `ref` only fast-forward: they fail on
+  uncommitted changes or a diverged branch instead of merging.
+- **Breaking** library API: `GitRepository.pull(prune, ff_only)` (both on by
+  default) returns a `GitPullResult` instead of throwing; call `ensureOk` on
+  it to fail.
 
 ### Fixed
 

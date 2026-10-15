@@ -31,7 +31,7 @@ public import odood.project.config:
     ProjectConfigOdoo, ProjectConfigDirectories, DEFAULT_ODOO_REPO;
 
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.git: isGitRepo, GitRepository, GitURL;
+private import odood.git: isGitRepo, GitRepository, GitURL, GitPullStatus;
 private import odood.utils: generateRandomString;
 private import odood.lib.assembly: Assembly, AssemblySpec;
 private import odood.project.assembly.project_assembly: ProjectAssembly;
@@ -591,15 +591,15 @@ class Project {
                 break;
             case Git:
 
-                auto dt_string = Clock.currTime.toISOString;
-                auto tag_name = "%s-before-update-%s".format(
-                    this.odoo.serie, dt_string);
-
                 auto repo = new GitRepository(this.odoo.path);
-                repo.setTag(
-                    tag_name,
-                    "Save before odoo update (%s)".format(dt_string));
-                repo.pull();
+                auto pull = repo.pull.ensureOk;
+                if (pull.status == GitPullStatus.updated) {
+                    auto dt_string = Clock.currTime.toISOString;
+                    repo.setTag(
+                        "%s-before-update-%s".format(this.odoo.serie, dt_string),
+                        "Save before odoo update (%s)".format(dt_string),
+                        commit: pull.fromCommit);
+                }
 
                 break;
         }

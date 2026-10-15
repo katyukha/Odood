@@ -23,7 +23,7 @@ private import odood.lib.addons.repository:
     ChangelogRequirement, ChangelogCheckResult, renderChangelog;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.odoo.serie: OdooSerie;
-private import odood.git: GIT_REF_WORKTREE, isGitRepo;
+private import odood.git: GIT_REF_WORKTREE, isGitRepo, GitPullStatus, GitPullResult;
 
 
 /// Documentation on how to write per-addon changelog entries; referenced from
@@ -532,45 +532,80 @@ class CommandRepositoryPullAll: OdoodCommand {
     this() {
         super(
             "pull-all",
-            "[Experimental] Pull changes from all repos and relink addons.");
+            "Fast-forward all repositories to their upstreams, relinking addons of updated ones.");
     }
 
     override int execute() {
-        auto project = this.loadProject;
-        foreach(repo; project.repositories.list()) {
-            auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
-            if (repo.status.isClean) {
-                infof("Repo %s: pulling changes...", repo_name);
-                bool need_link = false;
-                try {
-                    string commit_start = repo.getCurrCommit;
-                    repo.pull(ff_only: true);
-                    string commit_end = repo.getCurrCommit;
-                    if (commit_start != commit_end) {
-                        need_link = true;
-                        infof("Repo %s: pull completed (%s..%s)!", repo_name, commit_start, commit_end);
-                    } else {
-                        infof("Repo %s: Nothing to pull!", repo_name);
-                    }
-                } catch (Exception e) {
-                    errorf("Repo %s: cannot pull repo, because following error\n%s\n---\nskipping...", repo_name, e.msg);
-                    continue;
-                }
+        import std.algorithm: map, maxElement;
+        import std.stdio: writefln;
+        import std.string: lineSplitter;
 
-                if (need_link) {
+        auto project = this.loadProject;
+
+        // Repositories that need attention: name and what happened to it.
+        string[2][] problems;
+        size_t total, updated, up_to_date;
+        bool failed = false;
+
+        foreach(repo; project.repositories.list()) {
+            total++;
+            auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
+
+            void skip(string reason) {
+                warningf("Repo %s: skipped: %s", repo_name, reason);
+                problems ~= [repo_name, "skipped: " ~ reason];
+            }
+            void fail(string reason) {
+                // The log gets the whole reason, the summary its first line.
+                errorf("Repo %s: failed: %s", repo_name, reason);
+                problems ~= [repo_name, "failed: " ~ reason.lineSplitter.front];
+                failed = true;
+            }
+
+            infof("Repo %s: pulling changes...", repo_name);
+            GitPullResult result;
+            try
+                result = repo.pull();
+            catch (Exception e) {
+                fail(e.msg);
+                continue;
+            }
+
+            final switch(result.status) {
+                case GitPullStatus.updated:
+                    updated++;
+                    infof("Repo %s: %s", repo_name, result);
                     try {
-                        infof("Repo %s: Linking...", repo_name);
+                        infof("Repo %s: linking addons...", repo_name);
                         project.addons.link(repo.path, recursive: true);
-                        infof("Repo %s: Link completed...", repo_name);
-                    } catch (Exception e){
-                        errorf("Repo %s: cannot link repo, because following error\n%s\n---\nskipping...", repo_name, e.msg);
-                    }
-                }
-            } else {
-                warningf("Repo %s: not clean, skipping...", repo_name);
+                    } catch (Exception e)
+                        fail("cannot link addons: " ~ e.msg);
+                    break;
+                case GitPullStatus.upToDate:
+                    up_to_date++;
+                    infof("Repo %s: %s", repo_name, result);
+                    break;
+                // Work in progress or a finished branch: reported, not an error.
+                case GitPullStatus.uncommittedChanges, GitPullStatus.detached,
+                        GitPullStatus.noUpstream, GitPullStatus.upstreamGone:
+                    skip(result.toString);
+                    break;
+                case GitPullStatus.diverged, GitPullStatus.mergeConflict,
+                        GitPullStatus.fetchFailed:
+                    fail(result.toString);
+                    break;
             }
         }
-        return 0;
+
+        writefln("%s repositories: %s updated, %s up to date, %s not pulled.",
+            total, updated, up_to_date, total - updated - up_to_date);
+        if (problems.length) {
+            writeln("Need attention:");
+            immutable width = problems.map!(p => p[0].length).maxElement;
+            foreach(p; problems)
+                writefln("  %-*s  %s", width, p[0], p[1]);
+        }
+        return failed ? 1 : 0;
     }
 }
 
