@@ -68,11 +68,28 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
     if (serie <= OdooSerie(19))
         return (py_version >= Version(3, 10) && py_version < Version(3, 13));
+    if (serie <= OdooSerie(20))
+        return (py_version >= Version(3, 12) && py_version < Version(3, 15));
 
     /// Unknown odoo version
     return false;
 }
 
+unittest {
+    import unit_threaded.assertions;
+
+    // Odoo 20: python 3.12 to 3.14 are suitable, 3.11 and 3.15 are not
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(20)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(20)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(20)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 15, 0), OdooSerie(20)).shouldBeFalse;
+
+    // Unknown (future) series are never auto-approved
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(21)).shouldBeFalse;
+
+    // Regression guard: Odoo 19 branch is untouched
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(19)).shouldBeTrue;
+}
 
 /** Find version of system python for specified Odoo serie.
   *
