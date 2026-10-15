@@ -556,7 +556,7 @@ struct AddonManager {
         ).withEnv(env);
         if (!_project.odoo.logfile.isNull)
             runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get.toString));
-        if (!_project.dbSQL(database).hasDemoData)
+        if (!_project.dbSQL(database).hasDemoData && _project.odoo.serie < OdooSerie(19))
             runner.addArgs("--without-demo=all");
 
         auto addon_names_csv = addon_names.join(",");

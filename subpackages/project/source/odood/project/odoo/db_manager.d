@@ -271,10 +271,14 @@ struct OdooDatabaseManager {
             );
             if (!_project.odoo.logfile.isNull)
                 runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get));
-            if (!demo)
+            if (!demo && _project.odoo.serie < OdooSerie(19))
                 runner.addArgs("--without-demo=all");
-            if (lang)
-                runner.addArgs("--lang=%s".format(lang));
+            if (lang) {
+                if (_project.odoo.serie >= OdooSerie(19))
+                    runner.addArgs("--load-language=%s".format(lang));
+                else
+                    runner.addArgs("--lang=%s".format(lang));
+            }
             // In no-logfile mode Odoo logs to stderr; pass it through so the
             // caller (e.g. a container) can see the output.
             if (_project.odoo.logfile.isNull)

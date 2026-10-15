@@ -203,16 +203,28 @@ class CommandTranslationsRegenerate: OdoodCommand {
                         i18n_file, li, a);
                 } else {
                     infof("Generating translations for module %s for language %s...", a, li);
-                    auto cmd = project.server.getServerRunner(
-                        "-d", dbname,
-                        "--i18n-export=%s".format(i18n_file),
-                        "--modules=%s".format(a.name),
-                        "--lang=%s".format(li.lang),
-                        "--stop-after-init",
-                        "--pidfile=",
-                    );
-                    tracef("Running %s", cmd);
-                    cmd.execute.ensureOk(true);
+                    if (project.odoo.serie >= 19) {
+                        auto cmd = project.server.getServerRunner(
+                            "i18n", "export",
+                            "-d", dbname,
+                            "-l", li.lang,
+                            "-o", i18n_file.toString,
+                            a.name,
+                        );
+                        tracef("Running %s", cmd);
+                        cmd.execute.ensureOk(true);
+                    } else {
+                        auto cmd = project.server.getServerRunner(
+                            "-d", dbname,
+                            "--i18n-export=%s".format(i18n_file),
+                            "--modules=%s".format(a.name),
+                            "--lang=%s".format(li.lang),
+                            "--stop-after-init",
+                            "--pidfile=",
+                        );
+                        tracef("Running %s", cmd);
+                        cmd.execute.ensureOk(true);
+                    }
                 }
             }
         }

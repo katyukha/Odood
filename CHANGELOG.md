@@ -24,6 +24,8 @@
   the section with the released one. Uncommitted hand edits are refused, not
   overwritten. (`odood assembly release --dry-run --changelog` prints the
   same preview to stdout.)
+- Odoo 20.0 support: system python 3.12-3.14 is accepted for Odoo 20.0
+  (previously any 20.0 project built python from source).
 
 ### Changed
 
@@ -85,6 +87,12 @@
   way Odoo does (Odoo 13+). `msgmerge` rewrapped the whole file with the line
   wrapping of the locally installed gettext, so every update produced a
   diff full of rewrapped lines that also differed between machines.
+- Odoo 19.0+: `odood translations regenerate` exports via `odoo-bin i18n export`
+  (server options `--i18n-export`, `--modules`, `--lang` were removed in 19.0).
+- Odoo 19.0+: database initialization uses `--load-language` instead of the
+  removed `--lang`.
+- Odoo 19.0+: `--without-demo=all` is no longer passed (19.0 treats it as an
+  invalid boolean).
 
 ---
 
