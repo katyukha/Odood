@@ -15,6 +15,7 @@ private import theprocess: Process, resolveProgram;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
 
@@ -186,6 +187,16 @@ class CommandTranslationsRegenerate: OdoodCommand {
                             i18n_pot_file.toString);
                     tracef("Running %s", msgmerge);
                     msgmerge.execute.ensureOk!OdoodException(true);
+
+                    // msgmerge rewraps the whole file, unlike Odoo's export
+                    // and differently between gettext versions. Rewrite it
+                    // with polib, as Odoo 13+ does, so diffs show only real
+                    // changes. Older Odoo neither wraps nor requires polib.
+                    if (project.odoo.serie >= OdooSerie(13))
+                        project.venv.python(
+                            "-c",
+                            "import sys, polib; polib.pofile(sys.argv[1]).save()",
+                            i18n_file.toString);
                 } else if (missingOnly && i18n_file.exists) {
                     warningf(
                         "translation file %s already exists and --missing-only option enabled. Skipping translation %s for module %s.",

@@ -72,6 +72,10 @@
   generated `Dockerfile` copies into the image (the build failed with
   `"/odood-assembly.yml": not found`). Existing assemblies need that line
   removed by hand; `assembly sync --dockerfile` warns when it finds one.
+- `odood translations regenerate --pot-update` writes updated `.po` files the
+  way Odoo does (Odoo 13+). `msgmerge` rewrapped the whole file with the line
+  wrapping of the locally installed gettext, so every update produced a
+  diff full of rewrapped lines that also differed between machines.
 
 ---
 
