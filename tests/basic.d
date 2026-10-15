@@ -625,6 +625,56 @@ void runBasicTests(Project project, in string ukey="n") {
     // TODO: Complete the test
 }
 
+@("Basic Test Odoo 20")
+unittest {
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-20",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 20 instance
+    createDbUser("odood20test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(20));
+    auto odoo_conf = project.odooConfigBuilder
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood20test",
+            "odoo")
+        .setHttp("localhost", "20069")
+        .result();
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(20));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    //project.runBasicTests("o20");
+
+    /*
+     * TODO: Currently, because some addons used in tests are not ported to 20,
+     *       we do not test addons management. But later, when that addons ported
+     *       we have to chage this and run tests for addons management for Odoo 20
+     */
+
+    // Test server management
+    testServerManagement(project, "o20");
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project, "o20");
+
+    // Test basic addons management
+    //testAddonsManagementBasic(project, "o20");
+
+    // Test running scripts
+    testRunningScripts(project, "o20");
+}
+
 @("Basic Test Odoo 19")
 unittest {
     auto temp_path = createTempPath(
@@ -654,25 +704,7 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    //project.runBasicTests("o19");
-
-    /*
-     * TODO: Currently, because some addons used in tests are not ported to 19,
-     *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 18
-     */
-
-    // Test server management
-    testServerManagement(project, "o19");
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project, "o19");
-
-    // Test basic addons management
-    //testAddonsManagementBasic(project, "o19");
-
-    // Test running scripts
-    testRunningScripts(project, "o19");
+    project.runBasicTests("o19");
 }
 
 @("Basic Test Odoo 18")
