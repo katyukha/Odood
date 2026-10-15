@@ -209,7 +209,7 @@ void installOdoo(in Project project) {
          * We switch to libsass==0.23.0, that does not have that setup.py
          * code and builds fine on 3.14.
          */
-        if (project.venv.py_version >= Version(3, 14, 0) && project.odoo.serie <= 19) {
+        if (project.venv.py_version >= Version(3, 14, 0) && project.odoo.serie <= 20) {
             info("Patching Odoo requirements.txt to avoid usage of old libsass...");
             auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
                 .replaceAll(
