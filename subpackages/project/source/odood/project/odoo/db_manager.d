@@ -276,8 +276,8 @@ struct OdooDatabaseManager {
                 runner.addArgs("--with-demo");
             if (!demo && _project.odoo.serie < OdooSerie(19))
                 runner.addArgs("--without-demo=all");
-            // Not --lang: up to 18.0 it abbreviates --language, which only
-            // applies to translation import/export, and 19.0 removed it.
+            // Not --lang: up to 18.0 it means --language (translation
+            // import/export only), and 19.0 removed it.
             if (lang)
                 runner.addArgs("--load-language=%s".format(lang));
             // In no-logfile mode Odoo logs to stderr; pass it through so the

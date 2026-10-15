@@ -4,96 +4,66 @@
 
 ### Added
 
-- Global `-c`/`--config` option - point any odood invocation at a specific
-  project by passing the path to its `odood.yml` (or the directory containing
-  it), instead of relying on discovery from the current working directory.
-  Useful for scripts, cron jobs and running several instances side by side.
-  Must be specified before the command name, and does not combine with
-  command shortcuts (`odood start` etc.).
-- `odood script list` - show the scripts that can be run by name, grouped by
-  where they live (`<repo>/.odood-scripts/` and `<project>/scripts/`).
-  Project-level scripts hidden by a repository script of the same name are
-  marked as shadowed. Supports `--json`.
-- `odood assembly release` - assign the next assembly version, generate the
-  release artifacts, commit them and create the release tag. Requires a clean
-  working tree, so the tag points at exactly the content the version was
-  computed from.
-- `odood assembly status` now shows the current assembly version.
+- Global `-c`/`--config` option: run a command against the project given by
+  its `odood.yml` (or its directory) instead of discovering it from the
+  current directory. Goes before the command name; does not work with command
+  shortcuts (`odood start` etc.).
+- `odood script list` - scripts runnable by name, grouped by location
+  (`<repo>/.odood-scripts/`, `<project>/scripts/`), shadowed ones marked.
+  Supports `--json`.
+- `odood assembly release` - assign the next version, generate the release
+  artifacts, commit them and tag the release. Requires a clean working tree.
+- `odood assembly status` shows the current assembly version.
 - `odood assembly sync --changelog-preview` - write the pending changes into
-  `CHANGELOG.md` under an `## Unreleased` heading; the next release replaces
-  the section with the released one. Uncommitted hand edits are refused, not
-  overwritten. (`odood assembly release --dry-run --changelog` prints the
-  same preview to stdout.)
-- Odoo 20.0 support: system python 3.12-3.14 is accepted for Odoo 20.0
-  (previously any 20.0 project built python from source).
+  `CHANGELOG.md` under `## Unreleased`; the next release replaces that
+  section. `odood assembly release --dry-run --changelog` prints it instead.
+- Odoo 20.0 support (system Python 3.12-3.14).
 
 ### Changed
 
-- Odood docker images are now based on Ubuntu 26.04 (was 24.04).
-- Odoo 19 now accepts system Python 3.13. System Python 3.14 is not used for
-  Odoo 18 or 19: Odoo does not officially support it and parts of the addon
-  ecosystem still break on it (e.g. OCA `server_environment`). On hosts
-  shipping 3.14 (Ubuntu 26.04), odood installs a suitable Python instead.
+- Docker images are based on Ubuntu 26.04 (was 24.04).
+- Odoo 19 accepts system Python 3.13. System Python 3.14 is not used for
+  Odoo 18 or 19, as parts of the addon ecosystem break on it (e.g. OCA
+  `server_environment`); odood installs a suitable Python instead.
 - Assembly versions are tracked by git tags (like `odood repo release`).
-  `VERSION` is an optional artifact: updated by every release when present,
-  created only with `--version-file`. No migration step: with no tag yet, the
-  first release bumps from `VERSION` and tags from there.
-- **Breaking:** `odood assembly sync --changelog` was removed - changelog
-  generation and version assignment belong to `odood assembly release`. CI
-  checkouts need full history and tags (`fetch-depth: 0` on GitHub Actions,
-  `GIT_DEPTH: 0` on GitLab CI; add `filter: blob:none` to keep large clones
-  cheap); shallow clones are rejected.
-- Library API: `Assembly.prepareRelease` computes a release without writes,
-  `Assembly.validateRelease` checks the release invariants (version not yet
-  tagged, clean tree), `generateChangelog(result)` refuses a base older than
-  the latest release; `generateChangelog(base_rev)` is deprecated.
-- `odood repo pull-all` reports each repository it did not pull in one line
-  and ends with a summary; it exits non-zero when a fetch fails, a branch has
-  diverged or addons cannot be linked.
+  `VERSION` is optional: updated by a release when present, created with
+  `--version-file`. With no tag yet, the first release bumps from `VERSION`.
+- **Breaking:** `odood assembly sync --changelog` is removed, use
+  `odood assembly release`. Releases need full history and tags in CI
+  (`fetch-depth: 0` on GitHub Actions, `GIT_DEPTH: 0` on GitLab CI); shallow
+  clones are rejected.
+- Library API: `Assembly.prepareRelease` and `Assembly.validateRelease`;
+  `generateChangelog(result)` refuses a base older than the latest release;
+  `generateChangelog(base_rev)` is deprecated.
+- `odood repo pull-all` prints one line per repository it did not pull and a
+  summary; it exits non-zero when a fetch fails, a branch has diverged or
+  addons cannot be linked.
 - `odood venv update-odoo` (git installs), `odood assembly pull`/`upgrade`
-  and assembly sources without `ref` only fast-forward: they fail on
-  uncommitted changes or a diverged branch instead of merging.
-- **Breaking** library API: `GitRepository.pull(prune, ff_only)` (both on by
-  default) returns a `GitPullResult` instead of throwing; call `ensureOk` on
-  it to fail.
+  and assembly sources without `ref` only fast-forward, failing on
+  uncommitted changes or a diverged branch.
+- **Breaking:** `GitRepository.pull(prune, ff_only)` (both on by default)
+  returns a `GitPullResult` instead of throwing; `ensureOk` makes it throw.
 
 ### Fixed
 
-- Odoo installation on Python >= 3.14 patches `libsass==0.22.0` to
-  `libsass==0.23.0` in Odoo's `requirements.txt`: the 0.22.0 sdist does not
-  build on Python 3.14, and PyPI has no Linux arm64 libsass wheel, so arm64
-  installs (including the arm64 docker images) failed with
-  `AttributeError: 'Constant' object has no attribute 's'`.
-- `odood deploy` creates the Odoo system user with shadow's
-  `groupadd`/`useradd` instead of Debian's `addgroup`/`adduser`: the adduser
-  package does not exist on Ubuntu 26.04, so deploy failed there with
-  `Executable file not found: addgroup`. The user is created the same way as
-  before (system UID range, no home creation, `nologin` shell).
-- Odood docker image: the PGDG apt repository is now actually enabled, so
-  `postgresql-client` comes from apt.postgresql.org. A missing `&&` in the
-  Dockerfile fed the repository line into `update-locale` instead of writing
-  `pgdg.list`, so images silently shipped the Ubuntu-archive client. The key
-  is now installed via `/etc/apt/keyrings` + `signed-by` (`apt-key` no longer
-  exists on Ubuntu 26.04).
-- Docker image version label no longer drifts from the release it belongs to.
-  It was read back from the `VERSION` file, so generating a Dockerfile without
-  also generating a changelog stamped the previous release into
-  `org.opencontainers.image.version`.
+- Odoo installation on Python 3.14+ (arm64, including docker images):
+  `libsass==0.22.0`, which does not build there, is replaced with 0.23.0.
+- `odood deploy` on Ubuntu 26.04: the system user is created with
+  `groupadd`/`useradd`, as `adduser` is not available there.
+- Docker image: `postgresql-client` comes from the PGDG repository, which was
+  not actually enabled.
+- Docker image version label always matches the release it is built for.
 - Generated `.dockerignore` no longer excludes `odood-assembly.yml`, which the
-  generated `Dockerfile` copies into the image (the build failed with
-  `"/odood-assembly.yml": not found`). Existing assemblies need that line
-  removed by hand; `assembly sync --dockerfile` warns when it finds one.
-- `odood translations regenerate --pot-update` writes updated `.po` files the
-  way Odoo does (Odoo 13+). `msgmerge` rewrapped the whole file with the line
-  wrapping of the locally installed gettext, so every update produced a
-  diff full of rewrapped lines that also differed between machines.
-- Odoo 19.0+: `odood translations regenerate` exports via `odoo-bin i18n export`
-  (server options `--i18n-export`, `--modules`, `--lang` were removed in 19.0).
-- `odood db ensure-initialized` loads the language given by `--lang` (it was
-  ignored up to Odoo 18 and rejected by Odoo 19), and `--demo` loads demo data
-  on Odoo 19+.
-- Odoo 19.0+: `--without-demo=all` is no longer passed (19.0 treats it as an
-  invalid boolean).
+  generated `Dockerfile` copies. Existing assemblies need that line removed by
+  hand; `odood assembly sync --dockerfile` warns about it.
+- `odood translations regenerate --pot-update` wraps `.po` files as Odoo does
+  (Odoo 13+), not as the local `msgmerge` does.
+- Odoo 19+: `odood translations regenerate` exports via
+  `odoo-bin i18n export`, as 19.0 removed the server export options.
+- `odood db ensure-initialized`: `--lang` loads the language (it was ignored
+  up to Odoo 18 and rejected by Odoo 19), and `--demo` loads demo data on
+  Odoo 19+.
+- Odoo 19+: `--without-demo=all`, which 19.0 warns about, is no longer passed.
 
 ---
 

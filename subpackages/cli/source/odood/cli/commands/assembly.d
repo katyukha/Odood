@@ -38,8 +38,8 @@ private string[] changelogPaths() {
     return ["CHANGELOG.md", "CHANGELOG.latest.md"];
 }
 
-/* Files release generates: the sync set plus the versioning artifacts. To
- * sync, a dirty changelog or VERSION is a hand edit, not its own output. */
+/* Files release generates: the sync set plus the versioning artifacts, which
+ * sync treats as hand edits. */
 private string[] releaseGeneratedPaths() {
     return syncGeneratedPaths ~ ASSEMBLY_VERSION_PATH.toString ~ changelogPaths;
 }
@@ -326,9 +326,9 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         if (repo.hasRemoteUrl("origin")) {
             repo.fetchOrigin(serie_str);
 
-            /* Version resolution tolerates an unlistable remote (local-only
-             * fallback); with --push a stale answer would create a duplicate
-             * tag on origin, so escalate that failure here. */
+            /* Version resolution falls back to local tags when the remote
+             * cannot be listed; with --push that could duplicate a tag on
+             * origin, so fail here instead. */
             if (push)
                 repo.listRemoteTags("origin");
 
@@ -348,9 +348,8 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             }
         }
 
-        /* A release tag at HEAD means a prior run tagged and failed to push.
-         * The bump is measured from the latest tag, so without this check the
-         * run would find no changes and never push it. */
+        /* A release tag at HEAD is a release whose push failed: measured
+         * from that tag, the run would find no changes and never push it. */
         auto head_tag = assembly.releasedAtHead;
         if (!head_tag.isNull) {
             infof("Assembly Release: HEAD is already released as %s.",
@@ -375,8 +374,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
 
         immutable tag_name = result.get.new_version.toString;
 
-        /* Library-enforced invariants: tag free, tree clean. A dry run keeps
-         * the tag check but tolerates a dirty tree. */
+        // A dry run checks the tag but tolerates a dirty tree.
         assembly.validateRelease(
             result.get.new_version, check_working_tree: !dryRun);
 
@@ -389,8 +387,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             return 0;
         }
 
-        /* All generated artifacts go into one commit before the tag, so the
-         * tag points at a tree that already contains them. */
+        // Artifacts are committed before tagging, so the tag includes them.
         if (changelog)
             assembly.generateChangelog(result.get);
         assembly.generateVersionFile(result.get.new_version, create: versionFile);

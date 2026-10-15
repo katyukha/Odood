@@ -14,9 +14,8 @@ private import odood.cli.core.program: OdoodProgram;
 
 /** Base class for all Odood CLI commands.
   *
-  * Commands must load the project via `this.loadProject` (not the static
-  * `Project.loadProject`, which only discovers from the current directory)
-  * so the global `--config` option is honored.
+  * Commands load the project via `this.loadProject`, not the static
+  * `Project.loadProject`, so the global `--config` option is honored.
   **/
 class OdoodCommand: Command {
 
@@ -33,10 +32,9 @@ class OdoodCommand: Command {
         return prog.config_path;
     }
 
-    /** Load the project this command operates on: from the global `--config`
-      * path when provided (an unresolvable explicit path is an error, never
-      * a silent fallback to discovery), otherwise via standard discovery
-      * from the current directory.
+    /** Load the project from the global `--config` path, otherwise discover
+      * it from the current directory. An explicit path that does not resolve
+      * is an error, never a fallback to discovery.
       **/
     Project loadProject() {
         auto config_path = explicitConfigPath;
@@ -76,9 +74,8 @@ version(unittest) {
     }
 }
 
-// The global --config option must reach loadProject from any command, both as
-// a path to odood.yml and as a directory containing it; a path that does not
-// resolve to a project is an error, never a fallback to discovery.
+// --config accepts odood.yml or its directory; a path that does not resolve
+// is an error, never a fallback to discovery.
 unittest {
     import std.exception: assertThrown;
     import unit_threaded.assertions;

@@ -80,10 +80,8 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
 unittest {
     import unit_threaded.assertions;
 
-    // Caps follow the Python versions each Odoo serie officially supports:
-    // a newer interpreter may run Odoo core, but third-party addons and
-    // pinned requirements lag behind (e.g. OCA `server_environment`
-    // subclasses `functools.partialmethod`, which has no `__init__` on 3.14).
+    // Caps may trail what Odoo supports: third-party addons and pinned
+    // requirements lag behind (e.g. OCA `server_environment` breaks on 3.14).
     isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(18)).shouldBeTrue;
     isPythonSuitableForSerie(Version(3, 13, 1), OdooSerie(18)).shouldBeFalse;
     isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(18)).shouldBeFalse;
@@ -92,13 +90,13 @@ unittest {
     isPythonSuitableForSerie(Version(3, 13, 1), OdooSerie(19)).shouldBeTrue;
     isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(19)).shouldBeFalse;
 
-    // Odoo 20: python 3.12 to 3.14 are suitable, 3.11 and 3.15 are not
+    // Odoo 20: python 3.12 to 3.14.
     isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(20)).shouldBeTrue;
     isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(20)).shouldBeTrue;
     isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(20)).shouldBeFalse;
     isPythonSuitableForSerie(Version(3, 15, 0), OdooSerie(20)).shouldBeFalse;
 
-    // Odoo 17 and older keep their tighter caps.
+    // Odoo 17 and older have tighter caps.
     isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(17)).shouldBeFalse;
     isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(17)).shouldBeTrue;
     isPythonSuitableForSerie(Version(3, 10, 12), OdooSerie(16)).shouldBeTrue;

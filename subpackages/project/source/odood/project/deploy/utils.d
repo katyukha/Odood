@@ -21,9 +21,8 @@ void createSystemUser(
         in Nullable!uint gid = Nullable!uint.init) {
     infof("Creating system user for Odoo named '%s'", name);
 
-    // shadow's groupadd/useradd, not Debian's addgroup/adduser: the adduser
-    // package does not exist on Ubuntu >= 26.04. Service account, so no
-    // login shell.
+    // groupadd/useradd, not Debian's addgroup/adduser: Ubuntu 26.04+ has no
+    // adduser package. Service account, thus no login shell.
     if (!uid.isNull || !gid.isNull) {
         // A deterministic UID/GID was requested (container builds). useradd
         // cannot create a *new* group with a fixed GID in the same call, so

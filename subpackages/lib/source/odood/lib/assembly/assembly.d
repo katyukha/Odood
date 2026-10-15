@@ -337,8 +337,7 @@ class Assembly {
 
     /** Version of the most recent release.
       *
-      * Release tags are authoritative; the `VERSION` file is only consulted
-      * for an assembly that has no release tag yet.
+      * Release tags win; the `VERSION` file counts only while there is none.
       *
       * Params:
       *     include_remote = also consider tags that exist only on the remote
@@ -359,13 +358,12 @@ class Assembly {
         return Nullable!OdooStdVersion.init;
     }
 
-    /** Release tag of this serie pointing at HEAD, if there is one.
+    /** Release tag of this serie pointing at HEAD.
       *
-      * Identifies a release that was tagged but whose push did not complete:
-      * since the next version is measured from the latest tag, such a tag makes
-      * the following run see no changes at all.
+      * Detects a release that was tagged but not pushed: measured from that
+      * tag, the next run would see no changes.
       *
-      * Returns: null when HEAD carries no release tag for this serie.
+      * Returns: null when HEAD has no release tag of this serie.
       **/
     Nullable!OdooStdVersion releasedAtHead() {
         foreach(tag; repo.listLocalTags(points_at: "HEAD")) {
@@ -376,12 +374,11 @@ class Assembly {
         return Nullable!OdooStdVersion.init;
     }
 
-    /** Revision to compare against when the assembly has no release tag yet.
+    /** Revision to compare against when the assembly has no release tag yet:
+      * the commit that last wrote `VERSION`, or the root commit.
       *
-      * Never the stable branch: by release time the content is already on it,
-      * so that comparison finds nothing and the first release could never
-      * happen. With a `VERSION` file, the commit that last wrote it is the
-      * previous release point; otherwise the base is the start of history.
+      * Not the stable branch: the content is already there at release time,
+      * so nothing would ever be released.
       **/
     private string defaultBaseRev() {
         /* A shallow boundary looks like a root commit that introduced every
@@ -409,8 +406,8 @@ class Assembly {
       *
       * Params:
       *     base_rev = revision to read the `VERSION` file at.
-      *     latest = latest release tag. Resolved by the caller, so one release
-      *         queries the remote once.
+      *     latest = latest release tag, resolved by the caller so that the
+      *         remote is queried once.
       **/
     private OdooStdVersion resolveBaseVersion(
             in string base_rev, in Nullable!OdooStdVersion latest) {
@@ -425,10 +422,9 @@ class Assembly {
         if (latest.isNull)
             return from_file.isNull ? OdooStdVersion(serie, 0) : from_file.get;
 
-        /* Both are written by the same release commit, so a disagreement AT
-         * the tagged commit means a hand edit or a release made outside
-         * Odood — the tag wins. `^{commit}` peels: the tags are annotated,
-         * so a raw rev-parse of one names the tag object. */
+        /* A release writes both, so a mismatch at the tagged commit is a hand
+         * edit or an outside release: the tag wins. `^{commit}` peels
+         * annotated tags. */
         if (!from_file.isNull && from_file.get != latest.get
                 && repo.tryRevParse(base_rev ~ "^{commit}")
                     == repo.tryRevParse(latest.get.toString ~ "^{commit}"))
@@ -461,17 +457,14 @@ class Assembly {
         return changes;
     }
 
-    /** Compute the next assembly release.
+    /** Compute the next assembly release, without writing anything.
       *
-      * The latest release tag is both the comparison base and the version to
-      * bump from. With no tag yet, the base is the commit that last wrote the
-      * `VERSION` file (whose value is bumped from), or the start of history
-      * for an assembly that has never been released at all.
-      *
-      * Performs no writes — the caller generates artifacts, commits and tags.
+      * Compares against and bumps from the latest release tag. With no tag,
+      * the base is the commit that last wrote `VERSION` (bumped from its
+      * value), or the root commit.
       *
       * Params:
-      *     base_rev = explicit base revision, overriding the tag lookup.
+      *     base_rev = base revision, overriding the tag lookup.
       *
       * Returns: null when nothing changed since the base.
       **/
@@ -491,12 +484,10 @@ class Assembly {
 
     /** Check the release invariants before any artifact is generated.
       *
-      * Throws when the release tag already exists (the version was computed
-      * from stale information) or when the tree has uncommitted changes —
-      * the release commit takes the whole index, and a clean tree is what
-      * keeps the tagged tree to exactly the content the version was computed
-      * from. Disable `check_working_tree` only for a preview, whose
-      * prediction then includes content a real release would refuse.
+      * Throws: OdoodAssemblyException when the release tag already exists
+      * (stale version), or the tree has uncommitted changes, so that the tag
+      * points at exactly the content the version was computed from.
+      * Disable `check_working_tree` only for a preview.
       **/
     void validateRelease(
             in OdooStdVersion new_version,
@@ -517,11 +508,9 @@ class Assembly {
                 "the content the version was computed from.");
     }
 
-    /** Make sure `tag` can be used as a local revision, fetching it if needed.
-      *
-      * The latest release is resolved from local tags merged with the remote
-      * listing, so the winner may be a tag this clone does not have — routine
-      * on a shallow or `--no-tags` checkout.
+    /** Make `tag` usable as a local revision, fetching it if needed: the
+      * latest release may come from the remote listing, and be missing in a
+      * shallow or `--no-tags` clone.
       *
       * Returns: the tag name.
       **/
@@ -558,13 +547,10 @@ class Assembly {
         generateVersionFile(changes.repo_version, create: true);
     }
 
-    /** Generate CHANGELOG.md and CHANGELOG.latest.md for a release.
-      *
-      * Stages both files; does NOT commit — the caller decides.
+    /** Generate and stage CHANGELOG.md and CHANGELOG.latest.md for a release.
       *
       * Refuses a base older than the latest release: the changelog is
-      * restored from the base ref before the new section is prepended, so
-      * such a base would silently discard every section written since.
+      * restored from the base, so sections written since would be lost.
       **/
     void generateChangelog(in PrepareReleaseResult result) {
         /* Local tags suffice: prepareRelease fetches the winning tag before
@@ -584,28 +570,24 @@ class Assembly {
         infof("Assembly: Generating changelog for release %s ...",
             result.new_version);
         repo.generateChangelog(result);
-        // Single assignment: the heading must name the version being
-        // released — the same value the tag and VERSION are written from.
+        // The heading must name the same version as the tag and VERSION.
         assert(changelog_latest_path.readFileText.canFind(
                 "## Release %s (".format(result.new_version)),
             "changelog heading does not name the released version");
         infof("Assembly: Changelog generated.");
     }
 
-    /** Write the changelog for the pending changes under an `## Unreleased`
-      * heading — no version is assigned.
+    /** Write and stage the changelog of pending changes under an
+      * `## Unreleased` heading, assigning no version.
       *
-      * Lets an update branch carry the changelog in its diff. A release
-      * regenerates the changelog from the same base, so the section is
-      * replaced by the released one — nothing to clean up by hand. Stages
-      * the files; does NOT commit.
+      * A release regenerates the changelog from the same base, replacing
+      * that section.
       *
       * Returns: false when there are no changes to describe.
       **/
     bool generateChangelogPreview() {
-        /* The preview overwrites the changelog (restore-from-base + prepend)
-         * and stages it, so its own output never sits unstaged — an unstaged
-         * change here is a hand edit about to be lost. */
+        /* The preview stages its output, so an unstaged change is a hand
+         * edit it would overwrite. */
         enforce!OdoodAssemblyException(
             repo.getChangedFiles(
                 path_filters: ["CHANGELOG.md", "CHANGELOG.latest.md"],
@@ -624,9 +606,7 @@ class Assembly {
     }
 
     /** Write the assembly version into the `VERSION` file and stage it.
-      *
-      * Output only — never read back to decide a version. The file is
-      * optional: its presence is the opt-in, `create` forces it.
+      * The file is opt-in: written only when it exists, or with `create`.
       **/
     void generateVersionFile(
             in OdooStdVersion assembly_version, in bool create=false) {
@@ -662,8 +642,7 @@ class Assembly {
     /** Generate or update the Dockerfile.
       *
       * Params:
-      *     assembly_version = version for the image version label; passing
-      *         the release's version keeps the label equal to the tag.
+      *     assembly_version = version for the image label; empty for none.
       **/
     void generateDockerfile(in string assembly_version) {
         infof("Assembly: Preparing Dockerfile...");
@@ -700,9 +679,8 @@ class Assembly {
                     .splitLines
                     .map!(l => l.strip)
                     .canFind("/odood-assembly.yml", "odood-assembly.yml")) {
-            /* The Dockerfile copies the spec into the image; excluding it keeps
-             * it out of the build context and the COPY fails with a confusing
-             * "not found" for a file that is plainly there. */
+            /* The Dockerfile copies the spec, so excluding it fails the build
+             * with a confusing "not found". */
             warningf(
                 "Assembly: .dockerignore excludes odood-assembly.yml, which " ~
                 "the Dockerfile copies into the image. Remove that line, or " ~
@@ -712,8 +690,7 @@ class Assembly {
 
     /// ditto
     void generateDockerfile() {
-        // Outside a release, the most recent release is what the image
-        // describes; unreleased assemblies get no version label.
+        // Label the image with the latest release, if any.
         auto current = currentVersion;
         generateDockerfile(current.isNull ? "" : current.get.toString);
     }
@@ -933,8 +910,8 @@ version(unittest) {
         }
     }
 
-    /* The source holds all listed addons; the caller picks which of them to
-     * add to the spec, and commits. */
+    /* The source holds all listed addons; the caller adds them to the spec
+     * and commits. */
     private Assembly makeTestAssembly(Path root, in string[] source_addons) {
         auto src = root.join("fake-source");
         foreach(name; source_addons) {
@@ -964,9 +941,8 @@ version(unittest) {
 }
 
 
-// Version resolution: release tags are authoritative, the VERSION file only
-// bootstraps assemblies that predate them, and the file is written only when
-// it already exists.
+// Version resolution: release tags win, the VERSION file counts only while
+// there is no tag, and is written only when it exists.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -993,7 +969,7 @@ unittest {
     release.get.new_version.toString.should == "17.0.0.1.0";
     release.get.start_ref.should == base_rev;
 
-    // The file is opt-in: absent means absent.
+    // The VERSION file is opt-in.
     assembly.generateVersionFile(release.get.new_version);
     assembly.version_path.exists.shouldBeFalse;
 
@@ -1003,7 +979,7 @@ unittest {
     // With no tag yet, the file is what the version is read from.
     assembly.currentVersion.get.toString.should == "17.0.0.1.0";
 
-    // Commit the assembled content so a tag can point at a tree containing it.
+    // Commit the content for the tag to point at.
     assembly.repo.add(assembly.dist_dir);
     assembly.repo.commit("Release 17.0.0.1.0");
 
@@ -1030,8 +1006,7 @@ unittest {
     assembly.repo.commit("Update VERSION");
     assembly.validateRelease(OdooStdVersion("17.0.4.0.0"));
 
-    // A changelog from a base older than the latest release would discard
-    // the sections written since: refused.
+    // A changelog from a base older than the latest release is refused.
     auto stale = assembly.prepareRelease(base_rev);
     stale.isNull.shouldBeFalse;
     assembly.generateChangelog(stale.get)
@@ -1039,9 +1014,8 @@ unittest {
 }
 
 
-// Migration: an assembly that has a VERSION file but no tag yet releases from
-// the version the file records, and detects changes made since the file was
-// last written — even when those changes are already committed on the branch.
+// An assembly with a VERSION file but no tag releases from the version in the
+// file, counting changes since the file was written, even ones on the branch.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1055,12 +1029,11 @@ unittest {
     assembly.repo.add(assembly.spec_path);
     assembly.repo.commit("Initial commit");
 
-    /* An origin holding the same commits: the state a release runs in once
-     * the sync has been merged — comparing against the branch would find
-     * nothing to release. */
+    /* An origin with the same commits, as after the sync is merged: comparing
+     * against the branch would find nothing to release. */
     addTestOrigin(assembly, root);
 
-    // An assembly released under the old scheme: VERSION committed, no tag.
+    // A release recorded in VERSION only, without a tag.
     assembly.sync();
     assembly.generateVersionFile(OdooStdVersion("17.0.2.3.0"), create: true);
     assembly.repo.add(assembly.dist_dir);
@@ -1093,14 +1066,13 @@ unittest {
     // ... while a re-run over the preview's own (staged) output is fine.
     assembly.generateChangelogPreview.shouldBeTrue;
 
-    // The base is the commit that wrote VERSION, not the branch tip, so the
-    // added addon is still visible: a MINOR bump from what the file recorded.
+    // Measured from the commit that wrote VERSION, not the branch tip: the
+    // added addon is a MINOR bump from the version in the file.
     auto release = assembly.prepareRelease;
     release.isNull.shouldBeFalse;
     release.get.new_version.toString.should == "17.0.2.4.0";
 
-    // The release regenerates the changelog from the same base: the
-    // `## Unreleased` section is replaced by the released one.
+    // The release replaces the `## Unreleased` section.
     assembly.generateChangelog(release.get);
     assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeFalse;
     assembly.changelog_path.readFileText
@@ -1118,9 +1090,8 @@ unittest {
 }
 
 
-// A never-released assembly releases from the start of history, so its first
-// release works even though the content is already on the branch the release
-// runs on. Also covers detecting a release that was tagged but not pushed.
+// A never-released assembly releases from the root commit, even with its
+// content already on the branch; a tagged but unpushed release is detected.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1136,8 +1107,7 @@ unittest {
 
     addTestOrigin(assembly, root);
 
-    // Sync and commit, then push: the stable branch now holds the content, and
-    // there is neither a tag nor a VERSION file to measure against.
+    // The stable branch holds the content, with neither a tag nor VERSION.
     assembly.sync();
     assembly.repo.add(assembly.dist_dir);
     assembly.repo.commit("[SYNC] Assembly synced");
@@ -1152,8 +1122,7 @@ unittest {
     release.isNull.shouldBeFalse;
     release.get.new_version.toString.should == "17.0.0.1.0";
 
-    // Tagging without pushing: the next run must recognise the release rather
-    // than measure from it and conclude there is nothing to do.
+    // A tagged but unpushed release is recognised at HEAD.
     assembly.releasedAtHead.isNull.shouldBeTrue;
     assembly.repo.setTag(release.get.new_version.toString);
     assembly.releasedAtHead.get.toString.should == "17.0.0.1.0";

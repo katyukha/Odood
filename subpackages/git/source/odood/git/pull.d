@@ -19,8 +19,7 @@ enum GitPullStatus {
     upToDate,
 
     /** Uncommitted changes to tracked files, or unresolved conflicts.
-      * Untracked files do not count: a fast-forward does not touch them,
-      * and git refuses to overwrite one with an incoming file.
+      * Untracked files do not count: git refuses to overwrite them.
       **/
     uncommittedChanges,
 
@@ -37,8 +36,7 @@ enum GitPullStatus {
     /// Reported with `ff_only` only.
     diverged,
 
-    /// Merging the upstream (with `ff_only` off) conflicted; the merge was
-    /// aborted.
+    /// Merging the upstream (with `ff_only` off) conflicted and was aborted.
     mergeConflict,
 
     /// Fetching from the remote failed.

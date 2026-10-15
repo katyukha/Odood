@@ -468,15 +468,13 @@ class AddonRepository : GitRepository{
 
     /** Get the latest release tag for a given Odoo serie.
       *
-      * Checks both local and remote tags (same as prepareRelease).
       * Returns null if no release tags exist for this serie.
       *
       * Params:
       *     serie = Odoo serie (e.g. OdooSerie("18.0")).
-      *     include_remote = also consider tags that exist only on the remote.
-      *         Costs a `git ls-remote`, which may block on the network or
-      *         prompt for credentials — pass false where a local answer is
-      *         good enough.
+      *     include_remote = also consider tags only on the remote. Runs
+      *         `git ls-remote`, which may block on the network or prompt for
+      *         credentials.
       **/
     Nullable!OdooStdVersion getLatestRelease(
             in OdooSerie serie, in bool include_remote = true) const {

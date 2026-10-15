@@ -7,9 +7,8 @@ private import darkcommand: Program, addOption;
 
 /** Base class for the Odood CLI program.
   *
-  * Carries the global `--config` option, which lets any invocation address a
-  * specific Odood project instead of discovering one from the current
-  * working directory. Commands consume it through `OdoodCommand.loadProject`.
+  * Carries the global `--config` option, consumed by
+  * `OdoodCommand.loadProject`.
   **/
 class OdoodProgram: Program {
 

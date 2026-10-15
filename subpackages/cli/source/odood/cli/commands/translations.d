@@ -188,10 +188,9 @@ class CommandTranslationsRegenerate: OdoodCommand {
                     tracef("Running %s", msgmerge);
                     msgmerge.execute.ensureOk!OdoodException(true);
 
-                    // msgmerge rewraps the whole file, unlike Odoo's export
-                    // and differently between gettext versions. Rewrite it
-                    // with polib, as Odoo 13+ does, so diffs show only real
-                    // changes. Older Odoo neither wraps nor requires polib.
+                    // msgmerge wraps lines unlike Odoo, and differently per
+                    // gettext version: rewrite with polib, as Odoo 13+
+                    // exports do. Older Odoo has no polib.
                     if (project.odoo.serie >= OdooSerie(13))
                         project.venv.python(
                             "-c",

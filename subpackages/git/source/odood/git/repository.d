@@ -155,9 +155,8 @@ class GitRepository {
 
     /** Check if this clone has shallow (truncated) history.
       *
-      * History-walking answers from a shallow clone are silently wrong: the
-      * shallow boundary looks like a root commit that introduced every file.
-      * Callers that walk history should refuse to run on one.
+      * History walks are wrong on one: the shallow boundary looks like a
+      * root commit that introduced every file.
       **/
     bool isShallow() const {
         return gitCmd
@@ -184,8 +183,7 @@ class GitRepository {
 
         src.isShallow.shouldBeFalse;
 
-        /* --depth needs the file:// transport: a plain local-path clone
-         * hardlinks objects and ignores the depth option. */
+        // A plain local-path clone ignores --depth; file:// does not.
         auto clone_path = root.join("shallow");
         Process("git")
             .withArgs(
@@ -195,16 +193,13 @@ class GitRepository {
         auto clone = new GitRepository(clone_path);
 
         clone.isShallow.shouldBeTrue;
-        // The boundary masquerades as a root — the reason callers must check.
+        // The boundary looks like a root commit.
         clone.rootCommit.should == src.getCurrCommit;
     }
 
-    /** Root (parentless) commit reachable from `rev`.
-      *
-      * Useful as a diff base meaning "before any of this existed". With more
-      * than one root — histories that were merged — the oldest is returned.
-      * In a shallow clone the boundary commit is returned instead of the true
-      * root; check `isShallow` first.
+    /** Root (parentless) commit reachable from `rev`: the oldest one when
+      * merged histories have several. In a shallow clone it is the boundary
+      * commit; check `isShallow` first.
       *
       * Returns: full SHA, or an empty string for a repository with no commits.
       **/
@@ -243,8 +238,7 @@ class GitRepository {
 
     /** Last commit that changed `path`, looking back from `rev`.
       *
-      * In a shallow clone the boundary commit appears to introduce every file,
-      * so the answer may be wrong; check `isShallow` first.
+      * Unreliable in a shallow clone; check `isShallow` first.
       *
       * Params:
       *     path = path relative to the repository root.
@@ -1006,9 +1000,7 @@ class GitRepository {
     /** List all local tag names in the repository.
       *
       * Params:
-      *     points_at = only tags pointing at this revision
-      *         (`git tag --points-at`), in one git call instead of a
-      *         rev-parse per tag.
+      *     points_at = only tags pointing at this revision.
       **/
     string[] listLocalTags(in string points_at = null) const {
         auto cmd = gitCmd.withArgs("tag", "--list");
@@ -1248,25 +1240,19 @@ class GitRepository {
 
     /** Update the current branch from its upstream, when that is safe.
       *
-      * A repository that cannot be updated is left untouched, and the reason
-      * is returned: use `ensureOk` on the result to make it an error.
-      * Nothing is fetched for a repository with uncommitted changes, on a
-      * detached HEAD, or whose branch has no upstream. Untracked files do
-      * not block it: git refuses to overwrite one with an incoming file, and
-      * that failure is thrown.
-      *
-      * When the fetch fails, the result carries git's error line only; the
-      * full output is logged at trace level.
+      * A repository that cannot be updated is left untouched and the reason
+      * is returned; `ensureOk` on the result makes it an error. Untracked
+      * files do not block it, but git refuses to overwrite one with an
+      * incoming file, and that failure is thrown. A failed fetch returns
+      * git's error line; the full output is logged at trace level.
       *
       * Params:
-      *     prune = remove remote-tracking branches deleted on the remote.
-      *         Without it a deleted upstream lingers as a stale ref, thus it
-      *         is not detected: the branch is reported up to date with it.
-      *     ff_only = only fast-forward: a branch that has diverged from its
-      *         upstream is reported as such. Otherwise the upstream is
-      *         merged into it, and a merge that conflicts is aborted.
-      *         Such a merge writes a commit, thus it needs a git identity
-      *         (`user.name`, `user.email`), which a fast-forward does not.
+      *     prune = remove remote-tracking branches deleted on the remote;
+      *         without it a deleted upstream is not detected.
+      *     ff_only = only fast-forward, reporting a diverged branch.
+      *         Otherwise the upstream is merged in and a conflicting merge
+      *         aborted; the merge commit needs a git identity
+      *         (`user.name`, `user.email`).
       **/
     GitPullResult pull(in bool prune = true, in bool ff_only = true) const {
         auto before = status;
@@ -1288,8 +1274,7 @@ class GitRepository {
             return result;
         }
 
-        // Without a remote name git fetches the remote of the branch's
-        // upstream, as `git pull` does.
+        // Without a remote name git fetches the upstream's remote.
         auto fetch_cmd = gitCmd.withArgs("fetch");
         if (prune)
             fetch_cmd.addArgs("--prune");

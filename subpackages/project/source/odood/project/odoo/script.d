@@ -118,9 +118,7 @@ struct OdoodScript {
 
     ScriptType type;
 
-    /** A script with the same name is provided by an earlier-resolved
-      * source, thus this one cannot be reached by name.
-      **/
+    /// Hidden by a same-named script of an earlier source
     bool shadowed;
 }
 
@@ -166,9 +164,8 @@ private OdoodScript[] scanScriptDir(in Path directory) {
 }
 
 
-/** List the scripts available to `odood script py|sql` and the test-runner
-  * hooks, auto-detecting the repository enclosing the current working
-  * directory (if any) as the source of `.odood-scripts/`.
+/** List the scripts, taking `.odood-scripts/` from the git repository
+  * enclosing the current directory, if any.
   **/
 ScriptGroup[] listScripts(in Project project) {
     Nullable!Path repo_path;
@@ -178,25 +175,18 @@ ScriptGroup[] listScripts(in Project project) {
 }
 
 
-/** List the scripts available to `odood script py|sql` and the test-runner
-  * hooks.
+/** List the scripts `odood script py|sql` and the test-runner hooks find by
+  * name: those in the conventional directories of `resolveScriptPath`. The
+  * current directory is not listed, as it may hold unrelated Python files.
   *
-  * Covers the two convention directories of `resolveScriptPath` — a script
-  * referenced by a path or found in the current directory is not listed, as
-  * the current directory is an arbitrary location that may hold unrelated
-  * Python files.
-  *
-  * Groups are returned in resolution order, and a script hidden by a
-  * same-named one in an earlier group is flagged as `shadowed`. Groups for
-  * directories that do not exist are returned empty, so that callers can
-  * report where scripts are looked for.
+  * Groups come in resolution order. A missing directory yields an empty
+  * group, so callers can still show where scripts are looked for.
   *
   * Params:
-  *     project = Odood project (provides the project-level `scripts/` directory)
-  *     repo_path = optional repository root to scan `.odood-scripts/` in
+  *     project = Odood project, providing the `scripts/` directory
+  *     repo_path = repository root to scan `.odood-scripts/` in, if any
   *
-  * Returns:
-  *     Groups of scripts, one per script directory.
+  * Returns: one group per script directory.
   **/
 ScriptGroup[] listScripts(in Project project, in Nullable!Path repo_path) {
     ScriptGroup[] groups;
@@ -259,8 +249,7 @@ unittest {
         ScriptType.py, ScriptType.sql];
     groups[0].scripts.map!(s => s.shadowed).array.should == [false, false];
 
-    // The repository provides 'recompute_totals.py', thus the project-level
-    // script of that name cannot be reached by name.
+    // The repository's 'recompute_totals.py' shadows the project one.
     groups[1].scripts.map!(s => s.name).array.should == [
         "cleanup.sql", "recompute_totals.py"];
     groups[1].scripts.map!(s => s.shadowed).array.should == [false, true];
@@ -272,8 +261,7 @@ unittest {
         listScripts(project, repo_path.nullable)[0].scripts.length.should == 0;
     }
 
-    // Directories that do not exist yield empty groups, and without a
-    // repository there is no repository group at all.
+    // A missing directory yields an empty group; no repository, no group.
     project_scripts.remove();
     auto no_repo_groups = listScripts(project, Nullable!Path.init);
     no_repo_groups.length.should == 1;

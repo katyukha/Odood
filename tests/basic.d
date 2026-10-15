@@ -78,11 +78,10 @@ string genDbName(in Project project, in string name, in string ukey="n") {
 }
 
 /** Run the odood CLI in-process against `project` via the global `--config`
-  * option, leaving the process-wide working directory untouched (the tests
-  * run in parallel threads). Relative paths in `args` resolve against the
-  * real CWD, not the project root.
+  * option: tests run in parallel threads, thus the working directory is left
+  * alone, and relative paths in `args` resolve against it.
   *
-  * Returns: the command's exit code (the CLI reports errors itself).
+  * Returns: the command's exit code.
   **/
 int runOdoodCLI(in Project project, string[] args...) {
     import odood.cli.app: App;
@@ -404,10 +403,9 @@ void testTranslationsRegenerate(in Project project) {
         .canFind(`msgid "Odood test label"`).shouldBeTrue;
     uk_po.readFileText.canFind(`msgid "Odood test label"`).shouldBeTrue;
 
-    // Translate a term, then update from the regenerated .pot file. The
-    // addon did not change, thus the translation is kept and the terms are
-    // written exactly as Odoo exported them. The header holds generation
-    // dates, thus only the terms are compared.
+    // Translate a term and update from the regenerated .pot: the addon did
+    // not change, thus the terms stay exactly as Odoo exported them. The
+    // header holds generation dates, thus it is not compared.
     uk_po.writeFile(uk_po.readFileText.replace(
         "msgid \"Odood test label\"\nmsgstr \"\"",
         "msgid \"Odood test label\"\nmsgstr \"Тестова мітка\""));
@@ -473,8 +471,7 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.raw.changelog_path.exists.shouldBeTrue;
     assembly.raw.changelog_latest_path.exists.shouldBeTrue;
 
-    // VERSION is opt-in: an assembly without one does not grow a file it did
-    // not ask for.
+    // VERSION is opt-in: written only when it exists or `create` is set.
     assembly.raw.generateVersionFile(release1.get.new_version);
     assembly.raw.version_path.exists.shouldBeFalse;
     assembly.raw.generateVersionFile(release1.get.new_version, create: true);
@@ -512,7 +509,7 @@ void testAssembly(Project project, in string ukey="n") {
     auto release2 = assembly.raw.prepareRelease(base_commit);
     release2.isNull.shouldBeFalse;
     assembly.raw.generateChangelog(release2.get);
-    // An existing VERSION file is updated without having to ask.
+    // An existing VERSION file is updated.
     assembly.raw.generateVersionFile(release2.get.new_version);
     // Another added addon -> another MINOR bump: 18.0.0.1.0 -> 18.0.0.2.0.
     assembly.raw.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
@@ -534,13 +531,7 @@ void testAssembly(Project project, in string ukey="n") {
     infof("Testing assembly for %s. Complete: Ok.", project);
 }
 
-/** Test `odood assembly release` CLI command
-  *
-  * Covers the command-level guard logic on top of the library API already
-  * exercised by `testAssembly`: nothing-to-release, the dirty-tree refusal,
-  * sync refusing staged hand edits of release artifacts, dry run, a real
-  * release, and re-running on a released HEAD.
-  **/
+/// Test `odood assembly release` CLI command, on the state left by `testAssembly`
 void testAssemblyReleaseCLI(Project project) {
     infof("Testing assembly release CLI for %s", project);
 
@@ -548,13 +539,11 @@ void testAssemblyReleaseCLI(Project project) {
     auto repo = assembly.repo;
     immutable serie = project.odoo.serie.toString;
 
-    // Start from a clean tree holding everything generated so far, including
-    // the VERSION file recording <serie>.0.2.0 with no release tag yet.
+    // Clean tree: VERSION records <serie>.0.2.0, no release tag yet.
     repo.gitCmd.withArgs("add", "-A").execute.ensureOk(true);
     repo.commit("Commit assembly state before release tests");
 
-    // Nothing changed since VERSION was written: nothing to release. Exit 0
-    // by default, 1 on request.
+    // Nothing changed since VERSION was written: exit 0, or 1 on request.
     runOdoodCLI(project, "assembly", "release").shouldEqual(0);
     repo.listLocalTags().length.shouldEqual(0);
     runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
@@ -606,8 +595,7 @@ void testAssemblyReleaseCLI(Project project) {
     repo.getChangedFiles(staged: false).length.shouldEqual(0);
     repo.getChangedFiles(staged: true).length.shouldEqual(0);
 
-    // The real release: a removed addon is a MAJOR bump, so the recorded
-    // <serie>.0.2.0 becomes <serie>.1.0.0.
+    // A removed addon is a MAJOR bump: <serie>.0.2.0 -> <serie>.1.0.0.
     immutable expected = "%s.1.0.0".format(serie);
     runOdoodCLI(project, "assembly", "release", "--changelog").shouldEqual(0);
     repo.listLocalTags().canFind(expected).shouldBeTrue;
@@ -618,12 +606,11 @@ void testAssemblyReleaseCLI(Project project) {
     assembly.changelog_path.readFileText
         .canFind("## Unreleased").shouldBeFalse;
     assembly.releasedAtHead.get.toString.shouldEqual(expected);
-    // Everything the release generated went into its commit before the tag.
+    // The release commit holds everything the release generated.
     repo.getChangedFiles(staged: false).length.shouldEqual(0);
     repo.getChangedFiles(staged: true).length.shouldEqual(0);
 
-    // Re-running on the released HEAD recognises the release instead of
-    // measuring from it and concluding there is nothing to do.
+    // A re-run on the released HEAD recognises the release: no new tag.
     runOdoodCLI(project, "assembly", "release").shouldEqual(0);
     repo.listLocalTags().length.shouldEqual(1);
 
@@ -710,11 +697,7 @@ unittest {
     // Run basic tests
     //project.runBasicTests("o20");
 
-    /*
-     * TODO: Currently, because some addons used in tests are not ported to 20,
-     *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 20
-     */
+    // TODO: test addons management once the addons it uses are ported to 20
 
     // Test server management
     testServerManagement(project, "o20");
@@ -796,7 +779,7 @@ unittest {
     // Run basic tests
     project.runBasicTests("o18");
 
-    // Odoo 18 covers the export through server options, used up to 18
+    // Covers the export via server options, used up to Odoo 18
     testTranslationsRegenerate(project);
 }
 
