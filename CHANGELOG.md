@@ -1,5 +1,23 @@
 # Changelog
 
+## Release 0.6.7 (2026-10-15)
+
+### Added
+
+- Odoo 20.0 support: system python 3.12-3.14 is accepted for Odoo 20.0
+  (previously any 20.0 project built python from source).
+
+### Fixed
+
+- Odoo 19.0+: `odood translations regenerate` exports via `odoo-bin i18n export`
+  (server options `--i18n-export`, `--modules`, `--lang` were removed in 19.0).
+- Odoo 19.0+: database initialization uses `--load-language` instead of the
+  removed `--lang`.
+- Odoo 19.0+: `--without-demo=all` is no longer passed (19.0 treats it as an
+  invalid boolean).
+
+---
+
 ## Release 0.6.6 (2026-09-12)
 
 ### Fixed
