@@ -89,8 +89,9 @@
   diff full of rewrapped lines that also differed between machines.
 - Odoo 19.0+: `odood translations regenerate` exports via `odoo-bin i18n export`
   (server options `--i18n-export`, `--modules`, `--lang` were removed in 19.0).
-- Odoo 19.0+: database initialization uses `--load-language` instead of the
-  removed `--lang`.
+- `odood db ensure-initialized` loads the language given by `--lang` (it was
+  ignored up to Odoo 18 and rejected by Odoo 19), and `--demo` loads demo data
+  on Odoo 19+.
 - Odoo 19.0+: `--without-demo=all` is no longer passed (19.0 treats it as an
   invalid boolean).
 

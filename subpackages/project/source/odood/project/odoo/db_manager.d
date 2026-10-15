@@ -271,14 +271,15 @@ struct OdooDatabaseManager {
             );
             if (!_project.odoo.logfile.isNull)
                 runner.addArgs("--logfile=%s".format(_project.odoo.logfile.get));
+            // Since 19.0 Odoo skips demo data unless asked to load it.
+            if (demo && _project.odoo.serie >= OdooSerie(19))
+                runner.addArgs("--with-demo");
             if (!demo && _project.odoo.serie < OdooSerie(19))
                 runner.addArgs("--without-demo=all");
-            if (lang) {
-                if (_project.odoo.serie >= OdooSerie(19))
-                    runner.addArgs("--load-language=%s".format(lang));
-                else
-                    runner.addArgs("--lang=%s".format(lang));
-            }
+            // Not --lang: up to 18.0 it abbreviates --language, which only
+            // applies to translation import/export, and 19.0 removed it.
+            if (lang)
+                runner.addArgs("--load-language=%s".format(lang));
             // In no-logfile mode Odoo logs to stderr; pass it through so the
             // caller (e.g. a container) can see the output.
             if (_project.odoo.logfile.isNull)
