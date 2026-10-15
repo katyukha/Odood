@@ -341,11 +341,13 @@ When server is configured to use assembly, then server management becomes pretty
 odood assembly upgrade [--backup]
 ```
 
-That will do all the job:
-0. Optionally backup all databases
-1. pull assembly changes,
-2. relink modules,
-3. update addons on all databases.
+It backs up the databases (with `--backup`), pulls the assembly, relinks addons
+and updates the assembly's addons in every database, stopping a running server
+for the update and starting it again afterwards. The pull only fast-forwards: it
+fails on uncommitted changes in the assembly checkout or on a branch that has
+diverged from its upstream. See
+[Production deployment — Upgrading](./production-deployment.md#upgrading) for the
+exact steps, `--start` and `--skip-errors`.
 
 #### Docker Compose deployments
 
@@ -374,12 +376,12 @@ This group contains following commands:
 - `odood assembly release` - assign the next assembly version, generate the release
   artifacts, commit them and create the release tag. See [Changelogs and versions](#changelogs-and-versions).
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
-- `odood assembly pull` - pull changes for assembly repo. Useful during server update
+- `odood assembly pull` - fast-forward the assembly repo to its upstream (fails on uncommitted changes or a diverged branch); `--link` relinks addons afterwards.
 - `odood assembly upgrade` - simple way to upgrade server that is configured to use assembly.
 - `odood assembly upgrade-sources` - scan each source whose `ref` is a version tag and update the spec to the newest matching tag found on the remote. See [Upgrading pinned sources](#upgrading-pinned-sources).
 - `odood addons update --assembly` - this option could be used for `odood addons install/update/uninstall` commands to install/update/uninstall addons contained in assembly.
 
-Also, command `odood addons find-installed` could be used to generate spec for assembly based on third-party addons installed in specified database(s).
+Also, command `odood addons find-installed --format assembly-spec` could be used to generate spec for assembly based on third-party addons installed in specified database(s).
 This is useful to migrate already existing Odood project to use assembly instead of multiple repositories.
 
 ## Private git sources
@@ -402,7 +404,9 @@ spec:
 ```
 
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
-The format for this variable is: `user:token`
+The format for this variable is: `user:token`; neither part may contain `:`.
+Credentials apply to https sources only (not `crnd:`, which expands to ssh), and
+cannot be combined with a `GIT_CONFIG_COUNT` set in the environment.
 
 When a source has both, `ODOOD_ASSEMBLY_<name>_CRED` is checked first, and
 `ODOOD_ASSEMBLY_<access-group>_CRED` only when that variable is not set.

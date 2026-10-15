@@ -52,6 +52,7 @@ Theoretically it should work on macOS also.
 
 ## Supported Odoo versions
 
+- Odoo 20.0 (experimental; needs PostgreSQL 16+ and Python 3.12-3.14)
 - Odoo 19.0 (experimental)
 - Odoo 18.0 (tested)
 - Odoo 17.0 (tested)

@@ -55,8 +55,8 @@ UPDATE res_partner SET active = true WHERE id = 1;
 
 ## Where scripts live
 
-You can pass an absolute path, or just a **name** that Odood resolves (in order)
-against:
+You can pass an absolute path, or a **name** or relative path that Odood resolves
+(in order) against:
 
 1. `<repo>/.odood-scripts/` — a repository-scoped directory, kept under version
    control alongside your addons. The repo is the one enclosing your current
@@ -66,6 +66,9 @@ against:
    **not** affected by any repository checkout. Good for stable
    maintenance/seeding scripts shared across the project.
 3. the current working directory.
+
+A file in the current directory is thus used only when neither script directory
+has one at the same relative path.
 
 So `odood script py -d mydb recompute_totals.py` finds
 `.odood-scripts/recompute_totals.py` without a full path. The same resolution
@@ -96,7 +99,8 @@ Because the repository directory is searched first, a project-level script
 named like a repository one cannot be reached by name — the listing marks it as
 *shadowed*. Pass its full path to run it anyway.
 
-Use `--json` to get the same listing in machine-readable form.
+Paths are shown relative to the project root; pass `--absolute` for absolute
+paths. Use `--json` to get the same listing in machine-readable form.
 
 ## Passing parameters with environment variables
 

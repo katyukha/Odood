@@ -95,6 +95,20 @@ Developers who prefer SSH can configure git's `url.insteadOf` globally — see
 
 ---
 
+## Validation
+
+`odood assembly sync` refuses a spec where:
+
+- an addon is listed twice, or two sources share a `name`;
+- a source has `commit` without `ref`;
+- an addon sets both `source` and `odoo_apps`;
+- an addon's `source` names no source in `sources-list`.
+
+An addon without `source` is taken from the first source in `sources-list` that
+contains it, skipping sources with `no-search: true`.
+
+---
+
 ## Complete example
 
 ```yaml

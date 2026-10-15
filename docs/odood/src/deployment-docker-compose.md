@@ -31,10 +31,19 @@ For traditional bare-metal or VPS production deployments see [Production (VPS)](
 The official Odood Docker images are published to the GitHub Container Registry:
 
 ```
-ghcr.io/katyukha/odood/odoo/{serie}:latest
+ghcr.io/katyukha/odood/odoo/{serie}:{tag}
 ```
 
-Available series: `16.0`, `17.0`, `18.0`, `19.0`.
+Available series: `16.0`, `17.0`, `18.0`, `19.0` (there is no `20.0` image yet).
+The images are based on Ubuntu 26.04.
+
+Each Odood release publishes these tags, which follow the **Odood** version, not Odoo's:
+- `latest` — the latest stable release;
+- `<version>`, e.g. `0.6.6` — a specific release;
+- `<major>.<minor>`, e.g. `0.6` — the latest release of that line.
+
+Pin a version tag in `docker-compose.yml` for reproducible deployments; the examples below use
+`latest` for brevity.
 
 > **Note:** The `--config-from-env` flag and `ODOOD_OPT_*` environment variable support are compiled into these images using the `-d-version OdoodInDocker` build flag.
 > They are **not** available in the Debian package or source builds.

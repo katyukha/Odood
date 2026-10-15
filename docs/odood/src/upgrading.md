@@ -27,6 +27,11 @@ odood venv update-odoo
 This works for both archive-based and git-based installations. A running server is stopped
 for the update and started again afterwards. Then update your installed addons (see below).
 
+- **Archive installs:** `-b/--backup` keeps a backup of the current Odoo code.
+- **Git installs:** Odoo is only fast-forwarded to its upstream branch; local commits or
+  uncommitted changes make the update fail. When the code was actually updated, the previous
+  commit is tagged `<serie>-before-update-<timestamp>`, so you can go back to it.
+
 On a production server:
 
 ```bash
@@ -69,7 +74,9 @@ With an automatic pre-upgrade backup of all databases:
 odood assembly upgrade --backup
 ```
 
-This pulls the latest assembly, relinks addons, and updates all addons in all databases.
+This pulls the latest assembly (fast-forward only), relinks its addons and updates them in all
+databases — see [Production deployment](./production-deployment.md#upgrading-with-assembly-recommended)
+for the exact steps.
 On a production server, prefix with `sudo`.
 
 ### Without assembly
@@ -80,11 +87,11 @@ If you manage third-party repositories directly, follow this sequence:
 # 1. Stop the server
 odood server stop
 
-# 2. Pull latest changes from all cloned repositories
+# 2. Pull latest changes from all cloned repositories; stop here if it fails
 odood repo pull-all
 
 # 3. Refresh the addon list
-odood addons update-list
+odood addons update-list -a
 
 # 4. Update addons — list every affected repository with --dir
 odood addons update --dir repositories/vendor1/repo1 --dir repositories/vendor2/repo2
@@ -92,6 +99,13 @@ odood addons update --dir repositories/vendor1/repo1 --dir repositories/vendor2/
 # 5. Start the server
 odood server start
 ```
+
+**What `repo pull-all` does.** It only fast-forwards each repository to its upstream and
+relinks the addons of the repositories it updated. Repositories with uncommitted changes, a
+detached HEAD, no upstream, or an upstream deleted on the remote are skipped and reported. A
+fetch error, a branch that has diverged from its upstream, or a failed relink is a failure. The
+command ends with a summary of the repositories it did not pull and exits with code 1 if any
+failed — in a script, chain the steps with `&&` or use `set -e`.
 
 **Why stop the server first?** Running old and new code simultaneously during an upgrade
 can corrupt data or leave modules in an inconsistent state.
@@ -122,7 +136,7 @@ A typical update session on a developer machine:
 odood repo pull-all
 
 # Refresh addon list and update all addons in the active database
-odood addons update-list
+odood addons update-list -a
 odood addons update --dir custom_addons
 
 # Or update only addons you changed

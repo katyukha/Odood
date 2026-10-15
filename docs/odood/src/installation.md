@@ -63,10 +63,10 @@ Building from source is primarily useful for Odood development. For regular use,
 Prebuilt Docker images with Odoo and Odood already installed are published to the GitHub Container Registry:
 
 ```
-ghcr.io/katyukha/odood/odoo/{serie}:latest
+ghcr.io/katyukha/odood/odoo/{serie}:{tag}
 ```
 
-Available series: `16.0`, `17.0`, `18.0`, `19.0`.
+See [Prebuilt images](./deployment-docker-compose.md#prebuilt-images) for the available series and tags.
 
 These images are useful as a base for distributing Odoo-based products as containers, and for CI pipelines.
 See [Docker Compose](./deployment-docker-compose.md) for deployment details.

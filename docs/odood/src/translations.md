@@ -6,8 +6,12 @@ Odood automates the full translation workflow for Odoo addons: generating `.pot`
 creating or updating `.po` translation files, and deduplicating entries.
 All translation work is done through a temporary database that Odood creates, uses, and drops automatically.
 
-> **Prerequisite:** The `gettext` package must be installed on your system (`msgmerge`, `msguniq`).
+> **Prerequisites:** The `gettext` package must be installed on your system (`msgmerge`, `msguniq`).
 > On Debian/Ubuntu: `sudo apt install gettext`.
+>
+> The addons must be linked into the project (e.g. `odood addons link .`): `--addon-dir` skips
+> addons that are not linked, with a warning, and an addon named on the command line that is not
+> linked is an error.
 
 ---
 

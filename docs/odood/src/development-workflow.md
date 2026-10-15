@@ -229,13 +229,14 @@ decision — see [Enforcing changelog entries](#enforcing-changelog-entries) bel
 
 #### Where changelogs are used
 
-Odood reads these entries in three places:
+Odood reads these entries in four places:
 
 | Command | What it does with changelogs |
 | --- | --- |
 | `odood repo ensure-changelog` | Verifies that addons changed since the release branch (or last tag) carry a changelog entry covering their version bump. Useful as a CI / pre-merge gate. |
 | `odood repo release --changelog` | Generates and commits repo-level `CHANGELOG.md` and `CHANGELOG.latest.md` while cutting a release (see [Release Management](./release-management.md)). |
 | `odood assembly release --changelog` | Aggregates per-addon entries across all updated modules into a single assembly-level `CHANGELOG.md` (and `CHANGELOG.latest.md`) — see the assembly [*Notable changes*](./assembly.md#notable-changes) section. |
+| `odood assembly sync --changelog-preview` | Writes the same aggregated changelog for the pending changes under an `## Unreleased` heading, so an update branch carries it for review — see [*Previewing changes before release*](./assembly.md#previewing-changes-before-release). |
 
 #### Enforcing changelog entries
 
@@ -534,6 +535,9 @@ jobs:
 ```
 
 > **Tip:** If your addons have no third-party dependencies, you can omit the "Add dependencies" step and the `odoo_requirements.txt` file.
+
+> **Note:** These examples (and the GitLab CI ones below) use `postgres:15`. Odoo 20 needs
+> PostgreSQL 16 or newer — use `postgres:16` or later for it.
 
 ---
 

@@ -6,6 +6,10 @@ print actual documentation on the command.
 Thus, if you want to get most complete and actual documentation on particular command,
 just call if with `-h` option.
 
+Commands act on the project found from the current directory. To target another one, pass
+`-c <path to odood.yml or its directory>` before the command name — see
+[Working with Multiple Instances](./multiple-instances.md#switching-between-instances).
+
 ### Server management
 - `odood start` - start odoo server
 - `odood restart` - restart odoo server
@@ -44,17 +48,29 @@ Thus following commands are used to deal with it:
 - `odood pre-commit init` - Initialize pre-commit for repository. Create default pre-commit configurations.
 - `odood pre-commit set-up` - Install pre-commit and all necessary dependencies in virtualenv.
 - `odood pre-commit run` - Run pre-commit hooks for this repo manually.
+- `odood pre-commit update` - Update the hook versions in the repo's pre-commit config (`pre-commit autoupdate`).
 
 ### Repository management
 - `odood repo list` - list git repositories of this project with branch and addon count
 - `odood repo add <url>` - fetch repository with third-party addons from git repo specified by `url`. Local repositories are supported via `file://` URLs with absolute paths (for example `file:///data/repos/my-addons`) - useful for local mirrors or pre-fetched repositories in CI.
 - `odood repo add --oca <name>` - fetch OCA repository named `name` from OCA git repo. For example, `--oca web` means repo [web](https://github.com/OCA/web) from OCA.
 - `odood repo add --github <username/repository>` - shortcut to easily fetch repo from github, by specifying only github username and repo name. For example: `--github oca/web` means repo [web](https://github.com/OCA/web) from OCA.
+- `odood repo pull-all` - fast-forward all repositories to their upstreams and relink addons of the updated ones; ends with a summary of the repositories it did not pull.
 - `odood repo bump-versions` - increase versions of changed modules in git repo.
+- `odood repo check-versions` - check that changed addons have their versions bumped.
+- `odood repo ensure-changelog` - check that changed addons carry a changelog entry.
 - `odood repo release --initial` - create the first release tag (`<serie>.1.0.0`) for a repository with no prior tags.
 - `odood repo release` - auto-detect changed addons since the last tag, verify versions are bumped, and create the next release tag.
 - `odood repo release --changelog --push` - generate `CHANGELOG.md`, commit it, tag, and push branch + tag to origin.
 - `odood repo release --addons-list-md --addons-list-csv` - additionally generate `ADDONS.md` / `ADDONS.csv` listing the repository's addons.
+- `odood repo hotfix start|check|release` - patch releases on a dedicated hotfix branch: set it up from a release tag, check versions against its patch chain, release. See [Hotfix Flow](./release-management.md#hotfix-flow).
+
+### Scripts
+- `odood script list` - list scripts that can be run by name.
+- `odood script py -d my_db <script>` - run a Python script with the Odoo environment of *my\_db*.
+- `odood script sql -d my_db <script>` - run an SQL script on *my\_db*.
+
+See [Custom Scripts](./custom-scripts.md) for where scripts are looked up.
 
 ### Database management
 - `odood db list` - list all databases available for current odoo instance
@@ -84,3 +100,17 @@ Thus following commands are used to deal with it:
 - `odood venv ipython` - run ipython inside virtualenv of this instance.
 - `odood venv reinstall` - reinstall virtual environment.
 - `odood venv update-odoo` - update Odoo in this instance.
+
+### Exit codes for automation
+
+Scripts and CI can rely on these exit codes:
+
+- `odood repo pull-all` - `1` when a repository could not be fetched, has diverged from its
+  upstream, or its addons could not be linked. Skipped repositories (uncommitted changes, detached
+  HEAD, no upstream, upstream deleted on the remote) do not count.
+- `odood repo check-versions`, `odood repo hotfix check` - `1` when a changed addon has no version bump.
+- `odood repo ensure-changelog` - `1` when a required changelog entry is missing.
+- `odood repo release`, `odood repo hotfix release`, `odood assembly release` - `0` when there is
+  nothing to release; `1` with `--fail-nothing-to-release`.
+- `odood assembly sync` with `--commit` or `--push` - `0` when there is nothing to commit; `1` with
+  `--fail-nothing-to-commit`.

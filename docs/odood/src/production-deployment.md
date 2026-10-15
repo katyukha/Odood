@@ -23,7 +23,7 @@ Also, production installation expects that it is running on a clean system, and 
 - [certbot](https://certbot.eff.org/) - if you want to automatically generate [Let's Encrypt](https://letsencrypt.org/) certificates.
 - [fail2ban](https://github.com/fail2ban/fail2ban) [Optional] - if you want to automatically block incorrect logins by IP. In this case Odood will automatically generate configs for `fail2ban`.
 
-On *Ubuntu 24.04* the required dependencies can be installed via:
+On *Ubuntu 24.04* or *26.04* the required dependencies can be installed via:
 
 ```bash
 sudo apt install postgresql nginx certbot
@@ -146,7 +146,8 @@ sudo odood db backup -a
 # 2. Update Odoo itself to the latest revision of the current series
 sudo odood venv update-odoo
 
-# 3. Pull latest changes from all third-party repositories
+# 3. Pull latest changes from all third-party repositories;
+#    stop here if it reports failures (non-zero exit code)
 sudo odood repo pull-all
 
 # 4. Refresh the addon list and update addons in all databases
@@ -154,7 +155,9 @@ sudo odood addons update-list -a
 sudo odood addons update --dir custom_addons
 ```
 
-For more details on upgrade scenarios see [Upgrading Odoo](./upgrading.md).
+`repo pull-all` only fast-forwards and relinks the addons of the repositories it updated — see
+[Upgrading Odoo](./upgrading.md#without-assembly) for what it skips and reports, and for other
+upgrade scenarios.
 
 ## Complete sample: Public server
 
@@ -164,7 +167,7 @@ This sample assumes that you have control over your domain and have already poin
 
 **Note**: update the wkhtmltopdf command below to match your architecture.
 
-Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04**:
+Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04 or 26.04**:
 
 ```bash
 sudo apt-get update -yq    # update list of packages
@@ -201,7 +204,7 @@ The following list of commands will install Odoo with configured nginx and postg
 
 This sample assumes that you have already generated the self-signed certificates.
 
-Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04**:
+Run the following commands to get a complete production-ready Odoo installation on **Ubuntu 24.04 or 26.04**:
 
 ```bash
 sudo apt-get update -yq    # update list of packages

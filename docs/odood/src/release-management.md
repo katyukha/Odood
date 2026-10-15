@@ -175,6 +175,10 @@ odood repo release --changelog --push
 > the command requires the current branch to match the stable series branch
 > (e.g. `18.0`). This prevents accidentally tagging from a feature branch. The
 > guard does not apply to `--patch`, which is a conscious, explicit choice.
+>
+> On the stable branch, `--push` is also refused when the local branch is behind
+> `origin/<serie>` — pull first. Without `--push` this is only a warning that the
+> release will not cover those commits.
 
 Override the auto-detected bump level when needed:
 
@@ -196,7 +200,18 @@ odood repo release --patch   # force Z bump (mainline patch release)
 When nothing changed since the last tag, `release` exits successfully without
 creating a tag. In automation, add `--fail-nothing-to-release` to exit with
 code `1` instead — handy for gating downstream steps that should only run when a
-release was actually cut. (`hotfix release` accepts the same flag.)
+release was actually cut (see [exit codes](./frequently-used-commands.md#exit-codes-for-automation)).
+
+Other options, accepted by `hotfix release` as well:
+
+- `-n` / `--dry-run` — show the version that would be released, without
+  committing, tagging or pushing; with `--changelog`, also print the changelog
+  preview.
+- `--commit-message`, `--commit-user`, `--commit-email` — message (default
+  `Release <version>`) and author of the release-artifacts commit, e.g. for a CI
+  bot.
+- `--fail-nothing-to-release`, `--ignore-translations` — as described above and
+  in [Addon versions](#addon-versions).
 
 ### First release
 
@@ -206,9 +221,10 @@ The first release of a repository that has never been tagged is `--initial`:
 odood repo release --initial
 ```
 
-This creates tag `<serie>.1.0.0` without inspecting addon changes. Later
-releases compare against and bump from the latest tag, so they land **above**
-`<serie>.1.0.0` (e.g. `<serie>.1.1.0` for a minor bump).
+This creates tag `<serie>.1.0.0` without inspecting addon changes, so it
+refuses `--changelog` and the bump flags; with `--push` it pushes only the tag.
+Later releases compare against and bump from the latest tag, so they land
+**above** `<serie>.1.0.0` (e.g. `<serie>.1.1.0` for a minor bump).
 
 Without any tag, a plain `release` compares against `origin/<serie>` instead: on
 a stable branch in sync with origin it finds nothing to release.
