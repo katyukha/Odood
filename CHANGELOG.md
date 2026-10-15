@@ -64,6 +64,9 @@
   up to Odoo 18 and rejected by Odoo 19), and `--demo` loads demo data on
   Odoo 19+.
 - Odoo 19+: `--without-demo=all`, which 19.0 warns about, is no longer passed.
+- `odood test` script hooks (`--script-after-install`/`--script-after-migration`)
+  find scripts in `.odood-scripts/` of the repository enclosing the current
+  directory, as `odood script` does, not only in migration mode.
 
 ---
 

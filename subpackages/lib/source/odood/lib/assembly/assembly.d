@@ -695,15 +695,6 @@ class Assembly {
         generateDockerfile(current.isNull ? "" : current.get.toString);
     }
 
-    /** Synchronize assembly (sources and addons)
-      *
-      * Update assembly addons from recent versiones from specified git sources
-      *
-      * Params:
-      *     generate_lock = if set, generate requirements.lock.txt after syncing
-      *     with_odoo_requirements = if set, include Odoo's requirements.txt
-      *         when generating lock file
-      **/
     /** Fetch sources and assemble addons into `dist_dir`.
       *
       * Project-free packaging step: validates the spec, fetches sources, and

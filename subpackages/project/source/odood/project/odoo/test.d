@@ -889,17 +889,20 @@ struct OdooTestRunner {
 
     /** Resolve a script reference to an existing file path.
       *
-      * Delegates to resolveScriptPath. In migration mode the migration repo is
-      * passed as the repo to search `.odood-scripts/` in, so resolution happens
-      * at call time and a repo-local script reflects whichever ref is currently
-      * checked out (old version after install, new version after migration).
+      * Delegates to resolveScriptPath. In migration mode `.odood-scripts/` is
+      * taken from the migration repo, so resolution happens at call time and a
+      * repo-local script reflects whichever ref is currently checked out (old
+      * version after install, new version after migration). Otherwise it is
+      * taken from the repository enclosing the current directory, as
+      * `odood script` does.
       **/
     private Path resolveScript(in string script) {
         import odood.project.odoo.script: resolveScriptPath;
-        Nullable!Path repo_path;
         if (_test_migration && _test_migration_repo !is null)
-            repo_path = Path(_test_migration_repo.path.toString);
-        return resolveScriptPath(_project, script, repo_path);
+            return resolveScriptPath(
+                _project, script,
+                Path(_test_migration_repo.path.toString).nullable);
+        return resolveScriptPath(_project, script);
     }
 
     /** Resolve and run a single script against the test database, dispatching
