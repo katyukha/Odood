@@ -148,15 +148,17 @@ private Nullable!ScriptType scriptType(in Path path) {
 
 /// Find supported scripts directly inside a directory, sorted by name.
 private OdoodScript[] scanScriptDir(in Path directory) {
-    if (!directory.exists || !directory.isDir)
+    // Symlinks are followed: a dangling one is neither a script nor a script
+    // directory, and `isFile`/`isDir` would throw on it.
+    if (!directory.exists(followSymlink: true) || !directory.isDir)
         return [];
 
     OdoodScript[] result;
     foreach(path; directory.walk(SpanMode.shallow)) {
-        if (!path.isFile)
-            continue;
         auto type = path.scriptType;
         if (type.isNull)
+            continue;
+        if (!path.exists(followSymlink: true) || !path.isFile)
             continue;
         result ~= OdoodScript(path.baseName, path, type.get, false);
     }
@@ -238,6 +240,9 @@ unittest {
     // Neither a supported script type nor a file → both skipped.
     repo_scripts.join("README.md").writeFile("");
     repo_scripts.join("helpers").mkdir();
+    // A dangling symlink is skipped, not an error
+    version(Posix)
+        root.join("gone.py").symlink(repo_scripts.join("dangling.py"));
 
     auto project_scripts = root.join("scripts");
     project_scripts.mkdir(true);
@@ -259,6 +264,13 @@ unittest {
     groups[1].scripts.map!(s => s.name).array.should == [
         "cleanup.sql", "recompute_totals.py"];
     groups[1].scripts.map!(s => s.shadowed).array.should == [false, true];
+
+    // A scripts directory that does not resolve yields an empty group
+    version(Posix) {
+        repo_scripts.remove();
+        root.join("gone").symlink(repo_scripts);
+        listScripts(project, repo_path.nullable)[0].scripts.length.should == 0;
+    }
 
     // Directories that do not exist yield empty groups, and without a
     // repository there is no repository group at all.
