@@ -382,6 +382,48 @@ void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
+/// Test regeneration of translations
+void testTranslationsRegenerate(in Project project) {
+    infof("Testing translations regeneration for %s", project);
+
+    // Regeneration writes into the addon, thus work on a copy of it
+    auto repo_path = project.project_root.join("test-tr-repo");
+    Path("test-data", "test_tr_addon").copyTo(repo_path.join("test_tr_addon"));
+    project.addons.link(repo_path);
+    scope(exit) {
+        project.directories.addons.join("test_tr_addon").remove();
+        repo_path.remove();
+    }
+    auto i18n_dir = repo_path.join("test_tr_addon", "i18n");
+    auto uk_po = i18n_dir.join("uk.po");
+
+    runOdoodCLI(
+        project, "translations", "regenerate",
+        "--pot", "--lang", "uk_UA", "test_tr_addon").shouldEqual(0);
+    i18n_dir.join("test_tr_addon.pot").readFileText
+        .canFind(`msgid "Odood test label"`).shouldBeTrue;
+    uk_po.readFileText.canFind(`msgid "Odood test label"`).shouldBeTrue;
+
+    // Translate a term, then update from the regenerated .pot file. The
+    // addon did not change, thus the translation is kept and the terms are
+    // written exactly as Odoo exported them. The header holds generation
+    // dates, thus only the terms are compared.
+    uk_po.writeFile(uk_po.readFileText.replace(
+        "msgid \"Odood test label\"\nmsgstr \"\"",
+        "msgid \"Odood test label\"\nmsgstr \"Тестова мітка\""));
+    immutable translated = uk_po.readFileText;
+    translated.canFind(`msgstr "Тестова мітка"`).shouldBeTrue;
+
+    runOdoodCLI(
+        project, "translations", "regenerate",
+        "--pot-update", "--missing-only", "--lang", "uk_UA",
+        "test_tr_addon").shouldEqual(0);
+    uk_po.readFileText.findSplitAfter("\n\n")[1].shouldEqual(
+        translated.findSplitAfter("\n\n")[1]);
+
+    infof("Testing translations regeneration for %s. Complete: Ok.", project);
+}
+
 /** Test Assembly functionality
   *
   * Currently this is minimal test, to ensure basic mechanics just works (not fail)
@@ -685,6 +727,8 @@ unittest {
 
     // Test running scripts
     testRunningScripts(project, "o20");
+
+    testTranslationsRegenerate(project);
 }
 
 @("Basic Test Odoo 19")
@@ -717,6 +761,8 @@ unittest {
 
     // Run basic tests
     project.runBasicTests("o19");
+
+    testTranslationsRegenerate(project);
 }
 
 @("Basic Test Odoo 18")
@@ -749,6 +795,9 @@ unittest {
 
     // Run basic tests
     project.runBasicTests("o18");
+
+    // Odoo 18 covers the export through server options, used up to 18
+    testTranslationsRegenerate(project);
 }
 
 @("Basic Test Odoo 17")

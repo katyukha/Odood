@@ -41,6 +41,7 @@ jobs:
           brew install libpq
           brew install postgresql@16
           brew install python@3.13
+          brew install gettext
           echo "$(brew --prefix postgresql@16)/bin" >> $GITHUB_PATH
 
       - name: PyEnv - Install

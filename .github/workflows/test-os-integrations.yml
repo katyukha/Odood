@@ -101,8 +101,8 @@ jobs:
       - name: Update apt registry
         run: apt-get update
 
-      - name: Install system dependencies (postgresql)
-        run: apt-get install --no-install-recommends -yq postgresql sudo
+      - name: Install system dependencies (postgresql, gettext)
+        run: apt-get install --no-install-recommends -yq postgresql sudo gettext
 
       - name: Install package dependencies
         run: apt-get install --no-install-recommends -yq $(cat build/deb-dependencies.txt)
