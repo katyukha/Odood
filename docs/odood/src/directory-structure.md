@@ -41,12 +41,12 @@ This design keeps the addon namespace flat (Odoo doesn't need to traverse nested
 directories) while keeping the source repos isolated and easy to update with `git pull`.
 
 If the symlinks ever get out of sync — for example after manually editing a repo or
-changing which addons it exposes — run:
+changing which addons it exposes — relink the repositories from the project root:
 
 ```bash
-odood addons link .
+odood addons link -r repositories
 ```
 
-This rebuilds all symlinks in `custom_addons/` to match the current state of all
-repositories.
+This links every addon found in `repositories/`. Links to addons that no longer
+exist are not removed.
 

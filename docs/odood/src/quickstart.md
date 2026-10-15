@@ -103,9 +103,9 @@ git pull
 # Relink addons (handles new addons and new Python dependencies)
 odood addons link .
 
-# Update all modules in this directory for all databases
+# Update the modules in this directory for all databases
 # (stops Odoo automatically before update, starts again after)
-odood addons update -a --ual --dir .
+odood addons update --ual --dir .
 ```
 
 ## Running tests

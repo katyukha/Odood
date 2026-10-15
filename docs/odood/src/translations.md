@@ -61,8 +61,8 @@ odood translations regenerate \
     --addon-dir .
 ```
 
-- `--pot` regenerates the `.pot` from the current source.
-- `--pot-update` merges the updated `.pot` into each `.po` file.
+- `--pot` regenerates the `.pot` from the current source (`--pot-update` does too).
+- `--pot-update` with `--missing-only` merges the updated `.pot` into each existing `.po` file.
 - `--missing-only` preserves existing `msgstr` values — only new strings get empty entries appended.
 
 Odood automatically runs `msguniq` before the merge to eliminate duplicate `msgid` entries that
@@ -111,9 +111,9 @@ odood translations regenerate \
 | Flag | Description |
 |---|---|
 | `--pot` | Regenerate the `.pot` template file from the installed addon. |
-| `--pot-update` | Merge the `.pot` into existing `.po` files with `msgmerge`. |
+| `--pot-update` | Regenerate the `.pot`, and with `--missing-only` merge it into existing `.po` files with `msgmerge`. Without `--missing-only`, `.po` files are re-exported from the database. |
 | `--missing-only` | Skip `.po` files that already exist unless `--pot-update` is also set; preserves existing `msgstr` values on merge. |
-| `--pot-remove-dates` | Strip `POT-Creation-Date` and `PO-Revision-Date` headers. Recommended: reduces noise in git diffs. |
+| `--pot-remove-dates` | Remove dates from the generated `.pot` file. Recommended: reduces noise in git diffs. |
 | `-l <lang>` | Language code in `ll_CC` format (e.g. `uk_UA`). The file is named after the language prefix (`uk.po`). Repeatable. |
 | `--lang-file <lang:file>` | Explicit `language:filename` mapping (e.g. `zh_TW:zh_Traditional`). Repeatable. |
 | `--addon-dir <path>` | Scan `<path>` (non-recursively) for installable linked addons. Repeatable. |

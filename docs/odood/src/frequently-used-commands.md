@@ -59,7 +59,7 @@ Thus following commands are used to deal with it:
 ### Database management
 - `odood db list` - list all databases available for current odoo instance
 - `odood db create my_db` - create database
-- `odood db backup -d my_db` - backup *my\_db*
+- `odood db backup my_db` - backup *my\_db*
 - `odood db backup -a` - backup all databases on the server
 - `odood db drop my_db` - drop database
 - `odood db restore my_db path/to/backup` - restore database from backup

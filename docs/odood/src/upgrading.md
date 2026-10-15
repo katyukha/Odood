@@ -11,7 +11,7 @@ Always back up your databases before any upgrade or configuration change:
 odood db backup -a
 
 # Or back up a single database
-odood db backup -d mydb
+odood db backup mydb
 ```
 
 On a production server, prefix with `sudo`.
@@ -24,8 +24,8 @@ To update Odoo to the latest available revision of the current series (e.g., 18.
 odood venv update-odoo
 ```
 
-This works for both archive-based and git-based installations.
-After updating Odoo, restart the server and update your installed addons (see below).
+This works for both archive-based and git-based installations. A running server is stopped
+for the update and started again afterwards. Then update your installed addons (see below).
 
 On a production server:
 

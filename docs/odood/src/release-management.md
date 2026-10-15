@@ -117,6 +117,15 @@ correct.
 `odood repo release` re-verifies this internally as a safety gate, but in normal
 practice the gate is always clear by release time.
 
+**Translations.** By default a change to an addon's `.po`/`.pot` files counts as
+an addon change: it needs a version bump and is part of the next release. With
+`--ignore-translations`, translation files are skipped: translation-only changes
+need no bump and do not trigger a release on their own. Either choice works, but
+use it consistently — `check-versions` in CI, `release`, `hotfix check` and
+`hotfix release` must agree. If CI ignores translations and `release` does not,
+the release fails with `Version check failed before release` on translation-only
+changes CI let through.
+
 Addon version bump semantics (when to bump `X` vs `Y` vs `Z` within an addon) are
 a separate topic and are not covered here.
 
@@ -191,16 +200,18 @@ release was actually cut. (`hotfix release` accepts the same flag.)
 
 ### First release
 
-For a repository that has never been tagged:
+The first release of a repository that has never been tagged is `--initial`:
 
 ```bash
 odood repo release --initial
 ```
 
-This creates tag `<serie>.1.0.0` without inspecting addon changes. The first
-*non-`--initial`* release bootstraps from `<serie>.1.0.0` and then applies the
-bump, so it lands **above** `<serie>.1.0.0` (e.g. `<serie>.1.1.0` for a minor
-bump) — never `<serie>.1.0.0` itself.
+This creates tag `<serie>.1.0.0` without inspecting addon changes. Later
+releases compare against and bump from the latest tag, so they land **above**
+`<serie>.1.0.0` (e.g. `<serie>.1.1.0` for a minor bump).
+
+Without any tag, a plain `release` compares against `origin/<serie>` instead: on
+a stable branch in sync with origin it finds nothing to release.
 
 ---
 
@@ -264,7 +275,7 @@ The entire hotfix lifecycle lives under the `odood repo hotfix` command group
    Optionally preview the check before releasing — run from the hotfix branch:
 
    ```bash
-   odood repo hotfix check --ignore-translations
+   odood repo hotfix check
    ```
 
    This compares against the latest tag in the branch's patch chain — exactly
@@ -324,8 +335,7 @@ A few sharp edges worth knowing:
 
 - **The patch chain is a tag namespace, not a single branch.** `release --patch`
   patches the latest serie release; `hotfix release` patches the chain its branch
-  is based on (`getLatestPatch` picks the chain's highest tag, so it always counts
-  up). When both target the same `A.B.X.Y` chain, their `Z` numbers interleave
+  is based on (it bumps from the chain's highest tag, so it always counts up). When both target the same `A.B.X.Y` chain, their `Z` numbers interleave
   across divergent commits — a mainline patch may take `18.0.2.1.1`, then a hotfix
   on the same primary becomes `18.0.2.1.2` on a different commit. Tags never
   collide, but read the chain as "all patches built on the `X.Y` release", not as
@@ -347,7 +357,7 @@ A few sharp edges worth knowing:
 Before releasing, you can preview exactly what `odood repo release` will verify:
 
 ```bash
-odood repo check-versions --since-last-release --ignore-translations
+odood repo check-versions --since-last-release
 ```
 
 `check-versions` chooses its comparison baseline from the flags:
@@ -391,7 +401,7 @@ jobs:
         run: git config --global --add safe.directory "$(pwd)"
 
       - name: Check addon versions
-        run: odood repo check-versions --ignore-translations
+        run: odood repo check-versions
 ```
 
 ### GitLab CI
@@ -402,7 +412,7 @@ check_addon_versions:
   before_script:
     - git config --global --add safe.directory "$(pwd)"
   script:
-    - odood repo check-versions --ignore-translations
+    - odood repo check-versions
   only:
     - merge_requests
 ```

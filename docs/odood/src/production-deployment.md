@@ -96,7 +96,7 @@ Odood stores backups in the `backups/` directory of the installation.
 
 ```bash
 # Backup a single database
-sudo odood db backup -d mydb
+sudo odood db backup mydb
 
 # Backup all databases on this instance
 sudo odood db backup -a
@@ -107,14 +107,13 @@ It is good practice to back up before any upgrade or configuration change.
 ### Restoring from backup
 
 ```bash
-sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+sudo odood db restore mydb /opt/odoo/backups/db-backup-mydb-2025-01-15-143002.a1b2.zip
 ```
 
-If the target database already exists, drop it first:
+To replace an existing database, add `-r` (`--recreate`):
 
 ```bash
-sudo odood db drop mydb
-sudo odood db restore mydb /path/to/odood/backups/mydb-2025-01-15.zip
+sudo odood db restore -r mydb /opt/odoo/backups/db-backup-mydb-2025-01-15-143002.a1b2.zip
 ```
 
 ## Upgrading
@@ -127,12 +126,14 @@ If the server is configured to use [Assembly](./assembly.md), a single command h
 sudo odood assembly upgrade --backup
 ```
 
-This will automatically:
-1. Back up all databases
-2. Pull the latest assembly changes
+This will:
+1. Back up all databases (`--backup`)
+2. Pull the latest assembly changes — fast-forward only, so it fails on local changes or a diverged branch
 3. Relink addons
-4. Update all addons in all databases
-5. Restart the server
+4. Stop the server if it is running, then refresh the addon list and update the assembly's addons in every database
+5. Start the server again if it was running (or with `--start`)
+
+If an update fails, the command stops and leaves the server stopped; `--skip-errors` continues with the remaining databases instead.
 
 ### Upgrading without assembly
 
@@ -149,7 +150,7 @@ sudo odood venv update-odoo
 sudo odood repo pull-all
 
 # 4. Refresh the addon list and update addons in all databases
-sudo odood addons update-list
+sudo odood addons update-list -a
 sudo odood addons update --dir custom_addons
 ```
 

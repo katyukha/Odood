@@ -25,7 +25,7 @@ On macOS, use [pyenv](https://github.com/pyenv/pyenv) to manage the Python versi
 Pass `--pyenv` when creating a new project so Odood installs and configures the right Python version automatically:
 
 ```bash
-odood init -v 18 --pyenv
+odood init -i odoo-18 -v 18 --pyenv
 ```
 
 Missing system dependencies (PostgreSQL client libraries, etc.) need to be installed manually.

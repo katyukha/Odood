@@ -79,9 +79,9 @@ Developers who prefer SSH can configure git's `url.insteadOf` globally — see
 |-------|----------|---------|-------------|
 | `url` / `github` / `oca` / `crnd` | yes | — | Git repository URL (see shortcuts above). |
 | `name` | no | `null` | Identifier for this source. Used to bind addons via `source:` and as the credential lookup key for private repos. |
-| `ref` | no | `null` | Branch or tag to clone/fetch. Alias: `branch` (deprecated). |
+| `ref` | no | project's Odoo serie branch (e.g. `18.0`) | Branch or tag to clone/fetch. Alias: `branch` (deprecated). |
 | `commit` | no | `null` | Commit hash to check out after fetching `ref`. Minimum 12 hex characters. Requires `ref` to be set. |
-| `access-group` | no | `null` | Credential group name for private repos. Overrides `name` for credential lookup. See [Private git sources](./assembly.md#private-git-sources). |
+| `access-group` | no | `null` | Credential group name for private repos, used when no credentials are set for `name`. See [Private git sources](./assembly.md#private-git-sources). |
 | `no-search` | no | `false` | When `true`, Odood will not auto-search this source for addons. The source is still used when an addon explicitly binds to it via `source:`. |
 
 ---

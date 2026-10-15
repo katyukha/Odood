@@ -157,8 +157,9 @@ odood script py -d mydb generate_partners.py
 ODOOD_SCRIPT_PARTNER_COUNT=500 odood script py -d mydb generate_partners.py
 ```
 
-If you keep the script in `<repo>/.odood-scripts/` or `<project>/scripts/`, you
-can refer to it by name from anywhere in the project.
+If you keep the script in `<project>/scripts/`, you can refer to it by name from
+anywhere in the project. A script in `<repo>/.odood-scripts/` is found by name only when you run
+`odood script` from inside that repository.
 
 ## Using scripts during tests
 

@@ -146,8 +146,8 @@ Rather than editing `__manifest__.py` files by hand, you can let Odood bump vers
 odood repo bump-versions
 ```
 
-This inspects the git diff, identifies which modules have changed, and increments their patch version (`Z`).
-Run it inside the repository directory before committing. For minor or major bumps, adjust the version manually afterwards.
+This inspects the git diff, identifies which modules have changed, and increments their patch version (`Z`),
+or the minor/major one with `--minor`/`--major`. Run it inside the repository directory before committing.
 
 Odood also enforces that every changed module has its version bumped via `odood repo check-versions`.
 
@@ -156,10 +156,11 @@ Odood also enforces that every changed module has its version bumped via `odood 
 Before pushing, verify that all modified modules have their versions bumped:
 
 ```bash
-odood repo check-versions --ignore-translations
+odood repo check-versions
 ```
 
-The `--ignore-translations` flag prevents translation-only commits from triggering a version bump requirement.
+With `--ignore-translations`, translation-only changes need no version bump. If you use it, use it for
+`odood repo release` too (see [Release Management](./release-management.md#addon-versions)).
 
 To run pre-commit hooks (linters, formatters, etc.) locally:
 
@@ -167,7 +168,7 @@ To run pre-commit hooks (linters, formatters, etc.) locally:
 # First-time setup — installs pre-commit and all hooks into the virtualenv:
 odood pre-commit set-up
 
-# Run hooks manually against all staged files:
+# Run hooks manually against all files:
 odood pre-commit run
 ```
 
@@ -446,7 +447,7 @@ jobs:
         run: odood --config-from-env addons add --single-branch --odoo-requirements ./odoo_requirements.txt
 
       - name: Check versions
-        run: odood --config-from-env repo check-versions --ignore-translations
+        run: odood --config-from-env repo check-versions
 
       - name: Install pre-commit
         run: odood --config-from-env pre-commit set-up
@@ -572,7 +573,7 @@ lint:
   extends: .setup
   stage: lint
   script:
-    - odood --config-from-env repo check-versions --ignore-translations
+    - odood --config-from-env repo check-versions
     - odood --config-from-env pre-commit set-up
     - odood --config-from-env pre-commit run
 
