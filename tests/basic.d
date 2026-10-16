@@ -1021,7 +1021,8 @@ unittest {
     project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Reinstall Odoo to version 17
-    project.reinstallOdoo(OdooSerie(17), true);
+    project.reinstallOdoo(
+        OdooSerie(17), project.odoo_install_type, OdooSerie(17).getVenvOptions);
 
     // Test project after Odoo reinstalled to version 17
     project.project_root.shouldEqual(temp_path);
