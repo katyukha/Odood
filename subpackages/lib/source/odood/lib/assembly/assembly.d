@@ -60,21 +60,32 @@ class Assembly {
     private OdooSerie _serie;      // target Odoo serie
     private AssemblySourceProviderInterface _source_provider;  // materializes sources/addons
     private AddonRepository _repo = null;
+    private const string[string] _git_env;  // applied to git operations on the assembly repo
 
+    /** Params:
+      *     git_env = additional environment variables for every git operation
+      *         on the assembly's own repository (credentials, commit identity),
+      *         as GitRepository takes them. Sources use their own credentials.
+      **/
     this(in Path path, AssemblySpec spec, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         _serie = serie;
         _source_provider = source_provider;
         _spec = spec;
         _path = path;
+        _git_env = git_env.dup;
     }
 
+    /// ditto
     this(in Path path, in Node yaml_data, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         _serie = serie;
         _source_provider = source_provider;
         _path = path;
         _spec = AssemblySpec(yaml_data);
+        _git_env = git_env.dup;
     }
 
     /// Spec for this assembly
@@ -114,7 +125,7 @@ class Assembly {
             enforce!OdoodAssemblyException(
                 isGitRepo(_path),
                 "This assembly does not have initialized git repo!");
-            _repo = new AddonRepository(_path);
+            _repo = new AddonRepository(_path, _git_env);
         }
         return _repo;
     }
@@ -122,20 +133,21 @@ class Assembly {
     /** Initialize git repository for this assembly
       **/
     private void initializeRepo() {
-        _repo = new AddonRepository(GitRepository.initialize(_path));
+        _repo = new AddonRepository(GitRepository.initialize(_path, _git_env));
     }
 
     /** Try to load asembly spec from specified location
       **/
     static Assembly maybeLoad(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         if (path.exists && path.isFile) {
             dyaml.Node assembly_spec = dyaml.Loader.fromFile(path.toString()).load();
-            return new Assembly(path.parent, assembly_spec, serie, source_provider);
+            return new Assembly(path.parent, assembly_spec, serie, source_provider, git_env);
         } else if (path.exists && path.isDir && path.join("odood-assembly.yml").exists) {
             auto load_path = path.join("odood-assembly.yml");
             Node assembly_spec = dyaml.Loader.fromFile(load_path.toString()).load();
-            return new Assembly(path, assembly_spec, serie, source_provider);
+            return new Assembly(path, assembly_spec, serie, source_provider, git_env);
         }
         return null;
     }
@@ -143,8 +155,9 @@ class Assembly {
     /** Load assembly spec from specified path
       **/
     static Assembly load(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
-        auto assembly = maybeLoad(path, serie, source_provider);
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
+        auto assembly = maybeLoad(path, serie, source_provider, git_env);
         enforce!OdoodAssemblyException(
             assembly !is null,
             "Cannot find and load Odood Assembly config at %s!".format(path));
@@ -174,9 +187,10 @@ class Assembly {
     /** Initialize new assembly
       **/
     static Assembly initialize(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider);
+        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider, git_env);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -193,16 +207,18 @@ class Assembly {
 
     /// ditto
     static Assembly initialize(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider, in GitURL git_url) {
+            AssemblySourceProviderInterface source_provider, in GitURL git_url,
+            in string[string] git_env=null) {
         auto repo = gitClone(
                 repo: git_url,
                 dest: path,
                 branch: serie.toString,  // Assembly repo must conform branch naming standards
+                env: git_env,
         );
         enforce!OdoodAssemblyException(
             repo.path.join("odood-assembly.yml").exists,
             "Cannot find assembly config in this repo (%s)".format(git_url.toString));
-        return load(repo.path, serie, source_provider);
+        return load(repo.path, serie, source_provider, git_env);
     }
 
     /** Scan sources for available addons.
@@ -1124,4 +1140,53 @@ unittest {
     assembly.repo.add(Path("notes.txt"));
     assembly.repo.commit("Add notes");
     assembly.releasedAtHead.isNull.shouldBeTrue;
+}
+
+
+// The git env reaches the git operations on the assembly's own repository,
+// whichever way the assembly was obtained.
+unittest {
+    import std.string: strip;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto provider = new TestSourceProvider(root.join("fake-source"));
+    auto assembly_path = root.join("assembly");
+    assembly_path.mkdir(true);
+
+    string[string] identity(in string name) {
+        return [
+            "GIT_AUTHOR_NAME": name,
+            "GIT_AUTHOR_EMAIL": name ~ "@example.test",
+            "GIT_COMMITTER_NAME": name,
+            "GIT_COMMITTER_EMAIL": name ~ "@example.test",
+        ];
+    }
+    string commitNotes(Assembly assembly) {
+        // Content differs per checkout, so the clone has a change to commit too
+        assembly.path.join("notes.txt").writeFile(assembly.path.toString);
+        assembly.repo.add(Path("notes.txt"));
+        assembly.repo.commit("Add notes");
+        return assembly.repo.gitCmd
+            .withArgs("log", "-1", "--format=%an")
+            .execute.ensureOk(true).output.strip;
+    }
+
+    auto created = Assembly.initialize(
+        assembly_path, OdooSerie("17.0"), provider, identity("creator"));
+    created.repo.gitCmd
+        .withArgs("log", "-1", "--format=%an")
+        .execute.ensureOk(true).output.strip.should == "creator";
+
+    auto loaded = Assembly.load(
+        assembly_path, OdooSerie("17.0"), provider, identity("loader"));
+    commitNotes(loaded).should == "loader";
+
+    auto cloned = Assembly.initialize(
+        root.join("clone"), OdooSerie("17.0"), provider,
+        GitURL(assembly_path), identity("cloner"));
+    commitNotes(cloned).should == "cloner";
 }

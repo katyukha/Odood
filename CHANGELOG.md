@@ -18,6 +18,10 @@
   `CHANGELOG.md` under `## Unreleased`; the next release replaces that
   section. `odood assembly release --dry-run --changelog` prints it instead.
 - Odoo 20.0 support (system Python 3.12-3.14).
+- Library API: `Assembly` constructors, `load`, `maybeLoad` and `initialize`
+  take an optional `git_env`, applied to git operations on the assembly's own
+  repository (credentials, commit identity). `GitRepository.initialize` takes
+  `env` too.
 
 ### Changed
 
@@ -67,6 +71,12 @@
 - `odood test` script hooks (`--script-after-install`/`--script-after-migration`)
   find scripts in `.odood-scripts/` of the repository enclosing the current
   directory, as `odood script` does, not only in migration mode.
+- An addon manifest that cannot be parsed is reported as an error naming the
+  file, instead of reading as version `1.0` with an empty name.
+- The Python library used to parse addon manifests is also found as
+  `libpython3.X.so.1.0`, so `libpython3.X-dev` is not needed for it.
+- Library API: `new AddonRepository(git_repo)` keeps the git environment of
+  `git_repo`.
 
 ---
 

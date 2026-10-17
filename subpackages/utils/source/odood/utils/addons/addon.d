@@ -13,6 +13,7 @@ private import std.range: empty;
 private import thepath: Path;
 private import versioned: Version;
 
+private import odood.exception: OdoodException;
 private import odood.utils.addons.addon_changelog;
 private import odood.utils.addons.addon_manifest;
 
@@ -26,7 +27,8 @@ final class OdooAddon {
     private immutable string _name;
     private immutable Path _path;
     private immutable Path _manifest_path;
-    private Nullable!OdooAddonManifest _manifest;
+    private OdooAddonManifest _manifest;
+    private Exception _manifest_error;  // set when the manifest could not be parsed
 
     @disable this();
 
@@ -40,7 +42,10 @@ final class OdooAddon {
         _path = path.toAbsolute;
         _name = _path.baseName;
         _manifest_path = getAddonManifestPath(_path).get;
-        _manifest = tryParseOdooManifest(_manifest_path);
+        try
+            _manifest = parseOdooManifest(_manifest_path);
+        catch (Exception e)
+            _manifest_error = e;
     }
 
     /// name of the addon
@@ -52,8 +57,17 @@ final class OdooAddon {
     /// path to addon's manifest
     auto manifest_path() const => _manifest_path;
 
-    /// module manifest
-    auto manifest() const => _manifest.get;
+    /** Module manifest.
+      *
+      * Throws: OdoodException if the manifest could not be parsed (including
+      *     when the python runtime used to parse it cannot be loaded).
+      **/
+    auto manifest() const {
+        enforce!OdoodException(
+            _manifest_error is null,
+            "Cannot parse manifest %s: %s".format(_manifest_path, _manifest_error.msg));
+        return _manifest;
+    }
 
     /// Addons are comparable by name
     pure nothrow int opCmp(in OdooAddon other) const {
@@ -162,6 +176,24 @@ unittest {
         "## Version 1.1.0\n\n" ~
         "Version 1.1.0\n\n"
     );
+}
+
+// An unparsable manifest is reported on access, not read as default values
+unittest {
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto addon_path = root.join("broken_addon");
+    addon_path.mkdir;
+    addon_path.join("__manifest__.py").writeFile("{'name': ");
+
+    // Scanning does not fail on it
+    auto addon = new OdooAddon(addon_path);
+    addon.manifest.shouldThrow!OdoodException.msg.startsWith(
+        "Cannot parse manifest %s: ".format(addon_path.join("__manifest__.py"))).shouldBeTrue;
 }
 
 /// Check if provided path is odoo module

@@ -95,7 +95,7 @@ class AddonRepository : GitRepository{
     @disable this();
 
     this(in GitRepository repo) {
-        super(repo.path);
+        super(repo.path, repo.env);
     }
 
     this(T...)(auto ref T args) {

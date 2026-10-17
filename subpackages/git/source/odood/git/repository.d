@@ -55,6 +55,9 @@ class GitRepository {
     /// Return path for this repo
     auto path() const => _path;
 
+    /// Additional environment variables applied to each git operation
+    auto env() const => _env;
+
     /// Make path relative to repo path
     private auto _makeRelPath(in Path path) const {
         if (path.isAbsolute)
@@ -79,12 +82,14 @@ class GitRepository {
       *
       * Params:
       *     path = path to directory where git repository have to be initialized.
+      *     env = additional environment variables for git operations
+      *           (see the constructor)
       *
       * Returns: GitRepository instance
       **/
-    static auto initialize(in Path path) {
-        gitProcess.withArgs("init", path.toString).execute.ensureOk(true);
-        return new GitRepository(path);
+    static auto initialize(in Path path, in string[string] env=null) {
+        gitProcess.withEnv(env).withArgs("init", path.toString).execute.ensureOk(true);
+        return new GitRepository(path, env);
     }
 
     /** Find the name of current git branch for this repo.
