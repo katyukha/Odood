@@ -1039,13 +1039,18 @@ unittest {
 
 // Unittests for virtualenvs.
 // Just test if it could build python with different configurations.
-@("Test virtualenv initializaton")
+@("Test virtualenv initialization (build)")
 unittest {
     import std.process;
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
     import odood.lib.python.venv;
     import versioned: Version;
+
+    if (environment.get("ODOOD_PREFER_PY_INSTALL", "build") != "build") {
+        info("Skipping python build tests: ODOOD_PREFER_PY_INSTALL is not 'build'");
+        return;
+    }
 
     auto save_env = environment.toAA;
     scope(exit) {
@@ -1089,6 +1094,35 @@ unittest {
         py_version: "3.10.16",
     ));
     venv3.py_version.shouldEqual(Version(3, 10, 16));
+}
+
+
+@("Test virtualenv initialization (pyenv)")
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import odood.lib.python.venv;
+    import odood.lib.python.odoo: suggestPythonVersion;
+    import versioned: Version;
+
+    if (environment.get("ODOOD_PREFER_PY_INSTALL", "") != "pyenv") {
+        info("Skipping pyenv tests: ODOOD_PREFER_PY_INSTALL is not 'pyenv'");
+        return;
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // The Odoo 17 tests install this version too, so pyenv builds no extra python.
+    immutable py_version = OdooSerie(17).suggestPythonVersion;
+
+    auto venv = VirtualEnv(root.join("venv"), PySerie.py3);
+    venv.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.PyEnv,
+        py_version: py_version,
+    ));
+    venv.py_version.shouldEqual(Version(py_version));
 }
 
 
