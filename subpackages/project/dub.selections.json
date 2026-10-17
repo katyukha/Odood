@@ -11,7 +11,7 @@
 		"dshould": "1.9.0",
 		"dyaml": "0.10.0",
 		"odood": {"path":"../../"},
-		"peque": "0.3.0",
+		"peque": "0.3.1",
 		"prettyprint": "1.0.9",
 		"requests": "2.2.1",
 		"test_allocator": "0.3.4",
