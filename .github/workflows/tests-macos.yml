@@ -11,8 +11,8 @@ jobs:
       matrix:
         dc: [ldc-1.42.0, ldc-latest]
         os:
-          - macOS-14
           - macOS-15
+          - macOS-26
         py_install_type:
           - "pyenv"
     env:
