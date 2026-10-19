@@ -691,7 +691,8 @@ class CommandRepositoryRelease: OdoodCommand {
             .acceptsDirectories();
         this.addFlag!(initial)("", "initial",
             "Create the first release for a repository with no prior tags "
-            ~ "at version <serie>.1.0.0. Skips change detection and version checking.");
+            ~ "at version <serie>.1.0.0, with every addon reported as added. "
+            ~ "Skips change detection and version checking.");
         this.addFlag!(major)("", "major", "Force a major version bump.");
         this.addFlag!(minor)("", "minor", "Force a minor version bump.");
         this.addFlag!(patch)("", "patch", "Force a patch version bump.");
@@ -749,28 +750,9 @@ class CommandRepositoryRelease: OdoodCommand {
                     serie_str);
         }
 
-        if (initial) {
-            enforce!OdoodCLIException(
-                !major && !minor && !patch,
-                "--major/--minor/--patch are not valid with --initial.");
-            enforce!OdoodCLIException(
-                !changelog,
-                "--changelog is not valid with --initial (no changes to report).");
-
-            auto new_version = repo.initialRelease(project.odoo.serie);
-            if (dryRun) {
-                infof("Would create tag: %s", new_version);
-                return 0;
-            }
-            repo.setTag(new_version.toString);
-            infof("Created tag: %s", new_version);
-
-            if (push) {
-                repo.pushTag(new_version.toString);
-                infof("Pushed tag to origin.");
-            }
-            return 0;
-        }
+        enforce!OdoodCLIException(
+            !initial || (!major && !minor && !patch),
+            "--major/--minor/--patch are not valid with --initial.");
 
         repo.fetchOrigin(serie_str);
 
@@ -800,10 +782,12 @@ class CommandRepositoryRelease: OdoodCommand {
         else if (patch)
             override_part = VersionPart.PATCH.nullable;
 
-        auto result = repo.prepareRelease(
-            serie: project.odoo.serie,
-            override_part: override_part,
-            ignore_translations: ignoreTranslations);
+        auto result = initial
+            ? repo.prepareInitialRelease(project.odoo.serie).nullable
+            : repo.prepareRelease(
+                serie: project.odoo.serie,
+                override_part: override_part,
+                ignore_translations: ignoreTranslations);
 
         if (result.isNull) {
             infof("Nothing to release: no changed addons detected.");

@@ -221,9 +221,10 @@ The first release of a repository that has never been tagged is `--initial`:
 odood repo release --initial
 ```
 
-This creates tag `<serie>.1.0.0` without inspecting addon changes, so it
-refuses `--changelog` and the bump flags; with `--push` it pushes only the tag.
-Later releases compare against and bump from the latest tag, so they land
+This creates tag `<serie>.1.0.0` without checking addon versions, and refuses
+the bump flags. With `--changelog`, the changelog lists every addon as added;
+the other options work as for any release. Later releases compare against and
+bump from the latest tag, so they land
 **above** `<serie>.1.0.0` (e.g. `<serie>.1.1.0` for a minor bump).
 
 Without any tag, a plain `release` compares against `origin/<serie>` instead: on

@@ -22,6 +22,9 @@
   take an optional `git_env`, applied to git operations on the assembly's own
   repository (credentials, commit identity). `GitRepository.initialize` takes
   `env` too.
+- `odood repo release --initial` accepts `--changelog` (every addon is listed
+  as added) and `--addons-list-md`/`--addons-list-csv`. Library API:
+  `AddonRepository.prepareInitialRelease`.
 
 ### Changed
 
@@ -47,6 +50,9 @@
   uncommitted changes or a diverged branch.
 - **Breaking:** `GitRepository.pull(prune, ff_only)` (both on by default)
   returns a `GitPullResult` instead of throwing; `ensureOk` makes it throw.
+- `odood repo release --initial` runs like any release: it fetches `origin`,
+  refuses `--push` when the branch is behind it, and with `--push` pushes the
+  branch as well as the tag.
 
 ### Fixed
 
@@ -77,6 +83,8 @@
   `libpython3.X.so.1.0`, so `libpython3.X-dev` is not needed for it.
 - Library API: `new AddonRepository(git_repo)` keeps the git environment of
   `git_repo`.
+- A failing Python script (`odood script py`, `odood test` script hooks) is
+  reported with its exit code, instead of `Orphan format specifier`.
 
 ---
 
