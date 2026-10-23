@@ -21,6 +21,10 @@ struct GitStatus {
     int behind = 0;
     string localBranch;
     string remoteBranch;
+    /** The upstream is configured, but its remote-tracking branch does not
+      * exist: deleted on the remote (and pruned locally), or never fetched.
+      **/
+    bool upstreamGone = false;
 
     /** Check if repository is clean:
       * - no untracked files
@@ -68,7 +72,7 @@ struct GitStatus {
         /* Anchored at the end of line, because otherwise the lazy `\S+?`
          * would match a single character: everything after it is optional.
          * The tracking part is captured as a whole, so that values we do not
-         * parse (like `gone`) do not make the whole line unparsable.
+         * parse do not make the whole line unparsable.
          */
         auto m = line.matchFirst(ctRegex!(
             r"^##\s+(?P<local>\S+?)(?:\.\.\.(?P<remote>[^\s\[]+))?(?:\s+\[(?P<track>[^\]]*)\])?$"));
@@ -79,6 +83,7 @@ struct GitStatus {
         status.remoteBranch = m["remote"].length ? m["remote"] : null;
 
         if (m["track"].length) {
+            status.upstreamGone = m["track"] == "gone";
             if (auto ahead = m["track"].matchFirst(ctRegex!(r"ahead\s+(\d+)")))
                 status.ahead = ahead[1].to!int;
             if (auto behind = m["track"].matchFirst(ctRegex!(r"behind\s+(\d+)")))
@@ -198,6 +203,7 @@ struct GitStatus {
             ahead.shouldEqual(1);
             behind.shouldEqual(2);
             isDiverged.shouldBeTrue;
+            upstreamGone.shouldBeFalse;
         }
 
         with (GitStatus.parse("## 18.0-fix-crash...origin/18.0-fix-crash\n")) {
@@ -219,13 +225,13 @@ struct GitStatus {
             remoteBranch.shouldBeNull;
         }
 
-        // Upstream is configured, but gone. Tracking text we do not parse
-        // must not make the branch names unparsable.
+        // Upstream is configured, but gone.
         with (GitStatus.parse("## 18.0...origin/18.0 [gone]\n")) {
             localBranch.shouldEqual("18.0");
             remoteBranch.shouldEqual("origin/18.0");
             ahead.shouldEqual(0);
             behind.shouldEqual(0);
+            upstreamGone.shouldBeTrue;
         }
 
         // Detached HEAD: no branch at all.

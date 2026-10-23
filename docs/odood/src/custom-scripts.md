@@ -55,8 +55,8 @@ UPDATE res_partner SET active = true WHERE id = 1;
 
 ## Where scripts live
 
-You can pass an absolute path, or just a **name** that Odood resolves (in order)
-against:
+You can pass an absolute path, or a **name** or relative path that Odood resolves
+(in order) against:
 
 1. `<repo>/.odood-scripts/` — a repository-scoped directory, kept under version
    control alongside your addons. The repo is the one enclosing your current
@@ -67,9 +67,40 @@ against:
    maintenance/seeding scripts shared across the project.
 3. the current working directory.
 
+A file in the current directory is thus used only when neither script directory
+has one at the same relative path.
+
 So `odood script py -d mydb recompute_totals.py` finds
 `.odood-scripts/recompute_totals.py` without a full path. The same resolution
 applies to the `--script-after-install` / `--script-after-migration` test hooks.
+
+### Listing available scripts
+
+`odood script list` shows the scripts that can be run by name, grouped by the
+directory they live in:
+
+```bash
+$ odood script list
+Repository scripts (repositories/my-addons/.odood-scripts):
+    recompute_totals.py
+    seed_demo.sql
+
+Project scripts (scripts):
+    cleanup.sql
+    recompute_totals.py (shadowed by the repository script)
+```
+
+Only `.py` and `.sql` files directly inside those two directories are listed;
+scripts referenced by path, or picked up from the current directory, are not.
+The repository is the one enclosing the current directory, so run the command
+from inside a repository to see its `.odood-scripts/`.
+
+Because the repository directory is searched first, a project-level script
+named like a repository one cannot be reached by name — the listing marks it as
+*shadowed*. Pass its full path to run it anyway.
+
+Paths are shown relative to the project root; pass `--absolute` for absolute
+paths. Use `--json` to get the same listing in machine-readable form.
 
 ## Passing parameters with environment variables
 
@@ -130,8 +161,9 @@ odood script py -d mydb generate_partners.py
 ODOOD_SCRIPT_PARTNER_COUNT=500 odood script py -d mydb generate_partners.py
 ```
 
-If you keep the script in `<repo>/.odood-scripts/` or `<project>/scripts/`, you
-can refer to it by name from anywhere in the project.
+If you keep the script in `<project>/scripts/`, you can refer to it by name from
+anywhere in the project. A script in `<repo>/.odood-scripts/` is found by name only when you run
+`odood script` from inside that repository.
 
 ## Using scripts during tests
 

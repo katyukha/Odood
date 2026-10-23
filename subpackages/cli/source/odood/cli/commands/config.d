@@ -10,7 +10,7 @@ class CommandConfigUpdate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.save();
         return 0;
     }

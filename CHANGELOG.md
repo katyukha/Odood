@@ -1,5 +1,93 @@
 # Changelog
 
+## Release 0.7.0 (2026-10-23)
+
+### Added
+
+- Global `-c`/`--config` option: run a command against the project given by
+  its `odood.yml` (or its directory) instead of discovering it from the
+  current directory. Goes before the command name; does not work with command
+  shortcuts (`odood start` etc.).
+- `odood script list` - scripts runnable by name, grouped by location
+  (`<repo>/.odood-scripts/`, `<project>/scripts/`), shadowed ones marked.
+  Supports `--json`.
+- `odood assembly release` - assign the next version, generate the release
+  artifacts, commit them and tag the release. Requires a clean working tree.
+- `odood assembly status` shows the current assembly version.
+- `odood assembly sync --changelog-preview` - write the pending changes into
+  `CHANGELOG.md` under `## Unreleased`; the next release replaces that
+  section. `odood assembly release --dry-run --changelog` prints it instead.
+- Odoo 20.0 support (system Python 3.12-3.14).
+- Library API: `Assembly` constructors, `load`, `maybeLoad` and `initialize`
+  take an optional `git_env`, applied to git operations on the assembly's own
+  repository (credentials, commit identity). `GitRepository.initialize` takes
+  `env` too.
+- `odood repo release --initial` accepts `--changelog` (every addon is listed
+  as added) and `--addons-list-md`/`--addons-list-csv`. Library API:
+  `AddonRepository.prepareInitialRelease`.
+
+### Changed
+
+- Docker images are based on Ubuntu 26.04 (was 24.04).
+- Odoo 19 accepts system Python 3.13. System Python 3.14 is not used for
+  Odoo 18 or 19, as parts of the addon ecosystem break on it (e.g. OCA
+  `server_environment`); odood installs a suitable Python instead.
+- Assembly versions are tracked by git tags (like `odood repo release`).
+  `VERSION` is optional: updated by a release when present, created with
+  `--version-file`. With no tag yet, the first release bumps from `VERSION`.
+- **Breaking:** `odood assembly sync --changelog` is removed, use
+  `odood assembly release`. Releases need full history and tags in CI
+  (`fetch-depth: 0` on GitHub Actions, `GIT_DEPTH: 0` on GitLab CI); shallow
+  clones are rejected.
+- Library API: `Assembly.prepareRelease` and `Assembly.validateRelease`;
+  `generateChangelog(result)` refuses a base older than the latest release;
+  `generateChangelog(base_rev)` is deprecated.
+- `odood repo pull-all` prints one line per repository it did not pull and a
+  summary; it exits non-zero when a fetch fails, a branch has diverged or
+  addons cannot be linked.
+- `odood venv update-odoo` (git installs), `odood assembly pull`/`upgrade`
+  and assembly sources without `ref` only fast-forward, failing on
+  uncommitted changes or a diverged branch.
+- **Breaking:** `GitRepository.pull(prune, ff_only)` (both on by default)
+  returns a `GitPullResult` instead of throwing; `ensureOk` makes it throw.
+- `odood repo release --initial` runs like any release: it fetches `origin`,
+  refuses `--push` when the branch is behind it, and with `--push` pushes the
+  branch as well as the tag.
+
+### Fixed
+
+- Odoo installation on Python 3.14+ (arm64, including docker images):
+  `libsass==0.22.0`, which does not build there, is replaced with 0.23.0.
+- `odood deploy` on Ubuntu 26.04: the system user is created with
+  `groupadd`/`useradd`, as `adduser` is not available there.
+- Docker image: `postgresql-client` comes from the PGDG repository, which was
+  not actually enabled.
+- Docker image version label always matches the release it is built for.
+- Generated `.dockerignore` no longer excludes `odood-assembly.yml`, which the
+  generated `Dockerfile` copies. Existing assemblies need that line removed by
+  hand; `odood assembly sync --dockerfile` warns about it.
+- `odood translations regenerate --pot-update` wraps `.po` files as Odoo does
+  (Odoo 13+), not as the local `msgmerge` does.
+- Odoo 19+: `odood translations regenerate` exports via
+  `odoo-bin i18n export`, as 19.0 removed the server export options.
+- `odood db ensure-initialized`: `--lang` loads the language (it was ignored
+  up to Odoo 18 and rejected by Odoo 19), and `--demo` loads demo data on
+  Odoo 19+.
+- Odoo 19+: `--without-demo=all`, which 19.0 warns about, is no longer passed.
+- `odood test` script hooks (`--script-after-install`/`--script-after-migration`)
+  find scripts in `.odood-scripts/` of the repository enclosing the current
+  directory, as `odood script` does, not only in migration mode.
+- An addon manifest that cannot be parsed is reported as an error naming the
+  file, instead of reading as version `1.0` with an empty name.
+- The Python library used to parse addon manifests is also found as
+  `libpython3.X.so.1.0`, so `libpython3.X-dev` is not needed for it.
+- Library API: `new AddonRepository(git_repo)` keeps the git environment of
+  `git_repo`.
+- A failing Python script (`odood script py`, `odood test` script hooks) is
+  reported with its exit code, instead of `Orphan format specifier`.
+
+---
+
 ## Release 0.6.6 (2026-09-12)
 
 ### Fixed

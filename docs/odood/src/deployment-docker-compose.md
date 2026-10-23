@@ -31,10 +31,19 @@ For traditional bare-metal or VPS production deployments see [Production (VPS)](
 The official Odood Docker images are published to the GitHub Container Registry:
 
 ```
-ghcr.io/katyukha/odood/odoo/{serie}:latest
+ghcr.io/katyukha/odood/odoo/{serie}:{tag}
 ```
 
-Available series: `16.0`, `17.0`, `18.0`, `19.0`.
+Available series: `16.0`, `17.0`, `18.0`, `19.0` (there is no `20.0` image yet).
+The images are based on Ubuntu 26.04.
+
+Each Odood release publishes these tags, which follow the **Odood** version, not Odoo's:
+- `latest` — the latest stable release;
+- `<version>`, e.g. `0.6.6` — a specific release;
+- `<major>.<minor>`, e.g. `0.6` — the latest release of that line.
+
+Pin a version tag in `docker-compose.yml` for reproducible deployments; the examples below use
+`latest` for brevity.
 
 > **Note:** The `--config-from-env` flag and `ODOOD_OPT_*` environment variable support are compiled into these images using the `-d-version OdoodInDocker` build flag.
 > They are **not** available in the Debian package or source builds.
@@ -59,6 +68,7 @@ It corresponds to the example in [`examples/docker-compose/odoo-and-db/`](https:
 volumes:
     odood-example-db-data:
     odood-example-odoo-data:
+    odood-example-odoo-backups:
 
 services:
     odood-example-db:
@@ -114,6 +124,8 @@ services:
             ODOOD_OPT_PROXY_MODE: "True"
         volumes:
             - odood-example-odoo-data:/opt/odoo/data
+            # Backups made by `odood db backup`.
+            - odood-example-odoo-backups:/opt/odoo/backups
         restart: unless-stopped
 
     odood-example-traefik:
@@ -149,6 +161,7 @@ Before starting, place your certificate and key under `./traefik/certs/` and con
 volumes:
     odood-example-ssl-db-data:
     odood-example-ssl-odoo-data:
+    odood-example-ssl-odoo-backups:
 
 services:
     odood-example-ssl-db:
@@ -195,6 +208,7 @@ services:
             ODOOD_OPT_PROXY_MODE: "True"
         volumes:
             - odood-example-ssl-odoo-data:/opt/odoo/data
+            - odood-example-ssl-odoo-backups:/opt/odoo/backups
         restart: unless-stopped
 
     odood-example-ssl-traefik:
@@ -229,7 +243,10 @@ docker compose exec odood-example-odoo \
     odood --config-from-env db create --demo my-db
 ```
 
-To create a database and mark it as initialized (skipping the web setup wizard):
+Or use the idempotent `db ensure-initialized`, suited for init containers and entrypoints.
+It creates the database if it does not exist and initializes it with Odoo, loading the language
+given by `--lang` (`en_US` by default) and demo data only with `--demo`; an already initialized
+database is left as is:
 
 ```bash
 docker compose exec odood-example-odoo \
@@ -238,20 +255,22 @@ docker compose exec odood-example-odoo \
 
 ## Backup and restore
 
-Back up all databases to `/opt/odoo/data/backups/` inside the container:
+Back up all databases to `/opt/odoo/backups/` inside the container:
 
 ```bash
 docker compose exec odood-example-odoo \
     odood --config-from-env db backup -a
 ```
 
-The backup files are stored in the `odood-example-odoo-data` volume. Copy them out with `docker cp` or mount a host path to `/opt/odoo/data/backups/`.
+The backup files are stored in the `odood-example-odoo-backups` volume. Copy them out with `docker cp` or mount a host path to `/opt/odoo/backups/` instead.
+Without a volume mounted there, backups end up in an anonymous volume that is easy to lose.
 
-Restore a specific database from a backup file:
+Restore a specific database from a backup file (add `-r` to replace an existing database):
 
 ```bash
 docker compose exec odood-example-odoo \
-    odood --config-from-env db restore my-db /opt/odoo/data/backups/my-db-backup.zip
+    odood --config-from-env db restore my-db \
+        /opt/odoo/backups/db-backup-my-db-2025-01-15-143002.a1b2.zip
 ```
 
 ## Upgrading
@@ -282,10 +301,24 @@ in your CI workflow and it will be created (or updated) on every sync:
 
 ```bash
 odood --config-from-env assembly sync \
-    --changelog \
     --dockerfile \
     --commit --push
 ```
+
+The image version label is stamped when the assembly is released, so the release
+step regenerates the Dockerfile too:
+
+```bash
+odood --config-from-env assembly release \
+    --changelog \
+    --dockerfile \
+    --push
+```
+
+The image build itself is bound to the release tag: pushing the tag triggers
+the image workflow, and the tagged commit already contains everything the
+image needs — the synced `dist/` and a Dockerfile whose version label matches
+the tag. See [Releasing a Docker image](./assembly.md#releasing-a-docker-image).
 
 The generated Dockerfile:
 - Copies `odood-assembly.yml` and `dist/` into `/opt/odoo/assembly/`
@@ -300,8 +333,8 @@ Actions workflows covering sync, PR creation, and image publishing.
 
 ### Image tags and docker-compose.yml
 
-The recommended CI workflow publishes two tags per release derived from the assembly `VERSION` file
-(e.g. `18.0.1.2.3`):
+The recommended CI workflow publishes two image tags per release, derived from the
+release tag (e.g. `18.0.1.2.3`):
 
 - **Full version** (`18.0.1.2.3`) — pinned; use this in `docker-compose.yml`.
 - **Minor version** (`18.0.1.2`) — floating; always points to the latest patch of that minor.
@@ -327,6 +360,7 @@ services:
       ODOOD_OPT_PROXY_MODE: "True"
     volumes:
       - odoo-data:/opt/odoo/data
+      - odoo-backups:/opt/odoo/backups
     restart: unless-stopped
 ```
 
@@ -336,7 +370,8 @@ Running two different versions of addon code against the same database simultane
 corruption. **Always stop Odoo before running addon updates**, even in containerised environments.
 
 Add the following `odoo-upgrade` service to your `docker-compose.yml`. It shares the image and
-data volume with the main `odoo` service but only runs on demand via the `upgrade` profile:
+the data and backups volumes with the main `odoo` service but only runs on demand via the `upgrade` profile.
+The backups volume is what keeps the pre-upgrade backups after `run --rm` removes the container:
 
 ```yaml
   odoo-upgrade:
@@ -357,6 +392,7 @@ data volume with the main `odoo` service but only runs on demand via the `upgrad
       "
     volumes:
       - odoo-data:/opt/odoo/data
+      - odoo-backups:/opt/odoo/backups
     restart: "no"
 ```
 
@@ -401,13 +437,13 @@ the previous image.
 ```bash
 # 1. List the backups created before the failed upgrade
 docker compose run --rm --no-deps odoo-upgrade \
-    ls /opt/odoo/data/backups/
+    ls /opt/odoo/backups/
 
-# 2. Restore each database from its pre-upgrade backup
-#    Repeat for every database, replacing the name and timestamp
+# 2. Restore each database from its pre-upgrade backup; -r replaces the existing database
+#    Repeat for every database, replacing the name and the backup file
 docker compose run --rm --no-deps odoo-upgrade \
-    odood --config-from-env db restore mydb \
-        /opt/odoo/data/backups/mydb-TIMESTAMP.zip
+    odood --config-from-env db restore -r mydb \
+        /opt/odoo/backups/db-backup-mydb-2025-01-15-143002.a1b2.zip
 
 # 3. Roll back to the previous image and start Odoo
 export ODOO_IMAGE=ghcr.io/my-org/my-assembly:18.0.1.2.2
@@ -439,12 +475,12 @@ docker compose exec odood-example-odoo \
 
 ### Waiting for PostgreSQL
 
-The base Odood image's entrypoint already calls `odood server run --wait-pg` before starting Odoo,
+The base Odood image's `CMD` runs `odood server run --wait-pg`,
 so the container waits for PostgreSQL to accept connections before launching Odoo.
 The `depends_on: condition: service_healthy` in the examples provides an additional layer — Docker
 won't start the Odoo container at all until PostgreSQL passes its own health check.
 
-If you build a custom entrypoint, use `odood server wait-pg` explicitly:
+If you override the command, call `odood server wait-pg` explicitly:
 
 ```bash
 odood --config-from-env server wait-pg --timeout 120

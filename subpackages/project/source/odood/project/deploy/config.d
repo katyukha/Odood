@@ -80,7 +80,7 @@ struct DeployConfigOdoo {
 
     /// Optional fixed UID/GID for the system user created for Odoo.
     /// Left unset for standard installs (the UID is then allocated
-    /// dynamically by adduser). Used by container builds that need a
+    /// dynamically by useradd). Used by container builds that need a
     /// deterministic UID/GID to match the runtime securityContext.
     Nullable!uint server_user_uid;
     Nullable!uint server_user_gid;

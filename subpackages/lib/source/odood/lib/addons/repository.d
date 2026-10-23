@@ -5,7 +5,7 @@ private import std.algorithm: canFind, map, filter, maxElement, sort;
 private import std.format: format;
 private import std.typecons: Nullable, nullable;
 private import std.exception: enforce;
-private import std.array: appender, array, split;
+private import std.array: appender, array, split, empty;
 private import std.string: strip, join;
 private import std.json: JSONValue;
 private import std.regex: replaceFirst, regex;
@@ -95,7 +95,7 @@ class AddonRepository : GitRepository{
     @disable this();
 
     this(in GitRepository repo) {
-        super(repo.path);
+        super(repo.path, repo.env);
     }
 
     this(T...)(auto ref T args) {
@@ -468,15 +468,18 @@ class AddonRepository : GitRepository{
 
     /** Get the latest release tag for a given Odoo serie.
       *
-      * Checks both local and remote tags (same as prepareRelease).
       * Returns null if no release tags exist for this serie.
       *
       * Params:
       *     serie = Odoo serie (e.g. OdooSerie("18.0")).
+      *     include_remote = also consider tags only on the remote. Runs
+      *         `git ls-remote`, which may block on the network or prompt for
+      *         credentials.
       **/
-    Nullable!OdooStdVersion getLatestRelease(in OdooSerie serie) const {
+    Nullable!OdooStdVersion getLatestRelease(
+            in OdooSerie serie, in bool include_remote = true) const {
         string[] all_tags = listLocalTags();
-        if (hasRemoteUrl("origin")) {
+        if (include_remote && hasRemoteUrl("origin")) {
             try {
                 all_tags ~= listRemoteTags("origin");
             } catch (Exception e) {
@@ -560,6 +563,29 @@ class AddonRepository : GitRepository{
                 serie, existing.get));
 
         return OdooStdVersion(serie, 1, 0, 0);
+    }
+
+    /** Prepare the very first release of this repository: the version of
+      * `initialRelease`, with every addon in the worktree reported as added.
+      *
+      * The start_ref of the result is `HEAD`, thus `generateChangelog`
+      * keeps a CHANGELOG.md committed before the first release.
+      *
+      * Params:
+      *     serie = Odoo serie (e.g. OdooSerie("18.0")).
+      *
+      * Throws: OdoodException if the repository already has release tags
+      *     for this serie.
+      **/
+    PrepareReleaseResult prepareInitialRelease(in OdooSerie serie) const {
+        auto changes = new AddonRepositoryChanges(initialRelease(serie));
+        // In path order, as later releases list changes (git diff order).
+        foreach(addon; addons.array.sort!((a, b) => a.path.toString < b.path.toString))
+            changes.logAddonAdded(
+                addon.name,
+                addon.path.relativeTo(path),
+                addon.manifest.module_version);
+        return PrepareReleaseResult(changes.repo_version, changes, "HEAD");
     }
 
     /** Compute the next repo release version.
@@ -656,11 +682,15 @@ class AddonRepository : GitRepository{
       *
       * Params:
       *     result = The PrepareReleaseResult returned by prepareRelease.
+      *     heading = section heading override, e.g. `Unreleased` for a
+      *         preview; default `Release <version> (<date>)`.
       **/
-    void generateChangelog(in PrepareReleaseResult result) {
-        infof("Generating changelog for release %s ...", result.new_version);
+    void generateChangelog(
+            in PrepareReleaseResult result, in string heading = null) {
+        infof("Generating changelog for %s ...",
+            heading.empty ? "release " ~ result.new_version.toString : heading);
 
-        auto changelog_text = renderChangelog(result.addon_changes);
+        auto changelog_text = renderChangelog(result.addon_changes, heading);
 
         auto changelog_path = path.join("CHANGELOG.md");
         auto changelog_latest_path = path.join("CHANGELOG.latest.md");
@@ -806,15 +836,22 @@ unittest {
   * `AddonRepository.generateChangelog` writes, without touching any files.
   * Lets callers preview a release (or a diff between arbitrary refs) with no
   * risk of the preview drifting from the published file.
+  *
+  * Params:
+  *     heading_ = section heading; default `Release <version> (<date>)`.
   **/
-string renderChangelog(in AddonRepositoryChanges changes_) {
-    // Local alias required: darktemple binds template arg names to template vars.
-    // The template uses {{ changes.xxx }}, so the D variable must be named 'changes'.
+string renderChangelog(
+        in AddonRepositoryChanges changes_, in string heading_ = null) {
+    // Local aliases required: darktemple binds template arg names to template
+    // vars, so the D variables must be named 'changes' and 'heading'.
     auto changes = changes_;
-    auto release_date = cast(DateTime)Clock.currTime();
+    auto heading = heading_.empty
+        ? "Release %s (%s)".format(
+            changes.repo_version, cast(DateTime)Clock.currTime())
+        : heading_;
     return renderFile!(
         "templates/repository/changelog.md.tmpl",
-        changes, release_date);
+        changes, heading);
 }
 
 unittest {
@@ -1228,4 +1265,53 @@ unittest {
 
     // A chain with no tags → null.
     repo.getLatestPatch(OdooStdVersion("17.0.9.9.0")).isNull.shouldBeTrue;
+}
+
+
+// The first release reports every addon as added, and its changelog keeps a
+// CHANGELOG.md committed before it.
+unittest {
+    import std.algorithm: canFind, map;
+    import std.array: array;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+    import odood.exception: OdoodException;
+    import odood.utils.odoo.serie: OdooSerie;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("repo")));
+    auto repo_path = repo.path;
+
+    repo_path.join("addon_a").mkdir(false);
+    repo_path.join("addon_a", "__manifest__.py").writeFile(
+        `{"name": "addon_a", "version": "17.0.1.2.0"}`);
+    repo_path.join("group", "addon_b").mkdir(true);
+    repo_path.join("group", "addon_b", "__manifest__.py").writeFile(
+        `{"name": "addon_b", "version": "17.0.3.0.0"}`);
+    repo_path.join("CHANGELOG.md").writeFile("# Changelog\n\nWritten by hand.\n");
+    repo.add(repo_path.join("addon_a"));
+    repo.add(repo_path.join("group"));
+    repo.add(repo_path.join("CHANGELOG.md"));
+    repo.commit("Initial commit");
+
+    auto res = repo.prepareInitialRelease(OdooSerie("17.0"));
+    res.new_version.toString.should == "17.0.1.0.0";
+    res.addon_changes.addons_added
+        .map!(a => "%s %s %s".format(a.name, a.path, a.new_version))
+        .array.should == [
+            "addon_a addon_a 17.0.1.2.0",
+            "addon_b group/addon_b 17.0.3.0.0",
+        ];
+
+    repo.generateChangelog(res);
+    auto changelog = repo_path.join("CHANGELOG.md").readFileText;
+    changelog.canFind("- `addon_b` (17.0.3.0.0)").shouldBeTrue;
+    changelog.canFind("Written by hand.").shouldBeTrue;
+
+    // Once released, it is not the first release anymore.
+    repo.commit("Release 17.0.1.0.0");
+    repo.setTag("17.0.1.0.0");
+    repo.prepareInitialRelease(OdooSerie("17.0")).shouldThrow!OdoodException;
 }

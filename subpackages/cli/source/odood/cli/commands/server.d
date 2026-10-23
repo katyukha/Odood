@@ -34,7 +34,7 @@ class CommandServerRun: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto runner = project.server.getServerRunner();
 
         runner.addArgs(argsRest);
@@ -76,7 +76,7 @@ class CommandServerStart: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.server.start(timeout.seconds);
         return 0;
     }
@@ -90,7 +90,7 @@ class CommandServerStatus: OdoodCommand {
 
     override int execute() {
         import std.stdio;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         if (project.server.isRunning)
             writeln("The server is running");
         else
@@ -106,7 +106,7 @@ class CommandServerStop: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.server.stop();
         return 0;
     }
@@ -125,7 +125,7 @@ class CommandServerRestart: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (project.server.isRunning)
             project.server.stop();
@@ -144,7 +144,7 @@ class CommandServerBrowse: OdoodCommand {
 
     override int execute() {
         import std.process;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         if (!project.server.isRunning)
             project.server.start;
 
@@ -162,7 +162,7 @@ class CommandServerLogView: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         tracef("Viewing logfile: %s", project.odoo.logfile.toString);
         Process("less").withArgs(
             "+G",
@@ -188,7 +188,7 @@ class CommandServerHealthcheck: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (project.server.healthcheck(timeout.seconds))
             infof("Odoo server is healthy.");
@@ -216,7 +216,7 @@ class CommandServerWaitPg: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         infof("Waiting for PostgreSQL...");
         enforce!OdoodCLIException(

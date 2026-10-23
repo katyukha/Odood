@@ -11,7 +11,7 @@ private import std.array: empty, join, array, split, assocArray;
 private import std.algorithm: map, filter, canFind, uniq, startsWith, maxElement;
 private import std.range: chain;
 private import std.regex: replaceFirst, regex;
-private import std.string: strip;
+private import std.string: strip, splitLines;
 
 private import dyaml;
 private import thepath: Path;
@@ -60,21 +60,32 @@ class Assembly {
     private OdooSerie _serie;      // target Odoo serie
     private AssemblySourceProviderInterface _source_provider;  // materializes sources/addons
     private AddonRepository _repo = null;
+    private const string[string] _git_env;  // applied to git operations on the assembly repo
 
+    /** Params:
+      *     git_env = additional environment variables for every git operation
+      *         on the assembly's own repository (credentials, commit identity),
+      *         as GitRepository takes them. Sources use their own credentials.
+      **/
     this(in Path path, AssemblySpec spec, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         _serie = serie;
         _source_provider = source_provider;
         _spec = spec;
         _path = path;
+        _git_env = git_env.dup;
     }
 
+    /// ditto
     this(in Path path, in Node yaml_data, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         _serie = serie;
         _source_provider = source_provider;
         _path = path;
         _spec = AssemblySpec(yaml_data);
+        _git_env = git_env.dup;
     }
 
     /// Spec for this assembly
@@ -114,7 +125,7 @@ class Assembly {
             enforce!OdoodAssemblyException(
                 isGitRepo(_path),
                 "This assembly does not have initialized git repo!");
-            _repo = new AddonRepository(_path);
+            _repo = new AddonRepository(_path, _git_env);
         }
         return _repo;
     }
@@ -122,20 +133,21 @@ class Assembly {
     /** Initialize git repository for this assembly
       **/
     private void initializeRepo() {
-        _repo = new AddonRepository(GitRepository.initialize(_path));
+        _repo = new AddonRepository(GitRepository.initialize(_path, _git_env));
     }
 
     /** Try to load asembly spec from specified location
       **/
     static Assembly maybeLoad(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         if (path.exists && path.isFile) {
             dyaml.Node assembly_spec = dyaml.Loader.fromFile(path.toString()).load();
-            return new Assembly(path.parent, assembly_spec, serie, source_provider);
+            return new Assembly(path.parent, assembly_spec, serie, source_provider, git_env);
         } else if (path.exists && path.isDir && path.join("odood-assembly.yml").exists) {
             auto load_path = path.join("odood-assembly.yml");
             Node assembly_spec = dyaml.Loader.fromFile(load_path.toString()).load();
-            return new Assembly(path, assembly_spec, serie, source_provider);
+            return new Assembly(path, assembly_spec, serie, source_provider, git_env);
         }
         return null;
     }
@@ -143,8 +155,9 @@ class Assembly {
     /** Load assembly spec from specified path
       **/
     static Assembly load(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
-        auto assembly = maybeLoad(path, serie, source_provider);
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
+        auto assembly = maybeLoad(path, serie, source_provider, git_env);
         enforce!OdoodAssemblyException(
             assembly !is null,
             "Cannot find and load Odood Assembly config at %s!".format(path));
@@ -174,9 +187,10 @@ class Assembly {
     /** Initialize new assembly
       **/
     static Assembly initialize(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider) {
+            AssemblySourceProviderInterface source_provider,
+            in string[string] git_env=null) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider);
+        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider, git_env);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -193,16 +207,18 @@ class Assembly {
 
     /// ditto
     static Assembly initialize(in Path path, in OdooSerie serie,
-            AssemblySourceProviderInterface source_provider, in GitURL git_url) {
+            AssemblySourceProviderInterface source_provider, in GitURL git_url,
+            in string[string] git_env=null) {
         auto repo = gitClone(
                 repo: git_url,
                 dest: path,
                 branch: serie.toString,  // Assembly repo must conform branch naming standards
+                env: git_env,
         );
         enforce!OdoodAssemblyException(
             repo.path.join("odood-assembly.yml").exists,
             "Cannot find assembly config in this repo (%s)".format(git_url.toString));
-        return load(repo.path, serie, source_provider);
+        return load(repo.path, serie, source_provider, git_env);
     }
 
     /** Scan sources for available addons.
@@ -335,58 +351,286 @@ class Assembly {
                 missing_dependencies.join("\n")));
     }
 
-    /** Get info about changes between current version and series version
+    /** Version of the most recent release.
+      *
+      * Release tags win; the `VERSION` file counts only while there is none.
+      *
+      * Params:
+      *     include_remote = also consider tags that exist only on the remote
+      *         (a `git ls-remote`).
+      *
+      * Returns: null when the assembly has never been released.
+      **/
+    Nullable!OdooStdVersion currentVersion(in bool include_remote = true) {
+        auto latest = repo.getLatestRelease(serie, include_remote);
+        if (!latest.isNull)
+            return latest;
+
+        if (version_path.exists) {
+            auto parsed = OdooStdVersion(version_path.readFileText.strip);
+            if (parsed.isStandard)
+                return parsed.withSerie(serie).nullable;
+        }
+        return Nullable!OdooStdVersion.init;
+    }
+
+    /** Release tag of this serie pointing at HEAD.
+      *
+      * Detects a release that was tagged but not pushed: measured from that
+      * tag, the next run would see no changes.
+      *
+      * Returns: null when HEAD has no release tag of this serie.
+      **/
+    Nullable!OdooStdVersion releasedAtHead() {
+        foreach(tag; repo.listLocalTags(points_at: "HEAD")) {
+            auto ver = OdooStdVersion(tag);
+            if (ver.isStandard && ver.serie == serie)
+                return ver.nullable;
+        }
+        return Nullable!OdooStdVersion.init;
+    }
+
+    /** Revision to compare against when the assembly has no release tag yet:
+      * the commit that last wrote `VERSION`, or the root commit.
+      *
+      * Not the stable branch: the content is already there at release time,
+      * so nothing would ever be released.
+      **/
+    private string defaultBaseRev() {
+        /* A shallow boundary looks like a root commit that introduced every
+         * file, so both lookups below would silently return it. */
+        enforce!OdoodAssemblyException(
+            !repo.isShallow,
+            "Cannot determine the previous release point in a shallow " ~
+            "clone. Fetch the full history (for example 'fetch-depth: 0' " ~
+            "on GitHub Actions, or 'GIT_DEPTH: 0' on GitLab CI).");
+
+        if (version_path.exists) {
+            immutable last_release = repo.lastCommitFor(ASSEMBLY_VERSION_PATH);
+            if (!last_release.empty)
+                return last_release;
+        }
+
+        immutable root = repo.rootCommit;
+        enforce!OdoodAssemblyException(
+            !root.empty,
+            "Cannot release an assembly with no commits.");
+        return root;
+    }
+
+    /** Version the next release bumps from, as recorded at `base_rev`.
+      *
+      * Params:
+      *     base_rev = revision to read the `VERSION` file at.
+      *     latest = latest release tag, resolved by the caller so that the
+      *         remote is queried once.
+      **/
+    private OdooStdVersion resolveBaseVersion(
+            in string base_rev, in Nullable!OdooStdVersion latest) {
+        Nullable!OdooStdVersion from_file;
+        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev)) {
+            auto parsed = OdooStdVersion(
+                repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev).strip);
+            if (parsed.isStandard)
+                from_file = parsed.withSerie(serie).nullable;
+        }
+
+        if (latest.isNull)
+            return from_file.isNull ? OdooStdVersion(serie, 0) : from_file.get;
+
+        /* A release writes both, so a mismatch at the tagged commit is a hand
+         * edit or an outside release: the tag wins. `^{commit}` peels
+         * annotated tags. */
+        if (!from_file.isNull && from_file.get != latest.get
+                && repo.tryRevParse(base_rev ~ "^{commit}")
+                    == repo.tryRevParse(latest.get.toString ~ "^{commit}"))
+            warningf(
+                "Assembly: VERSION at %s says %s, but the release tag there " ~
+                "is %s. Using the tag.", base_rev, from_file.get, latest.get);
+        return latest.get;
+    }
+
+    /** Get info about changes between `base_rev` and the working tree.
       *
       * Params:
       *    base_rev = base revision. Changes will be generated for changes between base_rev and current commit.
       **/
     auto getChanges(in string base_rev) {
-        auto assembly_version = OdooStdVersion(serie, 0);  // Default version.
+        return getChanges(base_rev, repo.getLatestRelease(serie));
+    }
 
-        if (repo.isFileExists(ASSEMBLY_VERSION_PATH, rev: base_rev))
-            assembly_version = OdooStdVersion(
-                repo.getContent(ASSEMBLY_VERSION_PATH, rev: base_rev))
-                .withSerie(serie);
-
+    /// ditto, with the latest release tag already resolved.
+    private auto getChanges(
+            in string base_rev, in Nullable!OdooStdVersion latest) {
         auto changes = repo.collectChanges(
             base_rev,
             GIT_REF_WORKTREE,
             ignore_translations: false,
-            initial_version: assembly_version);
+            initial_version: resolveBaseVersion(base_rev, latest));
         // Assemblies have no reserved hotfix segment, so the bump floors to
         // PATCH (releases floor to MINOR to keep PATCH free for hotfixes).
         changes.postProcess(VersionPart.PATCH);
         return changes;
     }
 
-    /** Generate changelog for assembly
+    /** Compute the next assembly release, without writing anything.
+      *
+      * Compares against and bumps from the latest release tag. With no tag,
+      * the base is the commit that last wrote `VERSION` (bumped from its
+      * value), or the root commit.
       *
       * Params:
-      *    base_rev = base revision. Changelog will be generated for changes between base_rev and current commit.
+      *     base_rev = base revision, overriding the tag lookup.
+      *
+      * Returns: null when nothing changed since the base.
       **/
-    void generateChangelog(in string base_rev) {
-        infof("Assembly: Generating changelog.");
+    Nullable!PrepareReleaseResult prepareRelease(in string base_rev = null) {
+        auto latest = repo.getLatestRelease(serie);
+        immutable start_ref = base_rev.empty
+            ? (latest.isNull ? defaultBaseRev() : ensureTagAvailable(latest.get))
+            : base_rev;
 
-        auto changes = getChanges(base_rev: base_rev);
-        repo.generateChangelog(PrepareReleaseResult(changes.repo_version, changes, base_rev));
+        auto changes = getChanges(start_ref, latest);
+        if (!changes.has_changes)
+            return Nullable!PrepareReleaseResult.init;
 
-        // Assembly-specific: persist the version number in VERSION file.
-        version_path.writeFile(changes.repo_version.toString ~ "\n");
-        repo.add(version_path);
-
-        infof("Assembly: Changelog generated");
+        return PrepareReleaseResult(
+            changes.repo_version, changes, start_ref).nullable;
     }
 
-    void generateChangelog() {
-        if (repo.hasRemoteUrl("origin"))
-            generateChangelog("origin/" ~ serie.toString);
-        else if (repo.hasLocalBranch(serie.toString))
-            generateChangelog(serie.toString);
-        else
-            throw new OdoodAssemblyException(
-                "Changelog generation requires an 'origin' remote to be configured " ~
-                "and local or remote branch named same as Odoo serie. " ~
-                "Or, base revision to compare changes to have to be provided.");
+    /** Check the release invariants before any artifact is generated.
+      *
+      * Throws: OdoodAssemblyException when the release tag already exists
+      * (stale version), or the tree has uncommitted changes, so that the tag
+      * points at exactly the content the version was computed from.
+      * Disable `check_working_tree` only for a preview.
+      **/
+    void validateRelease(
+            in OdooStdVersion new_version,
+            in bool check_working_tree = true) {
+        enforce!OdoodAssemblyException(
+            !repo.listLocalTags().canFind(new_version.toString),
+            ("Release tag %s already exists. The version was computed from " ~
+             "stale information — fetch the latest changes and recompute.")
+                .format(new_version));
+
+        if (check_working_tree)
+            enforce!OdoodAssemblyException(
+                repo.getChangedFiles(staged: false).length == 0
+                && repo.getChangedFiles(staged: true).length == 0,
+                "The assembly has uncommitted changes. Commit them (for " ~
+                "example with 'odood assembly sync --commit') or stash them " ~
+                "before releasing: the release tag must point at exactly " ~
+                "the content the version was computed from.");
+    }
+
+    /** Make `tag` usable as a local revision, fetching it if needed: the
+      * latest release may come from the remote listing, and be missing in a
+      * shallow or `--no-tags` clone.
+      *
+      * Returns: the tag name.
+      **/
+    private string ensureTagAvailable(in OdooStdVersion tag) {
+        immutable name = tag.toString;
+        if (!repo.tryRevParse(name).empty)
+            return name;
+
+        if (repo.hasRemoteUrl("origin")) {
+            infof("Assembly: Fetching release tag %s ...", name);
+            try {
+                repo.fetchTag(name);
+            } catch (Exception e) {
+                tracef("Assembly: Cannot fetch tag %s: %s", name, e.msg);
+            }
+        }
+
+        enforce!OdoodAssemblyException(
+            !repo.tryRevParse(name).empty,
+            ("Release tag %s is not available in this clone, so the changes " ~
+             "since it cannot be determined. Fetch the full history and tags " ~
+             "(for example 'fetch-depth: 0' on GitHub Actions, or " ~
+             "'GIT_DEPTH: 0' on GitLab CI).").format(name));
+        return name;
+    }
+
+    deprecated("Assign versions with prepareRelease, then call " ~
+        "generateChangelog(result) and generateVersionFile(version); " ~
+        "this overload couples the three and always writes VERSION.")
+    void generateChangelog(in string base_rev) {
+        auto changes = getChanges(base_rev);
+        repo.generateChangelog(
+            PrepareReleaseResult(changes.repo_version, changes, base_rev));
+        generateVersionFile(changes.repo_version, create: true);
+    }
+
+    /** Generate and stage CHANGELOG.md and CHANGELOG.latest.md for a release.
+      *
+      * Refuses a base older than the latest release: the changelog is
+      * restored from the base, so sections written since would be lost.
+      **/
+    void generateChangelog(in PrepareReleaseResult result) {
+        /* Local tags suffice: prepareRelease fetches the winning tag before
+         * diffing. `^{commit}` peels annotated tags to their commits. */
+        auto latest = repo.getLatestRelease(serie, include_remote: false);
+        enforce!OdoodAssemblyException(
+            latest.isNull
+            || !repo.isAncestor(result.start_ref, latest.get.toString)
+            || repo.tryRevParse(result.start_ref ~ "^{commit}")
+                == repo.tryRevParse(latest.get.toString ~ "^{commit}"),
+            ("Cannot generate a changelog from base '%s': it is older than " ~
+             "the latest release (%s), so the entries written since would " ~
+             "be discarded. Use a later base.").format(
+                result.start_ref,
+                latest.isNull ? "none" : latest.get.toString));
+
+        infof("Assembly: Generating changelog for release %s ...",
+            result.new_version);
+        repo.generateChangelog(result);
+        // The heading must name the same version as the tag and VERSION.
+        assert(changelog_latest_path.readFileText.canFind(
+                "## Release %s (".format(result.new_version)),
+            "changelog heading does not name the released version");
+        infof("Assembly: Changelog generated.");
+    }
+
+    /** Write and stage the changelog of pending changes under an
+      * `## Unreleased` heading, assigning no version.
+      *
+      * A release regenerates the changelog from the same base, replacing
+      * that section.
+      *
+      * Returns: false when there are no changes to describe.
+      **/
+    bool generateChangelogPreview() {
+        /* The preview stages its output, so an unstaged change is a hand
+         * edit it would overwrite. */
+        enforce!OdoodAssemblyException(
+            repo.getChangedFiles(
+                path_filters: ["CHANGELOG.md", "CHANGELOG.latest.md"],
+                staged: false).length == 0,
+            "The changelog has uncommitted hand edits, which the preview " ~
+            "would overwrite. Commit or discard them first.");
+
+        auto result = prepareRelease();
+        if (result.isNull) {
+            infof("Assembly: no changes since the last release, " ~
+                  "no changelog preview to generate.");
+            return false;
+        }
+        repo.generateChangelog(result.get, heading: "Unreleased");
+        return true;
+    }
+
+    /** Write the assembly version into the `VERSION` file and stage it.
+      * The file is opt-in: written only when it exists, or with `create`.
+      **/
+    void generateVersionFile(
+            in OdooStdVersion assembly_version, in bool create=false) {
+        if (!create && !version_path.exists)
+            return;
+        infof("Assembly: Writing VERSION (%s) ...", assembly_version);
+        version_path.writeFile(assembly_version.toString ~ "\n");
+        repo.add(version_path);
     }
 
     /** Generate ADDONS.md / ADDONS.csv listing the addons currently in dist.
@@ -411,13 +655,17 @@ class Assembly {
         }
     }
 
-    void generateDockerfile() {
+    /** Generate or update the Dockerfile.
+      *
+      * Params:
+      *     assembly_version = version for the image label; empty for none.
+      **/
+    void generateDockerfile(in string assembly_version) {
         infof("Assembly: Preparing Dockerfile...");
         auto assembly = this;
         // TODO: move to template, after darktemple will be ready for this
         auto handle_requirements_txt = path.join("requirements.txt").exists;
         auto handle_requirements_lock_txt = path.join(ASSEMBLY_REQUIREMENTS_LOCK).exists;
-        auto assembly_version = version_path.exists ? version_path.readFileText.strip : "";
         auto assembly_source_url = repo.hasRemoteUrl("origin") ? repo.getRemoteUrl().toString : "";
         if (path.join("Dockerfile").exists) {
             /* The rendered template is inserted verbatim via the callback
@@ -442,18 +690,27 @@ class Assembly {
             path.join(".dockerignore").writeFile(renderFile!("templates/assembly/dockerignore.tmpl"));
             repo.add(path.join(".dockerignore"));
             infof("Assembly: Default .dockerignore generated!");
+        } else if (spec.layout == AssemblyLayout.STANDARD
+                && path.join(".dockerignore").readFileText
+                    .splitLines
+                    .map!(l => l.strip)
+                    .canFind("/odood-assembly.yml", "odood-assembly.yml")) {
+            /* The Dockerfile copies the spec, so excluding it fails the build
+             * with a confusing "not found". */
+            warningf(
+                "Assembly: .dockerignore excludes odood-assembly.yml, which " ~
+                "the Dockerfile copies into the image. Remove that line, or " ~
+                "the docker build will fail.");
         }
     }
 
-    /** Synchronize assembly (sources and addons)
-      *
-      * Update assembly addons from recent versiones from specified git sources
-      *
-      * Params:
-      *     generate_lock = if set, generate requirements.lock.txt after syncing
-      *     with_odoo_requirements = if set, include Odoo's requirements.txt
-      *         when generating lock file
-      **/
+    /// ditto
+    void generateDockerfile() {
+        // Label the image with the latest release, if any.
+        auto current = currentVersion;
+        generateDockerfile(current.isNull ? "" : current.get.toString);
+    }
+
     /** Fetch sources and assemble addons into `dist_dir`.
       *
       * Project-free packaging step: validates the spec, fetches sources, and
@@ -472,13 +729,7 @@ class Assembly {
 
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
-        auto old_commit = repo.getCurrCommit;
-        repo.pull();
-        auto curr_commit = repo.getCurrCommit;
-        if (old_commit == curr_commit)
-            infof("Assembly Pull: Completed.");
-        else
-            infof("Assembly Pull: Completed: %s..%s", old_commit, curr_commit);
+        infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
     }
 
     void push(in string branch_name=null) {
@@ -648,4 +899,294 @@ unittest {
     assembly.path.join("ADDONS.csv").exists.shouldBeTrue;
     assembly.path.join("ADDONS.md").readFileText.canFind("| my_addon |").shouldBeTrue;
     assembly.path.join("ADDONS.csv").readFileText.canFind(`"my_addon"`).shouldBeTrue;
+}
+
+
+// Release-test fixtures: a provider serving a local directory (no network)
+// and an assembly built over stub addons from it.
+version(unittest) {
+    private class TestSourceProvider : AssemblySourceProviderInterface {
+        Path src_path;
+        this(Path p) { src_path = p; }
+        override void ensureSources(in AssemblySpecSource[] sources, in OdooSerie serie) {}
+        override Path resolveSource(in AssemblySpecSource source, in OdooSerie serie) {
+            return src_path;
+        }
+        override Path resolveExternalAddon(in AssemblySpecAddon specAddon, in OdooSerie serie) {
+            assert(false, "no external addons expected");
+        }
+    }
+
+    /* The source holds all listed addons; the caller adds them to the spec
+     * and commits. */
+    private Assembly makeTestAssembly(Path root, in string[] source_addons) {
+        auto src = root.join("fake-source");
+        foreach(name; source_addons) {
+            src.join(name).mkdir(true);
+            src.join(name, "__init__.py").writeFile("");
+            src.join(name, "__manifest__.py").writeFile(
+                `{"name": "` ~ name ~ `", "version": "17.0.1.0.0", "depends": ["base"]}`);
+        }
+        auto assembly_path = root.join("assembly");
+        assembly_path.mkdir(true);
+        auto assembly = Assembly.initialize(
+            assembly_path, OdooSerie("17.0"), new TestSourceProvider(src));
+        assembly.addSource(GitURL("https://example.test/repo"));
+        return assembly;
+    }
+
+    /// Bare `origin` holding the current history as branch `17.0`.
+    private void addTestOrigin(Assembly assembly, Path root) {
+        import theprocess: Process;
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString)
+            .execute.ensureOk(true);
+        assembly.repo.remoteAdd("origin", remote_path.toString);
+        assembly.repo.gitCmd
+            .withArgs("push", "-u", "origin", "HEAD:17.0").execute.ensureOk(true);
+    }
+}
+
+
+// Version resolution: release tags win, the VERSION file counts only while
+// there is no tag, and is written only when it exists.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
+    assembly.addAddon("my_addon");
+    assembly.save();
+
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Initial commit");
+    immutable base_rev = assembly.repo.getCurrCommit;
+
+    assembly.sync();
+
+    // Never released: no tag, no VERSION file.
+    assembly.currentVersion.isNull.shouldBeTrue;
+
+    // Bootstraps at <serie>.0.0.0; an added addon is a MINOR bump.
+    auto release = assembly.prepareRelease(base_rev);
+    release.isNull.shouldBeFalse;
+    release.get.new_version.toString.should == "17.0.0.1.0";
+    release.get.start_ref.should == base_rev;
+
+    // The VERSION file is opt-in.
+    assembly.generateVersionFile(release.get.new_version);
+    assembly.version_path.exists.shouldBeFalse;
+
+    assembly.generateVersionFile(release.get.new_version, create: true);
+    assembly.version_path.readFileText.should == "17.0.0.1.0\n";
+
+    // With no tag yet, the file is what the version is read from.
+    assembly.currentVersion.get.toString.should == "17.0.0.1.0";
+
+    // Commit the content for the tag to point at.
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("Release 17.0.0.1.0");
+
+    // Once a tag exists it wins, whatever the file says.
+    assembly.repo.setTag("17.0.3.0.0");
+    assembly.currentVersion.get.toString.should == "17.0.3.0.0";
+
+    // An existing file is updated without asking.
+    assembly.generateVersionFile(OdooStdVersion("17.0.3.0.0"));
+    assembly.version_path.readFileText.should == "17.0.3.0.0\n";
+
+    // Nothing changed since the tagged commit.
+    assembly.prepareRelease.isNull.shouldBeTrue;
+
+    // Release invariants: an already-existing tag is refused ...
+    assembly.validateRelease(
+        OdooStdVersion("17.0.3.0.0"), check_working_tree: false)
+        .shouldThrow!OdoodAssemblyException;
+    // ... and so is a dirty tree (VERSION sits staged at this point).
+    assembly.validateRelease(OdooStdVersion("17.0.4.0.0"))
+        .shouldThrow!OdoodAssemblyException;
+    assembly.validateRelease(
+        OdooStdVersion("17.0.4.0.0"), check_working_tree: false);
+    assembly.repo.commit("Update VERSION");
+    assembly.validateRelease(OdooStdVersion("17.0.4.0.0"));
+
+    // A changelog from a base older than the latest release is refused.
+    auto stale = assembly.prepareRelease(base_rev);
+    stale.isNull.shouldBeFalse;
+    assembly.generateChangelog(stale.get)
+        .shouldThrow!OdoodAssemblyException;
+}
+
+
+// An assembly with a VERSION file but no tag releases from the version in the
+// file, counting changes since the file was written, even ones on the branch.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["addon_one", "addon_two"]);
+    assembly.addAddon("addon_one");
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Initial commit");
+
+    /* An origin with the same commits, as after the sync is merged: comparing
+     * against the branch would find nothing to release. */
+    addTestOrigin(assembly, root);
+
+    // A release recorded in VERSION only, without a tag.
+    assembly.sync();
+    assembly.generateVersionFile(OdooStdVersion("17.0.2.3.0"), create: true);
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("Release 17.0.2.3.0");
+
+    assembly.currentVersion.get.toString.should == "17.0.2.3.0";
+
+    // A later sync, already committed to the branch the release runs on.
+    assembly.addAddon("addon_two");
+    assembly.save();
+    assembly.sync();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("[SYNC] Assembly synced");
+    assembly.repo.gitCmd
+        .withArgs("push", "origin", "HEAD:17.0").execute.ensureOk(true);
+    assembly.repo.fetchOrigin("17.0");
+
+    // The pending changes can be previewed under an `## Unreleased` heading.
+    assembly.generateChangelogPreview.shouldBeTrue;
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeTrue;
+    assembly.changelog_path.readFileText.canFind("addon_two").shouldBeTrue;
+
+    // An unstaged hand edit is refused, not overwritten ...
+    assembly.changelog_path.writeFile(
+        assembly.changelog_path.readFileText ~ "hand edit\n");
+    assembly.generateChangelogPreview.shouldThrow!OdoodAssemblyException;
+    assembly.repo.gitCmd.withArgs("checkout", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+    // ... while a re-run over the preview's own (staged) output is fine.
+    assembly.generateChangelogPreview.shouldBeTrue;
+
+    // Measured from the commit that wrote VERSION, not the branch tip: the
+    // added addon is a MINOR bump from the version in the file.
+    auto release = assembly.prepareRelease;
+    release.isNull.shouldBeFalse;
+    release.get.new_version.toString.should == "17.0.2.4.0";
+
+    // The release replaces the `## Unreleased` section.
+    assembly.generateChangelog(release.get);
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeFalse;
+    assembly.changelog_path.readFileText
+        .canFind("## Release 17.0.2.4.0").shouldBeTrue;
+
+    assembly.generateVersionFile(release.get.new_version);
+    assembly.version_path.readFileText.should == "17.0.2.4.0\n";
+    assembly.repo.commit("Release 17.0.2.4.0");
+    assembly.repo.setTag("17.0.2.4.0");
+
+    // With a tag in place, the tag — not the file — decides the version.
+    assembly.currentVersion.get.toString.should == "17.0.2.4.0";
+    assembly.prepareRelease.isNull.shouldBeTrue;
+    assembly.generateChangelogPreview.shouldBeFalse;
+}
+
+
+// A never-released assembly releases from the root commit, even with its
+// content already on the branch; a tagged but unpushed release is detected.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
+    assembly.addAddon("my_addon");
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Initial commit");
+
+    addTestOrigin(assembly, root);
+
+    // The stable branch holds the content, with neither a tag nor VERSION.
+    assembly.sync();
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("[SYNC] Assembly synced");
+    assembly.repo.gitCmd
+        .withArgs("push", "origin", "HEAD:17.0").execute.ensureOk(true);
+    assembly.repo.fetchOrigin("17.0");
+
+    assembly.currentVersion.isNull.shouldBeTrue;
+    assembly.version_path.exists.shouldBeFalse;
+
+    auto release = assembly.prepareRelease;
+    release.isNull.shouldBeFalse;
+    release.get.new_version.toString.should == "17.0.0.1.0";
+
+    // A tagged but unpushed release is recognised at HEAD.
+    assembly.releasedAtHead.isNull.shouldBeTrue;
+    assembly.repo.setTag(release.get.new_version.toString);
+    assembly.releasedAtHead.get.toString.should == "17.0.0.1.0";
+    assembly.prepareRelease.isNull.shouldBeTrue;
+
+    // A tag left behind on an older commit is not mistaken for one at HEAD.
+    assembly.path.join("notes.txt").writeFile("later work");
+    assembly.repo.add(Path("notes.txt"));
+    assembly.repo.commit("Add notes");
+    assembly.releasedAtHead.isNull.shouldBeTrue;
+}
+
+
+// The git env reaches the git operations on the assembly's own repository,
+// whichever way the assembly was obtained.
+unittest {
+    import std.string: strip;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto provider = new TestSourceProvider(root.join("fake-source"));
+    auto assembly_path = root.join("assembly");
+    assembly_path.mkdir(true);
+
+    string[string] identity(in string name) {
+        return [
+            "GIT_AUTHOR_NAME": name,
+            "GIT_AUTHOR_EMAIL": name ~ "@example.test",
+            "GIT_COMMITTER_NAME": name,
+            "GIT_COMMITTER_EMAIL": name ~ "@example.test",
+        ];
+    }
+    string commitNotes(Assembly assembly) {
+        // Content differs per checkout, so the clone has a change to commit too
+        assembly.path.join("notes.txt").writeFile(assembly.path.toString);
+        assembly.repo.add(Path("notes.txt"));
+        assembly.repo.commit("Add notes");
+        return assembly.repo.gitCmd
+            .withArgs("log", "-1", "--format=%an")
+            .execute.ensureOk(true).output.strip;
+    }
+
+    auto created = Assembly.initialize(
+        assembly_path, OdooSerie("17.0"), provider, identity("creator"));
+    created.repo.gitCmd
+        .withArgs("log", "-1", "--format=%an")
+        .execute.ensureOk(true).output.strip.should == "creator";
+
+    auto loaded = Assembly.load(
+        assembly_path, OdooSerie("17.0"), provider, identity("loader"));
+    commitNotes(loaded).should == "loader";
+
+    auto cloned = Assembly.initialize(
+        root.join("clone"), OdooSerie("17.0"), provider,
+        GitURL(assembly_path), identity("cloner"));
+    commitNotes(cloned).should == "cloner";
 }

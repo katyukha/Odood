@@ -21,7 +21,7 @@ apt-get install --no-install-recommends -yq \
     libxml2-dev libxslt-dev libbz2-dev libsasl2-dev libldap2-dev \
     libssl-dev libffi-dev liblzma-dev \
     fontconfig libmagic1
-apt-get install --no-install-recommends -yq postgresql sudo
+apt-get install --no-install-recommends -yq postgresql sudo gettext
 
 /etc/init.d/postgresql start
 sudo -u postgres -H psql -c "CREATE USER odoo WITH SUPERUSER PASSWORD 'odoo';"

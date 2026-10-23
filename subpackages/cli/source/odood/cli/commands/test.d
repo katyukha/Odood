@@ -280,7 +280,7 @@ class CommandTest: OdoodCommand {
     override int execute() {
         import std.process: wait, Redirect;
         import std.array;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto testRunner = project.testRunner();
 

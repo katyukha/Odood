@@ -44,6 +44,19 @@ for example a repository under `repositories/`) automatically operates on that
 instance. There is no `activate`/`deactivate` step and no risk of a command
 silently hitting the wrong instance.
 
+To target an instance without changing directory — from scripts, cron jobs or
+another instance's tree — pass its `odood.yml`, or the directory containing it,
+with the global `-c`/`--config` option **before** the command name:
+
+```bash
+odood -c ~/odoo-16 server start
+odood --config ~/odoo-18/odood.yml db list
+```
+
+A path without a project is an error, never a fallback to discovery. Command
+shortcuts (`odood start`, `odood lsd`, …) do not work with `--config`; use the
+full command (`odood -c ~/odoo-16 server start`).
+
 > **Note:** If no `odood.yml` is found by walking up from the current directory,
 > Odood falls back to the system-wide config at `/etc/odood.yml` (used for
 > server-mode deployments). On a developer machine that file usually does not

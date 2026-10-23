@@ -207,7 +207,7 @@ const struct LOdoo {
             enforce!OdoodException(
                 result == 0,
                 "Python script %s for database %s failed with error (exit-code): %s!".format(
-                    script_path, dbname));
+                    script_path, dbname, result));
             infof(
                 "Python script %s for database %s completed in %s.".format(
                     script_path, dbname, sw.peek));

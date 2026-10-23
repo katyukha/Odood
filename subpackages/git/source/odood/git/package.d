@@ -16,6 +16,7 @@ public import odood.git.repository: GitRepository;
 public import odood.git.refs: GitTag, GitRef;
 public import odood.git.status: GitStatus;
 public import odood.git.remote: GitRemote;
+public import odood.git.pull: GitPullStatus, GitPullResult;
 
 immutable string GIT_REF_WORKTREE = "-working-tree-";
 

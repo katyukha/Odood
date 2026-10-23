@@ -199,6 +199,20 @@ void installOdoo(in Project project) {
         }
 
 
+        /* Patch requirements txt to avoid using libsass==0.22.0 on
+         * Python >= 3.14: its setup.py reads `ast.Constant.s`, removed in
+         * 3.14, so its sdist does not build, and PyPI has no Linux arm64
+         * wheel for it. libsass==0.23.0 builds fine.
+         */
+        if (project.venv.py_version >= Version(3, 14, 0) && project.odoo.serie <= 20) {
+            info("Patching Odoo requirements.txt to avoid usage of old libsass...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"libsass==0\.22\.0(?=[\s;]|$)", "g"),
+                    "libsass==0.23.0");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
         info("Installing odoo dependencies (requirements.txt)");
         project.venv.installPyRequirements(
             project.odoo.path.join("requirements.txt"));

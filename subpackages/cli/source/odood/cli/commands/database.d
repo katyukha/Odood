@@ -30,7 +30,7 @@ class CommandDatabaseList: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         foreach(db; project.databases.list())
             writeln(db);
         return 0;
@@ -79,7 +79,7 @@ class CommandDatabaseCreate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         string dbname = getDatabaseName(project);
 
         OdooAddon[] to_install;
@@ -131,7 +131,7 @@ class CommandDatabaseDrop: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         foreach(dbname; name)
             if (project.databases.exists(dbname))
                 project.databases.drop(dbname);
@@ -151,7 +151,7 @@ class CommandDatabaseExists: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         bool db_exists = project.databases.exists(name);
         if (db_exists) {
             if (!quiet)
@@ -179,7 +179,7 @@ class CommandDatabaseIsInitialized: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         bool initialized = project.databases.isInitialized(name);
         if (initialized) {
             if (!quiet)
@@ -206,7 +206,7 @@ class CommandDatabaseRename: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.databases.rename(oldName, newName);
         return 0;
     }
@@ -224,7 +224,7 @@ class CommandDatabaseCopy: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.databases.copy(oldName, newName);
         return 0;
     }
@@ -298,7 +298,7 @@ class CommandDatabaseBackup: OdoodCommand {
             applyNice(nice.get);
         }
 
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         enforce!OdoodCLIException(
             all || name.length > 0,
@@ -349,7 +349,7 @@ class CommandDatabaseRestore: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         bool start_server = false;
         if (project.server.isRunning) {
@@ -394,7 +394,7 @@ class CommandDatabaseStun: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         project.dbSQL(name).stunDb;
         return 0;
     }
@@ -427,7 +427,7 @@ class CommandDatabasePopulate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         foreach(i; iota(repeat)) {
             infof("Populating database... (iteration #%s of %s)", i + 1, repeat);
@@ -463,7 +463,7 @@ class CommandDatabaseEnsureInitialized: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         if (waitPg) {
             auto pg_timeout = waitPgTimeout.seconds;

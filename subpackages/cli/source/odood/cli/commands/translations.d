@@ -15,6 +15,7 @@ private import theprocess: Process, resolveProgram;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
+private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.utils: generateRandomString;
 
@@ -125,7 +126,7 @@ class CommandTranslationsRegenerate: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         auto addons = findAddons(project);
         auto langs = parseLangs();
@@ -186,22 +187,43 @@ class CommandTranslationsRegenerate: OdoodCommand {
                             i18n_pot_file.toString);
                     tracef("Running %s", msgmerge);
                     msgmerge.execute.ensureOk!OdoodException(true);
+
+                    // msgmerge wraps lines unlike Odoo, and differently per
+                    // gettext version: rewrite with polib, as Odoo 13+
+                    // exports do. Older Odoo has no polib.
+                    if (project.odoo.serie >= OdooSerie(13))
+                        project.venv.python(
+                            "-c",
+                            "import sys, polib; polib.pofile(sys.argv[1]).save()",
+                            i18n_file.toString);
                 } else if (missingOnly && i18n_file.exists) {
                     warningf(
                         "translation file %s already exists and --missing-only option enabled. Skipping translation %s for module %s.",
                         i18n_file, li, a);
                 } else {
                     infof("Generating translations for module %s for language %s...", a, li);
-                    auto cmd = project.server.getServerRunner(
-                        "-d", dbname,
-                        "--i18n-export=%s".format(i18n_file),
-                        "--modules=%s".format(a.name),
-                        "--lang=%s".format(li.lang),
-                        "--stop-after-init",
-                        "--pidfile=",
-                    );
-                    tracef("Running %s", cmd);
-                    cmd.execute.ensureOk(true);
+                    if (project.odoo.serie >= 19) {
+                        auto cmd = project.server.getServerRunner(
+                            "i18n", "export",
+                            "-d", dbname,
+                            "-l", li.lang,
+                            "-o", i18n_file.toString,
+                            a.name,
+                        );
+                        tracef("Running %s", cmd);
+                        cmd.execute.ensureOk(true);
+                    } else {
+                        auto cmd = project.server.getServerRunner(
+                            "-d", dbname,
+                            "--i18n-export=%s".format(i18n_file),
+                            "--modules=%s".format(a.name),
+                            "--lang=%s".format(li.lang),
+                            "--stop-after-init",
+                            "--pidfile=",
+                        );
+                        tracef("Running %s", cmd);
+                        cmd.execute.ensureOk(true);
+                    }
                 }
             }
         }

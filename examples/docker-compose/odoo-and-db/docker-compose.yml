@@ -11,6 +11,7 @@
 volumes:
     odood-example-db-data:
     odood-example-odoo-data:
+    odood-example-odoo-backups:
 
 services:
     odood-example-db:
@@ -66,6 +67,8 @@ services:
             ODOOD_OPT_PROXY_MODE: "True"
         volumes:
             - odood-example-odoo-data:/opt/odoo/data
+            # Backups made by `odood db backup`.
+            - odood-example-odoo-backups:/opt/odoo/backups
         restart: unless-stopped
 
     odood-example-traefik:

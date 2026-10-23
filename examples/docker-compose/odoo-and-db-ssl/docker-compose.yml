@@ -15,6 +15,7 @@
 volumes:
     odood-example-ssl-db-data:
     odood-example-ssl-odoo-data:
+    odood-example-ssl-odoo-backups:
 
 services:
     odood-example-ssl-db:
@@ -72,6 +73,8 @@ services:
             ODOOD_OPT_PROXY_MODE: "True"
         volumes:
             - odood-example-ssl-odoo-data:/opt/odoo/data
+            # Backups made by `odood db backup`.
+            - odood-example-ssl-odoo-backups:/opt/odoo/backups
         restart: unless-stopped
 
     odood-example-ssl-traefik:

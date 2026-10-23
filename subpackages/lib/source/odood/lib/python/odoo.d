@@ -66,11 +66,44 @@ bool isPythonSuitableForSerie(in Version py_version, in OdooSerie serie) {
         return (py_version >= Version(3, 7) && py_version < Version(3, 11));
     if (serie <= OdooSerie(17))
         return (py_version >= Version(3, 10) && py_version < Version(3, 12));
-    if (serie <= OdooSerie(19))
+    if (serie <= OdooSerie(18))
         return (py_version >= Version(3, 10) && py_version < Version(3, 13));
+    if (serie <= OdooSerie(19))
+        return (py_version >= Version(3, 10) && py_version < Version(3, 14));
+    if (serie <= OdooSerie(20))
+        return (py_version >= Version(3, 12) && py_version < Version(3, 15));
 
     /// Unknown odoo version
     return false;
+}
+
+unittest {
+    import unit_threaded.assertions;
+
+    // Caps may trail what Odoo supports: third-party addons and pinned
+    // requirements lag behind (e.g. OCA `server_environment` breaks on 3.14).
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(18)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 13, 1), OdooSerie(18)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(18)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 9, 21), OdooSerie(18)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(19)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 13, 1), OdooSerie(19)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(19)).shouldBeFalse;
+
+    // Odoo 20: python 3.12 to 3.14.
+    isPythonSuitableForSerie(Version(3, 12, 3), OdooSerie(20)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(20)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(20)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 15, 0), OdooSerie(20)).shouldBeFalse;
+
+    // Odoo 17 and older have tighter caps.
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(17)).shouldBeFalse;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(17)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 10, 12), OdooSerie(16)).shouldBeTrue;
+    isPythonSuitableForSerie(Version(3, 11, 9), OdooSerie(16)).shouldBeFalse;
+
+    // Unknown (future) series are never auto-approved.
+    isPythonSuitableForSerie(Version(3, 14, 3), OdooSerie(21)).shouldBeFalse;
 }
 
 

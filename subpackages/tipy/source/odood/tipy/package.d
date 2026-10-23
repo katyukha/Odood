@@ -14,7 +14,24 @@ private import odood.tipy.python;
 private bindbc.loader.SharedLib pylib;
 
 
-private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths(
+// CPython installs a shared libpython under its soname `libpython3.X.so.1.0`;
+// the unversioned `.so` that makeLibPaths yields on ELF platforms is a
+// development link (on Debian/Ubuntu it comes only with `libpython3.X-dev`).
+private string[] withSonames(string[] lib_names) {
+    version(OSX) {
+        return lib_names;
+    } else version(Posix) {
+        string[] result;
+        foreach(name; lib_names)
+            result ~= [name, name ~ ".1.0"];
+        return result;
+    } else {
+        return lib_names;
+    }
+}
+
+
+private static enum supported_lib_names = withSonames(mixin(bindbc.loader.makeLibPaths(
     names: [
         "python3.14",
         "python3.13",
@@ -37,7 +54,7 @@ private static enum supported_lib_names = mixin(bindbc.loader.makeLibPaths(
             "/usr/local/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib/",
         ],
     ]
-));
+)));
 
 
 // Python runtime lifecycle state
@@ -93,7 +110,7 @@ shared static ~this() {
 // Load python library
 bool loadPyLib() {
     foreach(libname; supported_lib_names) {
-        pylib = bindbc.loader.load(libname.ptr);
+        pylib = bindbc.loader.load(libname.toStringz);
         if (pylib == bindbc.loader.invalidHandle) {
             continue;
         }

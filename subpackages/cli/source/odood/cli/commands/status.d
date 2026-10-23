@@ -30,7 +30,7 @@ class CommandStatus: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
 
         writeln(
             TMPL_CURRENT_PROJECT_STATUS.format(

@@ -26,9 +26,12 @@ string displayPath(in Path project_root, in Path path, in bool absolute = false)
 
     // Resolve symlinks on both sides so containment is decided on the canonical
     // locations (the project root or the addon dir may be reached via a
-    // symlinked parent).
-    auto root = project_root.exists ? project_root.realPath : project_root.toAbsolute;
-    auto abs = path.exists ? path.realPath : path.toAbsolute;
+    // symlinked parent). A path that does not resolve, such as a dangling
+    // symlink, is still printable, thus the fallback.
+    auto root = project_root.exists(followSymlink: true) ?
+        project_root.realPath : project_root.toAbsolute;
+    auto abs = path.exists(followSymlink: true) ?
+        path.realPath : path.toAbsolute;
 
     if (abs == root)
         return ".";

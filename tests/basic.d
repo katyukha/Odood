@@ -24,24 +24,28 @@ import odood.exception: OdoodException;
 /// Prepare virtualenv options for test
 auto getVenvOptions(in OdooSerie serie) {
     import odood.lib.python.venv: PyInstallType;
-    import odood.lib.python.odoo: guessVenvOptions;
+    import odood.lib.python.odoo: guessVenvOptions, suggestPythonVersion;
 
     auto venv_options = serie.guessVenvOptions;
 
-    if (venv_options.install_type == PyInstallType.System)
+    immutable prefer_py_install = environment.get("ODOOD_PREFER_PY_INSTALL", "");
+    if (prefer_py_install == "build")
+        venv_options.install_type = PyInstallType.Build;
+    else if (prefer_py_install == "pyenv")
+        venv_options.install_type = PyInstallType.PyEnv;
+    else
         return venv_options;
 
-    if (environment.get("ODOOD_PREFER_PY_INSTALL") == "build")
-        venv_options.install_type = PyInstallType.Build;
-    else if (environment.get("ODOOD_PREFER_PY_INSTALL") == "pyenv")
-        venv_options.install_type = PyInstallType.PyEnv;
+    // guessVenvOptions fills the version only when it chooses to build,
+    // while both build and pyenv need an explicit one.
+    if (!venv_options.py_version.length)
+        venv_options.py_version = serie.suggestPythonVersion;
 
     return venv_options;
 }
 
-/// Create new database user in postgres db
-void createDbUser(in string user, in string password) {
-
+/// Connect to the postgres server the tests run against
+auto connectPostgres() {
     string[string] connection_params = [
         "host": environment.get("POSTGRES_HOST", "localhost"),
         "port": environment.get("POSTGRES_PORT", "5432"),
@@ -50,7 +54,12 @@ void createDbUser(in string user, in string password) {
         "dbname": "postgres",
     ];
     infof("Connecting to postgres via: %s", connection_params);
-    auto connection = Connection(connection_params);
+    return Connection(connection_params);
+}
+
+/// Create new database user in postgres db
+void createDbUser(in string user, in string password) {
+    auto connection = connectPostgres;
 
     auto res_user_exists = connection.exec(
         "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='%s')".format(user));
@@ -66,6 +75,18 @@ void createDbUser(in string user, in string password) {
 string genDbName(in Project project, in string name, in string ukey="n") {
     string ci_run_id = environment.get("GITHUB_RUN_ID", "1");
     return "odood%s-r%s-u%s-%s".format(project.odoo.serie.major, ci_run_id, ukey, name);
+}
+
+/** Run the odood CLI in-process against `project` via the global `--config`
+  * option: tests run in parallel threads, thus the working directory is left
+  * alone, and relative paths in `args` resolve against it.
+  *
+  * Returns: the command's exit code.
+  **/
+int runOdoodCLI(in Project project, string[] args...) {
+    import odood.cli.app: App;
+    return (new App()).run(
+        ["odood", "--config", project.project_root.toString] ~ args.dup);
 }
 
 
@@ -360,6 +381,47 @@ void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
+/// Test regeneration of translations
+void testTranslationsRegenerate(in Project project) {
+    infof("Testing translations regeneration for %s", project);
+
+    // Regeneration writes into the addon, thus work on a copy of it
+    auto repo_path = project.project_root.join("test-tr-repo");
+    Path("test-data", "test_tr_addon").copyTo(repo_path.join("test_tr_addon"));
+    project.addons.link(repo_path);
+    scope(exit) {
+        project.directories.addons.join("test_tr_addon").remove();
+        repo_path.remove();
+    }
+    auto i18n_dir = repo_path.join("test_tr_addon", "i18n");
+    auto uk_po = i18n_dir.join("uk.po");
+
+    runOdoodCLI(
+        project, "translations", "regenerate",
+        "--pot", "--lang", "uk_UA", "test_tr_addon").shouldEqual(0);
+    i18n_dir.join("test_tr_addon.pot").readFileText
+        .canFind(`msgid "Odood test label"`).shouldBeTrue;
+    uk_po.readFileText.canFind(`msgid "Odood test label"`).shouldBeTrue;
+
+    // Translate a term and update from the regenerated .pot: the addon did
+    // not change, thus the terms stay exactly as Odoo exported them. The
+    // header holds generation dates, thus it is not compared.
+    uk_po.writeFile(uk_po.readFileText.replace(
+        "msgid \"Odood test label\"\nmsgstr \"\"",
+        "msgid \"Odood test label\"\nmsgstr \"Тестова мітка\""));
+    immutable translated = uk_po.readFileText;
+    translated.canFind(`msgstr "Тестова мітка"`).shouldBeTrue;
+
+    runOdoodCLI(
+        project, "translations", "regenerate",
+        "--pot-update", "--missing-only", "--lang", "uk_UA",
+        "test_tr_addon").shouldEqual(0);
+    uk_po.readFileText.findSplitAfter("\n\n")[1].shouldEqual(
+        translated.findSplitAfter("\n\n")[1]);
+
+    infof("Testing translations regeneration for %s. Complete: Ok.", project);
+}
+
 /** Test Assembly functionality
   *
   * Currently this is minimal test, to ensure basic mechanics just works (not fail)
@@ -399,12 +461,21 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.raw.changelog_latest_path.exists.shouldBeFalse;
     assembly.raw.version_path.exists.shouldBeFalse;
 
-    // Generate changelog, end ensure that changelog was written
-    assembly.raw.generateChangelog(base_commit);
+    // Prepare the release and ensure the changelog was written
+    auto release1 = assembly.raw.prepareRelease(base_commit);
+    release1.isNull.shouldBeFalse;
+    // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
+    release1.get.new_version.toString.shouldEqual(
+        "%s.0.1.0".format(project.odoo.serie));
+    assembly.raw.generateChangelog(release1.get);
     assembly.raw.changelog_path.exists.shouldBeTrue;
     assembly.raw.changelog_latest_path.exists.shouldBeTrue;
+
+    // VERSION is opt-in: written only when it exists or `create` is set.
+    assembly.raw.generateVersionFile(release1.get.new_version);
+    assembly.raw.version_path.exists.shouldBeFalse;
+    assembly.raw.generateVersionFile(release1.get.new_version, create: true);
     assembly.raw.version_path.exists.shouldBeTrue;
-    // Adding an addon is a MINOR (additive) bump, so 18.0.0.0.0 -> 18.0.0.1.0.
     assembly.raw.version_path.readFileText.shouldEqual("%s.0.1.0\n".format(project.odoo.serie));
 
     // Link assembly and change that symlinks were created in custom_addons dir
@@ -434,8 +505,12 @@ void testAssembly(Project project, in string ukey="n") {
     assembly.raw.dist_dir.join("generic_mixin").exists.shouldBeTrue;
     assembly.raw.dist_dir.join("generic_tag").exists.shouldBeTrue;
 
-    // Generate (update) changelog and check that assembly version updated.
-    assembly.raw.generateChangelog(base_commit);
+    // Prepare the next release and check that the assembly version updated.
+    auto release2 = assembly.raw.prepareRelease(base_commit);
+    release2.isNull.shouldBeFalse;
+    assembly.raw.generateChangelog(release2.get);
+    // An existing VERSION file is updated.
+    assembly.raw.generateVersionFile(release2.get.new_version);
     // Another added addon -> another MINOR bump: 18.0.0.1.0 -> 18.0.0.2.0.
     assembly.raw.version_path.readFileText.shouldEqual("%s.0.2.0\n".format(project.odoo.serie));
 
@@ -450,7 +525,104 @@ void testAssembly(Project project, in string ukey="n") {
     project.directories.addons.join("generic_tag").isSymlink.shouldBeTrue;
     project.directories.addons.join("generic_tag").readLink == assembly.raw.dist_dir.join("generic_tag");
 
+    // Test the release CLI command on top of the state built above
+    testAssemblyReleaseCLI(project);
+
     infof("Testing assembly for %s. Complete: Ok.", project);
+}
+
+/// Test `odood assembly release` CLI command, on the state left by `testAssembly`
+void testAssemblyReleaseCLI(Project project) {
+    infof("Testing assembly release CLI for %s", project);
+
+    auto assembly = project.assembly.raw;
+    auto repo = assembly.repo;
+    immutable serie = project.odoo.serie.toString;
+
+    // Clean tree: VERSION records <serie>.0.2.0, no release tag yet.
+    repo.gitCmd.withArgs("add", "-A").execute.ensureOk(true);
+    repo.commit("Commit assembly state before release tests");
+
+    // Nothing changed since VERSION was written: exit 0, or 1 on request.
+    runOdoodCLI(project, "assembly", "release").shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(0);
+    runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
+        .shouldEqual(1);
+
+    // Removing an addon from the spec is the release-worthy change.
+    assembly.removeAddon("generic_tag");
+    assembly.save();
+    repo.add(assembly.spec_path);
+    repo.commit("Remove generic_tag from assembly spec");
+
+    // A hand-edited changelog staged at sync time is not sync's to commit.
+    assembly.changelog_path.writeFile("# hand edit\n");
+    repo.add(assembly.changelog_path);
+    runOdoodCLI(project, "assembly", "sync", "--commit").shouldEqual(1);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+
+    // An unstaged hand edit to the changelog refuses the preview.
+    assembly.changelog_path.writeFile(
+        assembly.changelog_path.readFileText ~ "hand edit\n");
+    runOdoodCLI(project, "assembly", "sync", "--commit", "--changelog-preview")
+        .shouldEqual(1);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "CHANGELOG.md")
+        .execute.ensureOk(true);
+
+    // Sync the spec change, with the changelog preview, and commit.
+    runOdoodCLI(project, "assembly", "sync", "--commit", "--changelog-preview")
+        .shouldEqual(0);
+    assembly.dist_dir.join("generic_mixin").exists.shouldBeTrue;
+    assembly.dist_dir.join("generic_tag").exists.shouldBeFalse;
+    // The committed preview carries an `## Unreleased` section, no version.
+    assembly.changelog_path.readFileText.canFind("## Unreleased").shouldBeTrue;
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
+
+    // Release refuses a dirty working tree.
+    assembly.spec_path.writeFile(
+        assembly.spec_path.readFileText ~ "# dirty\n");
+    runOdoodCLI(project, "assembly", "release").shouldEqual(1);
+    repo.listLocalTags().length.shouldEqual(0);
+    repo.gitCmd.withArgs("checkout", "HEAD", "--", "odood-assembly.yml")
+        .execute.ensureOk(true);
+
+    // Dry run predicts without writing, committing or tagging.
+    runOdoodCLI(project, "assembly", "release", "--dry-run", "--changelog")
+        .shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(0);
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
+
+    // A removed addon is a MAJOR bump: <serie>.0.2.0 -> <serie>.1.0.0.
+    immutable expected = "%s.1.0.0".format(serie);
+    runOdoodCLI(project, "assembly", "release", "--changelog").shouldEqual(0);
+    repo.listLocalTags().canFind(expected).shouldBeTrue;
+    assembly.version_path.readFileText.shouldEqual(expected ~ "\n");
+    assembly.changelog_latest_path.readFileText
+        .canFind("generic_tag").shouldBeTrue;
+    // The `## Unreleased` preview section is replaced by the released one.
+    assembly.changelog_path.readFileText
+        .canFind("## Unreleased").shouldBeFalse;
+    assembly.releasedAtHead.get.toString.shouldEqual(expected);
+    // The release commit holds everything the release generated.
+    repo.getChangedFiles(staged: false).length.shouldEqual(0);
+    repo.getChangedFiles(staged: true).length.shouldEqual(0);
+
+    // A re-run on the released HEAD recognises the release: no new tag.
+    runOdoodCLI(project, "assembly", "release").shouldEqual(0);
+    repo.listLocalTags().length.shouldEqual(1);
+
+    // A commit that changes no addon leaves nothing to release again.
+    assembly.path.join("NOTES.md").writeFile("notes\n");
+    repo.add(assembly.path.join("NOTES.md"));
+    repo.commit("Add notes");
+    runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
+        .shouldEqual(1);
+    repo.listLocalTags().length.shouldEqual(1);
+
+    infof("Testing assembly release CLI for %s. Complete: Ok.", project);
 }
 
 
@@ -486,6 +658,62 @@ void runBasicTests(Project project, in string ukey="n") {
     // TODO: Complete the test
 }
 
+@("Basic Test Odoo 20")
+unittest {
+    // Creating a database fails on older servers: Odoo 20 uses the
+    // `any_value()` aggregate, added in PostgreSQL 16.
+    immutable pg_version = connectPostgres.serverVersion;
+    if (pg_version.major < 16) {
+        warningf("Skipping Odoo 20 tests: they need PostgreSQL 16+, server is %s.", pg_version);
+        return;
+    }
+
+    auto temp_path = createTempPath(
+        environment.get("TEST_ODOO_TEMP", std.file.tempDir),
+        "tmp-odood-20",
+    );
+    scope(exit) temp_path.remove();
+
+    // Create database use for odoo 20 instance
+    createDbUser("odood20test", "odoo");
+
+    auto project = new Project(temp_path, OdooSerie(20));
+    auto odoo_conf = project.odooConfigBuilder
+        .setDBConfig(
+            environment.get("POSTGRES_HOST", "localhost"),
+            environment.get("POSTGRES_PORT", "5432"),
+            "odood20test",
+            "odoo")
+        .setHttp("localhost", "20069")
+        .result();
+    project.initialize(odoo_conf, project.odoo.serie.getVenvOptions);
+    project.save();
+
+    // Test created project
+    project.project_root.shouldEqual(temp_path);
+    project.odoo.serie.shouldEqual(OdooSerie(20));
+    project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    // Run basic tests
+    //project.runBasicTests("o20");
+
+    // TODO: test addons management once the addons it uses are ported to 20
+
+    // Test server management
+    testServerManagement(project, "o20");
+
+    // Test LOdoo Database operations
+    testDatabaseManagement(project, "o20");
+
+    // Test basic addons management
+    //testAddonsManagementBasic(project, "o20");
+
+    // Test running scripts
+    testRunningScripts(project, "o20");
+
+    testTranslationsRegenerate(project);
+}
+
 @("Basic Test Odoo 19")
 unittest {
     auto temp_path = createTempPath(
@@ -515,25 +743,9 @@ unittest {
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
     // Run basic tests
-    //project.runBasicTests("o19");
+    project.runBasicTests("o19");
 
-    /*
-     * TODO: Currently, because some addons used in tests are not ported to 19,
-     *       we do not test addons management. But later, when that addons ported
-     *       we have to chage this and run tests for addons management for Odoo 18
-     */
-
-    // Test server management
-    testServerManagement(project, "o19");
-
-    // Test LOdoo Database operations
-    testDatabaseManagement(project, "o19");
-
-    // Test basic addons management
-    //testAddonsManagementBasic(project, "o19");
-
-    // Test running scripts
-    testRunningScripts(project, "o19");
+    testTranslationsRegenerate(project);
 }
 
 @("Basic Test Odoo 18")
@@ -566,6 +778,9 @@ unittest {
 
     // Run basic tests
     project.runBasicTests("o18");
+
+    // Covers the export via server options, used up to Odoo 18
+    testTranslationsRegenerate(project);
 }
 
 @("Basic Test Odoo 17")
@@ -806,7 +1021,8 @@ unittest {
     project.server.getServerRunner("--stop-after-init", "--no-http").execute;
 
     // Reinstall Odoo to version 17
-    project.reinstallOdoo(OdooSerie(17), true);
+    project.reinstallOdoo(
+        OdooSerie(17), project.odoo_install_type, OdooSerie(17).getVenvOptions);
 
     // Test project after Odoo reinstalled to version 17
     project.project_root.shouldEqual(temp_path);
@@ -823,13 +1039,18 @@ unittest {
 
 // Unittests for virtualenvs.
 // Just test if it could build python with different configurations.
-@("Test virtualenv initializaton")
+@("Test virtualenv initialization (build)")
 unittest {
     import std.process;
     import thepath.utils: createTempPath;
     import unit_threaded.assertions;
     import odood.lib.python.venv;
-    import odood.utils.versioned: Version;
+    import versioned: Version;
+
+    if (environment.get("ODOOD_PREFER_PY_INSTALL", "build") != "build") {
+        info("Skipping python build tests: ODOOD_PREFER_PY_INSTALL is not 'build'");
+        return;
+    }
 
     auto save_env = environment.toAA;
     scope(exit) {
@@ -873,6 +1094,35 @@ unittest {
         py_version: "3.10.16",
     ));
     venv3.py_version.shouldEqual(Version(3, 10, 16));
+}
+
+
+@("Test virtualenv initialization (pyenv)")
+unittest {
+    import std.process;
+    import thepath.utils: createTempPath;
+    import unit_threaded.assertions;
+    import odood.lib.python.venv;
+    import odood.lib.python.odoo: suggestPythonVersion;
+    import versioned: Version;
+
+    if (environment.get("ODOOD_PREFER_PY_INSTALL", "") != "pyenv") {
+        info("Skipping pyenv tests: ODOOD_PREFER_PY_INSTALL is not 'pyenv'");
+        return;
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // The Odoo 17 tests install this version too, so pyenv builds no extra python.
+    immutable py_version = OdooSerie(17).suggestPythonVersion;
+
+    auto venv = VirtualEnv(root.join("venv"), PySerie.py3);
+    venv.initializeVirtualEnv(VenvOptions(
+        install_type: PyInstallType.PyEnv,
+        py_version: py_version,
+    ));
+    venv.py_version.shouldEqual(Version(py_version));
 }
 
 

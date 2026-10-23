@@ -20,7 +20,7 @@ class CommandInfo: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto info = project.getInfo();
 
         if (json) {

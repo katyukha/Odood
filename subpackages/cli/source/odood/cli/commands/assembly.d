@@ -15,11 +15,34 @@ private import thepath: Path;
 
 private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
+private import odood.lib.addons.repository: renderChangelog;
 private import odood.project: Project;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL, GitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
+
+
+/* Files sync generates itself; anything else dirty is not sync's to touch. */
+private string[] syncGeneratedPaths() {
+    return [
+        ASSEMBLY_REQUIREMENTS_LOCK.toString,
+        ASSEMBLY_ADDONS_MD_PATH.toString,
+        ASSEMBLY_ADDONS_CSV_PATH.toString,
+        "Dockerfile",
+        ".dockerignore",
+    ];
+}
+
+private string[] changelogPaths() {
+    return ["CHANGELOG.md", "CHANGELOG.latest.md"];
+}
+
+/* Files release generates: the sync set plus the versioning artifacts, which
+ * sync treats as hand edits. */
+private string[] releaseGeneratedPaths() {
+    return syncGeneratedPaths ~ ASSEMBLY_VERSION_PATH.toString ~ changelogPaths;
+}
 
 
 class CommandAssemblyInit: OdoodCommand {
@@ -32,7 +55,7 @@ class CommandAssemblyInit: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Assembly already initialized!");
@@ -58,7 +81,7 @@ class CommandAssemblyUse: OdoodCommand {
 
     override int execute() {
         auto assembly_path = path.toAbsolute;
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         enforce!OdoodCLIException(
             project.assembly is null,
             "Project already has configured assembly!");
@@ -74,7 +97,7 @@ class CommandAssemblyStatus: OdoodCommand {
     }
 
     override int execute() {
-        auto project = Project.loadProject;
+        auto project = this.loadProject;
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {
             project.useAssembly(assemblyPath.get, save_config: false);
@@ -82,9 +105,11 @@ class CommandAssemblyStatus: OdoodCommand {
         if (project.assembly is null)
             writeln("There is no assembly configured for this project!");
         else {
+            auto current = project.assembly.raw.currentVersion(include_remote: false);
             writefln(
-                "Assembly: %s\nAddons: %s\nSources: %s\n",
+                "Assembly: %s\nVersion: %s\nAddons: %s\nSources: %s\n",
                 project.assembly.raw.path,
+                current.isNull ? "not released yet" : current.get.toString,
                 project.assembly.raw.spec.addons.length,
                 project.assembly.raw.spec.sources.length,
             );
@@ -102,8 +127,8 @@ class AssemblyCommandBase: OdoodCommand {
         super(args);
     }
 
-    auto loadProject() {
-        auto project = Project.loadProject;
+    override Project loadProject() {
+        auto project = super.loadProject;
 
         auto assemblyPath = parent!CommandAssembly.assemblyPath;
         if (!assemblyPath.isNull) {
@@ -126,6 +151,7 @@ class CommandAssemblySync: AssemblyCommandBase {
     bool push;
     Nullable!string pushTo;
     bool changelog;
+    bool changelogPreview;
     bool dockerfile;
     bool addonsListMd;
     bool addonsListCsv;
@@ -142,7 +168,12 @@ class CommandAssemblySync: AssemblyCommandBase {
             "Fail (set exit code = 1) if there is nothing to commit");
         this.addFlag!(push)("", "push", "Automatically push changes if needed.");
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
-        this.addFlag!(changelog)("", "changelog", "Generate changelog for assembly.");
+        this.addFlag!(changelog)("", "changelog",
+            "Removed - use 'odood assembly release' instead.");
+        this.addFlag!(changelogPreview)("", "changelog-preview",
+            "Write CHANGELOG.md with the pending changes under an "
+            ~ "'## Unreleased' heading. No version is assigned; "
+            ~ "'odood assembly release --changelog' replaces the section.");
         this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
@@ -153,14 +184,23 @@ class CommandAssemblySync: AssemblyCommandBase {
     }
 
     override int execute() {
+        /* Sync cannot assign a version: it runs where no tag can exist yet, so
+         * two branches off the same point would claim the same number. */
+        enforce!OdoodCLIException(
+            !changelog,
+            "'odood assembly sync --changelog' has been removed: generating "
+            ~ "a changelog assigns a version, which is the job of "
+            ~ "'odood assembly release'. Drop --changelog and add a release "
+            ~ "step after the sync.");
+
         auto project = loadProject();
 
         project.assembly.sync(
             generate_lock: generateLock,
             with_odoo_requirements: withOdooRequirements);
 
-        if (changelog)
-            project.assembly.raw.generateChangelog;
+        if (changelogPreview)
+            project.assembly.raw.generateChangelogPreview;
 
         if (dockerfile)
             project.assembly.raw.generateDockerfile;
@@ -169,38 +209,26 @@ class CommandAssemblySync: AssemblyCommandBase {
             project.assembly.raw.generateAddonsList(
                 md: addonsListMd, csv: addonsListCsv);
 
+        // With --changelog-preview the changelog files are sync's own output.
+        auto generated_paths = changelogPreview
+            ? syncGeneratedPaths ~ changelogPaths
+            : syncGeneratedPaths;
+
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: [
-                        ":(exclude)dist",
-                        ":(exclude)%s".format(ASSEMBLY_VERSION_PATH),
-                        ":(exclude)%s".format(ASSEMBLY_REQUIREMENTS_LOCK),
-                        ":(exclude)CHANGELOG.md",
-                        ":(exclude)CHANGELOG.latest.md",
-                        ":(exclude)Dockerfile",
-                        ":(exclude).dockerignore",
-                        ":(exclude)%s".format(ASSEMBLY_ADDONS_MD_PATH),
-                        ":(exclude)%s".format(ASSEMBLY_ADDONS_CSV_PATH),
-                    ],
+                    path_filters: (generated_paths ~ "dist")
+                        .map!(pth => ":(exclude)%s".format(pth)).array,
                     staged: true
                 ).length == 0,
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
                 project.assembly.raw.repo.getChangedFiles(
-                    path_filters: [
-                        "dist",
-                        "%s".format(ASSEMBLY_VERSION_PATH),
-                        "%s".format(ASSEMBLY_REQUIREMENTS_LOCK),
-                        "Dockerfile",
-                        ".dockerignore",
-                        "%s".format(ASSEMBLY_ADDONS_MD_PATH),
-                        "%s".format(ASSEMBLY_ADDONS_CSV_PATH),
-                    ],
+                    path_filters: generated_paths ~ "dist",
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");
@@ -221,6 +249,171 @@ class CommandAssemblySync: AssemblyCommandBase {
         if (push || !pushTo.isNull)
             project.assembly.raw.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
+        return 0;
+    }
+}
+
+
+class CommandAssemblyRelease: AssemblyCommandBase {
+    bool failNothingToRelease;
+    bool push;
+    bool dryRun;
+    bool changelog;
+    bool versionFile;
+    bool dockerfile;
+    bool addonsListMd;
+    bool addonsListCsv;
+    Nullable!string baseRef;
+    Nullable!string commitMessage;
+    Nullable!string commitUser;
+    Nullable!string commitEmail;
+
+    this() {
+        super("release",
+            "Release the assembly: auto-version, tag, and optionally push.");
+        this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
+            "Exit with code 1 when no changes are detected since the last release.");
+        this.addFlag!(push)("", "push", "Push the release commit and tag to origin.");
+        this.addFlag!(dryRun)("n", "dry-run",
+            "Only show what would be released; do not write, commit, tag or push.");
+        this.addFlag!(changelog)("", "changelog",
+            "Generate CHANGELOG.md and CHANGELOG.latest.md for this release.");
+        this.addFlag!(versionFile)("", "version-file",
+            "Create the VERSION file even if the assembly does not have one. "
+            ~ "An existing VERSION file is always updated.");
+        this.addFlag!(dockerfile)("", "dockerfile",
+            "Regenerate the Dockerfile so its version label matches this release.");
+        this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md.");
+        this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv.");
+        this.addOption!(baseRef)("", "base-ref",
+            "Compare against this revision instead of the latest release tag.");
+        this.addOption!(commitMessage)("", "commit-message",
+            "Commit message for the release commit (default: 'Release <version>').");
+        this.addOption!(commitUser)("", "commit-user",
+            "Git author name for the release commit.");
+        this.addOption!(commitEmail)("", "commit-email",
+            "Git author email for the release commit.");
+    }
+
+    override int execute() {
+        auto project = loadProject();
+        auto assembly = project.assembly.raw;
+        auto repo = assembly.repo;
+        immutable serie_str = project.odoo.serie.toString;
+
+        auto current_branch = repo.getCurrBranch();
+        immutable on_stable =
+            !current_branch.isNull && current_branch.get == serie_str;
+
+        if (push) {
+            enforce!OdoodCLIException(
+                !current_branch.isNull,
+                "Cannot push a release from a detached HEAD.");
+            enforce!OdoodCLIException(
+                on_stable,
+                ("Releases with --push must be made from branch '%s'. "
+                ~ "Current: %s.").format(serie_str, current_branch.get));
+            enforce!OdoodCLIException(
+                repo.hasRemoteUrl("origin"),
+                "Cannot push: no 'origin' remote is configured.");
+        } else if (!on_stable) {
+            warningf(
+                "Assembly Release: releasing from '%s', not the stable branch '%s'.",
+                current_branch.isNull ? "detached HEAD" : current_branch.get,
+                serie_str);
+        }
+
+        if (repo.hasRemoteUrl("origin")) {
+            repo.fetchOrigin(serie_str);
+
+            /* Version resolution falls back to local tags when the remote
+             * cannot be listed; with --push that could duplicate a tag on
+             * origin, so fail here instead. */
+            if (push)
+                repo.listRemoteTags("origin");
+
+            immutable remote_ref = "origin/" ~ serie_str;
+            if (on_stable
+                    && repo.tryRevParse(remote_ref).length > 0
+                    && !repo.isAncestor(remote_ref, "HEAD")) {
+                enforce!OdoodCLIException(
+                    !push,
+                    ("Local branch '%s' is behind '%s'. "
+                    ~ "Pull the latest changes before releasing with --push.").format(
+                        serie_str, remote_ref));
+                warningf(
+                    "Assembly Release: local '%s' does not include the latest "
+                    ~ "commits from '%s'. The release will not cover them.",
+                    serie_str, remote_ref);
+            }
+        }
+
+        /* A release tag at HEAD is a release whose push failed: measured
+         * from that tag, the run would find no changes and never push it. */
+        auto head_tag = assembly.releasedAtHead;
+        if (!head_tag.isNull) {
+            infof("Assembly Release: HEAD is already released as %s.",
+                head_tag.get);
+            if (!dryRun && push) {
+                repo.push();
+                repo.pushTag(head_tag.get.toString);
+                infof("Assembly Release: pushed branch and tag to origin.");
+            }
+            return 0;
+        }
+
+        auto result = assembly.prepareRelease(
+            base_rev: baseRef.isNull ? null : baseRef.get);
+
+        if (result.isNull) {
+            infof("Assembly Release: nothing to release, no changes detected.");
+            if (failNothingToRelease)
+                exitWith(1);
+            return 0;
+        }
+
+        immutable tag_name = result.get.new_version.toString;
+
+        // A dry run checks the tag but tolerates a dirty tree.
+        assembly.validateRelease(
+            result.get.new_version, check_working_tree: !dryRun);
+
+        if (dryRun) {
+            infof("Assembly Release: would release version %s.", tag_name);
+            if (changelog) {
+                infof("Changelog preview:");
+                writeln(renderChangelog(result.get.addon_changes));
+            }
+            return 0;
+        }
+
+        // Artifacts are committed before tagging, so the tag includes them.
+        if (changelog)
+            assembly.generateChangelog(result.get);
+        assembly.generateVersionFile(result.get.new_version, create: versionFile);
+        if (dockerfile)
+            assembly.generateDockerfile(tag_name);
+        if (addonsListMd || addonsListCsv)
+            assembly.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+
+        if (repo.getChangedFiles(
+                path_filters: releaseGeneratedPaths, staged: true).length > 0) {
+            repo.commit(
+                message: commitMessage.isNull
+                    ? "Release %s".format(tag_name) : commitMessage.get,
+                username: commitUser.isNull ? null : commitUser.get,
+                useremail: commitEmail.isNull ? null : commitEmail.get);
+            infof("Assembly Release: release artifacts committed.");
+        }
+
+        repo.setTag(tag_name);
+        infof("Assembly Release: created tag %s.", tag_name);
+
+        if (push) {
+            repo.push();
+            repo.pushTag(tag_name);
+            infof("Assembly Release: pushed branch and tag to origin.");
+        }
         return 0;
     }
 }
@@ -617,6 +810,7 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyUse());
         this.add(new CommandAssemblyStatus());
         this.add(new CommandAssemblySync());
+        this.add(new CommandAssemblyRelease());
         this.add(new CommandAssemblyLink());
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
