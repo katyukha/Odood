@@ -774,11 +774,17 @@ class Assembly {
         _spec.removeSource(git_url, name, git_ref, git_commit);
     }
 
-    /// Replace the source named `name` in place (re-pin); refuses a rename while
-    /// addons reference it.
+    /// Replace the source named `name` in place (re-pin), keeping its access
+    /// group and no-search flag; refuses a rename while addons reference it.
     void replaceSource(in string name, in GitURL git_url, in string new_name=null,
             in string git_ref=null, in string git_commit=null) {
         _spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
+    }
+
+    /// Replace `source` with `updated` in place; refuses a rename while addons
+    /// reference it.
+    void replaceSource(in AssemblySpecSource source, in AssemblySpecSource updated) {
+        _spec.replaceSource(source, updated);
     }
 
     /** For each source, query the remote for tags matching the project's Odoo serie,

@@ -6,14 +6,14 @@ private import std.exception: enforce;
 private import std.stdio: writefln, writeln;
 private import std.array: empty, join, array;
 private import std.format: format;
-private import std.algorithm: map, canFind;
+private import std.algorithm: map, filter, canFind;
 private import std.typecons: Nullable;
 
 private import colored;
 private import darkcommand;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
+private import odood.lib.assembly: Assembly, AssemblySpecSource, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.addons.repository: renderChangelog;
 private import odood.project: Project;
@@ -714,7 +714,8 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
 }
 
 
-class CommandAssemblyAddSource: AssemblyCommandBase {
+/* Options shared by the commands that add or change a git source in the spec. */
+abstract class AssemblySourceCommandBase: AssemblyCommandBase {
     Nullable!string url;
     Nullable!string github;
     Nullable!string oca;
@@ -729,8 +730,8 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
     bool push;
     Nullable!string pushTo;
 
-    this() {
-        super("add-source", "Add a git source to this assembly's spec.");
+    this(string command_name, string summary) {
+        super(command_name, summary);
         this.addOption!(url)("", "url", "Git repository URL.");
         this.addOption!(github)("", "github",
             "GitHub repo as owner/repo (expands to https://github.com/owner/repo).");
@@ -751,52 +752,159 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
     }
 
-    override int execute() {
-        auto project = loadProject();
-        auto assembly = project.assembly;
-
-        // Exactly one of url/github/oca/crnd must be provided.
-        string git_url;
-        int provided = 0;
-        if (!url.isNull)    { provided++; git_url = url.get; }
-        if (!github.isNull) { provided++; git_url = "https://github.com/" ~ github.get; }
-        if (!oca.isNull)    { provided++; git_url = "https://github.com/oca/" ~ oca.get; }
-        if (!crnd.isNull)   { provided++; git_url = "ssh://git@gitlab.crnd.pro/" ~ crnd.get; }
+    /// URL given by --url, --github, --oca or --crnd; null when none is.
+    protected Nullable!string sourceUrl() {
+        string[] given;
+        if (!url.isNull)    given ~= url.get;
+        if (!github.isNull) given ~= "https://github.com/" ~ github.get;
+        if (!oca.isNull)    given ~= "https://github.com/oca/" ~ oca.get;
+        if (!crnd.isNull)   given ~= "ssh://git@gitlab.crnd.pro/" ~ crnd.get;
         enforce!OdoodCLIException(
-            provided == 1,
-            "Exactly one of --url, --github, --oca, --crnd must be provided.");
+            given.length <= 1,
+            "Only one of --url, --github, --oca, --crnd may be given.");
+        return given.empty ? Nullable!string.init : Nullable!string(given[0]);
+    }
 
-        // If a source with this name already exists, skip rather than fail.
-        if (!name.isNull && !assembly.raw.spec.getSource(name.get).isNull) {
-            warningf("Assembly already has a source named '%s'; skipping.", name.get);
-            return 0;
-        }
-
-        auto before = assembly.raw.spec.sources.length;
-        assembly.raw.addSource(
-            git_url: GitURL(git_url),
-            name: name.isNull ? null : name.get,
-            git_ref: gitRef.isNull ? null : gitRef.get,
-            access_group: accessGroup.isNull ? null : accessGroup.get);
-        if (assembly.raw.spec.sources.length == before) {
-            warningf("Source %s is already present in the assembly spec; skipping.", git_url);
-            return 0;
-        }
-
-        assembly.raw.save();
-        assembly.raw.repo.add(assembly.raw.spec_path);
-        infof("Added source %s to assembly spec.", git_url);
+    /// Save and stage the spec, then commit and push it as requested.
+    protected void saveSpec(Assembly assembly, in string default_message) {
+        assembly.save();
+        assembly.repo.add(assembly.spec_path);
 
         if (commit || push || !pushTo.isNull)
-            assembly.raw.repo.commit(
-                message: commitMessage.isNull ?
-                    "[ASSEMBLY] Add source: %s".format(git_url) : commitMessage.get,
+            assembly.repo.commit(
+                message: commitMessage.isNull ? default_message : commitMessage.get,
                 username: commitUser.isNull ? null : commitUser.get,
                 useremail: commitEmail.isNull ? null : commitEmail.get);
 
         if (push || !pushTo.isNull)
-            assembly.raw.push(branch_name: pushTo.isNull ? null : pushTo.get);
+            assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+    }
 
+    /// Add a new source built from the options.
+    protected void addNewSource(Assembly assembly, in string git_url) {
+        assembly.addSource(
+            git_url: GitURL(git_url),
+            name: name.isNull ? null : name.get,
+            git_ref: gitRef.isNull ? null : gitRef.get,
+            access_group: accessGroup.isNull ? null : accessGroup.get);
+    }
+}
+
+
+class CommandAssemblyAddSource: AssemblySourceCommandBase {
+
+    this() {
+        super("add-source", "Add a git source to this assembly's spec.");
+    }
+
+    override int execute() {
+        auto assembly = loadProject().assembly.raw;
+
+        auto git_url = sourceUrl();
+        enforce!OdoodCLIException(
+            !git_url.isNull,
+            "Exactly one of --url, --github, --oca, --crnd must be provided.");
+
+        // If a source with this name already exists, skip rather than fail.
+        if (!name.isNull && !assembly.spec.getSource(name.get).isNull) {
+            warningf("Assembly already has a source named '%s'; skipping.", name.get);
+            return 0;
+        }
+
+        auto before = assembly.spec.sources.length;
+        addNewSource(assembly, git_url.get);
+        if (assembly.spec.sources.length == before) {
+            warningf("Source %s is already present in the assembly spec; skipping.", git_url.get);
+            return 0;
+        }
+
+        infof("Added source %s to assembly spec.", git_url.get);
+        saveSpec(assembly, "[ASSEMBLY] Add source: %s".format(git_url.get));
+        return 0;
+    }
+}
+
+
+class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
+
+    this() {
+        super("update-source",
+            "Update a git source in this assembly's spec, adding it when missing.");
+        this.description(
+            "The source is matched by --name when given; then the URL options " ~
+            "set its URL. Without --name, the URL options select the source " ~
+            "by repository, in any spelling, and its URL is kept. Given " ~
+            "options replace the source's values; the rest are kept. " ~
+            "Changing the ref, or the URL to another repository, drops a " ~
+            "pinned commit. When no source matches, it is added as with " ~
+            "add-source.");
+    }
+
+    override int execute() {
+        auto assembly = loadProject().assembly.raw;
+
+        auto url_given = sourceUrl();
+        enforce!OdoodCLIException(
+            !name.isNull || !url_given.isNull,
+            "Specify the source by --name or by one of --url, --github, --oca, --crnd.");
+
+        Nullable!GitURL git_url;
+        if (!url_given.isNull)
+            git_url = GitURL(url_given.get);
+
+        Nullable!AssemblySpecSource current;
+        if (!name.isNull)
+            current = assembly.spec.getSource(name.get);
+        else {
+            auto matches = assembly.spec.sources
+                .filter!((s) => s.git_url.sameRepo(git_url.get)).array;
+            enforce!OdoodCLIException(
+                matches.length <= 1,
+                "Several sources point to %s; select one with --name.".format(
+                    url_given.get));
+            if (!matches.empty)
+                current = matches[0];
+        }
+
+        if (current.isNull) {
+            enforce!OdoodCLIException(
+                !url_given.isNull,
+                ("Assembly has no source named '%s'; give its URL " ~
+                 "(--url, --github, --oca, --crnd) to add it.").format(name.get));
+            addNewSource(assembly, url_given.get);
+            infof("Added source %s to assembly spec.", url_given.get);
+            saveSpec(assembly, "[ASSEMBLY] Add source: %s".format(url_given.get));
+            return 0;
+        }
+
+        immutable label = current.get.name.empty ?
+            current.get.git_url.toString : current.get.name;
+
+        AssemblySpecSource updated = current.get;
+        if (!name.isNull && !git_url.isNull)
+            updated.git_url = git_url.get;
+        if (!gitRef.isNull)
+            updated.git_ref = gitRef.get;
+        if (!accessGroup.isNull)
+            updated.access_group = accessGroup.get;
+
+        // A commit pinned for the previous repository or ref does not apply
+        // to the new one.
+        if (!updated.git_commit.empty && (
+                !updated.git_url.sameRepo(current.get.git_url) ||
+                updated.git_ref != current.get.git_ref)) {
+            infof("Dropping commit pin %s of source %s.", updated.git_commit, label);
+            updated.git_commit = null;
+        }
+
+        if (updated == current.get) {
+            infof("Source %s is already up to date.", label);
+            return 0;
+        }
+
+        assembly.replaceSource(current.get, updated);
+        infof("Updated source %s in assembly spec.", label);
+        saveSpec(assembly, "[ASSEMBLY] Update source: %s".format(label));
         return 0;
     }
 }
@@ -822,5 +930,6 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyUpgradeSources());
         this.add(new CommandAssemblyAddAddon());
         this.add(new CommandAssemblyAddSource());
+        this.add(new CommandAssemblyUpdateSource());
     }
 }

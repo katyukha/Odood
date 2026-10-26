@@ -256,6 +256,23 @@ rather than failing (handy in scripts and CI). Binding an addon to an unknown
 `--commit-message` / `--push` / `--push-to` to commit and push the spec change in
 one step.
 
+To change a source that is already in the spec, use `update-source`. It takes
+the same options as `add-source`, changes only the values you give, and adds
+the source when it is missing:
+
+```bash
+# Select the source by name:
+odood assembly update-source --name my_repo --ref 18.0.1.2.3
+
+# Or, for a source without a name, by its repository:
+odood assembly update-source --oca web --access-group oca
+```
+
+With `--name`, the URL options set a new URL for the source. Without it, they
+only select the source: any spelling of the same repository matches, and the
+URL in the spec is kept. Changing the `ref`, or the URL to another repository,
+drops a pinned `commit`.
+
 For **free** addons distributed through [Odoo Apps](https://apps.odoo.com/apps),
 use `--odoo-apps` instead of binding to a source (only free addons can be
 downloaded automatically — paid addons require a purchase):
@@ -265,7 +282,7 @@ odood assembly add-addon free_addon --odoo-apps
 ```
 
 > **Note:** Odood manages `odood-assembly.yml` as a generated file — `add-addon`,
-> `add-source`, and `upgrade-sources` rewrite it in canonical form. URL
+> `add-source`, `update-source` and `upgrade-sources` rewrite it in canonical form. URL
 > shortcuts (`github:` / `oca:` / `crnd:`) are expanded to full `url:` values and
 > YAML comments are not preserved.
 

@@ -282,9 +282,9 @@ struct AssemblySpec {
     /// These addons will be ignored during dependency validation
     @property auto known_addons() const => _known_addons;
 
-    package(odood) void addSource(in GitURL git_url, in string name=null,
-            in string git_ref=null, in string git_commit=null,
-            in string access_group=null) {
+    // Checks for a source location entering the spec, whether added or replaced.
+    private static void enforceSourceLocation(in GitURL git_url,
+            in string git_ref, in string git_commit) {
         // A pinned commit requires the ref it is fetched from — fail up front.
         enforce!OdoodAssemblyInvalidSpecException(
             git_commit.empty || !git_ref.empty,
@@ -294,10 +294,16 @@ struct AssemblySpec {
         // URL would be persisted in the clear. Credentials go out-of-band.
         enforce!OdoodAssemblyInvalidSpecException(
             !git_url.hasCredentials,
-            ("Cannot add source '%s': the URL contains embedded credentials. " ~
+            ("Cannot use source '%s': the URL contains embedded credentials. " ~
              "odood-assembly.yml is committed to git — configure access via " ~
              "the ODOOD_ASSEMBLY_<name>_CRED environment variable instead.").format(
                 git_url));
+    }
+
+    package(odood) void addSource(in GitURL git_url, in string name=null,
+            in string git_ref=null, in string git_commit=null,
+            in string access_group=null) {
+        enforceSourceLocation(git_url, git_ref, git_commit);
         foreach(source; _sources)
             if (source.git_url == git_url && source.name == name
                     && source.git_ref == git_ref && source.git_commit == git_commit)
@@ -357,35 +363,46 @@ struct AssemblySpec {
             git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit));
     }
 
-    /** Replace the source named `name` in place. `new_name` defaults to keeping
-      * the current name (re-pin); a rename is refused while addons reference it.
+    /** Replace `source` (matched by its full key) with `updated` in place,
+      * keeping its position. A rename is refused while addons reference it.
       **/
-    package(odood) void replaceSource(in string name, in GitURL git_url,
-            in string new_name=null, in string git_ref=null, in string git_commit=null) {
-        enforce!OdoodAssemblyInvalidSpecException(
-            git_commit.empty || !git_ref.empty,
-            "Cannot pin source '%s' to commit '%s' without a ref".format(
-                git_url, git_commit));
-
-        immutable effective_new_name = new_name.empty ? name : new_name;
-        if (effective_new_name != name) {
-            auto dependents = addonsUsingSource(name);
+    package(odood) void replaceSource(in AssemblySpecSource source,
+            in AssemblySpecSource updated) {
+        enforceSourceLocation(updated.git_url, updated.git_ref, updated.git_commit);
+        if (updated.name != source.name) {
+            auto dependents = addonsUsingSource(source.name);
             enforce!OdoodAssemblyInvalidSpecException(
                 dependents.empty,
                 "Cannot rename source '%s' to '%s': referenced by addons %s".format(
-                    name, effective_new_name, dependents));
+                    source.name, updated.name, dependents));
         }
 
-        // Replace in place, preserving the source's position.
-        foreach(ref source; _sources)
-            if (source.name == name) {
-                source = AssemblySpecSource(
-                    git_url: git_url, name: effective_new_name,
-                    git_ref: git_ref, git_commit: git_commit);
+        foreach(ref s; _sources)
+            if (s.getKey() == source.getKey()) {
+                s = updated;
                 return;
             }
         throw new OdoodAssemblyInvalidSpecException(
+            "Cannot replace source '%s': it is not in the spec".format(source.git_url));
+    }
+
+    /** ditto — identify the source by name and set where it is fetched from;
+      * its access group and no-search flag are kept. `new_name` defaults to
+      * keeping the current name (re-pin).
+      **/
+    package(odood) void replaceSource(in string name, in GitURL git_url,
+            in string new_name=null, in string git_ref=null, in string git_commit=null) {
+        auto current = getSource(name);
+        enforce!OdoodAssemblyInvalidSpecException(
+            !current.isNull,
             "Cannot replace source: no source named '%s'".format(name));
+
+        AssemblySpecSource updated = current.get;
+        updated.git_url = git_url;
+        updated.name = new_name.empty ? name : new_name;
+        updated.git_ref = git_ref;
+        updated.git_commit = git_commit;
+        replaceSource(current.get, updated);
     }
 
     /// Find source by name
@@ -695,6 +712,53 @@ unittest {
     // Replacing a non-existent source errors.
     spec.replaceSource("nope", GitURL("https://x/y"))
         .shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// replaceSource by name re-pins the location only: the access group and
+// no-search flag stay, and a URL with credentials is refused.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec(Loader.fromString(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  sources-list:\n" ~
+        "    - url: https://github.com/my/private-repo\n" ~
+        "      name: priv\n" ~
+        "      ref: '18.0'\n" ~
+        "      access-group: my_repos\n" ~
+        "      no-search: true\n").load());
+
+    spec.replaceSource("priv", GitURL("https://github.com/my/private-repo"),
+        git_ref: "18.0.1.0.0");
+    auto source = spec.getSource("priv").get;
+    source.git_ref.should == "18.0.1.0.0";
+    source.access_group.should == "my_repos";
+    source.no_search.shouldBeTrue;
+
+    spec.replaceSource("priv", GitURL("https://user:token@github.com/my/private-repo"))
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// replaceSource by key replaces exactly the matching source, so unnamed
+// sources can be updated too.
+unittest {
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec.init;
+    spec.addSource(GitURL("https://github.com/OCA/web"), git_ref: "18.0");
+    spec.addSource(GitURL("https://github.com/OCA/server-tools"), git_ref: "18.0");
+
+    AssemblySpecSource updated = spec.sources[1];
+    updated.git_ref = "18.0.1.0.0";
+    updated.access_group = "oca";
+    spec.replaceSource(spec.sources[1], updated);
+
+    spec.sources[0].git_ref.should == "18.0";
+    spec.sources[0].access_group.should == "";
+    spec.sources[1].git_ref.should == "18.0.1.0.0";
+    spec.sources[1].access_group.should == "oca";
 }
 
 // validate: source-name uniqueness, dangling reference, source/odoo_apps clash.

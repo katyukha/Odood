@@ -6,6 +6,15 @@
 
 - `odood assembly add-source --access-group <group>` sets the source's
   `access-group`, so its credentials are read from `ODOOD_ASSEMBLY_<group>_CRED`.
+- `odood assembly update-source` changes a source already in the spec (selected
+  by `--name`, or by repository URL), or adds it when missing. Only the given
+  options change; changing the ref or repository drops a pinned commit.
+
+### Fixed
+
+- Library: `Assembly.replaceSource` no longer drops the source's `access-group`
+  and `no-search`, and refuses a URL with embedded credentials, as `addSource`
+  does.
 
 ---
 
