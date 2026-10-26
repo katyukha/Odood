@@ -831,10 +831,9 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
         super("update-source",
             "Update a git source in this assembly's spec, adding it when missing.");
         this.description(
-            "The source is matched by --name when given; then the URL options " ~
-            "set its URL. Without --name, the URL options select the source " ~
-            "by repository, in any spelling, and its URL is kept. Given " ~
-            "options replace the source's values; the rest are kept. " ~
+            "Every given option is written to the source; the rest are kept. " ~
+            "The source is selected by --name when given, otherwise by the " ~
+            "URL options, where any spelling of the same repository matches. " ~
             "Changing the ref, or the URL to another repository, drops a " ~
             "pinned commit. When no source matches, it is added as with " ~
             "add-source.");
@@ -860,7 +859,8 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
                 .filter!((s) => s.git_url.sameRepo(git_url.get)).array;
             enforce!OdoodCLIException(
                 matches.length <= 1,
-                "Several sources point to %s; select one with --name.".format(
+                ("Several sources point to %s. Give them names in " ~
+                 "odood-assembly.yml and select one with --name.").format(
                     url_given.get));
             if (!matches.empty)
                 current = matches[0];
@@ -881,7 +881,7 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
             current.get.git_url.toString : current.get.name;
 
         AssemblySpecSource updated = current.get;
-        if (!name.isNull && !git_url.isNull)
+        if (!git_url.isNull)
             updated.git_url = git_url.get;
         if (!gitRef.isNull)
             updated.git_ref = gitRef.get;

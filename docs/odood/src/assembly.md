@@ -268,10 +268,18 @@ odood assembly update-source --name my_repo --ref 18.0.1.2.3
 odood assembly update-source --oca web --access-group oca
 ```
 
-With `--name`, the URL options set a new URL for the source. Without it, they
-only select the source: any spelling of the same repository matches, and the
-URL in the spec is kept. Changing the `ref`, or the URL to another repository,
-drops a pinned `commit`.
+Every option you give is written to the source, the URL included. Without
+`--name`, the URL options also select the source, and any spelling of the same
+repository matches, so this moves an ssh source to https (which credentials
+from `ODOOD_ASSEMBLY_<group>_CRED` require):
+
+```bash
+odood assembly update-source --url https://github.com/my/private-repo --access-group my_repos
+```
+
+Changing the `ref`, or the URL to another repository, drops a pinned `commit`.
+When several sources point to one repository, give them names in
+`odood-assembly.yml` and select one with `--name`.
 
 For **free** addons distributed through [Odoo Apps](https://apps.odoo.com/apps),
 use `--odoo-apps` instead of binding to a source (only free addons can be

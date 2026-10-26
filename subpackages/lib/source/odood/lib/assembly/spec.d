@@ -140,12 +140,14 @@ struct AssemblySpecSource {
     auto getKey() const => tuple(git_url, name, git_ref, git_commit);
 
     private this(GitURL git_url, in string name=null, in string git_ref=null,
-            in string git_commit=null, in string access_group=null) {
+            in string git_commit=null, in string access_group=null,
+            in bool no_search=false) {
         this.git_url = git_url;
         this.name = name;
         this.git_ref = git_ref;
         this.git_commit = git_commit;
         this.access_group = access_group;
+        this.no_search = no_search;
     }
 
     private this(in Node yaml_node) {
@@ -302,7 +304,7 @@ struct AssemblySpec {
 
     package(odood) void addSource(in GitURL git_url, in string name=null,
             in string git_ref=null, in string git_commit=null,
-            in string access_group=null) {
+            in string access_group=null, in bool no_search=false) {
         enforceSourceLocation(git_url, git_ref, git_commit);
         foreach(source; _sources)
             if (source.git_url == git_url && source.name == name
@@ -311,7 +313,7 @@ struct AssemblySpec {
                 return;
         _sources ~= AssemblySpecSource(
             git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit,
-            access_group: access_group);
+            access_group: access_group, no_search: no_search);
     }
 
     package(odood) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
@@ -647,7 +649,8 @@ unittest {
     spec.sources.length.should == 2;
 }
 
-// addSource: the access group is stored and written out to the spec.
+// addSource: the access group and no-search flag are stored and written out
+// to the spec.
 unittest {
     import std.algorithm: canFind;
     import std.array: Appender;
@@ -656,12 +659,15 @@ unittest {
 
     auto spec = AssemblySpec.init;
     spec.addSource(
-        GitURL("https://github.com/my/private-repo"), access_group: "my_repos");
+        GitURL("https://github.com/my/private-repo"),
+        access_group: "my_repos", no_search: true);
     spec.sources[0].access_group.should == "my_repos";
+    spec.sources[0].no_search.shouldBeTrue;
 
     auto stream = new Appender!string();
     dyaml.dumper.dumper().dump(stream, spec.toYAML);
     stream.data.canFind("access-group: my_repos").shouldBeTrue;
+    stream.data.canFind("no-search: true").shouldBeTrue;
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

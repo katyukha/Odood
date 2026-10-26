@@ -9,6 +9,8 @@
 - `odood assembly update-source` changes a source already in the spec (selected
   by `--name`, or by repository URL), or adds it when missing. Only the given
   options change; changing the ref or repository drops a pinned commit.
+- Library: `Assembly.addSource` takes `no_search`, so a source can be re-added
+  without losing its `no-search` flag.
 
 ### Fixed
 
