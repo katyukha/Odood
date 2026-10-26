@@ -742,9 +742,10 @@ class Assembly {
 
     /// Add source to assembly
     void addSource(in GitURL git_url, in string name=null, in string git_ref=null,
-            in string git_commit=null) {
+            in string git_commit=null, in string access_group=null) {
         _spec.addSource(
-            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit,
+            access_group: access_group);
     }
 
     /// Add addon to assembly

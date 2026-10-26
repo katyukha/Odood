@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `odood assembly add-source --access-group <group>` sets the source's
+  `access-group`, so its credentials are read from `ODOOD_ASSEMBLY_<group>_CRED`.
 
 ---
 

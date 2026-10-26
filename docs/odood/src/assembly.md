@@ -403,6 +403,12 @@ spec:
       access-group: my_repos
 ```
 
+The same source can be added from the command line:
+
+```bash
+odood assembly add-source --github my/private-repo --ref 18.0 --access-group my_repos
+```
+
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
 The format for this variable is: `user:token`; neither part may contain `:`.
 Credentials apply to https sources only (not `crnd:`, which expands to ssh), and

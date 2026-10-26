@@ -721,6 +721,7 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
     Nullable!string crnd;
     Nullable!string name;
     Nullable!string gitRef;
+    Nullable!string accessGroup;
     bool commit;
     Nullable!string commitMessage;
     Nullable!string commitUser;
@@ -739,6 +740,9 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
             "CRND repo as group/repo (expands to ssh://git@gitlab.crnd.pro/group/repo).");
         this.addOption!(name)("", "name", "Name to reference this source by.");
         this.addOption!(gitRef)("", "ref", "Branch or tag to fetch.");
+        this.addOption!(accessGroup)("", "access-group",
+            "Credential group for a private https source: credentials are read " ~
+            "from ODOOD_ASSEMBLY_<group>_CRED when ODOOD_ASSEMBLY_<name>_CRED is not set.");
         this.addFlag!(commit)("", "commit", "Commit the updated spec.");
         this.addOption!(commitMessage)("", "commit-message", "Commit message.");
         this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
@@ -772,7 +776,8 @@ class CommandAssemblyAddSource: AssemblyCommandBase {
         assembly.raw.addSource(
             git_url: GitURL(git_url),
             name: name.isNull ? null : name.get,
-            git_ref: gitRef.isNull ? null : gitRef.get);
+            git_ref: gitRef.isNull ? null : gitRef.get,
+            access_group: accessGroup.isNull ? null : accessGroup.get);
         if (assembly.raw.spec.sources.length == before) {
             warningf("Source %s is already present in the assembly spec; skipping.", git_url);
             return 0;

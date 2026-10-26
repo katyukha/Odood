@@ -283,7 +283,8 @@ struct AssemblySpec {
     @property auto known_addons() const => _known_addons;
 
     package(odood) void addSource(in GitURL git_url, in string name=null,
-            in string git_ref=null, in string git_commit=null) {
+            in string git_ref=null, in string git_commit=null,
+            in string access_group=null) {
         // A pinned commit requires the ref it is fetched from — fail up front.
         enforce!OdoodAssemblyInvalidSpecException(
             git_commit.empty || !git_ref.empty,
@@ -303,7 +304,8 @@ struct AssemblySpec {
                 // This source already exists
                 return;
         _sources ~= AssemblySpecSource(
-            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit,
+            access_group: access_group);
     }
 
     package(odood) void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
@@ -626,6 +628,23 @@ unittest {
         GitURL("https://github.com/OCA/server-tools"),
         git_ref: "17.0", git_commit: "abc123");
     spec.sources.length.should == 2;
+}
+
+// addSource: the access group is stored and written out to the spec.
+unittest {
+    import std.algorithm: canFind;
+    import std.array: Appender;
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec.init;
+    spec.addSource(
+        GitURL("https://github.com/my/private-repo"), access_group: "my_repos");
+    spec.sources[0].access_group.should == "my_repos";
+
+    auto stream = new Appender!string();
+    dyaml.dumper.dumper().dump(stream, spec.toYAML);
+    stream.data.canFind("access-group: my_repos").shouldBeTrue;
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.
