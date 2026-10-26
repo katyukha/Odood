@@ -11,6 +11,9 @@
   options change; changing the ref or repository drops a pinned commit.
 - Library: `Assembly.addSource` takes `no_search`, so a source can be re-added
   without losing its `no-search` flag.
+- Library: `GitRepository.fetchOrigin` takes `force`, which overwrites a local
+  tag that the remote has at another commit; without it git refuses the tag
+  and the whole fetch fails.
 
 ### Fixed
 

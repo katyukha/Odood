@@ -355,8 +355,14 @@ class GitRepository {
       *                history that tag auto-following would miss (`--tags`).
       *                Combined with prune, also removes local tags deleted on
       *                the remote (`--prune-tags`).
+      *     force    = overwrite a local tag that points elsewhere than the
+      *                remote's tag of the same name (`--force`). Without it
+      *                git refuses to update such a tag and the whole fetch
+      *                fails. Matters with `all_tags`; meant for clones that
+      *                mirror the remote, where the remote's tag is right.
       **/
-    void fetchOrigin(in bool prune = false, in bool all_tags = false) const {
+    void fetchOrigin(in bool prune = false, in bool all_tags = false,
+            in bool force = false) const {
         auto cmd = gitCmd.withArgs("fetch", "origin");
         if (prune)
             cmd.addArgs("--prune");
@@ -366,6 +372,8 @@ class GitRepository {
         // meaningful when tags are fetched.
         if (prune && all_tags)
             cmd.addArgs("--prune-tags");
+        if (force)
+            cmd.addArgs("--force");
         cmd.execute().ensureStatus(true);
     }
 
@@ -375,7 +383,8 @@ class GitRepository {
     void fetchOrigin(
             in string branch,
             in bool prune = false,
-            in bool all_tags = false) const {
+            in bool all_tags = false,
+            in bool force = false) const {
         auto cmd = gitCmd.withArgs("fetch", "origin", branch);
         if (prune)
             cmd.addArgs("--prune");
@@ -383,6 +392,8 @@ class GitRepository {
             cmd.addArgs("--tags");
         if (prune && all_tags)
             cmd.addArgs("--prune-tags");
+        if (force)
+            cmd.addArgs("--force");
         cmd.execute().ensureStatus(true);
     }
 
@@ -483,7 +494,7 @@ class GitRepository {
     }
 
     /// Test listRemoteBranches, listTags, resetBranchToRemote and
-    /// fetchOrigin prune/all_tags flags.
+    /// fetchOrigin prune/all_tags/force flags.
     unittest {
         import unit_threaded.assertions;
         import thepath.utils: createTempPath;
@@ -576,6 +587,31 @@ class GitRepository {
         clone2.fetchOrigin(all_tags: true);
         clone2.listLocalTags().canFind("17.0.1.0.0").shouldBeTrue;
         clone2.listLocalTags().canFind("light-tag").shouldBeTrue;
+
+        // fetchOrigin(force) replaces a local tag that the remote has at
+        // another commit; without force git refuses it and the fetch fails.
+        // Returns the commit the remote tagged.
+        auto tagLocallyThenOnRemote = (in string tag) {
+            clone2.gitCmd.withArgs("commit", "--allow-empty", "-m", "local " ~ tag)
+                .execute.ensureOk(true);
+            clone2.setTag(tag);
+            src.gitCmd.withArgs("commit", "--allow-empty", "-m", "remote " ~ tag)
+                .execute.ensureOk(true);
+            src.setTag(tag);
+            src.gitCmd.withArgs("push", "origin", default_branch, tag)
+                .execute.ensureOk(true);
+            return src.getCurrCommit;
+        };
+
+        immutable sha_remote_1 = tagLocallyThenOnRemote("17.0.1.1.0");
+        clone2.fetchOrigin(prune: true, all_tags: true).shouldThrow;
+        clone2.fetchOrigin(prune: true, all_tags: true, force: true);
+        clone2.listTags().canFind(GitTag("17.0.1.1.0", sha_remote_1)).shouldBeTrue;
+
+        immutable sha_remote_2 = tagLocallyThenOnRemote("17.0.1.2.0");
+        clone2.fetchOrigin(default_branch, all_tags: true).shouldThrow;
+        clone2.fetchOrigin(default_branch, all_tags: true, force: true);
+        clone2.listTags().canFind(GitTag("17.0.1.2.0", sha_remote_2)).shouldBeTrue;
     }
 
     /** Check if repo has configured remote url with specified name
