@@ -15,6 +15,22 @@
   tag that the remote has at another commit; without it git refuses the tag
   and the whole fetch fails.
 
+### Changed
+
+- `odood repo release`, `repo hotfix release` and `repo hotfix check` never
+  require a version bump for an addon whose only changes are translations
+  (`.po`/`.pot`), and the release commands always release translation changes,
+  also when they are the only changes. Their `--ignore-translations` option is
+  removed. Repository and assembly changelogs list such an addon as
+  ``- `addon` (translations)``. `check-versions`, `bump-versions` and
+  `ensure-changelog` keep `--ignore-translations`, so translation changes can
+  still require a bump.
+- Library: `AddonRepository.collectChanges` no longer takes
+  `ignore_translations`: translation changes are always collected, and
+  `AddonUpdated.translations_only` marks updates that changed only
+  translations. In `checkVersions` and `ensureChangelog`, `ignore_translations`
+  skips such updates. `prepareRelease` no longer takes it.
+
 ### Fixed
 
 - Library: `Assembly.replaceSource` no longer drops the source's `access-group`

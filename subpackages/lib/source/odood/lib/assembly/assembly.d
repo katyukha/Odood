@@ -465,7 +465,6 @@ class Assembly {
         auto changes = repo.collectChanges(
             base_rev,
             GIT_REF_WORKTREE,
-            ignore_translations: false,
             initial_version: resolveBaseVersion(base_rev, latest));
         // Assemblies have no reserved hotfix segment, so the bump floors to
         // PATCH (releases floor to MINOR to keep PATCH free for hotfixes).

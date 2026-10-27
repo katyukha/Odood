@@ -30,6 +30,13 @@ private import odood.git: GitRepository, GIT_REF_WORKTREE;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
 
 
+/* Translation files: an addon update that touches only these is
+ * translation-only. */
+private bool isTranslationFile(in Path path) {
+    return path.extension == ".po" || path.extension == ".pot";
+}
+
+
 struct AddonCheckError {
     string addon_name;
     string[] messages;
@@ -277,35 +284,42 @@ class AddonRepository : GitRepository{
       * addon name, which makes moves transparent: an addon at a different path
       * in end_ref than in start_ref is treated as an update, not remove + add.
       *
+      * Translation files count as changes. An updated addon whose changed
+      * files are all .po/.pot is marked `translations_only`; filter on it
+      * for code changes alone.
+      *
       * Does NOT call postProcess() — the caller decides whether to do that.
       *
       * Params:
-      *     start_ref           = Git ref to compare against.
-      *     end_ref             = Git ref for the current state. Defaults to worktree.
-      *     ignore_translations = Exclude .po/.pot files when detecting changes.
-      *     initial_version     = Seed value for AddonRepositoryChanges.repo_version.
-      *                           Pass OdooStdVersion.init when not needed.
+      *     start_ref       = Git ref to compare against.
+      *     end_ref         = Git ref for the current state. Defaults to worktree.
+      *     initial_version = Seed value for AddonRepositoryChanges.repo_version.
+      *                       Pass OdooStdVersion.init when not needed.
       **/
     AddonRepositoryChanges collectChanges(
             in string start_ref,
             in string end_ref = GIT_REF_WORKTREE,
-            in bool ignore_translations = true,
             in OdooStdVersion initial_version = OdooStdVersion.init) const {
         auto changes = new AddonRepositoryChanges(initial_version);
-        auto path_filters = ignore_translations
-            ? [":(exclude)*.po", ":(exclude)*.pot"]
-            : cast(string[])[];
 
         AddonInfo[string] start_map;
         AddonInfo[string] end_map;
+        // Addons with at least one changed file that is not a translation.
+        bool[string] non_translation_changed;
 
-        foreach(file; getChangedFiles(start_ref, end_ref, path_filters)) {
+        foreach(file; getChangedFiles(start_ref, end_ref)) {
+            immutable is_translation = isTranslationFile(file);
             auto in_start = findAddonInRef(file, start_ref);
-            if (!in_start.isNull)
+            if (!in_start.isNull) {
                 start_map[in_start.get.name] = in_start.get;
+                if (!is_translation)
+                    non_translation_changed[in_start.get.name] = true;
+            }
 
             auto in_end = findAddonInRef(file, end_ref);
             if (!in_end.isNull) {
+                if (!is_translation)
+                    non_translation_changed[in_end.get.name] = true;
                 auto end_name = in_end.get.name;
                 enforce!OdoodException(
                     end_name !in end_map
@@ -342,7 +356,8 @@ class AddonRepository : GitRepository{
                     end_info.path,
                     start_info.addon_version,
                     end_info.addon_version,
-                    changelog);
+                    changelog,
+                    translations_only: name !in non_translation_changed);
             }
         }
 
@@ -355,6 +370,8 @@ class AddonRepository : GitRepository{
       * For each changed addon:
       * - Skips new addons (not present in start_ref).
       * - Skips removed addons (not present in end_ref).
+      * - Skips translation-only updates (only .po/.pot changed) when
+      *   ignore_translations is set.
       * - Fails if the current version is non-standard.
       * - Skips if the origin version is non-standard.
       * - Fails if the addon serie doesn't match expected_serie
@@ -366,7 +383,9 @@ class AddonRepository : GitRepository{
       *         Pass OdooSerie.init to skip the serie check.
       *     start_ref      = Git ref to compare against (e.g. "origin/16.0").
       *     end_ref        = Git ref for the current state. Defaults to worktree.
-      *     ignore_translations = Exclude .po/.pot files when detecting changes.
+      *     ignore_translations = Do not require a bump for an addon whose only
+      *         changes are translations. When false, a translation change
+      *         needs a bump like any other change.
       *
       * Returns: AddonVersionCheckResult with ok=false and errors populated
       *          for each failing addon.
@@ -378,10 +397,13 @@ class AddonRepository : GitRepository{
             in bool ignore_translations = true) const {
         AddonVersionCheckResult result;
 
-        auto changes = collectChanges(start_ref, end_ref, ignore_translations);
+        auto changes = collectChanges(start_ref, end_ref);
         result.changes = changes;
 
         foreach(addon; changes.addons_updated) {
+            if (ignore_translations && addon.translations_only)
+                continue;
+
             auto start_version = addon.old_version;
             auto end_version   = addon.new_version;
 
@@ -418,7 +440,8 @@ class AddonRepository : GitRepository{
       *
       * Only *updated* addons are subject to the requirement; newly added and
       * removed addons are exempt (an added addon's whole history is new, a
-      * removed one has none). An updated addon "has a changelog" when it
+      * removed one has none). With ignore_translations, so are updates whose
+      * only changes are translations. An updated addon "has a changelog" when it
       * carries a changelog entry newer than its start-ref version — exactly the
       * entries that feed release-changelog generation.
       *
@@ -427,7 +450,8 @@ class AddonRepository : GitRepository{
       *     end_ref             = Git ref for the current state. Defaults to worktree.
       *     require             = all  → every updated addon must have a changelog;
       *                           any  → at least one updated addon must have one.
-      *     ignore_translations = Exclude .po/.pot files when detecting changes.
+      *     ignore_translations = Do not require an entry for an addon whose only
+      *                           changes are translations.
       *
       * Returns: ChangelogCheckResult with ok=false and addons_missing_changelog
       *          populated when the requirement is not met.
@@ -439,7 +463,7 @@ class AddonRepository : GitRepository{
             in bool ignore_translations = true) const {
         ChangelogCheckResult result;
 
-        auto changes = collectChanges(start_ref, end_ref, ignore_translations);
+        auto changes = collectChanges(start_ref, end_ref);
         result.changes = changes;
 
         // Updated addons that carry a changelog entry covering the bump.
@@ -447,7 +471,9 @@ class AddonRepository : GitRepository{
         foreach(nc; changes.notable_changes)
             has_changelog[nc.name] = true;
 
-        foreach(addon; changes.addons_updated)
+        auto required = changes.addons_updated
+            .filter!((a) => !(ignore_translations && a.translations_only)).array;
+        foreach(addon; required)
             if (addon.name !in has_changelog)
                 result.addons_missing_changelog ~= addon.name;
 
@@ -459,8 +485,7 @@ class AddonRepository : GitRepository{
             case ChangelogRequirement.any:
                 // At least one updated addon must have a changelog. With no
                 // updated addons there is nothing to require → pass.
-                result.ok = changes.addons_updated.length == 0
-                    || has_changelog.length > 0;
+                result.ok = required.length == 0 || has_changelog.length > 0;
                 break;
         }
         return result;
@@ -599,11 +624,13 @@ class AddonRepository : GitRepository{
       * The tag name is the sole source of truth for the current version —
       * no VERSION file is written or staged.  The caller handles tag → push.
       *
+      * Translation changes are released too; an addon whose only changes are
+      * translations needs no version bump.
+      *
       * Params:
       *     serie               = Odoo serie (e.g. OdooSerie("17.0")).
       *     override_part       = When set, force this bump level instead of
       *                           auto-detecting from changes.
-      *     ignore_translations = Exclude .po/.pot files when detecting changes.
       *     base_version        = When set, use this exact version as both the
       *                           comparison base and the version to bump from,
       *                           instead of the latest-serie-tag lookup. Used by
@@ -614,7 +641,6 @@ class AddonRepository : GitRepository{
     Nullable!PrepareReleaseResult prepareRelease(
             in OdooSerie serie,
             in Nullable!VersionPart override_part = Nullable!VersionPart.init,
-            in bool ignore_translations = true,
             in Nullable!OdooStdVersion base_version = Nullable!OdooStdVersion.init) const {
         // Defaults cover the bootstrap case (no prior tags): compare against the
         // origin branch and seed the version at <serie>.1.0.0.
@@ -649,7 +675,9 @@ class AddonRepository : GitRepository{
         }
 
         // 2. Verify all changed addons have bumped versions.
-        auto check = checkVersions(serie, start_ref, GIT_REF_WORKTREE, ignore_translations);
+        // A release never requires a bump for a translation-only update.
+        auto check = checkVersions(
+            serie, start_ref, GIT_REF_WORKTREE, ignore_translations: true);
         if (!check.ok) {
             auto msgs = check.errors
                 .map!(e => "%s: %s".format(e.addon_name, e.messages.join("; ")))
@@ -1314,4 +1342,65 @@ unittest {
     repo.commit("Release 17.0.1.0.0");
     repo.setTag("17.0.1.0.0");
     repo.prepareInitialRelease(OdooSerie("17.0")).shouldThrow!OdoodException;
+}
+
+
+// Translation-only changes are released without an addon version bump; an
+// addon that also changed code still needs one.
+unittest {
+    import std.algorithm: canFind, map;
+    import std.array: array;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+    import odood.utils.odoo.serie: OdooSerie;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = new AddonRepository(GitRepository.initialize(root.join("repo")));
+    auto repo_path = repo.path;
+    foreach(name; ["addon_a", "addon_b"]) {
+        repo_path.join(name, "i18n").mkdir(true);
+        repo_path.join(name, "__manifest__.py").writeFile(
+            `{"name": "%s", "version": "17.0.1.0.0"}`.format(name));
+        repo_path.join(name, "i18n", "uk.po").writeFile("# v1\n");
+        repo.add(repo_path.join(name));
+    }
+    repo.commit("Initial commit");
+    repo.setTag("17.0.1.0.0");
+
+    // Translations alone: released, listed as translations.
+    repo_path.join("addon_a", "i18n", "uk.po").writeFile("# v2\n");
+    repo.add(repo_path.join("addon_a"));
+    repo.commit("Update addon_a translations");
+
+    auto res = repo.prepareRelease(OdooSerie("17.0"));
+    res.isNull.shouldBeFalse;
+    res.get.new_version.toString.should == "17.0.1.1.0";
+    renderChangelog(res.get.addon_changes)
+        .canFind("- `addon_a` (translations)\n").shouldBeTrue;
+    repo.ensureChangelog("17.0.1.0.0").ok.shouldBeTrue;
+    repo.ensureChangelog(
+        "17.0.1.0.0", require: ChangelogRequirement.any).ok.shouldBeTrue;
+    // Unless translation changes are to be treated like code.
+    repo.checkVersions(OdooSerie("17.0"), "17.0.1.0.0", ignore_translations: false)
+        .errors.map!(e => e.addon_name).array.should == ["addon_a"];
+    repo.ensureChangelog("17.0.1.0.0", ignore_translations: false)
+        .addons_missing_changelog.should == ["addon_a"];
+
+    // Translations together with code: that addon needs a bump and an entry.
+    repo_path.join("addon_b", "i18n", "uk.po").writeFile("# v2\n");
+    repo_path.join("addon_b", "models.py").writeFile("# code\n");
+    repo.add(repo_path.join("addon_b"));
+    repo.commit("Change addon_b code and translations");
+
+    auto changes = repo.collectChanges("17.0.1.0.0");
+    changes.addons_updated.length.should == 2;
+    foreach(addon; changes.addons_updated)
+        addon.translations_only.should == (addon.name == "addon_a");
+
+    repo.checkVersions(OdooSerie("17.0"), "17.0.1.0.0")
+        .errors.map!(e => e.addon_name).array.should == ["addon_b"];
+    repo.ensureChangelog("17.0.1.0.0")
+        .addons_missing_changelog.should == ["addon_b"];
 }
