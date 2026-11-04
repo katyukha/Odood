@@ -185,7 +185,8 @@ struct AssemblySpecSource {
     }
 
     private Node toYAML() const {
-        auto result = Node(["url": git_url.toString]);
+        // Clone-ready, so an ssh source keeps its user; never with credentials.
+        auto result = Node(["url": git_url.toUrl(no_credentials: true)]);
         if (!name.empty)
             result["name"] = name;
         if (!git_ref.empty)
@@ -668,6 +669,26 @@ unittest {
     dyaml.dumper.dumper().dump(stream, spec.toYAML);
     stream.data.canFind("access-group: my_repos").shouldBeTrue;
     stream.data.canFind("no-search: true").shouldBeTrue;
+}
+
+// toYAML keeps an ssh user and never writes credentials, even loaded ones.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec(Loader.fromString(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  sources-list:\n" ~
+        "    - url: git@github.com:owner/repo.git\n" ~
+        "    - crnd: crnd/repo\n" ~
+        "    - url: https://user:secret@github.com/owner/private\n").load());
+    spec.toYAML["spec"]["sources-list"].sequence
+        .map!((n) => n["url"].as!string).array.should == [
+            "ssh://git@github.com/owner/repo",
+            "ssh://git@gitlab.crnd.pro/crnd/repo",
+            "https://github.com/owner/private",
+        ];
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

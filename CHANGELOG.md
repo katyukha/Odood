@@ -14,9 +14,14 @@
 - Library: `GitRepository.fetchOrigin` takes `force`, which overwrites a local
   tag that the remote has at another commit; without it git refuses the tag
   and the whole fetch fails.
+- Library: `GitURL.toUrl` takes `no_credentials`, for URLs that are persisted;
+  it keeps an ssh user.
 
 ### Changed
 
+- `odood repo add`, `assembly add-source` and `update-source` refuse an http(s)
+  URL with a user, as it may be a token (`https://<token>@host/...`). Library:
+  `GitURL.hasCredentials` is true for such a URL.
 - `odood repo release`, `repo hotfix release` and `repo hotfix check` never
   require a version bump for an addon whose only changes are translations
   (`.po`/`.pot`), and the release commands always release translation changes,
@@ -34,12 +39,15 @@
 
 ### Fixed
 
-- Odoo installed on Python 3.12 (the default for Odoo 18 and newer) renders
-  barcodes and QR codes in reports: Odood installs `rl-renderPM`, which
-  Odoo's `requirements.txt` pins for Windows only, so rendering failed with
-  `cannot import desired renderPM backend rlPyCairo`. For an existing
-  installation, run `odood venv pip -- install rl-renderPM==4.0.3`. On Python
-  3.13 it is still not installed, as it has no wheels for that version.
+- Barcodes and QR codes in reports render on Python 3.12, the default for
+  Odoo 18+: Odood installs `rl-renderPM`, which Odoo pins for Windows only.
+  For an existing installation, run
+  `odood venv pip -- install rl-renderPM==4.0.3`. Not done on Python 3.13, as
+  it has no wheels there.
+- Saving `odood-assembly.yml` no longer drops `git@` from ssh sources, which
+  made them fail to clone. On GitLab CI, an ssh URL without a user on the
+  job's host now gets the job token too, so specs saved by 0.6.4–0.7.0 work
+  there; elsewhere, add the `git@` back by hand.
 - Library: `Assembly.replaceSource` no longer drops the source's `access-group`
   and `no-search`, and refuses a URL with embedded credentials, as `addSource`
   does.

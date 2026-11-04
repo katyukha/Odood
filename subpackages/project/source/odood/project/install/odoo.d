@@ -198,17 +198,11 @@ void installOdoo(in Project project) {
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
 
-        /* Patch requirements txt to install rl-renderPM on every platform.
-         * reportlab 4 renders bitmaps (barcodes and QR codes in reports) only
-         * through a separate backend package. Odoo pins rl-renderPM for
-         * Windows only and expects the Debian package python3-renderpm
-         * elsewhere, thus in a venv barcode rendering fails with
-         * "cannot import desired renderPM backend rlPyCairo".
-         *
-         * rl-renderPM, not rlPyCairo: rlPyCairo needs pycairo, that has no
-         * Linux wheels and has to be compiled against libcairo. Only for
-         * Python 3.12: the rl-renderPM version Odoo pins (4.0.3) has no
-         * wheels for Python 3.13+, so there it would have to be compiled.
+        /* Patch requirements txt to install rl-renderPM on every platform:
+         * reportlab 4 needs it to render barcodes, and Odoo pins it for
+         * Windows only, relying on the python3-renderpm deb elsewhere.
+         * Not rlPyCairo, whose pycairo has to be compiled. Python 3.12 only:
+         * the pinned 4.0.3 has no wheels for 3.13+.
          */
         if (project.venv.py_version >= Version(3, 12, 0) && project.venv.py_version < Version(3, 13, 0)) {
             info("Patching Odoo requirements.txt to install rl-renderPM on all platforms...");
