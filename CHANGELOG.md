@@ -29,10 +29,17 @@
   `ignore_translations`: translation changes are always collected, and
   `AddonUpdated.translations_only` marks updates that changed only
   translations. In `checkVersions` and `ensureChangelog`, `ignore_translations`
-  skips such updates. `prepareRelease` no longer takes it.
+  skips such updates, and now defaults to `false`, as in the CLI.
+  `prepareRelease` no longer takes it.
 
 ### Fixed
 
+- Odoo installed on Python 3.12 (the default for Odoo 18 and newer) renders
+  barcodes and QR codes in reports: Odood installs `rl-renderPM`, which
+  Odoo's `requirements.txt` pins for Windows only, so rendering failed with
+  `cannot import desired renderPM backend rlPyCairo`. For an existing
+  installation, run `odood venv pip -- install rl-renderPM==4.0.3`. On Python
+  3.13 it is still not installed, as it has no wheels for that version.
 - Library: `Assembly.replaceSource` no longer drops the source's `access-group`
   and `no-search`, and refuses a URL with embedded credentials, as `addSource`
   does.
