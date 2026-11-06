@@ -198,6 +198,21 @@ void installOdoo(in Project project) {
             project.odoo.path.join("requirements.txt").writeFile(requirements_content);
         }
 
+        /* Patch requirements txt to install rl-renderPM on every platform:
+         * reportlab 4 needs it to render barcodes, and Odoo pins it for
+         * Windows only, relying on the python3-renderpm deb elsewhere.
+         * Not rlPyCairo, whose pycairo has to be compiled. Python 3.12 only:
+         * the pinned 4.0.3 has no wheels for 3.13+.
+         */
+        if (project.venv.py_version >= Version(3, 12, 0) && project.venv.py_version < Version(3, 13, 0)) {
+            info("Patching Odoo requirements.txt to install rl-renderPM on all platforms...");
+            auto requirements_content = project.odoo.path.join("requirements.txt").readFileText()
+                .replaceAll(
+                    regex(r"^(rl-renderPM==\S+\s*;\s*)sys_platform\s*==\s*'win32'\s+and\s+", "gm"),
+                    "$1");
+            project.odoo.path.join("requirements.txt").writeFile(requirements_content);
+        }
+
 
         /* Patch requirements txt to avoid using libsass==0.22.0 on
          * Python >= 3.14: its setup.py reads `ast.Constant.s`, removed in

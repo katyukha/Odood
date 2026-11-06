@@ -18,6 +18,7 @@ Also, production installation expects that it is running on a clean system, and 
 
 **Note** that *Odood* will not automatically install indirect dependencies, so you have to manually install the following system packages (if needed):
 - [postgresql](https://www.postgresql.org/) - the PostgreSQL server must be installed manually before running `odood deploy` with the `--local-postgres` option.
+  Note, that Odoo 20.0 needs PostgreSQL 16 or newer, which *Ubuntu 22.04* (14) and *Debian 12* (15) do not ship.
 - [wkhtmltopdf](https://github.com/wkhtmltopdf/packaging/releases) - required to generate PDF reports. See the [Odoo docs](https://github.com/odoo/odoo/wiki/Wkhtmltopdf) for more info.
 - [nginx](https://nginx.org/) - if you want to expose the installed Odoo to the external world via `nginx`. In this case, Odood will automatically generate a template config for `nginx`.
 - [certbot](https://certbot.eff.org/) - if you want to automatically generate [Let's Encrypt](https://letsencrypt.org/) certificates.

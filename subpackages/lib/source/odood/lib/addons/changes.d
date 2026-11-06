@@ -22,6 +22,8 @@ struct AddonUpdated {
     Path new_path;          /// path in end_ref, relative to repo root (differs on move)
     OdooStdVersion old_version;
     OdooStdVersion new_version;
+    /// Only translation files (.po/.pot) changed, so no version bump is expected.
+    bool translations_only;
 }
 
 struct NotableChanges {
@@ -78,8 +80,10 @@ class AddonRepositoryChanges {
             in Path new_path,
             in OdooStdVersion old_version,
             in OdooStdVersion new_version,
-            in OdooAddonChangelogEntry[] changelog) {
-        addons_updated ~= AddonUpdated(name, old_path, new_path, old_version, new_version);
+            in OdooAddonChangelogEntry[] changelog,
+            in bool translations_only = false) {
+        addons_updated ~= AddonUpdated(
+            name, old_path, new_path, old_version, new_version, translations_only);
         if (changelog.length > 0)
             notable_changes ~= NotableChanges(name, old_version, new_version, changelog.dup);
     }
@@ -120,6 +124,7 @@ class AddonRepositoryChanges {
       * - Updated addon                       → escalated to its addon-version
       *                                         diff (MAJOR / MINOR / PATCH).
       * - Non-standard version or serie change → floored to MINOR (cannot diff).
+      * - Translation-only update              → floor (never escalates).
       *
       * No changes → version unchanged.
       *
@@ -149,6 +154,10 @@ class AddonRepositoryChanges {
         foreach(addon; addons_updated) {
             if (vpart == VersionPart.MAJOR)
                 break;
+            // Its version did not move, so there is nothing to escalate by — even
+            // a non-standard version, which would otherwise floor to MINOR.
+            if (addon.translations_only)
+                continue;
             // differAt requires two standard versions of the SAME serie. A
             // non-standard version, or a serie change between the two refs,
             // cannot be diffed — treat it as a MINOR-level change (floor at
@@ -295,6 +304,14 @@ class AddonRepositoryChanges {
             "a", Path("a"), Path("a"), OdooStdVersion("18.0.1.0.0"), NONSTD, []);
         ns_asm.postProcess(VersionPart.PATCH);
         ns_asm.repo_version.toString.should == "18.0.0.1.0";
+
+        // A translation-only update of a non-standard-versioned addon stays at
+        // the assembly floor (PATCH): its version did not move.
+        auto ns_tr = new AddonRepositoryChanges(base);
+        ns_tr.logAddonUpdated(
+            "a", Path("a"), Path("a"), NONSTD, NONSTD, [], translations_only: true);
+        ns_tr.postProcess(VersionPart.PATCH);
+        ns_tr.repo_version.toString.should == "18.0.0.0.1";
 
         // Regression: a standard minor-diff update raises vpart to MINOR, then a
         // non-standard update follows. The old assembly logic called differAt on

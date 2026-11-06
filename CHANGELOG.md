@@ -1,5 +1,59 @@
 # Changelog
 
+## Release 0.7.1 (2026-11-06)
+
+### Added
+
+- `odood assembly add-source --access-group <group>` sets the source's
+  `access-group`, so its credentials are read from `ODOOD_ASSEMBLY_<group>_CRED`.
+- `odood assembly update-source` changes a source already in the spec (selected
+  by `--name`, or by repository URL), or adds it when missing. Only the given
+  options change; changing the ref or repository drops a pinned commit.
+- Library: `Assembly.addSource` takes `no_search`, so a source can be re-added
+  without losing its `no-search` flag.
+- Library: `GitRepository.fetchOrigin` takes `force`, which overwrites a local
+  tag that the remote has at another commit; without it git refuses the tag
+  and the whole fetch fails.
+- Library: `GitURL.toUrl` takes `no_credentials`, for URLs that are persisted;
+  it keeps an ssh user.
+
+### Changed
+
+- `odood repo add`, `assembly add-source` and `update-source` refuse an http(s)
+  URL with a user, as it may be a token (`https://<token>@host/...`). Library:
+  `GitURL.hasCredentials` is true for such a URL.
+- `odood repo release`, `repo hotfix release` and `repo hotfix check` never
+  require a version bump for an addon whose only changes are translations
+  (`.po`/`.pot`), and the release commands always release translation changes,
+  also when they are the only changes. Their `--ignore-translations` option is
+  removed. Repository and assembly changelogs list such an addon as
+  ``- `addon` (translations)``. `check-versions`, `bump-versions` and
+  `ensure-changelog` keep `--ignore-translations`, so translation changes can
+  still require a bump.
+- Library: `AddonRepository.collectChanges` no longer takes
+  `ignore_translations`: translation changes are always collected, and
+  `AddonUpdated.translations_only` marks updates that changed only
+  translations. In `checkVersions` and `ensureChangelog`, `ignore_translations`
+  skips such updates, and now defaults to `false`, as in the CLI.
+  `prepareRelease` no longer takes it.
+
+### Fixed
+
+- Barcodes and QR codes in reports render on Python 3.12, the default for
+  Odoo 18+: Odood installs `rl-renderPM`, which Odoo pins for Windows only.
+  For an existing installation, run
+  `odood venv pip -- install rl-renderPM==4.0.3`. Not done on Python 3.13, as
+  it has no wheels there.
+- Saving `odood-assembly.yml` no longer drops `git@` from ssh sources, which
+  made them fail to clone. On GitLab CI, an ssh URL without a user on the
+  job's host now gets the job token too, so specs saved by 0.6.4–0.7.0 work
+  there; elsewhere, add the `git@` back by hand.
+- Library: `Assembly.replaceSource` no longer drops the source's `access-group`
+  and `no-search`, and refuses a URL with embedded credentials, as `addSource`
+  does.
+
+---
+
 ## Release 0.7.0 (2026-10-23)
 
 ### Added

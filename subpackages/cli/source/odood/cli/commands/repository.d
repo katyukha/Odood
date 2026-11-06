@@ -154,7 +154,8 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
         this.addFlag!(major)("", "major", "Increase major version for addons.");
         this.addFlag!(minor)("", "minor", "Increase minor version for addons.");
         this.addFlag!(patch)("", "patch", "Increase patch version for addons.");
-        this.addFlag!(ignoreTranslations)("", "ignore-translations", "Ignore translations.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Do not bump addons whose only changes are translations (.po/.pot).");
     }
 
     override int execute() {
@@ -175,7 +176,7 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
 
         repo.fetchOrigin(project.odoo.serie.toString);
 
-        auto changes = repo.collectChanges(start_ref, ignore_translations: ignoreTranslations);
+        auto changes = repo.collectChanges(start_ref);
 
         if (!changes.has_changes) {
             infof("There are no changes in modules");
@@ -183,6 +184,10 @@ class CommandRepositoryBumpAddonVersion: OdoodCommand {
         }
 
         foreach(addon; changes.addons_updated) {
+            if (ignoreTranslations && addon.translations_only) {
+                infof("Module %s has only translation changes; skipping.", addon.name);
+                continue;
+            }
             infof("Checking module %s if version bump needed...", addon.name);
 
             auto start_version = addon.old_version;
@@ -260,10 +265,13 @@ class CommandRepositoryCheckVersion: OdoodCommand {
         this.addArgument!(path)("path",
             "Path to repository to search for addons to bump versions.")
             .acceptsDirectories();
-        this.addFlag!(ignoreTranslations)("", "ignore-translations", "Ignore translations.");
+        this.addFlag!(ignoreTranslations)("", "ignore-translations",
+            "Do not require a version bump for addons whose only changes are "
+            ~ "translations (.po/.pot), as 'odood repo release' does.");
         this.addFlag!(sinceLastRelease)("", "since-last-release",
             "Compare against the latest release tag instead of the stable branch tip. "
-            ~ "Shows exactly what 'odood repo release' will verify.");
+            ~ "With --ignore-translations, shows exactly what 'odood repo release' "
+            ~ "will verify.");
     }
 
     override int execute() {
@@ -316,7 +324,8 @@ class CommandRepositoryEnsureChangelog: OdoodCommand {
             .defaultValue("all")
             .acceptsValues(["all", "any"]);
         this.addFlag!(ignoreTranslations)("", "ignore-translations",
-            "Ignore translation-only (.po/.pot) changes.");
+            "Do not require a changelog entry for addons whose only changes are "
+            ~ "translations (.po/.pot).");
         this.addFlag!(sinceLastRelease)("", "since-last-release",
             "Compare against the latest release tag instead of the stable branch tip.");
         this.addOption!(startRef)("", "start-ref",
@@ -671,7 +680,6 @@ class CommandRepositoryRelease: OdoodCommand {
     bool major;
     bool minor;
     bool patch;
-    bool ignoreTranslations;
     bool failNothingToRelease;
     bool push;
     bool changelog;
@@ -696,8 +704,6 @@ class CommandRepositoryRelease: OdoodCommand {
         this.addFlag!(major)("", "major", "Force a major version bump.");
         this.addFlag!(minor)("", "minor", "Force a minor version bump.");
         this.addFlag!(patch)("", "patch", "Force a patch version bump.");
-        this.addFlag!(ignoreTranslations)("", "ignore-translations",
-            "Ignore translation files (.po/.pot) when detecting changes.");
         this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
             "Exit with code 1 when no changed addons are detected.");
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
@@ -786,8 +792,7 @@ class CommandRepositoryRelease: OdoodCommand {
             ? repo.prepareInitialRelease(project.odoo.serie).nullable
             : repo.prepareRelease(
                 serie: project.odoo.serie,
-                override_part: override_part,
-                ignore_translations: ignoreTranslations);
+                override_part: override_part);
 
         if (result.isNull) {
             infof("Nothing to release: no changed addons detected.");
@@ -990,7 +995,6 @@ class CommandRepositoryHotfixStart: OdoodCommand {
 
 
 class CommandRepositoryHotfixCheck: HotfixBranchCommand {
-    bool ignoreTranslations;
 
     this() {
         super(
@@ -998,8 +1002,6 @@ class CommandRepositoryHotfixCheck: HotfixBranchCommand {
             "Check addon versions on the current hotfix branch against the "
             ~ "latest tag in its patch chain. Previews what "
             ~ "'odood repo hotfix release' will verify.");
-        this.addFlag!(ignoreTranslations)("", "ignore-translations",
-            "Ignore translation files (.po/.pot) when detecting changes.");
     }
 
     override int execute() {
@@ -1008,14 +1010,15 @@ class CommandRepositoryHotfixCheck: HotfixBranchCommand {
         auto base = resolveChainBase(project, repo);
 
         infof("Comparing against latest patch in chain: %s", base);
+        // Mirrors 'hotfix release', which never requires a bump for an addon
+        // whose only changes are translations.
         return runVersionCheck(
-            repo, project.odoo.serie, base.toString, ignoreTranslations);
+            repo, project.odoo.serie, base.toString, ignore_translations: true);
     }
 }
 
 
 class CommandRepositoryHotfixRelease: HotfixBranchCommand {
-    bool ignoreTranslations;
     bool failNothingToRelease;
     bool push;
     bool changelog;
@@ -1031,8 +1034,6 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
             "release",
             "Release a hotfix (patch) on the current hotfix branch: bump Z on "
             ~ "top of the chain's latest tag, tag, and optionally push.");
-        this.addFlag!(ignoreTranslations)("", "ignore-translations",
-            "Ignore translation files (.po/.pot) when detecting changes.");
         this.addFlag!(failNothingToRelease)("", "fail-nothing-to-release",
             "Exit with code 1 when no changed addons are detected.");
         this.addFlag!(push)("", "push", "Push the release tag (and branch) to origin.");
@@ -1063,7 +1064,6 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
         auto result = repo.prepareRelease(
             serie: project.odoo.serie,
             override_part: VersionPart.PATCH.nullable,
-            ignore_translations: ignoreTranslations,
             base_version: base.nullable);
 
         if (result.isNull) {

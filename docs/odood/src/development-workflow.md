@@ -159,8 +159,10 @@ Before pushing, verify that all modified modules have their versions bumped:
 odood repo check-versions
 ```
 
-With `--ignore-translations`, translation-only changes need no version bump. If you use it, use it for
-`odood repo release` too (see [Release Management](./release-management.md#addon-versions)).
+By default a change to translations (`.po`/`.pot`) needs a version bump like any other change. With
+`--ignore-translations`, `check-versions` and `bump-versions` skip modules whose only changes are translations;
+`odood repo release` accepts such modules either way (see
+[Release Management](./release-management.md#addon-versions)).
 
 To run pre-commit hooks (linters, formatters, etc.) locally:
 

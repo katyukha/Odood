@@ -256,6 +256,31 @@ rather than failing (handy in scripts and CI). Binding an addon to an unknown
 `--commit-message` / `--push` / `--push-to` to commit and push the spec change in
 one step.
 
+To change a source that is already in the spec, use `update-source`. It takes
+the same options as `add-source`, changes only the values you give, and adds
+the source when it is missing:
+
+```bash
+# Select the source by name:
+odood assembly update-source --name my_repo --ref 18.0.1.2.3
+
+# Or, for a source without a name, by its repository:
+odood assembly update-source --oca web --access-group oca
+```
+
+Every option you give is written to the source, the URL included. Without
+`--name`, the URL options also select the source, and any spelling of the same
+repository matches, so this moves an ssh source to https (which credentials
+from `ODOOD_ASSEMBLY_<group>_CRED` require):
+
+```bash
+odood assembly update-source --url https://github.com/my/private-repo --access-group my_repos
+```
+
+Changing the `ref`, or the URL to another repository, drops a pinned `commit`.
+When several sources point to one repository, give them names in
+`odood-assembly.yml` and select one with `--name`.
+
 For **free** addons distributed through [Odoo Apps](https://apps.odoo.com/apps),
 use `--odoo-apps` instead of binding to a source (only free addons can be
 downloaded automatically — paid addons require a purchase):
@@ -265,7 +290,7 @@ odood assembly add-addon free_addon --odoo-apps
 ```
 
 > **Note:** Odood manages `odood-assembly.yml` as a generated file — `add-addon`,
-> `add-source`, and `upgrade-sources` rewrite it in canonical form. URL
+> `add-source`, `update-source` and `upgrade-sources` rewrite it in canonical form. URL
 > shortcuts (`github:` / `oca:` / `crnd:`) are expanded to full `url:` values and
 > YAML comments are not preserved.
 
@@ -403,6 +428,12 @@ spec:
       access-group: my_repos
 ```
 
+The same source can be added from the command line:
+
+```bash
+odood assembly add-source --github my/private-repo --ref 18.0 --access-group my_repos
+```
+
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
 The format for this variable is: `user:token`; neither part may contain `:`.
 Credentials apply to https sources only (not `crnd:`, which expands to ssh), and
@@ -475,7 +506,7 @@ The changelog file contains information about each update of assembly, that incl
 - Update date
 - Addons added (name and version of each addon)
 - Addons removed (name of each addon)
-- Addons updated (name, old_version, new_version for each addon)
+- Addons updated (name, old_version, new_version for each addon, or `(translations)` when only its translations changed)
 - Notable changes (if updated addon has list of notable changes for specific versions)
 
 #### Sample changelog

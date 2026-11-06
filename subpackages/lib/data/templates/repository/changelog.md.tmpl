@@ -22,7 +22,7 @@
 ### Updated addons
 
 {% for addon; changes.addons_updated %}
-- `{{ addon.name }}` ({{ addon.old_version }} -> {{ addon.new_version }})
+- `{{ addon.name }}` ({% if addon.translations_only %}translations{% else %}{{ addon.old_version }} -> {{ addon.new_version }}{% endif %})
 {% endfor %}
 
 {% endif %}

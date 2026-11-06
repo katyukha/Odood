@@ -381,6 +381,18 @@ void testRunningScripts(in Project project, in string ukey="n") {
     infof("Testing running scripts for %s. Complete: Ok.", project);
 }
 
+/// Test that the venv renders barcodes to PNG, the way Odoo reports do.
+void testBarcodeRendering(in Project project) {
+    infof("Testing barcode rendering for %s", project);
+    // reportlab 4 needs a separate bitmap backend package for this.
+    project.venv.python("-c",
+        "from reportlab.graphics.barcode import createBarcodeDrawing\n" ~
+        "for barcode_type in ('Code128', 'QR'):\n" ~
+        "    png = createBarcodeDrawing(barcode_type, value='odood', format='png', width=100, height=100).asString('png')\n" ~
+        "    assert png.startswith(b'\\x89PNG'), barcode_type\n");
+    infof("Testing barcode rendering for %s. Complete: Ok.", project);
+}
+
 /// Test regeneration of translations
 void testTranslationsRegenerate(in Project project) {
     infof("Testing translations regeneration for %s", project);
@@ -694,6 +706,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(20));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
+    testBarcodeRendering(project);
+
     // Run basic tests
     //project.runBasicTests("o20");
 
@@ -742,6 +756,8 @@ unittest {
     project.odoo.serie.shouldEqual(OdooSerie(19));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
 
+    testBarcodeRendering(project);
+
     // Run basic tests
     project.runBasicTests("o19");
 
@@ -775,6 +791,8 @@ unittest {
     project.project_root.shouldEqual(temp_path);
     project.odoo.serie.shouldEqual(OdooSerie(18));
     project.config_path.shouldEqual(temp_path.join("odood.yml"));
+
+    testBarcodeRendering(project);
 
     // Run basic tests
     project.runBasicTests("o18");

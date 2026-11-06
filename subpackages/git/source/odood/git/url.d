@@ -46,16 +46,22 @@ struct GitURL {
     /// discriminator — loud and inspectable for anyone branching on it.
     bool isLocal() const => _scheme == "file";
 
-    /** Check if the URL carries embedded credentials.
+    /** Check if the URL carries embedded credentials: a password, or the
+      * user of an http(s) URL, which may be a token
+      * (`https://<token>@github.com/...`). An ssh user (`git@host:...`)
+      * only names the account to log in as.
       *
-      * Only a password counts as a secret: a bare user is how ssh remotes
-      * are normally written (`git@host:...`). A URL with credentials leaks
-      * them by several routes — it is stored in the clear in a clone's git
-      * config, may end up in serialized configs, and is echoed back inside
-      * git's own error messages — so callers that persist URLs should
-      * refuse such input and take credentials out-of-band instead.
+      * A URL with credentials leaks them by several routes — it is stored in
+      * the clear in a clone's git config, may end up in serialized configs,
+      * and is echoed back inside git's own error messages — so callers that
+      * persist URLs should refuse such input and take credentials out-of-band
+      * instead.
       **/
-    bool hasCredentials() const => _password.length > 0;
+    bool hasCredentials() const => _password.length > 0 || userIsCredential;
+
+    /// Whether the user is a credential (see `hasCredentials`).
+    private bool userIsCredential() const =>
+        _user.length > 0 && (_scheme == "https" || _scheme == "http");
 
     /** Name of the repository: the URL path after the host, with
       * surrounding slashes and a trailing `.git` stripped — e.g.
@@ -107,6 +113,9 @@ struct GitURL {
             hasCredentials.shouldBeTrue;
             repoName.shouldEqual("owner/repo");
         }
+
+        // So is a user alone on http(s): it may be a token.
+        GitURL("https://ghp_token@github.com/owner/repo").hasCredentials.shouldBeTrue;
 
         // Deep paths (e.g. gitlab subgroups) keep all segments in repoName.
         with (GitURL("https://gitlab.com/group/subgroup/repo.git")) {
@@ -187,10 +196,14 @@ struct GitURL {
     /** Convert to string that is suitable to pass to git clone.
       *
       * Includes any embedded credentials (user/password). Use this only
-      * where a clone-ready URL is required; for logging, serialization,
-      * or display use `toString`, which strips credentials.
+      * where a clone-ready URL is required; for logging or display use
+      * `toString`, which strips the user and the password.
+      *
+      * Params:
+      *     no_credentials = leave out the credentials (see `hasCredentials`),
+      *         for a URL that is persisted.
       **/
-    string toUrl() const {
+    string toUrl(in bool no_credentials = false) const {
         if (isLocal)
             return "file://" ~ _path;
 
@@ -198,12 +211,13 @@ struct GitURL {
         if (scheme)
             res ~= "%s://".format(scheme);
 
-        if (user && password)
-            res ~= "%s:%s@%s".format(user, password, host);
-        else if (user)
-            res ~= "%s@%s".format(user, host);
-        else
-            res ~= host;
+        if (user.length && !(no_credentials && userIsCredential)) {
+            res ~= user;
+            if (password.length && !no_credentials)
+                res ~= ":" ~ password;
+            res ~= "@";
+        }
+        res ~= host;
 
         if (port) res ~= ":%s".format(port);
 
@@ -310,7 +324,8 @@ struct GitURL {
         if ((scheme == "https" || scheme == "http") && !user && !password) {
             result._user = "gitlab-ci-token";
             result._password = environment.get("CI_JOB_TOKEN");
-        } else if (scheme == "ssh" && user == "git" && !password) {
+        } else if (scheme == "ssh" && (user == "git" || user.length == 0) && !password) {
+            // Also without a user, which cannot work over ssh in CI anyway.
             result._scheme = "https";
             result._user = "gitlab-ci-token";
             result._password = environment.get("CI_JOB_TOKEN");
@@ -323,10 +338,9 @@ struct GitURL {
         return result;
     }
 
-    /** String representation of the URL with any embedded credentials
-      * (user/password) stripped. Safe by default for logging, serialization,
-      * and display. Use `toUrl` when a clone-ready URL (with credentials)
-      * is required.
+    /** String representation of the URL without the user and the password,
+      * for logging and display. To persist a URL, use
+      * `toUrl(no_credentials: true)`, which keeps an ssh user.
       **/
     string toString() const {
         // Local paths carry no credentials, so the clone-ready form is also
@@ -373,6 +387,16 @@ struct GitURL {
             toString.shouldEqual("https://github.com/katyukha/thepath");
             toString.shouldEqual(toUrl);
         }
+
+        // no_credentials: the password and an http(s) user go, an ssh user stays.
+        GitURL("https://gitlab+deploy-token-42:some+token-s@gitlab.crnd.pro/crnd/crnd-account")
+            .toUrl(no_credentials: true).shouldEqual("https://gitlab.crnd.pro/crnd/crnd-account");
+        GitURL("https://ghp_token@github.com/owner/repo")
+            .toUrl(no_credentials: true).shouldEqual("https://github.com/owner/repo");
+        GitURL("git@gitlab.crnd.pro:crnd-opensource/crnd-web.git")
+            .toUrl(no_credentials: true).shouldEqual("ssh://git@gitlab.crnd.pro/crnd-opensource/crnd-web");
+        GitURL("ssh://git:secret@gitlab.crnd.pro:2222/crnd/repo")
+            .toUrl(no_credentials: true).shouldEqual("ssh://git@gitlab.crnd.pro:2222/crnd/repo");
     }
 
     /// Local repositories: created via the Path constructor or an explicit
@@ -551,6 +575,12 @@ unittest {
         toUrl.shouldEqual(
             "https://gitlab-ci-token:gitlab-token-x1@gitlab.test.com/katyukha/thepath");
     }
+
+    // An ssh URL without a user is rewritten too; another user is left alone.
+    GitURL("ssh://gitlab.test.com/katyukha/thepath").applyCIRewrites.toUrl.shouldEqual(
+        "https://gitlab-ci-token:gitlab-token-x1@gitlab.test.com/katyukha/thepath");
+    GitURL("ssh://someone@gitlab.test.com/katyukha/thepath").applyCIRewrites.toUrl.shouldEqual(
+        "ssh://someone@gitlab.test.com/katyukha/thepath");
 
     // Other hosts must not be changed
     with (GitURL("git@gitlab.crnd.pro:crnd-opensource/crnd-web.git").applyCIRewrites) {

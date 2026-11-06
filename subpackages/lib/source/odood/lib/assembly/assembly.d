@@ -465,7 +465,6 @@ class Assembly {
         auto changes = repo.collectChanges(
             base_rev,
             GIT_REF_WORKTREE,
-            ignore_translations: false,
             initial_version: resolveBaseVersion(base_rev, latest));
         // Assemblies have no reserved hotfix segment, so the bump floors to
         // PATCH (releases floor to MINOR to keep PATCH free for hotfixes).
@@ -742,9 +741,11 @@ class Assembly {
 
     /// Add source to assembly
     void addSource(in GitURL git_url, in string name=null, in string git_ref=null,
-            in string git_commit=null) {
+            in string git_commit=null, in string access_group=null,
+            in bool no_search=false) {
         _spec.addSource(
-            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit);
+            git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit,
+            access_group: access_group, no_search: no_search);
     }
 
     /// Add addon to assembly
@@ -773,11 +774,17 @@ class Assembly {
         _spec.removeSource(git_url, name, git_ref, git_commit);
     }
 
-    /// Replace the source named `name` in place (re-pin); refuses a rename while
-    /// addons reference it.
+    /// Replace the source named `name` in place (re-pin), keeping its access
+    /// group and no-search flag; refuses a rename while addons reference it.
     void replaceSource(in string name, in GitURL git_url, in string new_name=null,
             in string git_ref=null, in string git_commit=null) {
         _spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
+    }
+
+    /// Replace `source` with `updated` in place; refuses a rename while addons
+    /// reference it.
+    void replaceSource(in AssemblySpecSource source, in AssemblySpecSource updated) {
+        _spec.replaceSource(source, updated);
     }
 
     /** For each source, query the remote for tags matching the project's Odoo serie,

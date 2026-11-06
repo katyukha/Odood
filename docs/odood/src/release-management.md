@@ -117,14 +117,15 @@ correct.
 `odood repo release` re-verifies this internally as a safety gate, but in normal
 practice the gate is always clear by release time.
 
-**Translations.** By default a change to an addon's `.po`/`.pot` files counts as
-an addon change: it needs a version bump and is part of the next release. With
-`--ignore-translations`, translation files are skipped: translation-only changes
-need no bump and do not trigger a release on their own. Either choice works, but
-use it consistently — `check-versions` in CI, `release`, `hotfix check` and
-`hotfix release` must agree. If CI ignores translations and `release` does not,
-the release fails with `Version check failed before release` on translation-only
-changes CI let through.
+**Translations.** By default `check-versions`, `bump-versions` and
+`ensure-changelog` treat a change to an addon's `.po`/`.pot` files like any
+other change: it needs a version bump and a changelog entry. With
+`--ignore-translations` they skip addons whose only changes are translations.
+`release`, `hotfix check` and `hotfix release` work with either choice: they
+never require a bump for such an addon, its translations are part of the next
+release, and a release may consist of translation changes alone (for example,
+pushed by a translation platform). The changelog lists such an addon as
+``- `addon` (translations)``.
 
 Addon version bump semantics (when to bump `X` vs `Y` vs `Z` within an addon) are
 a separate topic and are not covered here.
@@ -210,8 +211,7 @@ Other options, accepted by `hotfix release` as well:
 - `--commit-message`, `--commit-user`, `--commit-email` — message (default
   `Release <version>`) and author of the release-artifacts commit, e.g. for a CI
   bot.
-- `--fail-nothing-to-release`, `--ignore-translations` — as described above and
-  in [Addon versions](#addon-versions).
+- `--fail-nothing-to-release` — as described above.
 
 ### First release
 
