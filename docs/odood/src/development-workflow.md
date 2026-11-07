@@ -606,3 +606,38 @@ migration-tests:
 ```
 
 > **Note:** Adjust the Odoo series (`18.0`) in the image tag and the `only` regex to match your project's series.
+
+---
+
+### Private dependencies
+
+To fetch private repositories listed in `odoo_requirements.txt`, and in the
+requirements of the repositories it pulls in, give Odood their credentials in
+the `ODOOD_GIT_CREDENTIALS` variable, one `<URL prefix> <user>:<token>` per line:
+
+```yaml
+env:
+  ODOOD_GIT_CREDENTIALS: |
+    https://github.com/my-org          x-access-token:${{ secrets.MY_ORG_PAT }}
+    https://github.com/partner/addons  x-access-token:${{ secrets.PARTNER_PAT }}
+    https://gitlab.example.com/group   deploy-user:${{ secrets.GITLAB_DEPLOY_TOKEN }}
+```
+
+A line applies to the https repositories under its prefix:
+`https://github.com/my-org` covers `https://github.com/my-org/addons`, but not
+`https://github.com/my-org-two/addons`. Case and a trailing `.git` do not
+matter, a prefix without a path covers the whole host, and when several lines
+match, the longest prefix wins. For a GitHub token, use the user
+`x-access-token`. Odood passes the token to git through a credential helper,
+never in a URL or on the command line.
+
+The same variable works for `odood repo add`, for `odood repo pull-all`, which
+looks up each repository's `origin` as git sees it (after `insteadOf`
+rewrites), and for assembly sources (see
+[Private git sources](./assembly.md#private-git-sources)). It can be combined
+with git config set through `GIT_CONFIG_COUNT`, but for the matching hosts it
+replaces other credential helpers.
+
+On GitLab CI, keep each token in its own masked variable and reference it
+(`deploy-user:${GROUP_DEPLOY_TOKEN}`) in an `ODOOD_GIT_CREDENTIALS` defined in
+`.gitlab-ci.yml`, as a masked variable cannot span several lines.

@@ -556,7 +556,8 @@ class CommandRepositoryPullAll: OdoodCommand {
         size_t total, updated, up_to_date;
         bool failed = false;
 
-        foreach(repo; project.repositories.list()) {
+        foreach(listed; project.repositories.list()) {
+            auto repo = project.repositories.withCredentials(listed);
             total++;
             auto repo_name = repo.path.relativeTo(project.directories.repositories).toString;
 

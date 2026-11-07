@@ -436,11 +436,14 @@ odood assembly add-source --github my/private-repo --ref 18.0 --access-group my_
 
 Odood will check environment variable `ODOOD_ASSEMBLY_my_repos_CRED` for access credentials for this repo.
 The format for this variable is: `user:token`; neither part may contain `:`.
-Credentials apply to https sources only (not `crnd:`, which expands to ssh), and
-cannot be combined with a `GIT_CONFIG_COUNT` set in the environment.
+Credentials apply to https sources only (not `crnd:`, which expands to ssh).
 
 When a source has both, `ODOOD_ASSEMBLY_<name>_CRED` is checked first, and
-`ODOOD_ASSEMBLY_<access-group>_CRED` only when that variable is not set.
+`ODOOD_ASSEMBLY_<access-group>_CRED` only when that variable is not set. When
+neither is set, Odood looks the source up in `ODOOD_GIT_CREDENTIALS`, which
+gives credentials by URL prefix, so one line can cover all the repositories of
+an owner, without an `access-group` in the spec (see
+[Private dependencies](./development-workflow.md#private-dependencies)).
 
 Note, that in case of [GitHub Actions](https://docs.github.com/en/actions), you have to provide access token for private repo in [GitHub Actions Secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets).
 Thus, additionally in CI workflow definition, you have to assign secret to correct environment variable (see [docs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#using-secrets-in-a-workflow)).

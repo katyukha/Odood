@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `ODOOD_GIT_CREDENTIALS` gives credentials for private https repositories by
+  URL prefix, one `<prefix> <user>:<token>` per line. `odood repo add` and
+  `addons add --odoo-requirements` use them, also for the requirements of the
+  repositories they fetch, `odood repo pull-all` uses them for each
+  repository's `origin`, and so do assembly sources without
+  `ODOOD_ASSEMBLY_<name|group>_CRED`.
+- Library: `odood.git.gitCredentialEnv`,
+  `odood.lib.git_credentials.resolveGitCredentialEnv` and
+  `RepositoryManager.withCredentials`.
+
+### Changed
+
+- Credentials from `ODOOD_ASSEMBLY_<name|group>_CRED` work alongside a
+  `GIT_CONFIG_COUNT` set in the environment, are sent to the source's host
+  only, and replace the other credential helpers configured for that host.
+
 ## Release 0.7.1 (2026-11-06)
 
 ### Added

@@ -6,6 +6,7 @@ private import std.algorithm: map;
 private import std.array: array, split;
 private import std.exception: enforce;
 private import std.format: format;
+private import std.typecons: Nullable;
 
 private import std.file: SpanMode;
 
@@ -15,7 +16,8 @@ private import odood.project: Project;
 private import odood.lib.addons.repository: AddonRepository;
 private import odood.project.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS, DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
-private import odood.git: parseGitURL, gitClone, isGitRepo;
+private import odood.git: GitURL, parseGitURL, gitClone, isGitRepo;
+private import odood.lib.git_credentials: GIT_CREDENTIALS_ENV, resolveGitCredentialEnv;
 private import odood.exception: OdoodException;
 
 
@@ -73,6 +75,24 @@ struct RepositoryManager {
         return searchRepositories(_project.directories.repositories);
     }
 
+    /** Reopen `repo` with the credentials that `ODOOD_GIT_CREDENTIALS` holds
+      * for its `origin`, for operations that reach the remote. Returns `repo`
+      * itself when there are none.
+      **/
+    AddonRepository withCredentials(AddonRepository repo) const {
+        if (!repo.hasRemoteUrl("origin"))
+            return repo;
+
+        Nullable!GitURL origin;
+        // An origin that is not a URL, such as a local path, needs none.
+        try origin = repo.getRemoteUrl;
+        catch (OdoodException)
+            return repo;
+
+        auto env = resolveGitCredentialEnv(origin.get);
+        return env.length ? new AddonRepository(repo.path, env) : repo;
+    }
+
     /** Add a new addon repository to the project: clone it under
       * `repositories/`, link its addons, and optionally process its
       * odoo_requirements.txt to recursively fetch dependencies.
@@ -105,8 +125,8 @@ struct RepositoryManager {
         enforce!OdoodException(
             !git_url.hasCredentials,
             ("Cannot add repository '%s': the URL contains embedded " ~
-             "credentials. Use SSH or a git credential helper instead.").format(
-                git_url));
+             "credentials. Use SSH, or set them in %s instead.").format(
+                git_url, GIT_CREDENTIALS_ENV));
 
         auto dest = _project.directories.repositories.join(
                 git_url.repoName.toLower.split("/"));
@@ -118,7 +138,9 @@ struct RepositoryManager {
             return;
         }
 
-        auto repo = gitClone(git_url, dest, branch, single_branch);
+        auto repo = gitClone(
+            git_url, dest, branch, single_branch,
+            env: resolveGitCredentialEnv(git_url));
 
         // Linking addons and processing requirements is addon-domain work,
         // delegated to the AddonManager.
@@ -189,4 +211,52 @@ unittest {
     names.canFind("acme/repo1").shouldBeTrue;
     names.canFind("acme/repo2").shouldBeTrue;
     names.canFind("oca/server-tools").shouldBeTrue;
+}
+
+// withCredentials resolves the credentials from the origin, and leaves a
+// repository whose origin is missing or not a URL as it is.
+unittest {
+    import std.process: environment;
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+    import odood.git: GitRepository;
+    import odood.git.credential: GIT_CREDENTIAL_PASSWORD_ENV;
+    import odood.utils.odoo.serie: OdooSerie;
+
+    immutable string[string] preset = [
+        GIT_CREDENTIALS_ENV: "https://github.com/my-org user:org-token",
+        // The origin is read as git uses it, after the user's `insteadOf`
+        // rewrites, which may turn it into ssh.
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+    ];
+    auto saved = environment.toAA;
+    foreach(key, value; preset)
+        environment[key] = value;
+    scope(exit) foreach(key; preset.keys) {
+        if (auto old = key in saved)
+            environment[key] = *old;
+        else
+            environment.remove(key);
+    }
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+    auto project = new Project(root, OdooSerie(17));
+
+    AddonRepository repo(in string name, in string origin) {
+        auto result = new AddonRepository(
+            GitRepository.initialize(root.join("repositories", name)));
+        if (origin)
+            result.remoteAdd("origin", origin);
+        return result;
+    }
+
+    project.repositories.withCredentials(repo("private", "https://github.com/my-org/repo"))
+        .env[GIT_CREDENTIAL_PASSWORD_ENV].shouldEqual("org-token");
+
+    foreach(listed; [
+            repo("public", "https://github.com/other/repo"),
+            repo("mirror", root.join("mirror").toString),
+            repo("local", null)])
+        (project.repositories.withCredentials(listed) is listed).shouldBeTrue;
 }
