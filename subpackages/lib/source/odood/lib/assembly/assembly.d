@@ -743,9 +743,11 @@ class Assembly {
         syncAddons();
     }
 
+    /// Pull the assembly repo, and reload the spec it brings.
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
         infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
+        _spec = AssemblySpec(dyaml.Loader.fromFile(spec_path.toString).load());
     }
 
     void push(in string branch_name=null) {
@@ -773,6 +775,18 @@ class Assembly {
     /// Remove an addon from assembly by name. No-op if absent.
     void removeAddon(in string name) {
         _spec.removeAddon(name);
+    }
+
+    /// Add a Debian package to the spec's `system-packages.deb`. No-op if it
+    /// is listed; refuses a name that is not a valid Debian package name.
+    void addSystemPackageDeb(in string name) {
+        _spec.addSystemPackageDeb(name);
+    }
+
+    /// Remove a Debian package from the spec's `system-packages.deb`. No-op
+    /// if it is not listed.
+    void removeSystemPackageDeb(in string name) {
+        _spec.removeSystemPackageDeb(name);
     }
 
     /// Remove a source from assembly. Refuses if any addon references it.
@@ -1294,4 +1308,37 @@ unittest {
         "    && rm -rf /var/lib/apt/lists/*\n").shouldBeTrue;
     auto install = dockerfile.indexOf("apt-get install");
     (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
+}
+
+// pull reloads the spec, so the steps after it (link, installing system
+// packages) work from what the pull brought.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+    import theprocess: Process;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Add source");
+    addTestOrigin(assembly, root);
+
+    // Another clone adds a package and pushes it.
+    auto other_path = root.join("other");
+    Process("git")
+        .withArgs("clone", "--branch", "17.0",
+            root.join("remote.git").toString, other_path.toString)
+        .execute.ensureOk(true);
+    auto other = Assembly.load(other_path, assembly.serie, new TestSourceProvider(root));
+    other.addSystemPackageDeb("ghostscript");
+    other.save();
+    other.repo.add(other.spec_path);
+    other.repo.commit("Add ghostscript");
+    other.repo.gitCmd.withArgs("push", "origin", "HEAD:17.0").execute.ensureOk(true);
+
+    assembly.pull();
+    assembly.spec.system_packages_deb.should == ["ghostscript"];
 }

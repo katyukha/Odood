@@ -17,11 +17,14 @@
   server. The generated `Dockerfile` installs them in a layer before the first
   `COPY`, `odood deploy --assembly-repo` installs them, and the new
   `odood assembly install-system-packages` (run as root) installs the missing
-  ones on an existing server. `odood assembly link` warns about missing
-  packages on Debian-based hosts.
+  ones on an existing server, as does `odood assembly upgrade
+  --install-system-packages` after its pull. `odood assembly link` warns about
+  missing packages on Debian-based hosts. `odood assembly add-system-package` /
+  `remove-system-package` edit the list, and `odood assembly status` counts it.
 - Library: `odood.lib.deb` (`debMissingPackages`, `debInstallPackages`,
-  `isValidDebPackageName`), `AssemblySpec.system_packages_deb` and
-  `Assembly.installSystemPackages`.
+  `isValidDebPackageName`), `AssemblySpec.system_packages_deb`,
+  `Assembly.installSystemPackages` and
+  `Assembly.addSystemPackageDeb` / `removeSystemPackageDeb`.
 
 ### Changed
 
@@ -41,6 +44,8 @@
 - `odood assembly upgrade-sources` lists the tags of an ssh source as the user
   in its URL (`git@`) instead of the local user, and on GitLab CI with the job
   token, as `odood assembly sync` does.
+- `odood assembly upgrade` and `odood assembly pull --link` relink with the
+  spec the pull brought, not the one loaded before it.
 
 ## Release 0.7.1 (2026-11-06)
 

@@ -265,12 +265,7 @@ struct AssemblySpec {
             if (system_packages.containsKey("deb"))
                 foreach(node; system_packages["deb"].sequence) {
                     auto name = node.as!string;
-                    // The names reach apt-get, run as root.
-                    enforce!OdoodAssemblyInvalidSpecException(
-                        isValidDebPackageName(name),
-                        ("Invalid assembly spec: '%s' in " ~
-                         "'spec.system-packages.deb' is not a Debian package name").format(
-                            name));
+                    enforceDebPackageName(name);
                     _system_packages_deb ~= name;
                 }
         }
@@ -360,6 +355,26 @@ struct AssemblySpec {
     /// Remove an addon by name. No-op if no such addon exists.
     package(odood) void removeAddon(in string name) {
         _addons = _addons.filter!((a) => a.name != name).array;
+    }
+
+    // The names reach apt-get, run as root.
+    private static void enforceDebPackageName(in string name) {
+        enforce!OdoodAssemblyInvalidSpecException(
+            isValidDebPackageName(name),
+            "'%s' in 'spec.system-packages.deb' is not a valid Debian package name".format(
+                name));
+    }
+
+    /// Add a Debian package to `system-packages.deb`. No-op if it is listed.
+    package(odood) void addSystemPackageDeb(in string name) {
+        enforceDebPackageName(name);
+        if (!_system_packages_deb.canFind(name))
+            _system_packages_deb ~= name;
+    }
+
+    /// Remove a Debian package from `system-packages.deb`. No-op if it is not listed.
+    package(odood) void removeSystemPackageDeb(in string name) {
+        _system_packages_deb = _system_packages_deb.filter!((p) => p != name).array;
     }
 
     // Names of addons that reference the given (non-empty) source name.
@@ -754,6 +769,26 @@ unittest {
     load("\n    debs: [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
     load("\n    deb: ['--allow-unauthenticated']\n")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// addSystemPackageDeb / removeSystemPackageDeb keep the list free of
+// duplicates and invalid names, and leave other entries in place.
+unittest {
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec.init;
+    spec.addSystemPackageDeb("poppler-utils");
+    spec.addSystemPackageDeb("ghostscript");
+    spec.addSystemPackageDeb("poppler-utils");
+    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
+
+    spec.addSystemPackageDeb("--allow-unauthenticated")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
+
+    spec.removeSystemPackageDeb("antiword");
+    spec.removeSystemPackageDeb("poppler-utils");
+    spec.system_packages_deb.should == ["ghostscript"];
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

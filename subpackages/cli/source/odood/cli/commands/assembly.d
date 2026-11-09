@@ -108,11 +108,12 @@ class CommandAssemblyStatus: OdoodCommand {
         else {
             auto current = project.assembly.raw.currentVersion(include_remote: false);
             writefln(
-                "Assembly: %s\nVersion: %s\nAddons: %s\nSources: %s\n",
+                "Assembly: %s\nVersion: %s\nAddons: %s\nSources: %s\nSystem packages (deb): %s\n",
                 project.assembly.raw.path,
                 current.isNull ? "not released yet" : current.get.toString,
                 project.assembly.raw.spec.addons.length,
                 project.assembly.raw.spec.sources.length,
+                project.assembly.raw.spec.system_packages_deb.length,
             );
         }
         return 0;
@@ -494,6 +495,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
     bool backup;
     bool skipErrors;
     bool start;
+    bool installSystemPackages;
 
     this() {
         super("upgrade", "Upgrade assembly (optionally do backup, pull changes, update addons).");
@@ -502,10 +504,18 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
             "Continue upgrade next databases if upgrade of db had error.");
         this.addFlag!(start)("", "start",
             "Start the server if upgrade completed successfully and server was not running before upgrade.");
+        this.addFlag!(installSystemPackages)("", "install-system-packages",
+            "Install the missing Debian packages the pulled spec lists " ~
+            "(system-packages.deb), before relinking. Must be run as root.");
     }
 
     override int execute() {
         import std.datetime.stopwatch;
+
+        // Before the backups and the pull, which would be wasted.
+        enforce!OdoodCLIException(
+            !installSystemPackages || geteuid == 0,
+            "Option --install-system-packages requires running as root!");
 
         auto project = loadProject();
         auto assembly = project.assembly;
@@ -517,6 +527,8 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
                 project.databases.backup(db);
 
         assembly.raw.pull;
+        if (installSystemPackages)
+            assembly.raw.installSystemPackages();
         assembly.link();
 
         auto start_again = start;
@@ -732,15 +744,9 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
 }
 
 
-/* Options shared by the commands that add or change a git source in the spec. */
-abstract class AssemblySourceCommandBase: AssemblyCommandBase {
-    Nullable!string url;
-    Nullable!string github;
-    Nullable!string oca;
-    Nullable!string crnd;
-    Nullable!string name;
-    Nullable!string gitRef;
-    Nullable!string accessGroup;
+/* Saving shared by the commands that edit the spec: stage it, and commit and
+ * push it on request. */
+abstract class AssemblySpecCommandBase: AssemblyCommandBase {
     bool commit;
     Nullable!string commitMessage;
     Nullable!string commitUser;
@@ -750,37 +756,17 @@ abstract class AssemblySourceCommandBase: AssemblyCommandBase {
 
     this(string command_name, string summary) {
         super(command_name, summary);
-        this.addOption!(url)("", "url", "Git repository URL.");
-        this.addOption!(github)("", "github",
-            "GitHub repo as owner/repo (expands to https://github.com/owner/repo).");
-        this.addOption!(oca)("", "oca",
-            "OCA repo name (expands to https://github.com/oca/<repo>).");
-        this.addOption!(crnd)("", "crnd",
-            "CRND repo as group/repo (expands to ssh://git@gitlab.crnd.pro/group/repo).");
-        this.addOption!(name)("", "name", "Name to reference this source by.");
-        this.addOption!(gitRef)("", "ref", "Branch or tag to fetch.");
-        this.addOption!(accessGroup)("", "access-group",
-            "Credential group for a private https source: credentials are read " ~
-            "from ODOOD_ASSEMBLY_<group>_CRED when ODOOD_ASSEMBLY_<name>_CRED is not set.");
+    }
+
+    /// Register the commit and push options. Called after the command's own
+    /// options, which help lists first.
+    protected void addSaveOptions() {
         this.addFlag!(commit)("", "commit", "Commit the updated spec.");
         this.addOption!(commitMessage)("", "commit-message", "Commit message.");
         this.addOption!(commitUser)("", "commit-user", "Name of user to use for commit.");
         this.addOption!(commitEmail)("", "commit-email", "Email of user to use for commit.");
         this.addFlag!(push)("", "push", "Push changes after committing.");
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
-    }
-
-    /// URL given by --url, --github, --oca or --crnd; null when none is.
-    protected Nullable!string sourceUrl() {
-        string[] given;
-        if (!url.isNull)    given ~= url.get;
-        if (!github.isNull) given ~= "https://github.com/" ~ github.get;
-        if (!oca.isNull)    given ~= "https://github.com/oca/" ~ oca.get;
-        if (!crnd.isNull)   given ~= "ssh://git@gitlab.crnd.pro/" ~ crnd.get;
-        enforce!OdoodCLIException(
-            given.length <= 1,
-            "Only one of --url, --github, --oca, --crnd may be given.");
-        return given.empty ? Nullable!string.init : Nullable!string(given[0]);
     }
 
     /// Save and stage the spec, then commit and push it as requested.
@@ -796,6 +782,48 @@ abstract class AssemblySourceCommandBase: AssemblyCommandBase {
 
         if (push || !pushTo.isNull)
             assembly.push(branch_name: pushTo.isNull ? null : pushTo.get);
+    }
+}
+
+
+/* Options shared by the commands that add or change a git source in the spec. */
+abstract class AssemblySourceCommandBase: AssemblySpecCommandBase {
+    Nullable!string url;
+    Nullable!string github;
+    Nullable!string oca;
+    Nullable!string crnd;
+    Nullable!string name;
+    Nullable!string gitRef;
+    Nullable!string accessGroup;
+
+    this(string command_name, string summary) {
+        super(command_name, summary);
+        this.addOption!(url)("", "url", "Git repository URL.");
+        this.addOption!(github)("", "github",
+            "GitHub repo as owner/repo (expands to https://github.com/owner/repo).");
+        this.addOption!(oca)("", "oca",
+            "OCA repo name (expands to https://github.com/oca/<repo>).");
+        this.addOption!(crnd)("", "crnd",
+            "CRND repo as group/repo (expands to ssh://git@gitlab.crnd.pro/group/repo).");
+        this.addOption!(name)("", "name", "Name to reference this source by.");
+        this.addOption!(gitRef)("", "ref", "Branch or tag to fetch.");
+        this.addOption!(accessGroup)("", "access-group",
+            "Credential group for a private https source: credentials are read " ~
+            "from ODOOD_ASSEMBLY_<group>_CRED when ODOOD_ASSEMBLY_<name>_CRED is not set.");
+        addSaveOptions();
+    }
+
+    /// URL given by --url, --github, --oca or --crnd; null when none is.
+    protected Nullable!string sourceUrl() {
+        string[] given;
+        if (!url.isNull)    given ~= url.get;
+        if (!github.isNull) given ~= "https://github.com/" ~ github.get;
+        if (!oca.isNull)    given ~= "https://github.com/oca/" ~ oca.get;
+        if (!crnd.isNull)   given ~= "ssh://git@gitlab.crnd.pro/" ~ crnd.get;
+        enforce!OdoodCLIException(
+            given.length <= 1,
+            "Only one of --url, --github, --oca, --crnd may be given.");
+        return given.empty ? Nullable!string.init : Nullable!string(given[0]);
     }
 
     /// Add a new source built from the options.
@@ -928,6 +956,97 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
 }
 
 
+/* The Dockerfile installs the packages, but only `sync --dockerfile`
+ * regenerates it from the spec. */
+private void hintDockerfileUpdate(Assembly assembly) {
+    if (assembly.path.join("Dockerfile").exists)
+        infof("Run 'odood assembly sync --dockerfile' to update the Dockerfile.");
+}
+
+
+class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
+    string[] packages;
+
+    this() {
+        super("add-system-package",
+            "Add Debian package(s) the assembly needs to its spec (system-packages.deb).");
+        this.addArgument!(packages)("package", "Name(s) of Debian package(s) to add.")
+            .defaultValue([]);
+        addSaveOptions();
+    }
+
+    override int execute() {
+        enforce!OdoodCLIException(
+            packages.length > 0,
+            "At least one package name must be specified.");
+        auto assembly = loadProject().assembly.raw;
+
+        string[] added;
+        foreach(name; packages) {
+            if (assembly.spec.system_packages_deb.canFind(name)) {
+                warningf("Package '%s' is already listed in the assembly spec; skipping.", name);
+                continue;
+            }
+            assembly.addSystemPackageDeb(name);
+            added ~= name;
+        }
+
+        if (added.empty) {
+            warningf("No new packages to add to the assembly spec.");
+            return 0;
+        }
+
+        infof("Added system package(s) to assembly spec: %s", added.join(", "));
+        saveSpec(assembly, "[ASSEMBLY] Add system package(s): %s".format(added.join(", ")));
+        hintDockerfileUpdate(assembly);
+        return 0;
+    }
+}
+
+
+class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
+    string[] packages;
+
+    this() {
+        super("remove-system-package",
+            "Remove Debian package(s) from this assembly's spec (system-packages.deb).");
+        this.description(
+            "Servers that already have the package keep it: removing it from " ~
+            "the spec does not uninstall it.");
+        this.addArgument!(packages)("package", "Name(s) of Debian package(s) to remove.")
+            .defaultValue([]);
+        addSaveOptions();
+    }
+
+    override int execute() {
+        enforce!OdoodCLIException(
+            packages.length > 0,
+            "At least one package name must be specified.");
+        auto assembly = loadProject().assembly.raw;
+
+        string[] removed;
+        foreach(name; packages) {
+            if (!assembly.spec.system_packages_deb.canFind(name)) {
+                warningf("Package '%s' is not listed in the assembly spec; skipping.", name);
+                continue;
+            }
+            assembly.removeSystemPackageDeb(name);
+            removed ~= name;
+        }
+
+        if (removed.empty) {
+            warningf("No packages to remove from the assembly spec.");
+            return 0;
+        }
+
+        infof("Removed system package(s) from assembly spec: %s", removed.join(", "));
+        saveSpec(assembly, "[ASSEMBLY] Remove system package(s): %s".format(removed.join(", ")));
+        hintDockerfileUpdate(assembly);
+        return 0;
+    }
+}
+
+
 class CommandAssembly: OdoodCommand {
     Nullable!Path assemblyPath;
 
@@ -950,5 +1069,7 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblyAddAddon());
         this.add(new CommandAssemblyAddSource());
         this.add(new CommandAssemblyUpdateSource());
+        this.add(new CommandAssemblyAddSystemPackage());
+        this.add(new CommandAssemblyRemoveSystemPackage());
     }
 }

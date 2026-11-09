@@ -210,6 +210,18 @@ Odood does not work out the package names from the addons' manifests. The
 mapping from a binary to a package is up to you, and can differ between
 distribution releases.
 
+The list can also be edited from the command line. Both commands take
+`--commit` and `--push` like `add-source`:
+
+```bash
+odood assembly add-system-package poppler-utils ghostscript
+odood assembly remove-system-package ghostscript
+```
+
+Removing a package from the spec does not uninstall it from servers that
+already have it. The `Dockerfile` follows the list only after
+`odood assembly sync --dockerfile` regenerates it.
+
 How the packages get installed depends on where the assembly runs:
 
 - **Docker image**: the generated `Dockerfile` installs them before it copies
@@ -221,6 +233,8 @@ How the packages get installed depends on where the assembly runs:
   on an existing server. It must be run as root, for example
   `sudo odood assembly install-system-packages`. It changes nothing in the
   project, so it is also safe on a developer's machine.
+- **`odood assembly upgrade --install-system-packages`**: installs the packages
+  the pulled spec lists before relinking. It must be run as root.
 - **`odood assembly link`** never installs anything. On a Debian-based host it
   warns about missing packages and prints the command to install them. On other
   hosts it does not check them.
@@ -417,9 +431,9 @@ diverged from its upstream. See
 [Production deployment — Upgrading](./production-deployment.md#upgrading) for the
 exact steps, `--start` and `--skip-errors`.
 
-The upgrade does not install [system packages](#system-packages) that the new
-assembly version adds. The relink warns about them; install them with
-`sudo odood assembly install-system-packages`.
+To also install the [system packages](#system-packages) that the new assembly
+version adds, pass `--install-system-packages` (the upgrade must then run as
+root). Without it, the relink only warns about them.
 
 #### Docker Compose deployments
 
@@ -449,6 +463,7 @@ This group contains following commands:
   artifacts, commit them and create the release tag. See [Changelogs and versions](#changelogs-and-versions).
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
 - `odood assembly install-system-packages` - install the missing Debian packages listed in the spec's `system-packages.deb` (run as root). See [System packages](#system-packages).
+- `odood assembly add-system-package` / `odood assembly remove-system-package` - add or remove Debian packages in the spec's `system-packages.deb`.
 - `odood assembly pull` - fast-forward the assembly repo to its upstream (fails on uncommitted changes or a diverged branch); `--link` relinks addons afterwards.
 - `odood assembly upgrade` - simple way to upgrade server that is configured to use assembly.
 - `odood assembly upgrade-sources` - scan each source whose `ref` is a version tag and update the spec to the newest matching tag found on the remote. See [Upgrading pinned sources](#upgrading-pinned-sources).
