@@ -20,6 +20,16 @@
   `GIT_CONFIG_COUNT` set in the environment, are sent to the source's host
   only, and replace the other credential helpers configured for that host.
 
+### Fixed
+
+- Downloads (Odoo and Python sources, Odoo Apps addons) no longer save an HTTP
+  error page as the file, which then failed to extract with
+  `GZIP: inflate failed`. Rate limits (429) and server errors (5xx) are
+  retried, other errors fail with the HTTP status, and a connection closed
+  before `Content-Length` bytes arrived is retried too.
+- A failed download no longer leaves a partial file at its destination, where
+  later installs reused it from `ODOOD_CACHE_DIR`.
+
 ## Release 0.7.1 (2026-11-06)
 
 ### Added
