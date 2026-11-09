@@ -604,3 +604,51 @@ unittest {
     }
 }
 
+
+
+/** Remove the credentials from a git target given as a string, for error
+  * messages and logs. The rule is the one of `GitURL.hasCredentials`: the
+  * password of any URL goes, and so does the user of an http(s) URL, which
+  * may be a token. Targets without `://` (scp form, local paths) have no
+  * place for a password and are returned as given.
+  **/
+package(odood) string redactCredentials(in string target) pure @safe {
+    import std.string: indexOf, lastIndexOf;
+
+    immutable scheme_end = target.indexOf("://");
+    if (scheme_end < 0)
+        return target;
+    immutable authority_start = scheme_end + 3;
+    immutable rest = target[authority_start .. $];
+    immutable slash = rest.indexOf('/');
+    immutable authority = slash < 0 ? rest : rest[0 .. slash];
+    immutable at = authority.lastIndexOf('@');
+    if (at < 0)
+        return target;
+
+    string kept_user;
+    immutable scheme = target[0 .. scheme_end].toLower;
+    if (scheme != "http" && scheme != "https") {
+        immutable userinfo = authority[0 .. at];
+        immutable colon = userinfo.indexOf(':');
+        kept_user = (colon < 0 ? userinfo : userinfo[0 .. colon]) ~ "@";
+    }
+    return target[0 .. authority_start] ~ kept_user ~ rest[at + 1 .. $];
+}
+
+///
+unittest {
+    import unit_threaded.assertions;
+
+    redactCredentials("https://user:TOKEN@host.test/o/r")
+        .shouldEqual("https://host.test/o/r");
+    redactCredentials("HTTPS://TOKEN@host.test:8443/o/r.git")
+        .shouldEqual("HTTPS://host.test:8443/o/r.git");
+    redactCredentials("ssh://git:TOKEN@host.test/o/r")
+        .shouldEqual("ssh://git@host.test/o/r");
+    redactCredentials("ssh://git@host.test/o/r").shouldEqual("ssh://git@host.test/o/r");
+    // An '@' after the host is part of the path, not a user.
+    redactCredentials("https://host.test/o/r@v2").shouldEqual("https://host.test/o/r@v2");
+    redactCredentials("git@host.test:o/r.git").shouldEqual("git@host.test:o/r.git");
+    redactCredentials("/srv/git/repo").shouldEqual("/srv/git/repo");
+}

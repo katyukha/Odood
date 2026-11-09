@@ -16,6 +16,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
+private import odood.git.url: redactCredentials;
 private import odood.git.remote: GitRemote;
 private import odood.git.pull: GitPullStatus, GitPullResult;
 
@@ -649,7 +650,8 @@ class GitRepository {
             .withArgs("remote", "add", name, url)
             .withFlag(std.process.Config.stderrPassThrough)
             .execute
-            .ensureOk("Cannot add remote '%s' at '%s'".format(name, url), true);
+            .ensureOk("Cannot add remote '%s' at '%s'".format(
+                name, redactCredentials(url)), true);
     }
 
     /// ditto. Uses the clone-ready URL form (credentials included).

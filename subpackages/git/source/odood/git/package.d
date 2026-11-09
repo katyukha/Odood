@@ -11,6 +11,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
+private import odood.git.url: redactCredentials;
 public import odood.git.url: GitURL;
 public import odood.git.repository: GitRepository;
 public import odood.git.refs: GitTag, GitRef;
@@ -64,8 +65,11 @@ GitRepository gitClone(
         proc.addArgs("-b", branch);
     if (single_branch)
         proc.addArgs("--single-branch");
-    proc.addArgs(repo.applyCIRewrites.toUrl, dest.toString);
-    proc.execute().ensureOk(true);
+    immutable clone_url = repo.applyCIRewrites.toUrl;
+    proc.addArgs(clone_url, dest.toString);
+    // An own message: the default one lists the arguments, credentials included.
+    proc.execute().ensureOk(
+        "Cannot clone %s to %s".format(redactCredentials(clone_url), dest), true);
     return new GitRepository(dest);
 }
 
@@ -119,6 +123,34 @@ unittest {
     git_root.join("some-test-dir").isGitRepo.shouldBeTrue();
     git_root.join("some-test-dir", "some-subdir").isGitRepo.shouldBeTrue();
 
+}
+
+
+// A failing git command does not put the credentials of its URL into the
+// exception message, which Odood logs; the message still names the remote.
+unittest {
+    import std.algorithm: canFind;
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // Nothing listens on the discard port, so git fails without a network.
+    immutable url = "https://user:TOKEN@127.0.0.1:9/o/r";
+
+    void checkMessage(in string msg) {
+        msg.canFind("TOKEN").shouldBeFalse;
+        msg.canFind("127.0.0.1:9/o/r").shouldBeTrue;
+    }
+
+    checkMessage(gitClone(GitURL(url), root.join("clone")).shouldThrow.msg);
+    checkMessage(GitRemote(GitURL(url)).listTags.shouldThrow.msg);
+    checkMessage(GitRemote(url).defaultBranch.shouldThrow.msg);
+
+    auto repo = GitRepository.initialize(root.join("repo"));
+    repo.remoteAdd("origin", GitURL(url));
+    checkMessage(repo.remoteAdd("origin", GitURL(url)).shouldThrow.msg);
 }
 
 

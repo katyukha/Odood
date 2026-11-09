@@ -1,13 +1,14 @@
 module odood.git.remote;
 
 private import std.typecons: Nullable, nullable;
+private import std.format: format;
 private import std.string: strip, splitLines, startsWith, endsWith, chompPrefix, indexOf;
 private static import std.process;
 
 private import theprocess: Process;
 
 private import odood.git: gitProcess;
-private import odood.git.url: GitURL;
+private import odood.git.url: GitURL, redactCredentials;
 private import odood.git.refs: GitRef;
 private import odood.git.repository: GitRepository;
 
@@ -23,12 +24,14 @@ private import odood.git.repository: GitRepository;
 struct GitRemote {
     private Process _base;   // preconfigured runner (env / workdir applied)
     private string _target;  // URL, local path, or remote name, as passed to git
+    private string _display; // `_target` without credentials, for messages
 
     @disable this();
 
     private this(Process base, string target) {
         _base = base;
         _target = target;
+        _display = redactCredentials(target);
     }
 
     /** Address the remote by URL. CI credential rewrites are applied
@@ -120,7 +123,7 @@ struct GitRemote {
             _base
                 .withArgs(["ls-remote", _target] ~ patterns)
                 .execute
-                .ensureOk(true)
+                .ensureOk("Cannot list refs of %s".format(_display), true)
                 .output);
     }
 
@@ -167,7 +170,7 @@ struct GitRemote {
         auto output = _base
             .withArgs("ls-remote", "--symref", _target, "HEAD")
             .execute
-            .ensureOk(true)
+            .ensureOk("Cannot read the default branch of %s".format(_display), true)
             .output;
         foreach(line; output.splitLines)
             if (line.startsWith(prefix)) {

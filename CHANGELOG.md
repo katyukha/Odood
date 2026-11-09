@@ -46,6 +46,10 @@
   token, as `odood assembly sync` does.
 - `odood assembly upgrade` and `odood assembly pull --link` relink with the
   spec the pull brought, not the one loaded before it.
+- Errors of a failed clone, remote query (`ls-remote`) or `git remote add` no
+  longer show the credentials embedded in the repository URL
+  (`https://user:token@…`). The message listed the whole git command line,
+  token included, and Odood logs these errors.
 
 ## Release 0.7.1 (2026-11-06)
 
