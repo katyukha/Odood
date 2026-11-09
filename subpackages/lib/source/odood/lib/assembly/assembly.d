@@ -24,7 +24,7 @@ private import odood.lib.assembly.exception:
 private import odood.lib.assembly.spec;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
-private import odood.git: GitURL, gitClone, GitRepository, GIT_REF_WORKTREE, isGitRepo, gitListRemoteTags;
+private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.utils.odoo.std_version: OdooStdVersion;
 private import odood.utils.addons.addon;
@@ -807,9 +807,10 @@ class Assembly {
             }
 
             infof("Assembly: Checking %s for new version tags ...", src_name);
-            auto versions = gitListRemoteTags(
-                    source.git_url.toString,
-                    resolveSourceGitEnv(source))
+            // By GitURL, not its string form: that drops the ssh user, and
+            // only the URL form gets the CI rewrites that `sync` clones with.
+            auto versions = GitRemote(source.git_url, resolveSourceGitEnv(source))
+                .listTags
                 .map!(t => OdooStdVersion(t))
                 .filter!(v => v.isStandard && v.serie == serie)
                 .array;
@@ -1196,4 +1197,51 @@ unittest {
         root.join("clone"), OdooSerie("17.0"), provider,
         GitURL(assembly_path), identity("cloner"));
     commitNotes(cloned).should == "cloner";
+}
+
+
+// upgradeSourceRefs queries an ssh source as the user in its URL.
+unittest {
+    import std.process: environment;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto source = GitRepository.initialize(root.join("source"));
+    source.path.join("file.txt").writeFile("content");
+    source.add(source.path.join("file.txt"));
+    source.commit("Initial commit");
+    foreach(tag; ["17.0.1.0.0", "17.0.1.2.0", "18.0.2.0.0"])
+        source.setTag(tag);
+
+    // An ssh that records whom it logs in as, and serves the source.
+    auto ssh_log = root.join("ssh.log");
+    auto ssh = root.join("fake-ssh");
+    ssh.writeFile("#!/bin/sh\nprintf '%%s\\n' \"$1\" > '%s'\nexec git upload-pack '%s'\n".format(
+        ssh_log, source.path));
+    string[string] preset = [
+        "GIT_SSH_COMMAND": "sh '%s'".format(ssh),
+        // Passes just the host and the command, without probing for options.
+        "GIT_SSH_VARIANT": "simple",
+    ];
+    auto saved = environment.toAA;
+    foreach(key, value; preset)
+        environment[key] = value;
+    scope(exit) foreach(key; preset.keys) {
+        if (auto old = key in saved)
+            environment[key] = *old;
+        else
+            environment.remove(key);
+    }
+
+    // The source of makeTestAssembly has no version ref, so it is skipped.
+    auto assembly = makeTestAssembly(root, []);
+    assembly.addSource(GitURL("git@example.test:org/repo.git"), git_ref: "17.0.1.0.0");
+
+    auto results = assembly.upgradeSourceRefs;
+    results.length.should == 1;
+    results[0].new_ref.should == "17.0.1.2.0";
+    ssh_log.readFileText.should == "git@example.test\n";
 }

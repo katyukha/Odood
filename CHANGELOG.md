@@ -29,6 +29,9 @@
   before `Content-Length` bytes arrived is retried too.
 - A failed download no longer leaves a partial file at its destination, where
   later installs reused it from `ODOOD_CACHE_DIR`.
+- `odood assembly upgrade-sources` lists the tags of an ssh source as the user
+  in its URL (`git@`) instead of the local user, and on GitLab CI with the job
+  token, as `odood assembly sync` does.
 
 ## Release 0.7.1 (2026-11-06)
 
