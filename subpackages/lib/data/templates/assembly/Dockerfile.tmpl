@@ -3,6 +3,17 @@
 FROM ghcr.io/katyukha/odood/odoo/{{ assembly.serie }}:{% if is_dev_version %}latest{% else %}{{ _version }}{% endif %}
 
 {% if assembly.spec.layout == AssemblyLayout.STANDARD %}
+{% if assembly.spec.system_packages_deb.length > 0 %}
+# Debian packages the assembly needs (spec.system-packages.deb). Installed
+# before anything is copied, so this layer is rebuilt only when the list changes.
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qqq -y --no-install-recommends \
+{% for name; assembly.spec.system_packages_deb %}
+        {{ name }} \
+{% endfor %}
+    && rm -rf /var/lib/apt/lists/*
+
+{% endif %}
 # Copy the assembly spec and addons into a dedicated directory.
 # The spec file is required so that 'odood assembly use' can register the assembly
 # in odood.yml, which makes '--assembly' available for addon install/update commands

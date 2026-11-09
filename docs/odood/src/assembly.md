@@ -188,6 +188,43 @@ spec:
 The `flat` layout is useful when the assembly repository itself is used directly as an Odoo
 addons path without a `dist/` indirection.
 
+### System packages
+
+Some addons call programs or libraries that Odoo does not need itself, for
+example an addon whose manifest lists `external_dependencies: {'bin': ['pdftotext']}`.
+List the Debian packages that provide them in `system-packages.deb`:
+
+```yaml
+spec:
+  addons-list:
+    - name: my_pdf_addon
+  sources-list:
+    - url: https://github.com/my/repo
+      ref: 18.0
+  system-packages:
+    deb:
+      - poppler-utils
+```
+
+Odood does not work out the package names from the addons' manifests. The
+mapping from a binary to a package is up to you, and can differ between
+distribution releases.
+
+How the packages get installed depends on where the assembly runs:
+
+- **Docker image**: the generated `Dockerfile` installs them before it copies
+  the spec and the addons, so Docker rebuilds that layer only when the list
+  changes.
+- **`odood deploy --assembly-repo`**: runs as root and installs the missing
+  packages before linking the assembly.
+- **`odood assembly install-system-packages`**: installs the missing packages
+  on an existing server. It must be run as root, for example
+  `sudo odood assembly install-system-packages`. It changes nothing in the
+  project, so it is also safe on a developer's machine.
+- **`odood assembly link`** never installs anything. On a Debian-based host it
+  warns about missing packages and prints the command to install them. On other
+  hosts it does not check them.
+
 ## Assembly workflow
 
 Typical assembly workflow could be split into two parts:
@@ -349,6 +386,12 @@ For example:
 odood assembly init --repo <url of git repo with assembly>
 ```
 
+If the assembly lists [system packages](#system-packages), install them next:
+
+```bash
+sudo odood assembly install-system-packages
+```
+
 As next step, it is good to link assembly, to ensure all addons from assembly is available on the server.
 To do this, we can use following command
 
@@ -373,6 +416,10 @@ fails on uncommitted changes in the assembly checkout or on a branch that has
 diverged from its upstream. See
 [Production deployment — Upgrading](./production-deployment.md#upgrading) for the
 exact steps, `--start` and `--skip-errors`.
+
+The upgrade does not install [system packages](#system-packages) that the new
+assembly version adds. The relink warns about them; install them with
+`sudo odood assembly install-system-packages`.
 
 #### Docker Compose deployments
 
@@ -401,6 +448,7 @@ This group contains following commands:
 - `odood assembly release` - assign the next assembly version, generate the release
   artifacts, commit them and create the release tag. See [Changelogs and versions](#changelogs-and-versions).
 - `odood assembly link` - completely relink this assembly (remove all links to assembly from `custom_addons`, and create new links). This is needed to ensure that only actual assembly addons linked.
+- `odood assembly install-system-packages` - install the missing Debian packages listed in the spec's `system-packages.deb` (run as root). See [System packages](#system-packages).
 - `odood assembly pull` - fast-forward the assembly repo to its upstream (fails on uncommitted changes or a diverged branch); `--link` relinks addons afterwards.
 - `odood assembly upgrade` - simple way to upgrade server that is configured to use assembly.
 - `odood assembly upgrade-sources` - scan each source whose `ref` is a version tag and update the spec to the newest matching tag found on the remote. See [Upgrading pinned sources](#upgrading-pinned-sources).

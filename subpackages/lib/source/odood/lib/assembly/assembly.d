@@ -32,6 +32,7 @@ private import odood.utils.addons.addon_list:
     addonListRows, renderMarkdownTable, renderCsv;
 private import odood.lib.addons.repository: AddonRepository, PrepareReleaseResult;
 private import odood.lib.addons.changes: AddonRepositoryChanges;
+private import odood.lib.deb: debMissingPackages, debInstallPackages;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
 
@@ -349,6 +350,22 @@ class Assembly {
             missing_dependencies.empty,
             "Cannot find following dependencies:\n%s".format(
                 missing_dependencies.join("\n")));
+    }
+
+    /** Install the Debian packages from `spec.system-packages.deb` that this
+      * host lacks. Needs root; does nothing when none are missing.
+      **/
+    void installSystemPackages() const {
+        auto missing = debMissingPackages(spec.system_packages_deb);
+        enforce!OdoodAssemblyException(
+            !missing.isNull,
+            "Cannot install the assembly's Debian packages: this host has no dpkg.");
+        if (missing.get.empty) {
+            infof("Assembly: All system packages are installed.");
+            return;
+        }
+        infof("Assembly: Installing system packages: %s", missing.get.join(", "));
+        debInstallPackages(missing.get);
     }
 
     /** Version of the most recent release.
@@ -1244,4 +1261,37 @@ unittest {
     results.length.should == 1;
     results[0].new_ref.should == "17.0.1.2.0";
     ssh_log.readFileText.should == "git@example.test\n";
+}
+
+// The Dockerfile installs the spec's Debian packages before its first COPY,
+// so docker reuses that layer while only the addons change; with no
+// packages there is no such layer.
+unittest {
+    import std.string: indexOf;
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.generateDockerfile("");
+    assembly.path.join("Dockerfile").readFileText.canFind("apt-get").shouldBeFalse;
+
+    assembly.spec_path.writeFile(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  system-packages:\n" ~
+        "    deb: [ghostscript, poppler-utils]\n");
+    assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+    assembly.generateDockerfile("");
+
+    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
+    dockerfile.canFind(
+        "--no-install-recommends \\\n" ~
+        "        ghostscript \\\n" ~
+        "        poppler-utils \\\n" ~
+        "    && rm -rf /var/lib/apt/lists/*\n").shouldBeTrue;
+    auto install = dockerfile.indexOf("apt-get install");
+    (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
 }

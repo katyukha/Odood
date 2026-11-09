@@ -13,6 +13,15 @@
 - Library: `odood.git.gitCredentialEnv`,
   `odood.lib.git_credentials.resolveGitCredentialEnv` and
   `RepositoryManager.withCredentials`.
+- Assembly spec `system-packages.deb`: Debian packages the addons need on the
+  server. The generated `Dockerfile` installs them in a layer before the first
+  `COPY`, `odood deploy --assembly-repo` installs them, and the new
+  `odood assembly install-system-packages` (run as root) installs the missing
+  ones on an existing server. `odood assembly link` warns about missing
+  packages on Debian-based hosts.
+- Library: `odood.lib.deb` (`debMissingPackages`, `debInstallPackages`,
+  `isValidDebPackageName`), `AssemblySpec.system_packages_deb` and
+  `Assembly.installSystemPackages`.
 
 ### Changed
 

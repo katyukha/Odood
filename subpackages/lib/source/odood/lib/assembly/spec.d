@@ -11,6 +11,7 @@ private import std.digest.sha;
 private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
+private import odood.lib.deb: isValidDebPackageName;
 private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -224,6 +225,7 @@ struct AssemblySpec {
     private AssemblySpecSource[] _sources;
     private AssemblyLayout _layout = AssemblyDefaultLayout;
     private string[] _known_addons;
+    private string[] _system_packages_deb;
 
     this(in Node yaml_node) {
         enforce!OdoodAssemblyInvalidSpecException(
@@ -246,6 +248,32 @@ struct AssemblySpec {
 
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
+
+        if (spec.containsKey("system-packages")) {
+            auto system_packages = spec["system-packages"];
+            enforce!OdoodAssemblyInvalidSpecException(
+                system_packages.nodeTypeString == "mapping",
+                "Invalid assembly spec: 'spec.system-packages' must map a " ~
+                "package format to package names, e.g. 'deb: [ghostscript]'");
+            // An unknown key fails, so a typo cannot drop the list silently.
+            foreach(format_name; system_packages.mappingKeys!string)
+                enforce!OdoodAssemblyInvalidSpecException(
+                    format_name == "deb",
+                    ("Invalid assembly spec: unsupported " ~
+                     "'spec.system-packages.%s', only 'deb' is supported").format(
+                        format_name));
+            if (system_packages.containsKey("deb"))
+                foreach(node; system_packages["deb"].sequence) {
+                    auto name = node.as!string;
+                    // The names reach apt-get, run as root.
+                    enforce!OdoodAssemblyInvalidSpecException(
+                        isValidDebPackageName(name),
+                        ("Invalid assembly spec: '%s' in " ~
+                         "'spec.system-packages.deb' is not a Debian package name").format(
+                            name));
+                    _system_packages_deb ~= name;
+                }
+        }
 
         if (spec.containsKey("layout")) {
             switch (spec["layout"].as!string) {
@@ -284,6 +312,10 @@ struct AssemblySpec {
     /// List of known addons, that supposed to be present on destination server.
     /// These addons will be ignored during dependency validation
     @property auto known_addons() const => _known_addons;
+
+    /// Debian packages the assembly's addons need on the host
+    /// (`spec.system-packages.deb`).
+    @property auto system_packages_deb() const => _system_packages_deb;
 
     // Checks for a source location entering the spec, whether added or replaced.
     private static void enforceSourceLocation(in GitURL git_url,
@@ -468,6 +500,8 @@ struct AssemblySpec {
         res["spec"]["sources-list"] = _sources.map!((s) => s.toYAML).array;
         if (!_known_addons.empty)
             res["spec"]["known-addons"] = _known_addons;
+        if (!_system_packages_deb.empty)
+            res["spec"]["system-packages"] = Node(["deb": _system_packages_deb]);
         if (_layout != AssemblyDefaultLayout)
             final switch(_layout) {
                 case AssemblyLayout.STANDARD:
@@ -689,6 +723,37 @@ unittest {
             "ssh://git@gitlab.crnd.pro/crnd/repo",
             "https://github.com/owner/private",
         ];
+}
+
+// spec.system-packages.deb survives a save in its order.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec(Loader.fromString(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  system-packages:\n" ~
+        "    deb:\n" ~
+        "      - poppler-utils\n" ~
+        "      - ghostscript\n").load());
+    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
+    AssemblySpec(spec.toYAML).system_packages_deb
+        .should == ["poppler-utils", "ghostscript"];
+}
+
+// spec.system-packages is refused unless it is a 'deb' list of valid names.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto load(in string system_packages) => AssemblySpec(Loader.fromString(
+        "spec:\n  addons-list: []\n  system-packages:" ~ system_packages).load());
+
+    load(" [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("\n    debs: [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("\n    deb: ['--allow-unauthenticated']\n")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

@@ -61,6 +61,8 @@ sudo odood deploy -v 18 \
 ```
 
 This way, the server will be automatically configured to use the assembly `https://github.com/my/assembly`.
+The Debian packages the assembly lists in its spec are installed as well (see
+[System packages](./assembly.md#system-packages)).
 
 ## Key `odood deploy` flags
 
@@ -135,6 +137,10 @@ This will:
 5. Start the server again if it was running (or with `--start`)
 
 If an update fails, the command stops and leaves the server stopped; `--skip-errors` continues with the remaining databases instead.
+
+The upgrade does not install Debian packages that the new assembly version
+adds to its spec. The relink warns about them; install them with
+`sudo odood assembly install-system-packages`.
 
 ### Upgrading without assembly
 

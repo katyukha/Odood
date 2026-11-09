@@ -8,6 +8,7 @@ private import std.array: empty, join, array;
 private import std.format: format;
 private import std.algorithm: map, filter, canFind;
 private import std.typecons: Nullable;
+private import core.sys.posix.unistd: geteuid;
 
 private import colored;
 private import darkcommand;
@@ -446,6 +447,23 @@ class CommandAssemblyLink: AssemblyCommandBase {
         if (ual)
             foreach(dbname; project.databases.list())
                 project.lodoo.addonsUpdateList(dbname);
+        return 0;
+    }
+}
+
+
+class CommandAssemblyInstallSystemPackages: AssemblyCommandBase {
+    this() {
+        super("install-system-packages",
+            "Install the Debian packages the assembly needs " ~
+            "(spec.system-packages.deb) that are missing. Must be run as root.");
+    }
+
+    override int execute() {
+        enforce!OdoodCLIException(
+            geteuid == 0,
+            "This command must be run as root!");
+        loadProject.assembly.raw.installSystemPackages();
         return 0;
     }
 }
@@ -925,6 +943,7 @@ class CommandAssembly: OdoodCommand {
         this.add(new CommandAssemblySync());
         this.add(new CommandAssemblyRelease());
         this.add(new CommandAssemblyLink());
+        this.add(new CommandAssemblyInstallSystemPackages());
         this.add(new CommandAssemblyPull());
         this.add(new CommandAssemblyUpgrade());
         this.add(new CommandAssemblyUpgradeSources());

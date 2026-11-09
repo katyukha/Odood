@@ -1,7 +1,7 @@
 module odood.project.assembly.project_assembly;
 
-private import std.logger: infof;
-private import std.array: empty, array;
+private import std.logger: infof, warningf;
+private import std.array: empty, array, join;
 private import std.algorithm: map;
 
 private import thepath: Path;
@@ -11,6 +11,7 @@ private import odood.lib.assembly.source_provider_cached: AssemblySourceProvider
 private import odood.project: Project;
 private import odood.git: GitURL;
 private import odood.lib.python.venv: PyRequirements;
+private import odood.lib.deb: debMissingPackages;
 private import odood.project.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
     DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
@@ -90,6 +91,10 @@ class ProjectAssembly {
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
             in bool individual_requirements=false,
             in bool with_odoo_requirements=false) const {
+        // First, so the hint is printed even when a missing library makes
+        // the pip install below fail.
+        warnMissingSystemPackages();
+
         infof("Assembly Link: Cleanup old symlinks.");
 
         // Remove all links in custom addons that point to this assembly
@@ -160,6 +165,21 @@ class ProjectAssembly {
             }
         }
         infof("Assembly Link: Completed");
+    }
+
+    /* Linking does not install them: it does not run as root, and running
+     * it as root would leave root-owned files in the project. On a host
+     * without dpkg the Debian names mean nothing, so there is no check. */
+    private void warnMissingSystemPackages() const {
+        auto missing = debMissingPackages(spec.system_packages_deb);
+        if (missing.isNull || missing.get.empty)
+            return;
+        warningf(
+            "Assembly Link: Debian packages this assembly needs are not " ~
+            "installed: %s. Install them with " ~
+            "'sudo odood assembly install-system-packages' or " ~
+            "'sudo apt-get install --no-install-recommends %s'.",
+            missing.get.join(", "), missing.get.join(" "));
     }
 
     /** Generate requirements.lock.txt for this assembly.

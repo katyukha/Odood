@@ -240,6 +240,7 @@ Project deployOdoo(in DeployConfig config) {
     if (!config.assembly_repo.isNull) {
         // TODO: Wrap it in try/catch
         project.initializeAssembly(config.assembly_repo.get);
+        project.assembly.raw.installSystemPackages();
         project.assembly.link();
     }
 

@@ -8,6 +8,8 @@ spec:
   addons-list: [...]
   sources-list: [...]
   known-addons: [...]
+  system-packages:
+    deb: [...]
   layout: standard
 ```
 
@@ -20,6 +22,7 @@ spec:
 | `addons-list` | yes | — | List of addon entries to include in the assembly. |
 | `sources-list` | no | `[]` | List of git source entries to fetch addons from. Alias: `git-sources`. |
 | `known-addons` | no | `[]` | Addon names assumed to be present on the target server; excluded from dependency validation. |
+| `system-packages` | no | — | System packages the addons need on the server. See [System packages](#system-packages). |
 | `layout` | no | `standard` | Controls where synced addons are placed. See [Layout](#layout). |
 
 ---
@@ -86,6 +89,26 @@ Developers who prefer SSH can configure git's `url.insteadOf` globally — see
 
 ---
 
+## System packages
+
+```yaml
+system-packages:
+  deb:
+    - ghostscript
+    - poppler-utils
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `deb` | no | `[]` | Debian package names, as `apt-get install` takes them. Versions cannot be pinned. |
+
+`deb` is the only supported key. Each name must follow Debian's rule for
+package names: lowercase letters, digits, `+`, `-` and `.`, at least two
+characters, starting with a letter or digit. See
+[System packages](./assembly.md#system-packages) for how they are installed.
+
+---
+
 ## Layout
 
 | Value | Behaviour |
@@ -106,6 +129,9 @@ Developers who prefer SSH can configure git's `url.insteadOf` globally — see
 
 An addon without `source` is taken from the first source in `sources-list` that
 contains it, skipping sources with `no-search: true`.
+
+Every command that loads the spec refuses a `system-packages` with a key other
+than `deb`, or with a name that is not a valid Debian package name.
 
 ---
 
@@ -135,5 +161,8 @@ spec:
   known-addons:
     - sale
     - account
+  system-packages:
+    deb:
+      - poppler-utils                     # binaries the addons call
   layout: standard
 ```
