@@ -789,6 +789,12 @@ class Assembly {
         _spec.removeSystemPackageDeb(name);
     }
 
+    /// Set the spec's `docker.with-odoo-requirements`: whether the generated
+    /// Dockerfile links the assembly with Odoo's requirements.
+    void setDockerWithOdooRequirements(in bool value) {
+        _spec.setDockerWithOdooRequirements(value);
+    }
+
     /// Remove a source from assembly. Refuses if any addon references it.
     void removeSource(in string name) {
         _spec.removeSource(name);
@@ -1308,6 +1314,50 @@ unittest {
         "    && rm -rf /var/lib/apt/lists/*\n").shouldBeTrue;
     auto install = dockerfile.indexOf("apt-get install");
     (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
+}
+
+// setDockerWithOdooRequirements turns the setting on and off, and the saved
+// spec keeps it.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    foreach(value; [true, false]) {
+        assembly.setDockerWithOdooRequirements(value);
+        assembly.save();
+        Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
+            .spec.docker_with_odoo_requirements.shouldEqual(value);
+    }
+}
+
+// The Dockerfile links with Odoo's requirements only when the spec asks for
+// it (spec.docker.with-odoo-requirements).
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.generateDockerfile("");
+    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
+    dockerfile.canFind("    odood assembly link && \\\n").shouldBeTrue;
+    dockerfile.canFind("--with-odoo-requirements").shouldBeFalse;
+
+    assembly.spec_path.writeFile(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  docker:\n" ~
+        "    with-odoo-requirements: true\n");
+    assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+    assembly.generateDockerfile("");
+    assembly.path.join("Dockerfile").readFileText
+        .canFind("    odood assembly link --with-odoo-requirements && \\\n").shouldBeTrue;
 }
 
 // pull reloads the spec, so the steps after it (link, installing system

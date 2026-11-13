@@ -18,6 +18,7 @@ private import odood.lib.assembly: Assembly, AssemblySpecSource, SourceUpgradeRe
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.addons.repository: renderChangelog;
 private import odood.project: Project;
+private import odood.project.assembly.project_assembly: REQUIREMENTS_LOCK_DEPRECATED;
 private import odood.utils.addons.addon: OdooAddon;
 private import odood.git: parseGitURL, GitURL;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
@@ -180,9 +181,11 @@ class CommandAssemblySync: AssemblyCommandBase {
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
         this.addFlag!(generateLock)("", "generate-lock",
-            "Generate requirements.lock.txt after syncing");
+            "Deprecated, removed in odood 0.8.0. "
+            ~ "Generate requirements.lock.txt after syncing.");
         this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
-            "Include Odoo's requirements.txt when generating lock file");
+            "Deprecated, removed in odood 0.8.0. "
+            ~ "Include Odoo's requirements.txt when generating the lock file.");
     }
 
     override int execute() {
@@ -197,9 +200,11 @@ class CommandAssemblySync: AssemblyCommandBase {
 
         auto project = loadProject();
 
-        project.assembly.sync(
-            generate_lock: generateLock,
-            with_odoo_requirements: withOdooRequirements);
+        project.assembly.sync();
+        if (generateLock) {
+            warningf("Option --generate-lock: %s", REQUIREMENTS_LOCK_DEPRECATED);
+            project.assembly.writeRequirementsLock(withOdooRequirements);
+        }
 
         if (changelogPreview)
             project.assembly.raw.generateChangelogPreview;
@@ -472,20 +477,28 @@ class CommandAssemblyInstallSystemPackages: AssemblyCommandBase {
 
 class CommandAssemblyPull: AssemblyCommandBase {
     bool link;
+    bool withOdooRequirements;
 
     this() {
         super("pull", "Pull updates for this assembly.");
         this.addFlag!(link)("", "link", "Relink addons in this assembly after pull");
+        this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install of the relink. "
+            ~ "Requires --link.");
     }
 
     override int execute() {
+        enforce!OdoodCLIException(
+            link || !withOdooRequirements,
+            "Option --with-odoo-requirements requires --link!");
+
         auto project = loadProject();
         auto assembly = project.assembly;
 
         assembly.raw.pull;
 
         if (link)
-            assembly.link();
+            assembly.link(with_odoo_requirements: withOdooRequirements);
         return 0;
     }
 }
@@ -496,6 +509,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
     bool skipErrors;
     bool start;
     bool installSystemPackages;
+    bool withOdooRequirements;
 
     this() {
         super("upgrade", "Upgrade assembly (optionally do backup, pull changes, update addons).");
@@ -507,6 +521,8 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         this.addFlag!(installSystemPackages)("", "install-system-packages",
             "Install the missing Debian packages the pulled spec lists " ~
             "(system-packages.deb), before relinking. Must be run as root.");
+        this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
+            "Include Odoo's requirements.txt in the batch install of the relink.");
     }
 
     override int execute() {
@@ -529,7 +545,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         assembly.raw.pull;
         if (installSystemPackages)
             assembly.raw.installSystemPackages();
-        assembly.link();
+        assembly.link(with_odoo_requirements: withOdooRequirements);
 
         auto start_again = start;
         if (project.server.isRunning) {

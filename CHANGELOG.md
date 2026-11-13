@@ -36,6 +36,19 @@
   `EnvironmentFile=-/opt/odoo/conf/odoo.env` to the service.
 - Library: `odood.lib.env_file.parseEnvFile`, `Project.odoo_env_file` and
   `Project.odooEnv`.
+- `odood assembly upgrade` and `odood assembly pull --link` accept
+  `--with-odoo-requirements`, like `odood assembly link`: Odoo's
+  `requirements.txt` joins the install of the addons' Python requirements, so
+  pip keeps the versions Odoo pins, and puts back any package installed at
+  another version, for example one upgraded by hand.
+- Assembly spec `docker.with-odoo-requirements`: when `true`, the generated
+  `Dockerfile` runs `odood assembly link --with-odoo-requirements`, so the image
+  keeps the versions Odoo pins. An addon requirement that needs another version
+  of one of them then fails the build with pip's `ResolutionImpossible`; pin a
+  compatible version in the assembly's `requirements.txt`. Off by default; it
+  applies after `odood assembly sync --dockerfile`. Library:
+  `AssemblySpec.docker_with_odoo_requirements` and
+  `Assembly.setDockerWithOdooRequirements`.
 
 ### Changed
 
@@ -51,6 +64,23 @@
   prints a git command. The user of an http(s) URL is masked too, since it
   may be a token.
 - Requires `theprocess` 0.1.3.
+- `odood assembly link` and `odood addons link` refuse `--with-odoo-requirements`
+  together with `--individual-requirements`, which ignored it: the per-addon
+  installs would be free to move the versions Odoo pins.
+
+### Deprecated
+
+- The assembly requirements lock, to be removed in odood 0.8.0:
+  `requirements.lock.txt`, `odood assembly sync --generate-lock` and its
+  `--with-odoo-requirements`. The lock freezes the whole virtualenv it is
+  generated in, including the path of Odoo on that machine, so it fails on a
+  server where Odoo is installed elsewhere. `odood assembly link` still
+  installs from an existing lock, with a warning. Pin versions in the
+  assembly's `requirements.txt` instead, and link with
+  `--with-odoo-requirements`.
+- Library: `ProjectAssembly.generateRequirementsLock` and
+  `ProjectAssembly.sync(generate_lock, with_odoo_requirements)`; use
+  `ProjectAssembly.sync()`.
 
 ### Fixed
 

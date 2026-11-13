@@ -14,7 +14,16 @@ private import odood.lib.python.venv: PyRequirements;
 private import odood.lib.deb: debMissingPackages;
 private import odood.project.addons.manager:
     DEFAULT_INSTALL_PY_REQUIREMENTS,
-    DEFAULT_INSTALL_MANIFEST_REQUIREMENTS;
+    DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
+    enforceOdooRequirementsBatched;
+
+/// Why the requirements lock is deprecated, and what to use instead.
+package(odood) enum REQUIREMENTS_LOCK_DEPRECATED =
+    "The requirements lock is deprecated and will be removed in odood 0.8.0: " ~
+    "it freezes the whole virtualenv it is generated in, including the path " ~
+    "of Odoo on that machine. Pin the versions you need in the assembly's " ~
+    "requirements.txt instead, and link with Odoo's requirements " ~
+    "(--with-odoo-requirements).";
 
 
 /** Project-bound assembly: wraps a project-free `Assembly` and adds the
@@ -46,16 +55,20 @@ class ProjectAssembly {
     private @property spec() const => _assembly.spec;
     private @property repo() => _assembly.repo;
 
-    /** Fetch sources and assemble addons (base `sync`), validate dependencies
-      * against the project's Odoo instance, and optionally generate a
-      * requirements lock.
+    /** Fetch sources and assemble addons (base `sync`), and validate
+      * dependencies against the project's Odoo instance.
       **/
-    void sync(in bool generate_lock=false, in bool with_odoo_requirements=false) {
+    void sync() {
         _assembly.sync();
         validateAddonsDependencies();
+    }
 
+    /// ditto, and generate a requirements lock if `generate_lock` is set.
+    deprecated(REQUIREMENTS_LOCK_DEPRECATED)
+    void sync(in bool generate_lock, in bool with_odoo_requirements=false) {
+        sync();
         if (generate_lock)
-            generateRequirementsLock(with_odoo_requirements);
+            writeRequirementsLock(with_odoo_requirements);
     }
 
     /** Validate that every assembly addon's dependencies are satisfiable
@@ -84,13 +97,16 @@ class ProjectAssembly {
       *     individual_requirements = if set, install requirements per-addon
       *         instead of batched (old behavior)
       *     with_odoo_requirements = if set, include Odoo's requirements.txt
-      *         in the batch install
+      *         in the batch install. Cannot be combined with
+      *         individual_requirements.
       **/
     void link(
             in bool py_requirements=DEFAULT_INSTALL_PY_REQUIREMENTS,
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
             in bool individual_requirements=false,
             in bool with_odoo_requirements=false) const {
+        enforceOdooRequirementsBatched(individual_requirements, with_odoo_requirements);
+
         // First, so the hint is printed even when a missing library makes
         // the pip install below fail.
         warnMissingSystemPackages();
@@ -106,6 +122,7 @@ class ProjectAssembly {
         auto lock_path = _assembly.path.join(ASSEMBLY_REQUIREMENTS_LOCK);
         if (lock_path.exists) {
             // Lock file present: install only from it, skip per-addon scanning
+            warningf("Assembly Link: %s: %s", ASSEMBLY_REQUIREMENTS_LOCK, REQUIREMENTS_LOCK_DEPRECATED);
             infof("Assembly Link: Installing requirements from lock file '%s'", lock_path);
             _project.venv.installPyRequirements(lock_path);
 
@@ -192,7 +209,15 @@ class ProjectAssembly {
       *     with_odoo_requirements = if set, include Odoo's requirements.txt
       *         in the resolved dependency set
       **/
+    deprecated(REQUIREMENTS_LOCK_DEPRECATED)
     void generateRequirementsLock(in bool with_odoo_requirements=false) {
+        writeRequirementsLock(with_odoo_requirements);
+    }
+
+    /* `generateRequirementsLock`, for the CLI's deprecated --generate-lock,
+     * which has to keep working without a deprecation warning in odood's own
+     * build. */
+    package(odood) void writeRequirementsLock(in bool with_odoo_requirements) {
         PyRequirements reqs;
 
         if (_assembly.path.join("requirements.txt").exists)
@@ -217,6 +242,25 @@ class ProjectAssembly {
         lock_path.writeFile(freeze_result.output);
         repo.add(lock_path);
         infof("Assembly: Generated %s", ASSEMBLY_REQUIREMENTS_LOCK);
+    }
+
+    // Linking refuses Odoo's requirements with per-addon installs, before it
+    // installs anything.
+    unittest {
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+        import odood.utils.odoo.serie: OdooSerie;
+        import odood.exception: OdoodException;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto project = new Project(root, OdooSerie("18.0"));
+        project.initializeAssembly();
+        project.assembly.link(
+            individual_requirements: true,
+            with_odoo_requirements: true,
+        ).shouldThrow!OdoodException;
     }
 
     // --- factories: build the base Assembly with the project's serie/cache ---

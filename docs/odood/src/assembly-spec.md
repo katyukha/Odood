@@ -10,6 +10,8 @@ spec:
   known-addons: [...]
   system-packages:
     deb: [...]
+  docker:
+    with-odoo-requirements: false
   layout: standard
 ```
 
@@ -23,6 +25,7 @@ spec:
 | `sources-list` | no | `[]` | List of git source entries to fetch addons from. Alias: `git-sources`. |
 | `known-addons` | no | `[]` | Addon names assumed to be present on the target server; excluded from dependency validation. |
 | `system-packages` | no | — | System packages the addons need on the server. See [System packages](#system-packages). |
+| `docker` | no | — | Settings for the generated `Dockerfile`. See [Docker](#docker). |
 | `layout` | no | `standard` | Controls where synced addons are placed. See [Layout](#layout). |
 
 ---
@@ -109,6 +112,27 @@ characters, starting with a letter or digit. See
 
 ---
 
+## Docker
+
+```yaml
+docker:
+  with-odoo-requirements: true
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `with-odoo-requirements` | no | `false` | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
+
+With `with-odoo-requirements: true`, the image build installs the addons'
+Python requirements together with Odoo's own `requirements.txt`, so pip keeps
+the versions Odoo pins. An addon requirement that needs another version of one
+of them fails the build with pip's `ResolutionImpossible`; pin a compatible
+version in the assembly's `requirements.txt`. The setting applies after
+`odood assembly sync --dockerfile` regenerates the `Dockerfile`. See
+[Python requirements](./assembly.md#python-requirements).
+
+---
+
 ## Layout
 
 | Value | Behaviour |
@@ -131,7 +155,9 @@ An addon without `source` is taken from the first source in `sources-list` that
 contains it, skipping sources with `no-search: true`.
 
 Every command that loads the spec refuses a `system-packages` with a key other
-than `deb`, or with a name that is not a valid Debian package name.
+than `deb`, or with a name that is not a valid Debian package name, and a
+`docker` with a key other than `with-odoo-requirements` or a value that is not
+`true` or `false`.
 
 ---
 
@@ -164,5 +190,7 @@ spec:
   system-packages:
     deb:
       - poppler-utils                     # binaries the addons call
+  docker:
+    with-odoo-requirements: true          # image keeps Odoo's pinned versions
   layout: standard
 ```

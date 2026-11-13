@@ -27,6 +27,17 @@ immutable bool DEFAULT_INSTALL_PY_REQUIREMENTS = true;
 /// Install python dependencies from addon manifest by default
 immutable bool DEFAULT_INSTALL_MANIFEST_REQUIREMENTS = false;
 
+/* Odoo's pinned versions hold only within one pip call: the per-addon
+ * installs of individual_requirements would be free to move them. */
+package(odood) void enforceOdooRequirementsBatched(
+        in bool individual_requirements, in bool with_odoo_requirements) {
+    enforce!OdoodException(
+        !(individual_requirements && with_odoo_requirements),
+        "--with-odoo-requirements cannot be combined with " ~
+        "--individual-requirements: Odoo's pinned versions only hold " ~
+        "within one batched pip install.");
+}
+
 class AddonsInstallUpdateException: OdoodException {
     mixin basicExceptionCtors;
 }
@@ -409,6 +420,10 @@ struct AddonManager {
       *         requirements for requirements.txt file
       *     manifest_requirements = if set, then automatically install
       *         python requirements from manifest
+      *     individual_requirements = install requirements per addon,
+      *         instead of in one batch
+      *     with_odoo_requirements = include Odoo's requirements.txt in the
+      *         batch. Cannot be combined with individual_requirements.
       **/
     void link(
             in Path search_path,
@@ -418,6 +433,7 @@ struct AddonManager {
             in bool manifest_requirements=DEFAULT_INSTALL_MANIFEST_REQUIREMENTS,
             in bool individual_requirements=false,
             in bool with_odoo_requirements=false) const {
+        enforceOdooRequirementsBatched(individual_requirements, with_odoo_requirements);
         if (individual_requirements) {
             // Old behavior: install requirements per-addon individually
             foreach(addon; scan(search_path, recursive))
@@ -884,6 +900,24 @@ unittest {
     AddonLocationSource.customRepo.toKey.should == "custom-repo";
     AddonLocationSource.downloads.toKey.should == "downloads";
     AddonLocationSource.other.toKey.should == "other";
+}
+
+
+// Odoo's requirements are refused with per-addon installs, which would be free
+// to move the versions Odoo pins.
+unittest {
+    import unit_threaded.assertions;
+    import thepath.utils: createTempPath;
+    import odood.utils.odoo.serie: OdooSerie;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    new Project(root, OdooSerie(17)).addons.link(
+        root,
+        individual_requirements: true,
+        with_odoo_requirements: true,
+    ).shouldThrow!OdoodException;
 }
 
 
