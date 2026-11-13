@@ -13,20 +13,23 @@
 
 . /lib/lsb/init-functions
 
+# Environment for Odoo. Read before the variables below, so that a line in
+# the file cannot change what this script starts, or as which user.
+if [ -f "{{ project.odoo_env_file }}" ]; then
+    set -a
+    . "{{ project.odoo_env_file }}"
+    set +a
+fi
+
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:{{ project.venv.bin_path }}
 DAEMON="{{ project.server.scriptPath }}"
 NAME=odoo
 DESC=odoo
 CONFIG="{{ project.odoo.configfile }}"
 LOGFILE="{{ project.odoo.logfile }}"
-PIDFILE="{{project.odoo.pidfile }}.pid"
+PIDFILE="{{ project.odoo.pidfile }}"
 USER="{{ project.odoo.server_user }}"
 export LOGNAME=$USER
-if [ -f "{{ project.odoo_env_file }}" ]; then
-    set -a
-    . "{{ project.odoo_env_file }}"
-    set +a
-fi
 
 test -x $DAEMON || exit 0
 set -e
@@ -46,31 +49,31 @@ function _status() {
 }
 
 
-case \"$1\" in
+case "$1" in
         start)
-                echo -n \"Starting $DESC: \"
+                echo -n "Starting $DESC: "
                 _start
-                echo \"ok\"
+                echo "ok"
                 ;;
         stop)
-                echo -n \"Stopping $DESC: \"
+                echo -n "Stopping $DESC: "
                 _stop
-                echo \"ok\"
+                echo "ok"
                 ;;
         restart|force-reload)
-                echo -n \"Restarting $DESC: \"
+                echo -n "Restarting $DESC: "
                 _stop
                 sleep 1
                 _start
-                echo \"ok\"
+                echo "ok"
                 ;;
         status)
-                echo -n \"Status of $DESC: \"
-                _status && echo \"running\" || echo \"stopped\"
+                echo -n "Status of $DESC: "
+                _status && echo "running" || echo "stopped"
                 ;;
         *)
                 N=/etc/init.d/$NAME
-                echo \"Usage: $N {start|stop|restart|force-reload|status}\" >&2
+                echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
                 exit 1
                 ;;
 esac

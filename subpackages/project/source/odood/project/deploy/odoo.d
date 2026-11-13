@@ -297,6 +297,7 @@ Project deployOdoo(in DeployConfig config) {
 unittest {
     import unit_threaded.assertions;
     import std.algorithm.searching: canFind;
+    import std.string: indexOf;
     import thepath.utils: createTempPath;
     import odood.lib.env_file: parseEnvFile;
 
@@ -317,7 +318,11 @@ unittest {
     renderFile!("templates/deploy/systemd.tmpl", project, config)
         .canFind("\nEnvironmentFile=-" ~ project.odoo_env_file.toString ~ "\n")
         .shouldBeTrue;
-    renderFile!("templates/deploy/init.d.tmpl", project, config)
-        .canFind(`. "` ~ project.odoo_env_file.toString ~ `"`)
-        .shouldBeTrue;
+
+    // The init script reads the file before setting its own variables, so
+    // a line in the file cannot change, for example, the user Odoo runs as.
+    immutable init_script = renderFile!("templates/deploy/init.d.tmpl", project, config);
+    immutable env_at = init_script.indexOf(`. "` ~ project.odoo_env_file.toString ~ `"`);
+    (env_at >= 0).shouldBeTrue;
+    (env_at < init_script.indexOf("\nUSER=")).shouldBeTrue;
 }

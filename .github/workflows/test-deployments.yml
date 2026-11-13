@@ -157,6 +157,11 @@ jobs:
       - name: Deploy with init-script
         run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --db-host=postgres --db-user=odoo --db-password=odoo
 
+      - name: Start and stop Odoo via the init script
+        run: |
+          ./build/odood -v -d server start
+          ./build/odood -v -d server stop
+
       - name: Minimal test for deployed version
         run: |
           ./build/odood -v -d db create -r --demo odood-test-db
@@ -268,6 +273,11 @@ jobs:
 
       - name: Deploy with init-script
         run: ./build/odood -v -d deploy -v ${{ matrix.odoo_version }} --supervisor=init-script --local-postgres
+
+      - name: Start and stop Odoo via the init script
+        run: |
+          ./build/odood -v -d server start
+          ./build/odood -v -d server stop
 
       - name: Minimal test for deployed version
         run: |

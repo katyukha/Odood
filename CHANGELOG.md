@@ -65,6 +65,9 @@
   starts itself, such as `addons update`, not only to the service, and works
   with `--supervisor=odood`, which ignored it. The bundle is now set in
   `conf/odoo.env`.
+- The init script `odood deploy --supervisor=init-script` writes now starts
+  and stops Odoo: `/etc/init.d/odoo start` printed its usage and failed, and
+  the script wrote a different PID file than the one `odood server` checks.
 
 ## Release 0.7.1 (2026-11-06)
 
