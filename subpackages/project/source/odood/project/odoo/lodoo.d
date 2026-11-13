@@ -47,6 +47,7 @@ const struct LOdoo {
 
         auto runner() const {
             auto process = _project.venv.runner()
+                .withEnv(_project.odooEnv)
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 /* userHomeDir points HOME at home directory of the server

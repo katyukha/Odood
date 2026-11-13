@@ -18,6 +18,7 @@ private import odood.exception: OdoodException;
 private static import cfg = odood.lib.odoo.config;
 private import odood.lib.odoo.config: getConfVal;
 private import odood.lib.python.odoo: guessPySerie, guessVenvOptions;
+private import odood.lib.env_file: parseEnvFile;
 private import odood.project.odoo.lodoo: LOdoo;
 private import odood.project.server: OdooServer;
 private import odood.lib.python.venv: VirtualEnv, VenvOptions, PySerie;
@@ -282,6 +283,68 @@ class Project {
 
     /// Project odoo info
     auto odoo() const { return _odoo; }
+
+    /** File with environment variables for Odoo (format: see
+      * `odood.lib.env_file`). A deployed system service loads the same
+      * file, so Odoo started by odood (updates, database operations, tests)
+      * and Odoo started by the service see the same variables.
+      **/
+    Path odoo_env_file() const { return _directories.conf.join("odoo.env"); }
+
+    /** Variables from `odoo_env_file` for an Odoo process that odood starts;
+      * empty when the file does not exist.
+      *
+      * A variable already set in odood's own environment is left out, so
+      * that value wins: a container's environment, or a one-off
+      * `NAME=value odood ...`.
+      **/
+    string[string] odooEnv() const {
+        import std.process: environment;
+        if (!odoo_env_file.exists)
+            return null;
+        auto inherited = environment.toAA;
+        string[string] res;
+        foreach(name, value; parseEnvFile(odoo_env_file.readFileText, odoo_env_file.toString))
+            if (name !in inherited)
+                res[name] = value;
+        return res;
+    }
+
+    // Odoo started by odood, through the server runner or LOdoo, gets the
+    // env file; odood's own environment and the config path win over it.
+    unittest {
+        import unit_threaded.assertions;
+        import std.algorithm.searching: startsWith;
+        import std.conv: octal;
+        import std.process: environment;
+        import thepath.utils: createTempPath;
+
+        Path temp_dir = createTempPath();
+        scope(exit) temp_dir.remove();
+
+        auto project = new Project(temp_dir, OdooSerie("18.0"));
+        project.directories.conf.mkdir(true);
+        project.odoo_env_file.writeFile(
+            "ODOOD_T_FROM_FILE=file\n" ~
+            "ODOOD_T_INHERITED=file\n" ~
+            "ODOO_RC=/from/file\n");
+
+        // Stands in for the venv: prints what an Odoo process would get.
+        auto run_in_venv = project.venv.path.join("bin", "run-in-venv");
+        run_in_venv.parent.mkdir(true);
+        run_in_venv.writeFile(
+            "#!/bin/sh\n" ~
+            `printf '%s|%s|%s' "$ODOOD_T_FROM_FILE" "$ODOOD_T_INHERITED" "$ODOO_RC"` ~ "\n");
+        run_in_venv.setAttributes(octal!755);
+
+        environment["ODOOD_T_INHERITED"] = "inherited";
+        scope(exit) environment.remove("ODOOD_T_INHERITED");
+
+        project.server.getServerRunner().execute.ensureOk(true).output
+            .shouldEqual("file|inherited|" ~ project.odoo.configfile.toString);
+        project.lodoo.runner.execute.ensureOk(true).output
+            .startsWith("file|inherited|").shouldBeTrue;
+    }
 
     /** Paths to Odoo's built-in (system) addons for this project.
       **/

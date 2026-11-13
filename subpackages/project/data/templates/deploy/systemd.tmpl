@@ -8,9 +8,7 @@ User={{ project.odoo.server_user }}
 Group={{ project.odoo.server_user }}
 ExecStart={{ project.server.scriptPath }} --config {{ project.odoo.configfile }}
 KillMode=mixed
-{% if !config.odoo.system_ca_bundle_path.isNull %}
-Environment="REQUESTS_CA_BUNDLE={{ config.odoo.system_ca_bundle_path.get }}"
-{% endif %}
+EnvironmentFile=-{{ project.odoo_env_file }}
 Restart=always
 RestartSec=5s
 RestartSteps=5

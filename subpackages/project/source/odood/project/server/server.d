@@ -149,21 +149,20 @@ struct OdooServer {
         }
     }
 
-    /** Get environment variables to apply when running Odoo server.
+    /** Get environment variables to apply when running Odoo server:
+      * the project's env file, then `env`, then the config path, each
+      * overriding the previous one.
       *
       * Params:
       *     env = extra environment variables to apply.
       **/
     private const(string[string]) getServerEnv(in string[string] env=null) const {
-        string[string] res;
+        string[string] res = _project.odooEnv;
         if (env)
             foreach(k, v; env) res[k] = v;
 
         string odoo_rc_env_var = _project.odoo.serie > 10 ? "ODOO_RC" : "OPENERP_SERVER";
         res[odoo_rc_env_var] = getConfigPath.toString;
-
-        // TODO: Add ability to parse .env files and forward environment variables to Odoo process
-        //       This will allow to run Odoo in docker containers and locally in similar way.
         return res;
     }
 

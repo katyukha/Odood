@@ -8,6 +8,7 @@ Odood project root directory contains following folders:
 - `conf` - directory for configurations used by this odood project. Usually contains two files: one for normal local config and one that is used to run tests
     - `odoo.conf` - main configuration used by default
     - `odoo.test.conf` - configuration used to run tests, usually has a different port than `odoo.conf`, and does not specify a logfile, so all log messages are written to stderr and caught by the `odood` test runner
+    - `odoo.env` - optional environment variables for every Odoo process `odood` starts; on a deployed instance the system service loads it too (see [Environment variables](./production-deployment.md#environment-variables))
 - `custom_addons` - directory for all addons that are not part of Odoo. Contains only *symlinks* to actual addon directories — see below.
 - `data` - Odoo data directory used to store files and sessions
 - `downloads` - directory containing addons downloaded directly from [Odoo Apps](https://apps.odoo.com/apps)

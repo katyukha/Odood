@@ -25,6 +25,17 @@
   `isValidDebPackageName`), `AssemblySpec.system_packages_deb`,
   `Assembly.installSystemPackages` and
   `Assembly.addSystemPackageDeb` / `removeSystemPackageDeb`.
+- Environment variables for Odoo in `conf/odoo.env`. Odoo started by `odood`
+  (server, addons updates, database operations, tests, scripts) gets them, and
+  `odood deploy` creates the file and makes the systemd service
+  (`EnvironmentFile=`) and the init script load it, so the service and
+  `sudo odood ...` run Odoo with the same variables. A variable set in odood's
+  own environment wins over the file. The file accepts only the forms systemd,
+  a shell and odood read alike, and odood refuses other lines. Existing
+  deployments keep working as before; to use the file there, create it and add
+  `EnvironmentFile=-/opt/odoo/conf/odoo.env` to the service.
+- Library: `odood.lib.env_file.parseEnvFile`, `Project.odoo_env_file` and
+  `Project.odooEnv`.
 
 ### Changed
 
@@ -50,6 +61,10 @@
   longer show the credentials embedded in the repository URL
   (`https://user:token@…`). The message listed the whole git command line,
   token included, and Odood logs these errors.
+- `odood deploy --use-system-ca-bundle` applies to the Odoo processes `odood`
+  starts itself, such as `addons update`, not only to the service, and works
+  with `--supervisor=odood`, which ignored it. The bundle is now set in
+  `conf/odoo.env`.
 
 ## Release 0.7.1 (2026-11-06)
 

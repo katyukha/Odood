@@ -85,11 +85,41 @@ The Debian packages the assembly lists in its spec are installed as well (see
 | `--enable-fail2ban` | Configure fail2ban to block repeated failed logins (requires fail2ban installed) |
 | `--assembly-repo=<url>` | Configure the instance to use an [assembly](./assembly.md) from this git repository |
 | `--log-to-stderr` | No log file; log to stdout/stderr (for container builds) |
-| `--use-system-ca-bundle` | Make Odoo use the system CA certificate store instead of the bundled certifi bundle |
+| `--use-system-ca-bundle` | Make Odoo use the system CA certificate store instead of the bundled certifi bundle (sets `REQUESTS_CA_BUNDLE` in the [environment file](#environment-variables)) |
 | `--server-user-uid` / `--server-user-gid` | Create the Odoo system user/group with a fixed UID/GID (for container builds with a matching `securityContext`) |
 | `--py-version` / `--node-version` | Build a specific Python / install a specific Node.js version |
 
 Run `odood deploy --help` for the full list of options.
+
+## Environment variables
+
+Environment variables for Odoo, such as `REQUESTS_CA_BUNDLE`,
+go in `conf/odoo.env` (`/opt/odoo/conf/odoo.env` by default).
+Both the Odoo service and `odood` read this file: the systemd service through `EnvironmentFile=`,
+the init script by sourcing it, and `odood` whenever it runs Odoo itself, for example to update addons,
+create or restore databases, or run tests.
+So `sudo odood addons update` runs Odoo with the same variables as the service,
+even though `sudo` does not pass on your shell's environment.
+
+`odood deploy` creates the file, owned by `root` and readable by the Odoo user, like `odoo.conf`.
+Restart Odoo after changing it.
+
+```bash
+# /opt/odoo/conf/odoo.env
+REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+```
+
+The file accepts only the forms that systemd, a shell and `odood` read the same way,
+and `odood` refuses any other line, naming the line number:
+
+- blank lines and lines starting with `#`;
+- `NAME=value` with no spaces around `=`;
+- an unquoted value made of letters, digits and `_ . / : , @ % + = -`;
+- anything else in single quotes, on one line, with no `'` inside: `NAME='some value'`.
+  Double quotes, `$` expansion, backslash escapes and `export` are not supported.
+
+A variable already set in `odood`'s own environment wins over the file,
+for example a container's environment or a one-off `sudo env NAME=value odood ...`.
 
 ## Backup and restore
 

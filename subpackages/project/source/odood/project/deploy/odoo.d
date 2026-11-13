@@ -214,6 +214,13 @@ Project deployOdoo(in DeployConfig config) {
     project.odoo.configfile.chown(0, pw_odoo.pw_gid);
     project.odoo.configfile.setAttributes(octal!640);
 
+    // Environment for Odoo, loaded by the system service and by odood
+    // itself. Like the config, it may hold secrets.
+    project.odoo_env_file.writeFile(
+        renderFile!("templates/deploy/odoo.env.tmpl", config));
+    project.odoo_env_file.chown(0, pw_odoo.pw_gid);
+    project.odoo_env_file.setAttributes(octal!640);
+
     // Odoo can read and write and create files in log directory
     project.directories.log.chown(pw_odoo.pw_uid, pw_odoo.pw_gid);
     project.directories.log.setAttributes(octal!750);
@@ -282,4 +289,35 @@ Project deployOdoo(in DeployConfig config) {
 
     infof("Odoo deployed successfully.");
     return project;
+}
+
+
+// The files deploy writes agree on the env file: it parses, and the
+// service definitions load the file odood reads.
+unittest {
+    import unit_threaded.assertions;
+    import std.algorithm.searching: canFind;
+    import thepath.utils: createTempPath;
+    import odood.lib.env_file: parseEnvFile;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    DeployConfig config;
+    config.deploy_path = root.join("odoo");
+    config.odoo.serie = OdooSerie("18.0");
+    auto project = config.prepareOdoodProject();
+
+    parseEnvFile(renderFile!("templates/deploy/odoo.env.tmpl", config), "odoo.env")
+        .length.shouldEqual(0);
+    config.odoo.system_ca_bundle_path = Path("/etc/ssl/certs/ca-certificates.crt");
+    parseEnvFile(renderFile!("templates/deploy/odoo.env.tmpl", config), "odoo.env")
+        .shouldEqual(["REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt"]);
+
+    renderFile!("templates/deploy/systemd.tmpl", project, config)
+        .canFind("\nEnvironmentFile=-" ~ project.odoo_env_file.toString ~ "\n")
+        .shouldBeTrue;
+    renderFile!("templates/deploy/init.d.tmpl", project, config)
+        .canFind(`. "` ~ project.odoo_env_file.toString ~ `"`)
+        .shouldBeTrue;
 }
