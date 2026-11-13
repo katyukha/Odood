@@ -8,7 +8,7 @@ private static import std.process;
 private import theprocess: Process;
 
 private import odood.git: gitProcess;
-private import odood.git.url: GitURL, redactCredentials;
+private import odood.git.url: GitURL, redactCredentials, credentialValues;
 private import odood.git.refs: GitRef;
 private import odood.git.repository: GitRepository;
 
@@ -29,7 +29,7 @@ struct GitRemote {
     @disable this();
 
     private this(Process base, string target) {
-        _base = base;
+        _base = base.withMasked(credentialValues(target));
         _target = target;
         _display = redactCredentials(target);
     }
@@ -45,10 +45,7 @@ struct GitRemote {
       * (URL, local path, scp form, ...). No CI rewrites.
       **/
     this(in string target, in string[string] env = null) {
-        auto base = gitProcess;
-        if (env !is null && env.length > 0)
-            base = base.withEnv(env);
-        this(base, target);
+        this(gitProcess(env), target);
     }
 
     /** Address a repository's configured remote by name. Queries run
@@ -195,6 +192,17 @@ struct GitRemote {
         if (refs.length == 0)
             return "";
         return refs[0].commit_sha;
+    }
+
+    // Credentials in a URL target never show in what the remote's git
+    // processes render.
+    unittest {
+        import std.algorithm: canFind;
+        import unit_threaded.assertions;
+
+        auto remote = GitRemote("https://user:TOKEN@host.test/o/r");
+        remote._base.withArgs("ls-remote", remote._target).toString
+            .canFind("TOKEN").shouldBeFalse;
     }
 
     /// Test GitRemote against a real (local, bare) remote

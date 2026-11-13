@@ -42,6 +42,15 @@
 - Credentials from `ODOOD_ASSEMBLY_<name|group>_CRED` work alongside a
   `GIT_CONFIG_COUNT` set in the environment, are sent to the source's host
   only, and replace the other credential helpers configured for that host.
+- Odoo started by `odood` as the server user gets `USER` and `LOGNAME` of that
+  user, as under the system service, instead of the caller's (`root` under
+  `sudo`).
+- Git passwords and tokens, from a repository URL or from
+  `ODOOD_GIT_CREDENTIALS` / `ODOOD_ASSEMBLY_<name|group>_CRED`, are shown as
+  `***` in git's output that odood adds to error messages, and wherever odood
+  prints a git command. The user of an http(s) URL is masked too, since it
+  may be a token.
+- Requires `theprocess` 0.1.3.
 
 ### Fixed
 

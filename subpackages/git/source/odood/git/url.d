@@ -606,34 +606,88 @@ unittest {
 
 
 
-/** Remove the credentials from a git target given as a string, for error
-  * messages and logs. The rule is the one of `GitURL.hasCredentials`: the
-  * password of any URL goes, and so does the user of an http(s) URL, which
-  * may be a token. Targets without `://` (scp form, local paths) have no
-  * place for a password and are returned as given.
+/** The userinfo (`user` or `user:password`) of a git target given as a
+  * string. Only the authority counts, the part between `://` and the next
+  * `/`: an `@` after it belongs to the path. Targets without `://` (scp form,
+  * local paths) have no place for a password and have none.
   **/
-package(odood) string redactCredentials(in string target) pure @safe {
+private auto findUserinfo(in string target) pure @safe {
     import std.string: indexOf, lastIndexOf;
+    import std.typecons: Nullable, nullable;
+
+    static struct Userinfo {
+        bool http;          /// http(s) URL, where the user may be a token
+        string user;
+        string password;
+        size_t start;       /// `target[start .. end]` is the userinfo and its `@`
+        size_t end;
+    }
 
     immutable scheme_end = target.indexOf("://");
     if (scheme_end < 0)
-        return target;
-    immutable authority_start = scheme_end + 3;
-    immutable rest = target[authority_start .. $];
+        return Nullable!Userinfo.init;
+    immutable start = scheme_end + 3;
+    immutable rest = target[start .. $];
     immutable slash = rest.indexOf('/');
     immutable authority = slash < 0 ? rest : rest[0 .. slash];
     immutable at = authority.lastIndexOf('@');
     if (at < 0)
-        return target;
+        return Nullable!Userinfo.init;
 
-    string kept_user;
     immutable scheme = target[0 .. scheme_end].toLower;
-    if (scheme != "http" && scheme != "https") {
-        immutable userinfo = authority[0 .. at];
-        immutable colon = userinfo.indexOf(':');
-        kept_user = (colon < 0 ? userinfo : userinfo[0 .. colon]) ~ "@";
-    }
-    return target[0 .. authority_start] ~ kept_user ~ rest[at + 1 .. $];
+    immutable userinfo = authority[0 .. at];
+    immutable colon = userinfo.indexOf(':');
+    return Userinfo(
+        http: scheme == "http" || scheme == "https",
+        user: colon < 0 ? userinfo : userinfo[0 .. colon],
+        password: colon < 0 ? null : userinfo[colon + 1 .. $],
+        start: start,
+        end: start + at + 1).nullable;
+}
+
+/** Remove the credentials from a git target given as a string, for error
+  * messages and logs. The rule is the one of `GitURL.hasCredentials`: the
+  * password of any URL goes, and so does the user of an http(s) URL, which
+  * may be a token. Targets without `://` (scp form, local paths) are
+  * returned as given.
+  **/
+package(odood) string redactCredentials(in string target) pure @safe {
+    const found = findUserinfo(target);
+    if (found.isNull)
+        return target;
+    const info = found.get;
+    immutable kept_user = info.http ? "" : info.user ~ "@";
+    return target[0 .. info.start] ~ kept_user ~ target[info.end .. $];
+}
+
+/** The values `redactCredentials` removes from `target`, to mask with
+  * `Process.setMasked` where the target is passed to git: the password of
+  * any URL, and the user of an http(s) URL.
+  **/
+package(odood) string[] credentialValues(in string target) pure @safe {
+    const found = findUserinfo(target);
+    if (found.isNull)
+        return null;
+    const info = found.get;
+    string[] res;
+    if (info.http && info.user.length > 0)
+        res ~= info.user;
+    if (info.password.length > 0)
+        res ~= info.password;
+    return res;
+}
+
+///
+unittest {
+    import unit_threaded.assertions;
+
+    credentialValues("https://user:TOKEN@host.test/o/r").shouldEqual(["user", "TOKEN"]);
+    credentialValues("HTTPS://TOKEN@host.test:8443/o/r.git").shouldEqual(["TOKEN"]);
+    credentialValues("ssh://git:TOKEN@host.test/o/r").shouldEqual(["TOKEN"]);
+    credentialValues("ssh://git@host.test/o/r").length.shouldEqual(0);
+    credentialValues("https://host.test/o/r@v2").length.shouldEqual(0);
+    credentialValues("git@host.test:o/r.git").length.shouldEqual(0);
+    credentialValues("/srv/git/repo").length.shouldEqual(0);
 }
 
 ///

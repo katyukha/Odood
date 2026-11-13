@@ -51,9 +51,10 @@ const struct LOdoo {
                 .withArgs("lodoo", "--conf", odoo_conf_path.toString);
             if (_project.odoo.server_user)
                 /* userHomeDir points HOME at home directory of the server
-                 * user, instead of inheriting HOME of the caller.
+                 * user, and userLoginEnv USER and LOGNAME at the server user,
+                 * instead of inheriting them from the caller.
                  */
-                process.setUser(_project.odoo.server_user, userHomeDir: true);
+                process.setUser(_project.odoo.server_user, userHomeDir: true, userLoginEnv: true);
             if (_project.odoo.logfile.isNull)
                 process.setStderrPassThrough;
             return process;

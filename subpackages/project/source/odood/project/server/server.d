@@ -185,9 +185,10 @@ struct OdooServer {
              * Otherwise the server would inherit HOME of the caller (usually
              * root), that server user has no write access to, breaking
              * everything that writes to home directory, for example Chrome,
-             * that is used to run tours.
+             * that is used to run tours. userLoginEnv sets USER and LOGNAME
+             * to the server user, as the system service does.
              */
-            runner.setUser(_project.odoo.server_user, userHomeDir: true);
+            runner.setUser(_project.odoo.server_user, userHomeDir: true, userLoginEnv: true);
 
         if (coverage.enable) {
             enforce!OdoodException(

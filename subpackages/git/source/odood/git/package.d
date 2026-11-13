@@ -11,7 +11,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess: Process;
 
-private import odood.git.url: redactCredentials;
+private import odood.git.url: redactCredentials, credentialValues;
 public import odood.git.url: GitURL;
 public import odood.git.repository: GitRepository;
 public import odood.git.refs: GitTag, GitRef;
@@ -25,10 +25,31 @@ immutable string GIT_REF_WORKTREE = "-working-tree-";
 
 /** Base runner for git CLI with locale pinned to C, so git's output and
   * error text is stable for parsing regardless of the user's locale.
-  * Caller-provided env applied on top (via withEnv) can still override it.
+  * `env` is applied on top, and can still override it. The password a
+  * `gitCredentialEnv` map carries is masked in every text the process
+  * renders.
   **/
-package(odood) auto gitProcess() {
-    return Process("git").withEnv("LC_ALL", "C");
+package(odood) Process gitProcess(in string[string] env = null) {
+    import odood.git.credential: GIT_CREDENTIAL_PASSWORD_ENV;
+
+    auto res = Process("git").withEnv("LC_ALL", "C").withEnv(env);
+    if (auto password = GIT_CREDENTIAL_PASSWORD_ENV in env)
+        res.setMasked(*password);
+    return res;
+}
+
+// The password of credentials passed through the env never shows in what a
+// git process renders.
+unittest {
+    import std.algorithm: canFind;
+    import unit_threaded.assertions;
+
+    immutable text = gitProcess(
+            gitCredentialEnv(GitURL("https://host.test/o/r"), "user", "TOKEN"))
+        .withArgs("ls-remote", "https://host.test/o/r")
+        .toString;
+    text.canFind("TOKEN").shouldBeFalse;
+    text.canFind("ODOOD_GIT_CREDENTIAL_PASSWORD").shouldBeTrue;
 }
 
 
@@ -58,16 +79,17 @@ GitRepository gitClone(
         "It seems that repo %s already clonned to %s!".format(repo, dest));
     infof("Clonning repository (branch=%s, single_branch=%s): %s", branch, single_branch, repo);
 
-    auto proc = gitProcess
-        .withEnv(env)
+    immutable clone_url = repo.applyCIRewrites.toUrl;
+    auto proc = gitProcess(env)
+        .withMasked(credentialValues(clone_url))
         .withArgs("clone");
     if (branch)
         proc.addArgs("-b", branch);
     if (single_branch)
         proc.addArgs("--single-branch");
-    immutable clone_url = repo.applyCIRewrites.toUrl;
     proc.addArgs(clone_url, dest.toString);
-    // An own message: the default one lists the arguments, credentials included.
+    // An own message: it names the URL without its credentials, where the
+    // default one lists every argument, with the credentials masked.
     proc.execute().ensureOk(
         "Cannot clone %s to %s".format(redactCredentials(clone_url), dest), true);
     return new GitRepository(dest);

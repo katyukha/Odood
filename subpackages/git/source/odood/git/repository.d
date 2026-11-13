@@ -16,7 +16,7 @@ private import thepath: Path;
 private import odood.exception: OdoodException;
 private import theprocess;
 private import odood.git: getGitTopLevel, gitProcess, GIT_REF_WORKTREE, GitURL;
-private import odood.git.url: redactCredentials;
+private import odood.git.url: redactCredentials, credentialValues;
 private import odood.git.remote: GitRemote;
 private import odood.git.pull: GitPullStatus, GitPullResult;
 
@@ -74,8 +74,7 @@ class GitRepository {
     /// parsing regardless of the user's locale (an explicit LC_ALL in the
     /// repo's env still wins, as _env is applied on top).
     auto gitCmd() const {
-        return gitProcess
-            .withEnv(_env)
+        return gitProcess(_env)
             .inWorkDir(_path);
     }
 
@@ -89,7 +88,7 @@ class GitRepository {
       * Returns: GitRepository instance
       **/
     static auto initialize(in Path path, in string[string] env=null) {
-        gitProcess.withEnv(env).withArgs("init", path.toString).execute.ensureOk(true);
+        gitProcess(env).withArgs("init", path.toString).execute.ensureOk(true);
         return new GitRepository(path, env);
     }
 
@@ -647,6 +646,7 @@ class GitRepository {
       **/
     void remoteAdd(in string name, in string url) const {
         gitCmd
+            .withMasked(credentialValues(url))
             .withArgs("remote", "add", name, url)
             .withFlag(std.process.Config.stderrPassThrough)
             .execute
