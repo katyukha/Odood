@@ -41,13 +41,14 @@
   `requirements.txt` joins the install of the addons' Python requirements, so
   pip keeps the versions Odoo pins, and puts back any package installed at
   another version, for example one upgraded by hand.
-- Assembly spec `docker.with-odoo-requirements`: when `true`, the generated
-  `Dockerfile` runs `odood assembly link --with-odoo-requirements`, so the image
-  keeps the versions Odoo pins. An addon requirement that needs another version
-  of one of them then fails the build with pip's `ResolutionImpossible`; pin a
+- `docker.with-odoo-requirements` in `odood-assembly.yml`, in a new top-level
+  `docker` section beside `spec`: when `true`, the generated `Dockerfile` runs
+  `odood assembly link --with-odoo-requirements`, so the image keeps the
+  versions Odoo pins. An addon requirement that needs another version of one
+  of them then fails the build with pip's `ResolutionImpossible`; pin a
   compatible version in the assembly's `requirements.txt`. Off by default; it
   applies after `odood assembly sync --dockerfile`. Library:
-  `AssemblySpec.docker_with_odoo_requirements` and
+  `Assembly.docker` (`AssemblyDockerSettings`) and
   `Assembly.setDockerWithOdooRequirements`.
 
 ### Changed

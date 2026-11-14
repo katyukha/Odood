@@ -8,7 +8,7 @@ private import std.algorithm;
 private import std.array: array, empty;
 private import std.digest.sha;
 
-private import dyaml: Node, NodeType;
+private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
 private import odood.lib.deb: isValidDebPackageName;
@@ -226,7 +226,6 @@ struct AssemblySpec {
     private AssemblyLayout _layout = AssemblyDefaultLayout;
     private string[] _known_addons;
     private string[] _system_packages_deb;
-    private bool _docker_with_odoo_requirements;
 
     this(in Node yaml_node) {
         enforce!OdoodAssemblyInvalidSpecException(
@@ -271,27 +270,6 @@ struct AssemblySpec {
                 }
         }
 
-        if (spec.containsKey("docker")) {
-            auto docker = spec["docker"];
-            enforce!OdoodAssemblyInvalidSpecException(
-                docker.nodeTypeString == "mapping",
-                "Invalid assembly spec: 'spec.docker' must be a mapping, " ~
-                "e.g. 'with-odoo-requirements: true'");
-            // An unknown key fails, so a typo cannot drop a setting silently.
-            foreach(key; docker.mappingKeys!string)
-                enforce!OdoodAssemblyInvalidSpecException(
-                    key == "with-odoo-requirements",
-                    ("Invalid assembly spec: unsupported 'spec.docker.%s', " ~
-                     "only 'with-odoo-requirements' is supported").format(key));
-            if (docker.containsKey("with-odoo-requirements")) {
-                enforce!OdoodAssemblyInvalidSpecException(
-                    docker["with-odoo-requirements"].type == NodeType.boolean,
-                    "Invalid assembly spec: 'spec.docker.with-odoo-requirements' " ~
-                    "must be true or false");
-                _docker_with_odoo_requirements = docker["with-odoo-requirements"].as!bool;
-            }
-        }
-
         if (spec.containsKey("layout")) {
             switch (spec["layout"].as!string) {
                 case "standard":
@@ -333,10 +311,6 @@ struct AssemblySpec {
     /// Debian packages the assembly's addons need on the host
     /// (`spec.system-packages.deb`).
     @property auto system_packages_deb() const => _system_packages_deb;
-
-    /// The generated Dockerfile links the assembly with Odoo's requirements
-    /// (`spec.docker.with-odoo-requirements`).
-    @property bool docker_with_odoo_requirements() const => _docker_with_odoo_requirements;
 
     // Checks for a source location entering the spec, whether added or replaced.
     private static void enforceSourceLocation(in GitURL git_url,
@@ -401,11 +375,6 @@ struct AssemblySpec {
     /// Remove a Debian package from `system-packages.deb`. No-op if it is not listed.
     package(odood) void removeSystemPackageDeb(in string name) {
         _system_packages_deb = _system_packages_deb.filter!((p) => p != name).array;
-    }
-
-    /// Set `docker.with-odoo-requirements`.
-    package(odood) void setDockerWithOdooRequirements(in bool value) {
-        _docker_with_odoo_requirements = value;
     }
 
     // Names of addons that reference the given (non-empty) source name.
@@ -548,8 +517,6 @@ struct AssemblySpec {
             res["spec"]["known-addons"] = _known_addons;
         if (!_system_packages_deb.empty)
             res["spec"]["system-packages"] = Node(["deb": _system_packages_deb]);
-        if (_docker_with_odoo_requirements)
-            res["spec"]["docker"] = Node(["with-odoo-requirements": true]);
         if (_layout != AssemblyDefaultLayout)
             final switch(_layout) {
                 case AssemblyLayout.STANDARD:
@@ -801,37 +768,6 @@ unittest {
     load(" [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
     load("\n    debs: [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
     load("\n    deb: ['--allow-unauthenticated']\n")
-        .shouldThrow!OdoodAssemblyInvalidSpecException;
-}
-
-// spec.docker.with-odoo-requirements survives a save; it is off by default.
-unittest {
-    import dyaml;
-    import unit_threaded.assertions;
-
-    auto spec = AssemblySpec(Loader.fromString(
-        "spec:\n" ~
-        "  addons-list: []\n" ~
-        "  docker:\n" ~
-        "    with-odoo-requirements: true\n").load());
-    spec.docker_with_odoo_requirements.shouldBeTrue;
-    AssemblySpec(spec.toYAML).docker_with_odoo_requirements.shouldBeTrue;
-
-    AssemblySpec(Loader.fromString("spec:\n  addons-list: []\n").load())
-        .docker_with_odoo_requirements.shouldBeFalse;
-}
-
-// spec.docker is refused unless it is a mapping of known keys to booleans.
-unittest {
-    import dyaml;
-    import unit_threaded.assertions;
-
-    auto load(in string docker) => AssemblySpec(Loader.fromString(
-        "spec:\n  addons-list: []\n  docker:" ~ docker).load());
-
-    load(" [with-odoo-requirements]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
-    load("\n    with-odoo-requirement: true\n").shouldThrow!OdoodAssemblyInvalidSpecException;
-    load("\n    with-odoo-requirements: 'yes please'\n")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
 }
 

@@ -30,12 +30,12 @@ COPY requirements.lock.txt /opt/odoo/assembly/requirements.lock.txt
 # Register the assembly with the project, link addons into custom_addons/,
 # install Python requirements (handled automatically by 'assembly link'),
 # and pre-compile all addon Python files.
-{% if assembly.spec.docker_with_odoo_requirements %}
-# Odoo's own requirements join the install (spec.docker.with-odoo-requirements),
+{% if assembly.docker.with_odoo_requirements %}
+# Odoo's own requirements join the install (docker.with-odoo-requirements),
 # so an addon's requirement cannot replace a version Odoo pins.
 {% endif %}
 RUN odood assembly use /opt/odoo/assembly && \
-{% if assembly.spec.docker_with_odoo_requirements %}
+{% if assembly.docker.with_odoo_requirements %}
     odood assembly link --with-odoo-requirements && \
 {% else %}
     odood assembly link && \

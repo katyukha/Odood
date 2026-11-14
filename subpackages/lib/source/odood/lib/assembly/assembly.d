@@ -22,6 +22,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
+private import odood.lib.assembly.docker: AssemblyDockerSettings;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
@@ -35,6 +36,7 @@ private import odood.lib.addons.changes: AddonRepositoryChanges;
 private import odood.lib.deb: debMissingPackages, debInstallPackages;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
+public import odood.lib.assembly.docker: AssemblyDockerSettings;
 
 /// Result of upgrading a single assembly source ref
 struct SourceUpgradeResult {
@@ -57,6 +59,7 @@ package(odood) immutable ASSEMBLY_ADDONS_CSV_PATH = Path("ADDONS.csv");
 
 class Assembly {
     private AssemblySpec _spec;
+    private AssemblyDockerSettings _docker;
     private Path _path;  // assembly root directory
     private OdooSerie _serie;      // target Odoo serie
     private AssemblySourceProviderInterface _source_provider;  // materializes sources/addons
@@ -86,11 +89,15 @@ class Assembly {
         _source_provider = source_provider;
         _path = path;
         _spec = AssemblySpec(yaml_data);
+        _docker = AssemblyDockerSettings(yaml_data);
         _git_env = git_env.dup;
     }
 
     /// Spec for this assembly
     @property spec() const => _spec;
+
+    /// Settings for the generated Dockerfile (top-level `docker` section).
+    @property docker() const => _docker;
 
     /// Path where configuration is located
     @property path() const => _path;
@@ -168,7 +175,11 @@ class Assembly {
     /** Generate YAML configuration for this  assembly
       **/
     auto toYAML() const {
-        return _spec.toYAML;
+        auto res = _spec.toYAML;
+        auto docker = _docker.toYAML;
+        if (!docker.isNull)
+            res["docker"] = docker.get;
+        return res;
     }
 
     /** Save any changes to assembly spec
@@ -743,11 +754,13 @@ class Assembly {
         syncAddons();
     }
 
-    /// Pull the assembly repo, and reload the spec it brings.
+    /// Pull the assembly repo, and reload the spec and settings it brings.
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
         infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
-        _spec = AssemblySpec(dyaml.Loader.fromFile(spec_path.toString).load());
+        auto file = dyaml.Loader.fromFile(spec_path.toString).load();
+        _spec = AssemblySpec(file);
+        _docker = AssemblyDockerSettings(file);
     }
 
     void push(in string branch_name=null) {
@@ -789,10 +802,10 @@ class Assembly {
         _spec.removeSystemPackageDeb(name);
     }
 
-    /// Set the spec's `docker.with-odoo-requirements`: whether the generated
+    /// Set `docker.with-odoo-requirements`: whether the generated
     /// Dockerfile links the assembly with Odoo's requirements.
     void setDockerWithOdooRequirements(in bool value) {
-        _spec.setDockerWithOdooRequirements(value);
+        _docker.setWithOdooRequirements(value);
     }
 
     /// Remove a source from assembly. Refuses if any addon references it.
@@ -1330,12 +1343,12 @@ unittest {
         assembly.setDockerWithOdooRequirements(value);
         assembly.save();
         Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
-            .spec.docker_with_odoo_requirements.shouldEqual(value);
+            .docker.with_odoo_requirements.shouldEqual(value);
     }
 }
 
-// The Dockerfile links with Odoo's requirements only when the spec asks for
-// it (spec.docker.with-odoo-requirements).
+// The Dockerfile links with Odoo's requirements only when the assembly asks
+// for it (docker.with-odoo-requirements).
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1352,16 +1365,16 @@ unittest {
     assembly.spec_path.writeFile(
         "spec:\n" ~
         "  addons-list: []\n" ~
-        "  docker:\n" ~
-        "    with-odoo-requirements: true\n");
+        "docker:\n" ~
+        "  with-odoo-requirements: true\n");
     assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
     assembly.generateDockerfile("");
     assembly.path.join("Dockerfile").readFileText
         .canFind("    odood assembly link --with-odoo-requirements && \\\n").shouldBeTrue;
 }
 
-// pull reloads the spec, so the steps after it (link, installing system
-// packages) work from what the pull brought.
+// pull reloads the spec and the docker settings, so the steps after it
+// (link, installing system packages) work from what the pull brought.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1384,6 +1397,7 @@ unittest {
         .execute.ensureOk(true);
     auto other = Assembly.load(other_path, assembly.serie, new TestSourceProvider(root));
     other.addSystemPackageDeb("ghostscript");
+    other.setDockerWithOdooRequirements(true);
     other.save();
     other.repo.add(other.spec_path);
     other.repo.commit("Add ghostscript");
@@ -1391,4 +1405,5 @@ unittest {
 
     assembly.pull();
     assembly.spec.system_packages_deb.should == ["ghostscript"];
+    assembly.docker.with_odoo_requirements.shouldBeTrue;
 }

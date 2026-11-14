@@ -1,7 +1,12 @@
 # Assembly Spec Reference
 
 The assembly spec is stored in `odood-assembly.yml` in the root of the assembly repository.
-It is a [YAML](https://yaml.org/) file with a single required top-level key: `spec`.
+It is a [YAML](https://yaml.org/) file with these top-level keys:
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `spec` | yes | What the assembly contains and needs. See [`spec` fields](#spec-fields). |
+| `docker` | no | How the generated `Dockerfile` builds the image. See [Docker](#docker). |
 
 ```yaml
 spec:
@@ -10,9 +15,9 @@ spec:
   known-addons: [...]
   system-packages:
     deb: [...]
-  docker:
-    with-odoo-requirements: false
   layout: standard
+docker:
+  with-odoo-requirements: false
 ```
 
 ---
@@ -25,7 +30,6 @@ spec:
 | `sources-list` | no | `[]` | List of git source entries to fetch addons from. Alias: `git-sources`. |
 | `known-addons` | no | `[]` | Addon names assumed to be present on the target server; excluded from dependency validation. |
 | `system-packages` | no | — | System packages the addons need on the server. See [System packages](#system-packages). |
-| `docker` | no | — | Settings for the generated `Dockerfile`. See [Docker](#docker). |
 | `layout` | no | `standard` | Controls where synced addons are placed. See [Layout](#layout). |
 
 ---
@@ -114,7 +118,11 @@ characters, starting with a letter or digit. See
 
 ## Docker
 
+A top-level key, beside `spec`:
+
 ```yaml
+spec:
+  addons-list: [...]
 docker:
   with-odoo-requirements: true
 ```
@@ -190,7 +198,7 @@ spec:
   system-packages:
     deb:
       - poppler-utils                     # binaries the addons call
-  docker:
-    with-odoo-requirements: true          # image keeps Odoo's pinned versions
   layout: standard
+docker:
+  with-odoo-requirements: true            # image keeps Odoo's pinned versions
 ```
