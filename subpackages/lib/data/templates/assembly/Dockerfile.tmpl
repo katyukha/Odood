@@ -3,12 +3,12 @@
 FROM ghcr.io/katyukha/odood/odoo/{{ assembly.serie }}:{% if is_dev_version %}latest{% else %}{{ _version }}{% endif %}
 
 {% if assembly.spec.layout == AssemblyLayout.STANDARD %}
-{% if assembly.spec.system_packages_deb.length > 0 %}
-# Debian packages the assembly needs (spec.system-packages.deb). Installed
+{% if assembly.system_packages.deb.length > 0 %}
+# Debian packages the assembly needs (system-packages.deb). Installed
 # before anything is copied, so this layer is rebuilt only when the list changes.
 RUN apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get install -qqq -y --no-install-recommends \
-{% for name; assembly.spec.system_packages_deb %}
+{% for name; assembly.system_packages.deb %}
         {{ name }} \
 {% endfor %}
     && rm -rf /var/lib/apt/lists/*
@@ -30,12 +30,12 @@ COPY requirements.lock.txt /opt/odoo/assembly/requirements.lock.txt
 # Register the assembly with the project, link addons into custom_addons/,
 # install Python requirements (handled automatically by 'assembly link'),
 # and pre-compile all addon Python files.
-{% if assembly.docker.with_odoo_requirements %}
-# Odoo's own requirements join the install (docker.with-odoo-requirements),
+{% if assembly.packaging.dockerfile.with_odoo_requirements %}
+# Odoo's own requirements join the install (packaging.dockerfile.with-odoo-requirements),
 # so an addon's requirement cannot replace a version Odoo pins.
 {% endif %}
 RUN odood assembly use /opt/odoo/assembly && \
-{% if assembly.docker.with_odoo_requirements %}
+{% if assembly.packaging.dockerfile.with_odoo_requirements %}
     odood assembly link --with-odoo-requirements && \
 {% else %}
     odood assembly link && \

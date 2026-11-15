@@ -22,7 +22,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
-private import odood.lib.assembly.docker: AssemblyDockerSettings;
+private import odood.lib.assembly.definition: AssemblyDefinition;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
@@ -36,7 +36,9 @@ private import odood.lib.addons.changes: AddonRepositoryChanges;
 private import odood.lib.deb: debMissingPackages, debInstallPackages;
 
 public import odood.lib.assembly.spec: AssemblySpec, AssemblySpecSource, AssemblySpecAddon;
-public import odood.lib.assembly.docker: AssemblyDockerSettings;
+public import odood.lib.assembly.definition: AssemblyDefinition;
+public import odood.lib.assembly.system_packages: AssemblySystemPackages;
+public import odood.lib.assembly.packaging: AssemblyPackaging, AssemblyDockerfileSettings;
 
 /// Result of upgrading a single assembly source ref
 struct SourceUpgradeResult {
@@ -58,46 +60,46 @@ package(odood) immutable ASSEMBLY_ADDONS_CSV_PATH = Path("ADDONS.csv");
 
 
 class Assembly {
-    private AssemblySpec _spec;
-    private AssemblyDockerSettings _docker;
+    private AssemblyDefinition _definition;  // what the assembly is: all sections of odood-assembly.yml
     private Path _path;  // assembly root directory
     private OdooSerie _serie;      // target Odoo serie
     private AssemblySourceProviderInterface _source_provider;  // materializes sources/addons
     private AddonRepository _repo = null;
     private const string[string] _git_env;  // applied to git operations on the assembly repo
 
-    /** Params:
+    /** An assembly repository at `path`: the definition of the assembly,
+      * plus what is needed to work on a copy of it.
+      *
+      * Params:
       *     git_env = additional environment variables for every git operation
       *         on the assembly's own repository (credentials, commit identity),
       *         as GitRepository takes them. Sources use their own credentials.
       **/
-    this(in Path path, AssemblySpec spec, in OdooSerie serie,
+    this(in Path path, AssemblyDefinition definition, in OdooSerie serie,
             AssemblySourceProviderInterface source_provider,
             in string[string] git_env=null) {
         _serie = serie;
         _source_provider = source_provider;
-        _spec = spec;
+        _definition = definition;
         _path = path;
         _git_env = git_env.dup;
     }
 
-    /// ditto
+    /// ditto, from a loaded `odood-assembly.yml`.
     this(in Path path, in Node yaml_data, in OdooSerie serie,
             AssemblySourceProviderInterface source_provider,
             in string[string] git_env=null) {
-        _serie = serie;
-        _source_provider = source_provider;
-        _path = path;
-        _spec = AssemblySpec(yaml_data);
-        _docker = AssemblyDockerSettings(yaml_data);
-        _git_env = git_env.dup;
+        this(path, AssemblyDefinition(yaml_data), serie, source_provider, git_env);
     }
 
-    /// Spec for this assembly
-    @property spec() const => _spec;
+    /// Spec for this assembly: what it contains (`spec`)
+    @property spec() const => _definition.spec;
 
-    /// Settings for the generated Dockerfile (top-level `docker` section).
-    @property docker() const => _docker;
+    /// System packages any host running the assembly needs (`system-packages`)
+    @property system_packages() const => _definition.system_packages;
+
+    /// What odood produces from the assembly (`packaging`)
+    @property packaging() const => _definition.packaging;
 
     /// Path where configuration is located
     @property path() const => _path;
@@ -110,7 +112,7 @@ class Assembly {
 
     /// Dist path (where assembly addons located)
     @property dist_dir() const {
-        final switch(_spec.layout) {
+        final switch(_definition.spec.layout) {
             case AssemblyLayout.STANDARD:
                 return _path.join("dist");
             case AssemblyLayout.FLAT:
@@ -175,11 +177,7 @@ class Assembly {
     /** Generate YAML configuration for this  assembly
       **/
     auto toYAML() const {
-        auto res = _spec.toYAML;
-        auto docker = _docker.toYAML;
-        if (!docker.isNull)
-            res["docker"] = docker.get;
-        return res;
+        return _definition.toYAML;
     }
 
     /** Save any changes to assembly spec
@@ -202,7 +200,7 @@ class Assembly {
             AssemblySourceProviderInterface source_provider,
             in string[string] git_env=null) {
         infof("Initializing Odood Assembly at %s ...", path);
-        Assembly assembly = new Assembly(path, AssemblySpec.init, serie, source_provider, git_env);
+        Assembly assembly = new Assembly(path, AssemblyDefinition.init, serie, source_provider, git_env);
         assembly.save();
 
         infof("Initializing git repository for Odood Assembly at %s ...", path);
@@ -277,7 +275,7 @@ class Assembly {
         infof("Assembly: Syncing addons...");
         const auto sourceScanRes = scanSources();
         string[] missing_addon_names = [];
-        foreach(addon; _spec.addons) {
+        foreach(addon; _definition.spec.addons) {
             infof("Assembly: Syncing addon %s ...", addon);
             if (addon.from_odoo_apps) {
                 auto addon_path = _source_provider.resolveExternalAddon(addon, serie);
@@ -363,11 +361,11 @@ class Assembly {
                 missing_dependencies.join("\n")));
     }
 
-    /** Install the Debian packages from `spec.system-packages.deb` that this
-      * host lacks. Needs root; does nothing when none are missing.
+    /** Install the Debian packages from `system-packages.deb` that this host
+      * lacks. Needs root; does nothing when none are missing.
       **/
     void installSystemPackages() const {
-        auto missing = debMissingPackages(spec.system_packages_deb);
+        auto missing = debMissingPackages(system_packages.deb);
         enforce!OdoodAssemblyException(
             !missing.isNull,
             "Cannot install the assembly's Debian packages: this host has no dpkg.");
@@ -750,7 +748,7 @@ class Assembly {
             // Fetch origin/serie branch if origin repo is configured
             repo.fetchOrigin(serie.toString());
         dist_dir.mkdir(true);  // ensure dist dir exists
-        _source_provider.ensureSources(_spec.sources, serie);
+        _source_provider.ensureSources(_definition.spec.sources, serie);
         syncAddons();
     }
 
@@ -758,9 +756,7 @@ class Assembly {
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
         infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
-        auto file = dyaml.Loader.fromFile(spec_path.toString).load();
-        _spec = AssemblySpec(file);
-        _docker = AssemblyDockerSettings(file);
+        _definition = AssemblyDefinition(dyaml.Loader.fromFile(spec_path.toString).load());
     }
 
     void push(in string branch_name=null) {
@@ -775,66 +771,66 @@ class Assembly {
     void addSource(in GitURL git_url, in string name=null, in string git_ref=null,
             in string git_commit=null, in string access_group=null,
             in bool no_search=false) {
-        _spec.addSource(
+        _definition.spec.addSource(
             git_url: git_url, name: name, git_ref: git_ref, git_commit: git_commit,
             access_group: access_group, no_search: no_search);
     }
 
     /// Add addon to assembly
     void addAddon(in string name, in string source_name=null, in bool from_odoo_apps=false) {
-        _spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
+        _definition.spec.addAddon(name: name, source_name: source_name,  from_odoo_apps: from_odoo_apps);
     }
 
     /// Remove an addon from assembly by name. No-op if absent.
     void removeAddon(in string name) {
-        _spec.removeAddon(name);
+        _definition.spec.removeAddon(name);
     }
 
-    /// Add a Debian package to the spec's `system-packages.deb`. No-op if it
-    /// is listed; refuses a name that is not a valid Debian package name.
+    /// Add a Debian package to `system-packages.deb`. No-op if it is
+    /// listed; refuses a name that is not a valid Debian package name.
     void addSystemPackageDeb(in string name) {
-        _spec.addSystemPackageDeb(name);
+        _definition.system_packages.addDeb(name);
     }
 
-    /// Remove a Debian package from the spec's `system-packages.deb`. No-op
-    /// if it is not listed.
+    /// Remove a Debian package from `system-packages.deb`. No-op if it is
+    /// not listed.
     void removeSystemPackageDeb(in string name) {
-        _spec.removeSystemPackageDeb(name);
+        _definition.system_packages.removeDeb(name);
     }
 
-    /// Set `docker.with-odoo-requirements`: whether the generated
-    /// Dockerfile links the assembly with Odoo's requirements.
-    void setDockerWithOdooRequirements(in bool value) {
-        _docker.setWithOdooRequirements(value);
+    /// Set `packaging.dockerfile.with-odoo-requirements`: whether the
+    /// generated Dockerfile links the assembly with Odoo's requirements.
+    void setDockerfileWithOdooRequirements(in bool value) {
+        _definition.packaging.setDockerfileWithOdooRequirements(value);
     }
 
     /// Remove a source from assembly. Refuses if any addon references it.
     void removeSource(in string name) {
-        _spec.removeSource(name);
+        _definition.spec.removeSource(name);
     }
 
     /// ditto
     void removeSource(in AssemblySpecSource source) {
-        _spec.removeSource(source);
+        _definition.spec.removeSource(source);
     }
 
     /// ditto
     void removeSource(in GitURL git_url, in string name=null,
             in string git_ref=null, in string git_commit=null) {
-        _spec.removeSource(git_url, name, git_ref, git_commit);
+        _definition.spec.removeSource(git_url, name, git_ref, git_commit);
     }
 
     /// Replace the source named `name` in place (re-pin), keeping its access
     /// group and no-search flag; refuses a rename while addons reference it.
     void replaceSource(in string name, in GitURL git_url, in string new_name=null,
             in string git_ref=null, in string git_commit=null) {
-        _spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
+        _definition.spec.replaceSource(name, git_url, new_name, git_ref, git_commit);
     }
 
     /// Replace `source` with `updated` in place; refuses a rename while addons
     /// reference it.
     void replaceSource(in AssemblySpecSource source, in AssemblySpecSource updated) {
-        _spec.replaceSource(source, updated);
+        _definition.spec.replaceSource(source, updated);
     }
 
     /** For each source, query the remote for tags matching the project's Odoo serie,
@@ -847,7 +843,7 @@ class Assembly {
         immutable serie = _serie;
         SourceUpgradeResult[] results;
 
-        foreach(ref source; _spec.sources) {
+        foreach(ref source; _definition.spec.sources) {
             immutable src_name = source.name.empty ? source.git_url.toString : source.name;
             immutable old_ref = source.git_ref;
 
@@ -1296,7 +1292,7 @@ unittest {
     ssh_log.readFileText.should == "git@example.test\n";
 }
 
-// The Dockerfile installs the spec's Debian packages before its first COPY,
+// The Dockerfile installs the assembly's Debian packages before its first COPY,
 // so docker reuses that layer while only the addons change; with no
 // packages there is no such layer.
 unittest {
@@ -1314,8 +1310,8 @@ unittest {
     assembly.spec_path.writeFile(
         "spec:\n" ~
         "  addons-list: []\n" ~
-        "  system-packages:\n" ~
-        "    deb: [ghostscript, poppler-utils]\n");
+        "system-packages:\n" ~
+        "  deb: [ghostscript, poppler-utils]\n");
     assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
     assembly.generateDockerfile("");
 
@@ -1329,7 +1325,31 @@ unittest {
     (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
 }
 
-// setDockerWithOdooRequirements turns the setting on and off, and the saved
+// An assembly built from a definition keeps all of its sections: they are
+// saved, and loading the assembly again brings them back.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    AssemblyDefinition definition;
+    definition.spec.addAddon("generic_mixin");
+    definition.system_packages.addDeb("poppler-utils");
+    definition.packaging.setDockerfileWithOdooRequirements(true);
+
+    auto path = root.join("assembly");
+    path.mkdir(true);
+    new Assembly(path, definition, OdooSerie("17.0"), new TestSourceProvider(root)).save();
+
+    auto loaded = Assembly.load(path, OdooSerie("17.0"), new TestSourceProvider(root));
+    loaded.spec.addons.length.shouldEqual(1);
+    loaded.system_packages.deb.should == ["poppler-utils"];
+    loaded.packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
+}
+
+// setDockerfileWithOdooRequirements turns the setting on and off, and the saved
 // spec keeps it.
 unittest {
     import unit_threaded.assertions;
@@ -1340,15 +1360,15 @@ unittest {
 
     auto assembly = makeTestAssembly(root, []);
     foreach(value; [true, false]) {
-        assembly.setDockerWithOdooRequirements(value);
+        assembly.setDockerfileWithOdooRequirements(value);
         assembly.save();
         Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
-            .docker.with_odoo_requirements.shouldEqual(value);
+            .packaging.dockerfile.with_odoo_requirements.shouldEqual(value);
     }
 }
 
 // The Dockerfile links with Odoo's requirements only when the assembly asks
-// for it (docker.with-odoo-requirements).
+// for it (packaging.dockerfile.with-odoo-requirements).
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1365,8 +1385,9 @@ unittest {
     assembly.spec_path.writeFile(
         "spec:\n" ~
         "  addons-list: []\n" ~
-        "docker:\n" ~
-        "  with-odoo-requirements: true\n");
+        "packaging:\n" ~
+        "  dockerfile:\n" ~
+        "    with-odoo-requirements: true\n");
     assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
     assembly.generateDockerfile("");
     assembly.path.join("Dockerfile").readFileText
@@ -1397,13 +1418,13 @@ unittest {
         .execute.ensureOk(true);
     auto other = Assembly.load(other_path, assembly.serie, new TestSourceProvider(root));
     other.addSystemPackageDeb("ghostscript");
-    other.setDockerWithOdooRequirements(true);
+    other.setDockerfileWithOdooRequirements(true);
     other.save();
     other.repo.add(other.spec_path);
     other.repo.commit("Add ghostscript");
     other.repo.gitCmd.withArgs("push", "origin", "HEAD:17.0").execute.ensureOk(true);
 
     assembly.pull();
-    assembly.spec.system_packages_deb.should == ["ghostscript"];
-    assembly.docker.with_odoo_requirements.shouldBeTrue;
+    assembly.system_packages.deb.should == ["ghostscript"];
+    assembly.packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
 }

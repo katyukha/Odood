@@ -114,7 +114,7 @@ class CommandAssemblyStatus: OdoodCommand {
                 current.isNull ? "not released yet" : current.get.toString,
                 project.assembly.raw.spec.addons.length,
                 project.assembly.raw.spec.sources.length,
-                project.assembly.raw.spec.system_packages_deb.length,
+                project.assembly.raw.system_packages.deb.length,
             );
         }
         return 0;
@@ -462,7 +462,7 @@ class CommandAssemblyInstallSystemPackages: AssemblyCommandBase {
     this() {
         super("install-system-packages",
             "Install the Debian packages the assembly needs " ~
-            "(spec.system-packages.deb) that are missing. Must be run as root.");
+            "(system-packages.deb) that are missing. Must be run as root.");
     }
 
     override int execute() {
@@ -519,8 +519,8 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         this.addFlag!(start)("", "start",
             "Start the server if upgrade completed successfully and server was not running before upgrade.");
         this.addFlag!(installSystemPackages)("", "install-system-packages",
-            "Install the missing Debian packages the pulled spec lists " ~
-            "(system-packages.deb), before relinking. Must be run as root.");
+            "Install the missing Debian packages the pulled odood-assembly.yml " ~
+            "lists (system-packages.deb), before relinking. Must be run as root.");
         this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
             "Include Odoo's requirements.txt in the batch install of the relink.");
     }
@@ -985,7 +985,7 @@ class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
 
     this() {
         super("add-system-package",
-            "Add Debian package(s) the assembly needs to its spec (system-packages.deb).");
+            "Add Debian package(s) the assembly needs to odood-assembly.yml (system-packages.deb).");
         this.addArgument!(packages)("package", "Name(s) of Debian package(s) to add.")
             .defaultValue([]);
         addSaveOptions();
@@ -999,8 +999,8 @@ class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
 
         string[] added;
         foreach(name; packages) {
-            if (assembly.spec.system_packages_deb.canFind(name)) {
-                warningf("Package '%s' is already listed in the assembly spec; skipping.", name);
+            if (assembly.system_packages.deb.canFind(name)) {
+                warningf("Package '%s' is already listed in system-packages; skipping.", name);
                 continue;
             }
             assembly.addSystemPackageDeb(name);
@@ -1008,11 +1008,11 @@ class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
         }
 
         if (added.empty) {
-            warningf("No new packages to add to the assembly spec.");
+            warningf("No new packages to add to system-packages.");
             return 0;
         }
 
-        infof("Added system package(s) to assembly spec: %s", added.join(", "));
+        infof("Added system package(s): %s", added.join(", "));
         saveSpec(assembly, "[ASSEMBLY] Add system package(s): %s".format(added.join(", ")));
         hintDockerfileUpdate(assembly);
         return 0;
@@ -1025,7 +1025,7 @@ class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
 
     this() {
         super("remove-system-package",
-            "Remove Debian package(s) from this assembly's spec (system-packages.deb).");
+            "Remove Debian package(s) from odood-assembly.yml (system-packages.deb).");
         this.description(
             "Servers that already have the package keep it: removing it from " ~
             "the spec does not uninstall it.");
@@ -1042,8 +1042,8 @@ class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
 
         string[] removed;
         foreach(name; packages) {
-            if (!assembly.spec.system_packages_deb.canFind(name)) {
-                warningf("Package '%s' is not listed in the assembly spec; skipping.", name);
+            if (!assembly.system_packages.deb.canFind(name)) {
+                warningf("Package '%s' is not listed in system-packages; skipping.", name);
                 continue;
             }
             assembly.removeSystemPackageDeb(name);
@@ -1051,11 +1051,11 @@ class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
         }
 
         if (removed.empty) {
-            warningf("No packages to remove from the assembly spec.");
+            warningf("No packages to remove from system-packages.");
             return 0;
         }
 
-        infof("Removed system package(s) from assembly spec: %s", removed.join(", "));
+        infof("Removed system package(s): %s", removed.join(", "));
         saveSpec(assembly, "[ASSEMBLY] Remove system package(s): %s".format(removed.join(", ")));
         hintDockerfileUpdate(assembly);
         return 0;

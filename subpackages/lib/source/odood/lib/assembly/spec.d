@@ -11,7 +11,7 @@ private import std.digest.sha;
 private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
-private import odood.lib.deb: isValidDebPackageName;
+private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys;
 private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -39,6 +39,18 @@ enum AssemblyLayout {
 
 /// Default layout
 alias AssemblyDefaultLayout = AssemblyLayout.STANDARD;
+
+
+/* Keys `AssemblySpec` reads; others are reported as unknown. `git-sources`
+ * is the older name of `sources-list`, `branch` of a source's `ref`. */
+private immutable string[] ASSEMBLY_SPEC_KEYS = [
+    "addons-list", "sources-list", "git-sources", "known-addons", "layout",
+];
+private immutable string[] ASSEMBLY_ADDON_KEYS = ["name", "source", "odoo_apps"];
+private immutable string[] ASSEMBLY_SOURCE_KEYS = [
+    "url", "github", "oca", "crnd", "name", "ref", "branch", "commit",
+    "access-group", "no-search",
+];
 
 
 /** Representation of addon in assembly specification
@@ -225,7 +237,6 @@ struct AssemblySpec {
     private AssemblySpecSource[] _sources;
     private AssemblyLayout _layout = AssemblyDefaultLayout;
     private string[] _known_addons;
-    private string[] _system_packages_deb;
 
     this(in Node yaml_node) {
         enforce!OdoodAssemblyInvalidSpecException(
@@ -249,26 +260,12 @@ struct AssemblySpec {
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
 
-        if (spec.containsKey("system-packages")) {
-            auto system_packages = spec["system-packages"];
-            enforce!OdoodAssemblyInvalidSpecException(
-                system_packages.nodeTypeString == "mapping",
-                "Invalid assembly spec: 'spec.system-packages' must map a " ~
-                "package format to package names, e.g. 'deb: [ghostscript]'");
-            // An unknown key fails, so a typo cannot drop the list silently.
-            foreach(format_name; system_packages.mappingKeys!string)
-                enforce!OdoodAssemblyInvalidSpecException(
-                    format_name == "deb",
-                    ("Invalid assembly spec: unsupported " ~
-                     "'spec.system-packages.%s', only 'deb' is supported").format(
-                        format_name));
-            if (system_packages.containsKey("deb"))
-                foreach(node; system_packages["deb"].sequence) {
-                    auto name = node.as!string;
-                    enforceDebPackageName(name);
-                    _system_packages_deb ~= name;
-                }
-        }
+        // Refused rather than ignored as an unknown key: an assembly that has
+        // it would otherwise lose its packages without a word.
+        enforce!OdoodAssemblyInvalidSpecException(
+            !spec.containsKey("system-packages"),
+            "Invalid assembly spec: 'system-packages' is a top-level section of " ~
+            "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 
         if (spec.containsKey("layout")) {
             switch (spec["layout"].as!string) {
@@ -284,6 +281,8 @@ struct AssemblySpec {
                     );
             }
         }
+
+        warnUnknownKeys(findUnknownSpecKeys(spec));
     }
 
     /// Addons that have to be present in this assembly
@@ -308,9 +307,32 @@ struct AssemblySpec {
     /// These addons will be ignored during dependency validation
     @property auto known_addons() const => _known_addons;
 
-    /// Debian packages the assembly's addons need on the host
-    /// (`spec.system-packages.deb`).
-    @property auto system_packages_deb() const => _system_packages_deb;
+    /* Keys of `spec` and of its addon and source entries that odood does not
+     * know, fully qualified: an addon by its name, a source by its name or
+     * else its URL, under the key the file uses for the sources
+     * (`spec.known-addon`, `spec.addons-list[my_addon].freeze`,
+     * `spec.sources-list[oca_web].access_group`). */
+    private static string[] findUnknownSpecKeys(in Node spec) {
+        auto res = findUnknownKeys(spec, ASSEMBLY_SPEC_KEYS, "spec.");
+        foreach(node; spec["addons-list"].sequence)
+            if (node.nodeTypeString == "mapping")
+                res ~= findUnknownKeys(
+                    node, ASSEMBLY_ADDON_KEYS,
+                    "spec.addons-list[%s].".format(node["name"].as!string));
+
+        immutable sources_key = spec.containsKey("sources-list")
+            ? "sources-list" : "git-sources";
+        if (spec.containsKey(sources_key))
+            foreach(node; spec[sources_key].sequence) {
+                auto source = AssemblySpecSource(node);
+                res ~= findUnknownKeys(
+                    node, ASSEMBLY_SOURCE_KEYS,
+                    "spec.%s[%s].".format(
+                        sources_key,
+                        source.name.empty ? source.git_url.toString : source.name));
+            }
+        return res;
+    }
 
     // Checks for a source location entering the spec, whether added or replaced.
     private static void enforceSourceLocation(in GitURL git_url,
@@ -355,26 +377,6 @@ struct AssemblySpec {
     /// Remove an addon by name. No-op if no such addon exists.
     package(odood) void removeAddon(in string name) {
         _addons = _addons.filter!((a) => a.name != name).array;
-    }
-
-    // The names reach apt-get, run as root.
-    private static void enforceDebPackageName(in string name) {
-        enforce!OdoodAssemblyInvalidSpecException(
-            isValidDebPackageName(name),
-            "'%s' in 'spec.system-packages.deb' is not a valid Debian package name".format(
-                name));
-    }
-
-    /// Add a Debian package to `system-packages.deb`. No-op if it is listed.
-    package(odood) void addSystemPackageDeb(in string name) {
-        enforceDebPackageName(name);
-        if (!_system_packages_deb.canFind(name))
-            _system_packages_deb ~= name;
-    }
-
-    /// Remove a Debian package from `system-packages.deb`. No-op if it is not listed.
-    package(odood) void removeSystemPackageDeb(in string name) {
-        _system_packages_deb = _system_packages_deb.filter!((p) => p != name).array;
     }
 
     // Names of addons that reference the given (non-empty) source name.
@@ -515,8 +517,6 @@ struct AssemblySpec {
         res["spec"]["sources-list"] = _sources.map!((s) => s.toYAML).array;
         if (!_known_addons.empty)
             res["spec"]["known-addons"] = _known_addons;
-        if (!_system_packages_deb.empty)
-            res["spec"]["system-packages"] = Node(["deb": _system_packages_deb]);
         if (_layout != AssemblyDefaultLayout)
             final switch(_layout) {
                 case AssemblyLayout.STANDARD:
@@ -740,55 +740,49 @@ unittest {
         ];
 }
 
-// spec.system-packages.deb survives a save in its order.
+// Unknown keys of spec and of its entries are named in full: an addon by its
+// name, a source by its name or else its URL, under the key the file uses for
+// the sources. Known keys, the aliases included, are not listed.
 unittest {
     import dyaml;
     import unit_threaded.assertions;
 
-    auto spec = AssemblySpec(Loader.fromString(
+    AssemblySpec.findUnknownSpecKeys(Loader.fromString(
+        "addons-list:\n" ~
+        "  - generic_mixin\n" ~
+        "  - name: generic_tag\n" ~
+        "    freeze: true\n" ~
+        "known-addon: [sale]\n" ~
+        "layout: standard\n" ~
+        "git-sources:\n" ~
+        "  - oca: web\n" ~
+        "    name: oca_web\n" ~
+        "    access_group: oca\n" ~
+        "  - github: crnd-inc/generic-addons\n" ~
+        "    branch: '17.0'\n" ~
+        "    no_search: true\n").load()
+    ).should == [
+        "spec.known-addon",
+        "spec.addons-list[generic_tag].freeze",
+        "spec.git-sources[oca_web].access_group",
+        "spec.git-sources[https://github.com/crnd-inc/generic-addons].no_search",
+    ];
+}
+
+// spec.system-packages is refused with a pointer to the top-level section,
+// instead of being dropped as an unknown key.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    AssemblySpec(Loader.fromString(
         "spec:\n" ~
         "  addons-list: []\n" ~
         "  system-packages:\n" ~
-        "    deb:\n" ~
-        "      - poppler-utils\n" ~
-        "      - ghostscript\n").load());
-    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
-    AssemblySpec(spec.toYAML).system_packages_deb
-        .should == ["poppler-utils", "ghostscript"];
-}
-
-// spec.system-packages is refused unless it is a 'deb' list of valid names.
-unittest {
-    import dyaml;
-    import unit_threaded.assertions;
-
-    auto load(in string system_packages) => AssemblySpec(Loader.fromString(
-        "spec:\n  addons-list: []\n  system-packages:" ~ system_packages).load());
-
-    load(" [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
-    load("\n    debs: [ghostscript]\n").shouldThrow!OdoodAssemblyInvalidSpecException;
-    load("\n    deb: ['--allow-unauthenticated']\n")
-        .shouldThrow!OdoodAssemblyInvalidSpecException;
-}
-
-// addSystemPackageDeb / removeSystemPackageDeb keep the list free of
-// duplicates and invalid names, and leave other entries in place.
-unittest {
-    import unit_threaded.assertions;
-
-    auto spec = AssemblySpec.init;
-    spec.addSystemPackageDeb("poppler-utils");
-    spec.addSystemPackageDeb("ghostscript");
-    spec.addSystemPackageDeb("poppler-utils");
-    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
-
-    spec.addSystemPackageDeb("--allow-unauthenticated")
-        .shouldThrow!OdoodAssemblyInvalidSpecException;
-    spec.system_packages_deb.should == ["poppler-utils", "ghostscript"];
-
-    spec.removeSystemPackageDeb("antiword");
-    spec.removeSystemPackageDeb("poppler-utils");
-    spec.system_packages_deb.should == ["ghostscript"];
+        "    deb: [poppler-utils]\n").load()
+    ).shouldThrowWithMessage!OdoodAssemblyInvalidSpecException(
+        "Invalid assembly spec: 'system-packages' is a top-level section of " ~
+        "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

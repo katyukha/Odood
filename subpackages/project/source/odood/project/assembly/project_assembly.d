@@ -188,7 +188,7 @@ class ProjectAssembly {
      * it as root would leave root-owned files in the project. On a host
      * without dpkg the Debian names mean nothing, so there is no check. */
     private void warnMissingSystemPackages() const {
-        auto missing = debMissingPackages(spec.system_packages_deb);
+        auto missing = debMissingPackages(_assembly.system_packages.deb);
         if (missing.isNull || missing.get.empty)
             return;
         warningf(

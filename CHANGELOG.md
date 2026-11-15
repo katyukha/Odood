@@ -13,17 +13,20 @@
 - Library: `odood.git.gitCredentialEnv`,
   `odood.lib.git_credentials.resolveGitCredentialEnv` and
   `RepositoryManager.withCredentials`.
-- Assembly spec `system-packages.deb`: Debian packages the addons need on the
-  server. The generated `Dockerfile` installs them in a layer before the first
+- `system-packages.deb` in `odood-assembly.yml`, a top-level section beside
+  `spec`: Debian packages the addons need on any host running the assembly.
+  The generated `Dockerfile` installs them in a layer before the first
   `COPY`, `odood deploy --assembly-repo` installs them, and the new
   `odood assembly install-system-packages` (run as root) installs the missing
   ones on an existing server, as does `odood assembly upgrade
   --install-system-packages` after its pull. `odood assembly link` warns about
   missing packages on Debian-based hosts. `odood assembly add-system-package` /
   `remove-system-package` edit the list, and `odood assembly status` counts it.
+  Assemblies created with 0.7.2-dev.1 have it inside `spec`; odood now refuses
+  that place, and the section has to move to the top level.
 - Library: `odood.lib.deb` (`debMissingPackages`, `debInstallPackages`,
-  `isValidDebPackageName`), `AssemblySpec.system_packages_deb`,
-  `Assembly.installSystemPackages` and
+  `isValidDebPackageName`), `Assembly.system_packages`
+  (`AssemblySystemPackages.deb`), `Assembly.installSystemPackages` and
   `Assembly.addSystemPackageDeb` / `removeSystemPackageDeb`.
 - Environment variables for Odoo in `conf/odoo.env`. Odoo started by `odood`
   (server, addons updates, database operations, tests, scripts) gets them, and
@@ -41,15 +44,24 @@
   `requirements.txt` joins the install of the addons' Python requirements, so
   pip keeps the versions Odoo pins, and puts back any package installed at
   another version, for example one upgraded by hand.
-- `docker.with-odoo-requirements` in `odood-assembly.yml`, in a new top-level
-  `docker` section beside `spec`: when `true`, the generated `Dockerfile` runs
+- `packaging.dockerfile.with-odoo-requirements` in `odood-assembly.yml`, in a
+  new top-level `packaging` section (what odood produces from the assembly):
+  when `true`, the generated `Dockerfile` runs
   `odood assembly link --with-odoo-requirements`, so the image keeps the
   versions Odoo pins. An addon requirement that needs another version of one
   of them then fails the build with pip's `ResolutionImpossible`; pin a
   compatible version in the assembly's `requirements.txt`. Off by default; it
   applies after `odood assembly sync --dockerfile`. Library:
-  `Assembly.docker` (`AssemblyDockerSettings`) and
-  `Assembly.setDockerWithOdooRequirements`.
+  `Assembly.packaging` (`AssemblyPackaging`, `AssemblyDockerfileSettings`) and
+  `Assembly.setDockerfileWithOdooRequirements`.
+- Unknown keys in `odood-assembly.yml` are warned about instead of ignored
+  silently, at every level: the top level, `spec`, its addon and source
+  entries, `system-packages` and `packaging`. The warning names each key in
+  full (`spec.sources-list[oca_web].access_group`), so a typo shows up. They
+  are not refused, so a file written by a newer odood loads on an older one,
+  but they are still dropped when odood saves the file. A known key with a bad
+  value is refused. Library: `AssemblyDefinition`, what an assembly is: all
+  sections of the file in one value.
 
 ### Changed
 
@@ -68,6 +80,10 @@
 - `odood assembly link` and `odood addons link` refuse `--with-odoo-requirements`
   together with `--individual-requirements`, which ignored it: the per-addon
   installs would be free to move the versions Odoo pins.
+
+- Library: the `Assembly` constructor takes an `AssemblyDefinition` (the whole
+  `odood-assembly.yml`) instead of an `AssemblySpec`. To build one from a spec:
+  `AssemblyDefinition definition; definition.spec = spec;`.
 
 ### Deprecated
 

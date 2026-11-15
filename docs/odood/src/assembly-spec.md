@@ -5,19 +5,21 @@ It is a [YAML](https://yaml.org/) file with these top-level keys:
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `spec` | yes | What the assembly contains and needs. See [`spec` fields](#spec-fields). |
-| `docker` | no | How the generated `Dockerfile` builds the image. See [Docker](#docker). |
+| `spec` | yes | What the assembly contains. See [`spec` fields](#spec-fields). |
+| `system-packages` | no | What any host running the assembly needs: servers and Docker images. See [System packages](#system-packages). |
+| `packaging` | no | What odood produces from the assembly. See [Packaging](#packaging). |
 
 ```yaml
 spec:
   addons-list: [...]
   sources-list: [...]
   known-addons: [...]
-  system-packages:
-    deb: [...]
   layout: standard
-docker:
-  with-odoo-requirements: false
+system-packages:
+  deb: [...]
+packaging:
+  dockerfile:
+    with-odoo-requirements: false
 ```
 
 ---
@@ -29,7 +31,6 @@ docker:
 | `addons-list` | yes | — | List of addon entries to include in the assembly. |
 | `sources-list` | no | `[]` | List of git source entries to fetch addons from. Alias: `git-sources`. |
 | `known-addons` | no | `[]` | Addon names assumed to be present on the target server; excluded from dependency validation. |
-| `system-packages` | no | — | System packages the addons need on the server. See [System packages](#system-packages). |
 | `layout` | no | `standard` | Controls where synced addons are placed. See [Layout](#layout). |
 
 ---
@@ -98,7 +99,11 @@ Developers who prefer SSH can configure git's `url.insteadOf` globally — see
 
 ## System packages
 
+A top-level key, beside `spec`:
+
 ```yaml
+spec:
+  addons-list: [...]
 system-packages:
   deb:
     - ghostscript
@@ -109,27 +114,34 @@ system-packages:
 |-------|----------|---------|-------------|
 | `deb` | no | `[]` | Debian package names, as `apt-get install` takes them. Versions cannot be pinned. |
 
-`deb` is the only supported key. Each name must follow Debian's rule for
+`deb` is the only supported key; another one is warned about, and dropped
+when odood saves the file. Each name must follow Debian's rule for
 package names: lowercase letters, digits, `+`, `-` and `.`, at least two
 characters, starting with a letter or digit. See
 [System packages](./assembly.md#system-packages) for how they are installed.
 
 ---
 
-## Docker
+## Packaging
 
-A top-level key, beside `spec`:
+A top-level key, beside `spec`. It holds what odood produces from the assembly;
+for now, the options of the generated `Dockerfile`:
 
 ```yaml
 spec:
   addons-list: [...]
-docker:
-  with-odoo-requirements: true
+packaging:
+  dockerfile:
+    with-odoo-requirements: true
 ```
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `with-odoo-requirements` | no | `false` | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
+| `dockerfile.with-odoo-requirements` | no | `false` | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
+
+`packaging.dockerfile` holds options only: it does not make odood generate
+the `Dockerfile`; `odood assembly sync --dockerfile` and
+`odood assembly release --dockerfile` do.
 
 With `with-odoo-requirements: true`, the image build installs the addons'
 Python requirements together with Odoo's own `requirements.txt`, so pip keeps
@@ -162,10 +174,29 @@ version in the assembly's `requirements.txt`. The setting applies after
 An addon without `source` is taken from the first source in `sources-list` that
 contains it, skipping sources with `no-search: true`.
 
-Every command that loads the spec refuses a `system-packages` with a key other
-than `deb`, or with a name that is not a valid Debian package name, and a
-`docker` with a key other than `with-odoo-requirements` or a value that is not
-`true` or `false`.
+Every command that loads `odood-assembly.yml` follows one rule: **an unknown
+key is warned about, a known key with a bad value is refused.**
+
+An unknown key does not stop the file from loading, so a file written by a
+newer odood still loads on an older one. That holds at every level: the top
+level, `spec`, its addon and source entries, `system-packages` and
+`packaging`. Odood warns about it, naming it in full: `pakaging`,
+`spec.addons-list[my_addon].freeze`, `spec.sources-list[oca_web].access_group`
+(a source without a name is named by its URL), `packaging.dockerfile.generate`.
+A misspelled key leaves its setting off: `with-odoo-requirement: true`, for
+example, does not enable the option.
+
+Odood drops unknown keys when it saves the file, for example after
+`odood assembly add-addon` or `add-system-package`. Fix a misspelled key
+before running a command that changes the file.
+
+Refused, because the value of a known key is wrong:
+
+- a `system-packages` that is not a mapping, or a `deb` name that is not a
+  valid Debian package name;
+- a `packaging` or `packaging.dockerfile` that is not a mapping, or a
+  `with-odoo-requirements` that is not `true` or `false`;
+- `system-packages` inside `spec`: it is a top-level key.
 
 ---
 
@@ -195,10 +226,11 @@ spec:
   known-addons:
     - sale
     - account
-  system-packages:
-    deb:
-      - poppler-utils                     # binaries the addons call
   layout: standard
-docker:
-  with-odoo-requirements: true            # image keeps Odoo's pinned versions
+system-packages:
+  deb:
+    - poppler-utils                       # binaries the addons call
+packaging:
+  dockerfile:
+    with-odoo-requirements: true          # image keeps Odoo's pinned versions
 ```
