@@ -162,7 +162,7 @@ sudo odood assembly upgrade --backup
 This will:
 1. Back up all databases (`--backup`)
 2. Pull the latest assembly changes — fast-forward only, so it fails on local changes or a diverged branch
-3. Install the missing Debian packages the pulled `odood-assembly.yml` lists (`--install-system-packages`)
+3. Install the missing Debian packages the pulled assembly definition lists (`--install-system-packages`)
 4. Relink addons
 5. Stop the server if it is running, then refresh the addon list and update the assembly's addons in every database
 6. Start the server again if it was running (or with `--start`)

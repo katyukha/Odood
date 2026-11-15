@@ -162,7 +162,7 @@ class Assembly {
         return null;
     }
 
-    /** Load assembly spec from specified path
+    /** Load the assembly at `path`: its definition and repository
       **/
     static Assembly load(in Path path, in OdooSerie serie,
             AssemblySourceProviderInterface source_provider,
@@ -170,7 +170,7 @@ class Assembly {
         auto assembly = maybeLoad(path, serie, source_provider, git_env);
         enforce!OdoodAssemblyException(
             assembly !is null,
-            "Cannot find and load Odood Assembly config at %s!".format(path));
+            "Cannot find and load the assembly definition (odood-assembly.yml) at %s!".format(path));
         return assembly;
     }
 
@@ -180,7 +180,7 @@ class Assembly {
         return _definition.toYAML;
     }
 
-    /** Save any changes to assembly spec
+    /** Save the assembly definition (`odood-assembly.yml`)
       **/
     void save() const {
         auto dumper = dyaml.dumper.dumper();
@@ -189,9 +189,9 @@ class Assembly {
         auto out_file = spec_path.openFile("w");
         scope (exit) out_file.close();
 
-        infof("Saving Odood Assembly config at %s ...", _path);
+        infof("Saving the assembly definition at %s ...", _path);
         dumper.dump(out_file.lockingTextWriter, toYAML);
-        infof("Odood Assembly config saved at %s", _path);
+        infof("Assembly definition saved at %s", _path);
     }
 
     /** Initialize new assembly
@@ -227,7 +227,8 @@ class Assembly {
         );
         enforce!OdoodAssemblyException(
             repo.path.join("odood-assembly.yml").exists,
-            "Cannot find assembly config in this repo (%s)".format(git_url.toString));
+            "Cannot find the assembly definition (odood-assembly.yml) in this repo (%s)".format(
+                git_url.toString));
         return load(repo.path, serie, source_provider, git_env);
     }
 

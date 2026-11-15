@@ -16,14 +16,10 @@ private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
 
-/** This module provides utilities to work with assembly spec.
-  * Assembly spec is YAML file, that describes what addons have to be included in assembly
-  * and in what sources to search for addons.
-  *
-  * Assembly spec consists of following sections:
-  * - addons
-  * - git-sources
-  *
+/** The `spec` section of the assembly definition (`odood-assembly.yml`): what
+  * the assembly contains. It lists the addons to include, the sources to find
+  * them in, the addons the target provides already (`known-addons`), and where
+  * the synced addons are placed (`layout`).
   **/
 
 
@@ -241,12 +237,12 @@ struct AssemblySpec {
     this(in Node yaml_node) {
         enforce!OdoodAssemblyInvalidSpecException(
             yaml_node.containsKey("spec"),
-            "Invalid assembly spec: 'spec' key missing!");
+            "Invalid assembly definition: 'spec' key missing!");
         auto spec = yaml_node["spec"];
 
         enforce!OdoodAssemblyInvalidSpecException(
             spec.containsKey("addons-list"),
-            "Invalid assembly spec: 'spec.addons-list' key missing!");
+            "Invalid assembly definition: 'spec.addons-list' key missing!");
         foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
@@ -264,7 +260,7 @@ struct AssemblySpec {
         // it would otherwise lose its packages without a word.
         enforce!OdoodAssemblyInvalidSpecException(
             !spec.containsKey("system-packages"),
-            "Invalid assembly spec: 'system-packages' is a top-level section of " ~
+            "Invalid assembly definition: 'system-packages' is a top-level section of " ~
             "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 
         if (spec.containsKey("layout")) {
@@ -781,7 +777,7 @@ unittest {
         "  system-packages:\n" ~
         "    deb: [poppler-utils]\n").load()
     ).shouldThrowWithMessage!OdoodAssemblyInvalidSpecException(
-        "Invalid assembly spec: 'system-packages' is a top-level section of " ~
+        "Invalid assembly definition: 'system-packages' is a top-level section of " ~
         "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 }
 

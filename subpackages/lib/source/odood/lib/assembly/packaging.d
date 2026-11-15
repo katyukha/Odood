@@ -30,14 +30,14 @@ struct AssemblyDockerfileSettings {
     this(in Node section) {
         enforce!OdoodAssemblyInvalidSpecException(
             section.nodeTypeString == "mapping",
-            "Invalid assembly spec: 'packaging.dockerfile' must be a mapping, " ~
+            "Invalid assembly definition: 'packaging.dockerfile' must be a mapping, " ~
             "e.g. 'with-odoo-requirements: true'");
         warnUnknownKeys(findUnknownKeys(
             section, ["with-odoo-requirements"], "packaging.dockerfile."));
         if (section.containsKey("with-odoo-requirements")) {
             enforce!OdoodAssemblyInvalidSpecException(
                 section["with-odoo-requirements"].type == NodeType.boolean,
-                "Invalid assembly spec: " ~
+                "Invalid assembly definition: " ~
                 "'packaging.dockerfile.with-odoo-requirements' must be true or false");
             _with_odoo_requirements = section["with-odoo-requirements"].as!bool;
         }
@@ -69,7 +69,7 @@ struct AssemblyPackaging {
     this(in Node section) {
         enforce!OdoodAssemblyInvalidSpecException(
             section.nodeTypeString == "mapping",
-            "Invalid assembly spec: 'packaging' must be a mapping, " ~
+            "Invalid assembly definition: 'packaging' must be a mapping, " ~
             "e.g. 'dockerfile: {with-odoo-requirements: true}'");
         warnUnknownKeys(findUnknownKeys(section, ["dockerfile"], "packaging."));
         if (section.containsKey("dockerfile"))

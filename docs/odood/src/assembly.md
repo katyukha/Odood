@@ -5,8 +5,9 @@ that is populated with addons from various sources in semi-automatic way.
 
 The main purpose of assembly is to simplify deployment process to production servers.
 
-Assembly contains `odood-assembly.yml` file (that is also referenced as `assembly-spec`),
-that describes list of addons and list of git sources to populate this assembly with.
+Assembly contains `odood-assembly.yml`, the **assembly definition**. Its `spec` section
+describes the list of addons and the list of git sources to populate this assembly with; other
+sections describe what hosts running the assembly need and what odood produces from it.
 All third-party addons will be placed into `dist` directory inside assembly during `sync` operation.
 
 After `spec` is created/updated there is need to run `sync` operation as next step.
@@ -19,9 +20,11 @@ the servers that use this assembly could be updated in single step, by calling c
 
 ## Assembly Spec
 
-Assembly spec is described in `odood-assembly.yml` file in root directory of assembly.
+The assembly definition is stored in `odood-assembly.yml` in the root directory of the
+assembly. Its `spec` section, the part described here, lists what the assembly contains; see
+the [Assembly Definition Reference](./assembly-spec.md) for every section and field.
 
-Assembly spec is [YAML](https://yaml.org/) file that looks like:
+The assembly definition is a [YAML](https://yaml.org/) file that looks like:
 
 ```yaml
 spec:
@@ -61,7 +64,7 @@ git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
 ```
 
 This transparently rewrites HTTPS URLs to SSH at the `git` level whenever Odood runs
-`git clone` or `git fetch`. The `odood-assembly.yml` spec stays unchanged, so CI keeps working
+`git clone` or `git fetch`. The assembly definition stays unchanged, so CI keeps working
 with HTTPS while you get SSH locally.
 
 ### Source naming and addon binding
@@ -226,7 +229,7 @@ already have it. The `Dockerfile` follows the list only after
 How the packages get installed depends on where the assembly runs:
 
 - **Docker image**: the generated `Dockerfile` installs them before it copies
-  the spec and the addons, so Docker rebuilds that layer only when the list
+  the assembly definition and the addons, so Docker rebuilds that layer only when the list
   changes.
 - **`odood deploy --assembly-repo`**: runs as root and installs the missing
   packages before linking the assembly.
@@ -281,7 +284,7 @@ Typical assembly workflow could be split into two parts:
 
 The first one includes such operations like:
 - Initialization of new assembly
-- Management of assembly spec, that describes what addons and from what sources have to be included in assembly.
+- Management of the assembly definition: its `spec` describes what addons and from what sources have to be included in assembly.
 - Assembly synchronization - just pull latest versions of addons defined in spec, and update the assembly repo.
 
 The second one, includes operations to be performed on server side.
@@ -299,7 +302,7 @@ odood assembly init
 ```
 
 This way, odood will create empty assembly for that project.
-The generated assembly config (`odood-assembly.yml`) could look like:
+The generated assembly definition (`odood-assembly.yml`) could look like:
 
 ```yaml
 spec:
@@ -338,7 +341,7 @@ This produces the same spec as the manual edit above. The commands are
 idempotent: an addon or source that is already present is skipped with a warning
 rather than failing (handy in scripts and CI). Binding an addon to an unknown
 `--source` name is still an error. Both commands accept `--commit` /
-`--commit-message` / `--push` / `--push-to` to commit and push the spec change in
+`--commit-message` / `--push` / `--push-to` to commit and push the change to the assembly definition in
 one step.
 
 To change a source that is already in the spec, use `update-source`. It takes
@@ -387,7 +390,7 @@ odood assembly sync
 ```
 
 After this command, specified addons will be located (updated) in the `dist` folder inside the assembly, ready to commit.
-Also, we have to manually add `odood-assembly.yml` to the git index before committing, to make sure the spec is committed too.
+Also, we have to manually add `odood-assembly.yml` to the git index before committing, to make sure the assembly definition is committed too.
 
 Next, we push the assembly to some git repo, and then we can use it on servers.
 
@@ -736,7 +739,7 @@ jobs:
 ```
 
 The `--dockerfile` flag instructs Odood to generate (or regenerate) a `Dockerfile` in the assembly
-repository root on every sync. This Dockerfile copies the spec and the synced `dist/` directory into
+repository root on every sync. This Dockerfile copies the assembly definition and the synced `dist/` directory into
 the image and runs `odood assembly use` and `odood assembly link` — it is what enables building a
 Docker image from the assembly.
 

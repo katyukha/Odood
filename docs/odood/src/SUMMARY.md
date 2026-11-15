@@ -28,7 +28,7 @@
 - [Custom Scripts](./custom-scripts.md)
 - [Frequently Used Commands](./frequently-used-commands.md)
 - [Command Reference](./odood-docs-command-ref.md)
-- [Assembly Spec](./assembly-spec.md)
+- [Assembly Definition](./assembly-spec.md)
 - [odoo-requirements.txt format](./odoo-requirements-txt.md)
 - [Migrate addons code to next Odoo serie](./addon-migration.md)
 - [Changelog](./changelog.md)

@@ -1,4 +1,5 @@
-/** Keys of a mapping in `odood-assembly.yml` that odood does not know.
+/** Keys of a mapping in the assembly definition (`odood-assembly.yml`) that
+  * odood does not know.
   *
   * They are not refused, so a file written by a newer odood still loads on an
   * older one. They are logged as a warning, fully qualified, so a typo shows
@@ -27,8 +28,8 @@ package(odood) string[] findUnknownKeys(
 package(odood) void warnUnknownKeys(in string[] names) {
     if (names.length > 0)
         warningf(
-            "Assembly: Unknown keys in odood-assembly.yml are ignored, " ~
-            "and dropped when the file is saved: %s",
+            "Assembly: Unknown keys in the assembly definition " ~
+            "(odood-assembly.yml) are ignored, and dropped when it is saved: %s",
             names.join(", "));
 }
 

@@ -1,7 +1,10 @@
-# Assembly Spec Reference
+# Assembly Definition Reference
 
-The assembly spec is stored in `odood-assembly.yml` in the root of the assembly repository.
-It is a [YAML](https://yaml.org/) file with these top-level keys:
+The **assembly definition** is everything odood needs to know about an assembly. It is
+stored in `odood-assembly.yml` in the root of the assembly repository, a
+[YAML](https://yaml.org/) file with these top-level keys. Its `spec` section describes what
+the assembly contains; the other sections describe what hosts running it need and what odood
+produces from it.
 
 | Key | Required | Description |
 |-----|----------|-------------|
@@ -174,7 +177,7 @@ version in the assembly's `requirements.txt`. The setting applies after
 An addon without `source` is taken from the first source in `sources-list` that
 contains it, skipping sources with `no-search: true`.
 
-Every command that loads `odood-assembly.yml` follows one rule: **an unknown
+Every command that loads the assembly definition follows one rule: **an unknown
 key is warned about, a known key with a bad value is refused.**
 
 An unknown key does not stop the file from loading, so a file written by a

@@ -519,7 +519,7 @@ class CommandAssemblyUpgrade: AssemblyCommandBase {
         this.addFlag!(start)("", "start",
             "Start the server if upgrade completed successfully and server was not running before upgrade.");
         this.addFlag!(installSystemPackages)("", "install-system-packages",
-            "Install the missing Debian packages the pulled odood-assembly.yml " ~
+            "Install the missing Debian packages the pulled assembly definition " ~
             "lists (system-packages.deb), before relinking. Must be run as root.");
         this.addFlag!(withOdooRequirements)("", "with-odoo-requirements",
             "Include Odoo's requirements.txt in the batch install of the relink.");
@@ -973,7 +973,7 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
 
 
 /* The Dockerfile installs the packages, but only `sync --dockerfile`
- * regenerates it from the spec. */
+ * regenerates it from the assembly definition. */
 private void hintDockerfileUpdate(Assembly assembly) {
     if (assembly.path.join("Dockerfile").exists)
         infof("Run 'odood assembly sync --dockerfile' to update the Dockerfile.");
@@ -985,7 +985,7 @@ class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
 
     this() {
         super("add-system-package",
-            "Add Debian package(s) the assembly needs to odood-assembly.yml (system-packages.deb).");
+            "Add Debian package(s) the assembly needs to the assembly definition (system-packages.deb).");
         this.addArgument!(packages)("package", "Name(s) of Debian package(s) to add.")
             .defaultValue([]);
         addSaveOptions();
@@ -1025,10 +1025,10 @@ class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
 
     this() {
         super("remove-system-package",
-            "Remove Debian package(s) from odood-assembly.yml (system-packages.deb).");
+            "Remove Debian package(s) from the assembly definition (system-packages.deb).");
         this.description(
             "Servers that already have the package keep it: removing it from " ~
-            "the spec does not uninstall it.");
+            "the assembly definition does not uninstall it.");
         this.addArgument!(packages)("package", "Name(s) of Debian package(s) to remove.")
             .defaultValue([]);
         addSaveOptions();

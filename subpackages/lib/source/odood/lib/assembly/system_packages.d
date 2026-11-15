@@ -30,7 +30,7 @@ struct AssemblySystemPackages {
     this(in Node section) {
         enforce!OdoodAssemblyInvalidSpecException(
             section.nodeTypeString == "mapping",
-            "Invalid assembly spec: 'system-packages' must map a package " ~
+            "Invalid assembly definition: 'system-packages' must map a package " ~
             "format to package names, e.g. 'deb: [ghostscript]'");
         warnUnknownKeys(findUnknownKeys(section, ["deb"], "system-packages."));
         if (section.containsKey("deb"))

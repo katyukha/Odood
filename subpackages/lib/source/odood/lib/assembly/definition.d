@@ -1,6 +1,7 @@
-/** What an assembly is, all sections of `odood-assembly.yml` in one model, so
-  * that loading, saving and reloading cannot forget one. A plain value: no
-  * path, git, network or Odoo serie; `Assembly` adds those.
+/** The assembly definition: what an assembly is, all sections of
+  * `odood-assembly.yml` in one model, so that loading, saving and reloading
+  * cannot forget one. A plain value: no path, git, network or Odoo serie;
+  * `Assembly` adds those.
   **/
 module odood.lib.assembly.definition;
 
@@ -17,7 +18,7 @@ private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys
 private immutable string[] ASSEMBLY_TOP_LEVEL_KEYS = ["spec", "system-packages", "packaging"];
 
 
-/** The definition of an assembly, the sections of `odood-assembly.yml`:
+/** The assembly definition, the sections of `odood-assembly.yml`:
   *
   * - `spec`: what the assembly contains;
   * - `system-packages`: what any host running it needs;

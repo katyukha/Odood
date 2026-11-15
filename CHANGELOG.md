@@ -60,8 +60,8 @@
   full (`spec.sources-list[oca_web].access_group`), so a typo shows up. They
   are not refused, so a file written by a newer odood loads on an older one,
   but they are still dropped when odood saves the file. A known key with a bad
-  value is refused. Library: `AssemblyDefinition`, what an assembly is: all
-  sections of the file in one value.
+  value is refused. Library: `AssemblyDefinition`, the assembly definition:
+  all sections of `odood-assembly.yml` in one value.
 
 ### Changed
 
@@ -81,6 +81,10 @@
   together with `--individual-requirements`, which ignored it: the per-addon
   installs would be free to move the versions Odoo pins.
 
+- Docs and messages call `odood-assembly.yml` as a whole the *assembly
+  definition*; `spec` is one of its sections. Errors in it start with
+  "Invalid assembly definition:", and the "Assembly Spec" docs page is now
+  "Assembly Definition" (same address).
 - Library: the `Assembly` constructor takes an `AssemblyDefinition` (the whole
   `odood-assembly.yml`) instead of an `AssemblySpec`. To build one from a spec:
   `AssemblyDefinition definition; definition.spec = spec;`.
