@@ -17,7 +17,7 @@ private import dini: Ini;
 private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.project:
     Project, OdooInstallType;
-private import odood.project.config: ProjectServerSupervisor;
+private import odood.project.config: ProjectServerSupervisor, INIT_SCRIPT_DEPRECATED;
 private import odood.lib.python.venv: PyInstallType, VenvOptions;
 private import odood.lib.python.odoo: guessVenvOptions;
 private import odood.utils.odoo.serie: OdooSerie;
@@ -104,7 +104,8 @@ class CommandDeploy: OdoodCommand {
             "Enable fail2ban for Odoo (requires fail2ban installed).");
 
         this.addOption!(supervisor)("", "supervisor",
-            "What supervisor to use for deployment. One of: odood, init-script, systemd. Default: systemd.")
+            "What supervisor to use for deployment. One of: odood, init-script " ~
+            "(deprecated, removed in odood 0.8.0), systemd. Default: systemd.")
             .defaultValue("systemd")
             .acceptsValues(["odood", "init-script", "systemd"]);
 
@@ -231,6 +232,8 @@ class CommandDeploy: OdoodCommand {
 
     override int execute() {
         auto deploy_config = parseDeployOptions();
+        if (deploy_config.odoo.server_supervisor == ProjectServerSupervisor.InitScript)
+            warningf(INIT_SCRIPT_DEPRECATED);
         validateDeploy(deploy_config);
 
         auto project = deployOdoo(deploy_config);

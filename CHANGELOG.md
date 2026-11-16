@@ -91,6 +91,12 @@
 
 ### Deprecated
 
+- The init-script supervisor (`odood deploy --supervisor=init-script`). odood
+  0.8.0 removes it completely, including starting and stopping Odoo through an
+  existing init script, so move such deployments before upgrading: to systemd,
+  or on a host without systemd to the odood supervisor. `deploy` and
+  `odood server start` warn when it is used. The production deployment docs
+  ("Init scripts (deprecated)") give the steps.
 - The assembly requirements lock, to be removed in odood 0.8.0:
   `requirements.lock.txt`, `odood assembly sync --generate-lock` and its
   `--with-odoo-requirements`. The lock freezes the whole virtualenv it is
@@ -105,6 +111,11 @@
 
 ### Fixed
 
+- `odood server start` on a server deployed with `--supervisor=odood` failed
+  with "Cannot start Odoo!": the pidfile was in `/var/run`, where Odoo, running
+  as the Odoo user, cannot write. New deployments keep it in the project root;
+  on an existing one, set `pidfile: /opt/odoo/odoo.pid` in the `odoo` section
+  of `/etc/odood.yml`.
 - Downloads (Odoo and Python sources, Odoo Apps addons) no longer save an HTTP
   error page as the file, which then failed to extract with
   `GZIP: inflate failed`. Rate limits (429) and server errors (5xx) are

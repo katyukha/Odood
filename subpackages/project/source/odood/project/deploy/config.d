@@ -93,6 +93,8 @@ struct DeployConfigOdoo {
     Path server_systemd_service_path = Path(
         "/", "etc", "systemd", "system", "odoo.service");
 
+    /// Where the init script keeps the pidfile. It writes the file as root;
+    /// other supervisors keep the project's default, in the project root.
     Path pidfile = Path("/", "var", "run", "odoo.pid");
 
     bool log_to_stderr = false;
@@ -289,7 +291,11 @@ struct DeployConfig {
         project_odoo.server_supervisor = this.odoo.server_supervisor;
         project_odoo.server_systemd_service_path = this.odoo.server_systemd_service_path;
         project_odoo.server_init_script_path = this.odoo.server_init_script_path;
-        project_odoo.pidfile = this.odoo.pidfile;
+        /* The odood supervisor's Odoo writes the pidfile itself, as the
+         * server user, who cannot write to /var/run: keep the default in the
+         * project root for it. */
+        if (this.odoo.server_supervisor == ProjectServerSupervisor.InitScript)
+            project_odoo.pidfile = this.odoo.pidfile;
         if (this.odoo.log_to_stderr)
             project_odoo.logfile.nullify;
 
@@ -305,4 +311,22 @@ struct DeployConfig {
             project_directories,
             project_odoo);
     }
+}
+
+
+// The pidfile goes where the process that writes it can write: in /var/run
+// for the init script, which writes it as root; in the project root for the
+// odood supervisor, whose Odoo writes it as the server user.
+unittest {
+    import unit_threaded.assertions;
+
+    DeployConfig config;
+    config.deploy_path = Path("/opt/odoo");
+    config.odoo.serie = OdooSerie("18.0");
+
+    config.odoo.server_supervisor = ProjectServerSupervisor.Odood;
+    config.prepareOdoodProject().odoo.pidfile.shouldEqual(Path("/opt/odoo/odoo.pid"));
+
+    config.odoo.server_supervisor = ProjectServerSupervisor.InitScript;
+    config.prepareOdoodProject().odoo.pidfile.shouldEqual(Path("/var/run/odoo.pid"));
 }

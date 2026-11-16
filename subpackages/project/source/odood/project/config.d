@@ -19,12 +19,19 @@ enum ProjectServerSupervisor {
     /// Server is managed by Odood.
     Odood,
 
-    /// Server is managed by init script in /etc/init.d odoo
+    /// Server is managed by init script in /etc/init.d odoo.
+    /// Deprecated, removed in odood 0.8.0 (`INIT_SCRIPT_DEPRECATED`).
     InitScript,
 
     /// Server is managed by systemd
     Systemd,
 }
+
+/// Why the init-script supervisor is deprecated, and what to use instead.
+package(odood) enum INIT_SCRIPT_DEPRECATED =
+    "The init-script supervisor is deprecated and will be removed in odood " ~
+    "0.8.0: use systemd, or on a host without systemd the odood supervisor. " ~
+    "See 'Init scripts (deprecated)' in the production deployment docs.";
 
 
 /** Struct that represents odoo-specific configuration

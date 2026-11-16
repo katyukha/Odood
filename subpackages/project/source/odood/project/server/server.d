@@ -17,6 +17,7 @@ private import thepath: Path;
 private import theprocess: Process, isProcessRunning;
 
 private import odood.project: Project, ProjectServerSupervisor;
+private import odood.project.config: INIT_SCRIPT_DEPRECATED;
 private import odood.utils.odoo.serie: OdooSerie;
 private import odood.exception: OdoodException;
 private import odood.project.server.exception;
@@ -316,6 +317,7 @@ struct OdooServer {
                 this.spawn(true);
                 break;
             case ProjectServerSupervisor.InitScript:
+                warningf(INIT_SCRIPT_DEPRECATED);
                 Process("/etc/init.d/odoo")
                     .withArgs("start")
                     .execute
