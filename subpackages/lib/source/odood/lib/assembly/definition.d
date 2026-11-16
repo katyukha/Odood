@@ -98,6 +98,7 @@ unittest {
         "system-packages:\n" ~
         "  rpm: [poppler-utils]\n" ~
         "packaging:\n" ~
+        "  changelog: true\n" ~
         "  dockerfile:\n" ~
         "    generate: true\n" ~
         "pakaging: {}\n").load()

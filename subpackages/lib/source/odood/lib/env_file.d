@@ -21,7 +21,7 @@ private import std.array: split;
 private import std.ascii: isAlpha, isAlphaNum;
 private import std.exception: enforce;
 private import std.format: format;
-private import std.string: indexOf, stripLeft, stripRight;
+private import std.string: indexOf, strip;
 
 private import odood.exception: OdoodException;
 
@@ -35,7 +35,7 @@ string[string] parseEnvFile(in string content, in string source) {
     // Split on '\n' only, as systemd and a shell do: a '\r' stays in the
     // line and is refused, instead of being dropped by odood alone.
     foreach(i, raw; content.split('\n')) {
-        immutable line = raw.stripLeft(" \t").stripRight(" \t");
+        immutable line = raw.strip(" \t");
         if (line.length == 0 || line[0] == '#')
             continue;
 

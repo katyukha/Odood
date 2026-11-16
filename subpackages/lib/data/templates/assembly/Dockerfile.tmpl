@@ -35,11 +35,7 @@ COPY requirements.lock.txt /opt/odoo/assembly/requirements.lock.txt
 # so an addon's requirement cannot replace a version Odoo pins.
 {% endif %}
 RUN odood assembly use /opt/odoo/assembly && \
-{% if assembly.packaging.dockerfile.with_odoo_requirements %}
-    odood assembly link --with-odoo-requirements && \
-{% else %}
-    odood assembly link && \
-{% endif %}
+    odood assembly link{% if assembly.packaging.dockerfile.with_odoo_requirements %} --with-odoo-requirements{% endif %} && \
     odood venv python -- -m compileall -q /opt/odoo/assembly/dist/ && \
     rm -rf /root/.cache/pip/
 {% elif assembly.spec.layout == AssemblyLayout.FLAT %}

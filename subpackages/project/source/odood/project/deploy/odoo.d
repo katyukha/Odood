@@ -214,8 +214,8 @@ Project deployOdoo(in DeployConfig config) {
     project.odoo.configfile.chown(0, pw_odoo.pw_gid);
     project.odoo.configfile.setAttributes(octal!640);
 
-    // Environment for Odoo, loaded by the system service and by odood
-    // itself. Like the config, it may hold secrets.
+    // Owned by root and readable by Odoo, like the config: Odoo must not
+    // change its own environment.
     project.odoo_env_file.writeFile(
         renderFile!("templates/deploy/odoo.env.tmpl", config));
     project.odoo_env_file.chown(0, pw_odoo.pw_gid);

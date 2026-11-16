@@ -760,8 +760,8 @@ class CommandAssemblyAddAddon: AssemblyCommandBase {
 }
 
 
-/* Saving shared by the commands that edit the spec: stage it, and commit and
- * push it on request. */
+/* Saving shared by the commands that edit the assembly definition: stage it,
+ * and commit and push it on request. */
 abstract class AssemblySpecCommandBase: AssemblyCommandBase {
     bool commit;
     Nullable!string commitMessage;
@@ -785,7 +785,7 @@ abstract class AssemblySpecCommandBase: AssemblyCommandBase {
         this.addOption!(pushTo)("", "push-to", "Name of branch to push changes to.");
     }
 
-    /// Save and stage the spec, then commit and push it as requested.
+    /// Save and stage the assembly definition, then commit and push it as requested.
     protected void saveSpec(Assembly assembly, in string default_message) {
         assembly.save();
         assembly.repo.add(assembly.spec_path);

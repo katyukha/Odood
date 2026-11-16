@@ -8,10 +8,9 @@
   *
   * A line applies to the https repositories under its prefix, matched on
   * whole path segments, ignoring case and a trailing `.git`; the longest
-  * matching prefix wins. They are kept in the environment rather than next
-  * to the repository URLs, as those are committed, and an
-  * `odoo_requirements.txt` belongs to the repository that lists the
-  * dependency, not to the one being built.
+  * matching prefix wins. They come from the environment, not the repository
+  * URLs: those are committed, and an `odoo_requirements.txt` belongs to the
+  * repository that lists the dependency.
   **/
 module odood.lib.git_credentials;
 

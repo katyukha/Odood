@@ -22,7 +22,6 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
-private import odood.lib.assembly.definition: AssemblyDefinition;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
@@ -753,7 +752,7 @@ class Assembly {
         syncAddons();
     }
 
-    /// Pull the assembly repo, and reload the spec and settings it brings.
+    /// Pull the assembly repo, and reload the assembly definition it brings.
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
         infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
@@ -1326,32 +1325,8 @@ unittest {
     (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
 }
 
-// An assembly built from a definition keeps all of its sections: they are
-// saved, and loading the assembly again brings them back.
-unittest {
-    import unit_threaded.assertions;
-    import thepath: createTempPath;
-
-    auto root = createTempPath;
-    scope(exit) root.remove();
-
-    AssemblyDefinition definition;
-    definition.spec.addAddon("generic_mixin");
-    definition.system_packages.addDeb("poppler-utils");
-    definition.packaging.setDockerfileWithOdooRequirements(true);
-
-    auto path = root.join("assembly");
-    path.mkdir(true);
-    new Assembly(path, definition, OdooSerie("17.0"), new TestSourceProvider(root)).save();
-
-    auto loaded = Assembly.load(path, OdooSerie("17.0"), new TestSourceProvider(root));
-    loaded.spec.addons.length.shouldEqual(1);
-    loaded.system_packages.deb.should == ["poppler-utils"];
-    loaded.packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
-}
-
 // setDockerfileWithOdooRequirements turns the setting on and off, and the saved
-// spec keeps it.
+// assembly definition keeps it.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1395,8 +1370,8 @@ unittest {
         .canFind("    odood assembly link --with-odoo-requirements && \\\n").shouldBeTrue;
 }
 
-// pull reloads the spec and the docker settings, so the steps after it
-// (link, installing system packages) work from what the pull brought.
+// pull reloads the assembly definition, so the steps after it (link,
+// installing system packages) work from what the pull brought.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;

@@ -4,141 +4,98 @@
 
 ### Added
 
-- `ODOOD_GIT_CREDENTIALS` gives credentials for private https repositories by
-  URL prefix, one `<prefix> <user>:<token>` per line. `odood repo add` and
-  `addons add --odoo-requirements` use them, also for the requirements of the
-  repositories they fetch, `odood repo pull-all` uses them for each
-  repository's `origin`, and so do assembly sources without
+- `ODOOD_GIT_CREDENTIALS`: credentials for private https repositories by URL
+  prefix, one `<prefix> <user>:<token>` per line. Used by `odood repo add`,
+  `addons add --odoo-requirements` (and the requirements of the repositories it
+  fetches), `odood repo pull-all`, and assembly sources without
   `ODOOD_ASSEMBLY_<name|group>_CRED`.
-- Library: `odood.git.gitCredentialEnv`,
-  `odood.lib.git_credentials.resolveGitCredentialEnv` and
-  `RepositoryManager.withCredentials`.
-- `system-packages.deb` in `odood-assembly.yml`, a top-level section beside
-  `spec`: Debian packages the addons need on any host running the assembly.
-  The generated `Dockerfile` installs them in a layer before the first
-  `COPY`, `odood deploy --assembly-repo` installs them, and the new
-  `odood assembly install-system-packages` (run as root) installs the missing
-  ones on an existing server, as does `odood assembly upgrade
-  --install-system-packages` after its pull. `odood assembly link` warns about
-  missing packages on Debian-based hosts. `odood assembly add-system-package` /
-  `remove-system-package` edit the list, and `odood assembly status` counts it.
-  Assemblies created with 0.7.2-dev.1 have it inside `spec`; odood now refuses
-  that place, and the section has to move to the top level.
-- Library: `odood.lib.deb` (`debMissingPackages`, `debInstallPackages`,
-  `isValidDebPackageName`), `Assembly.system_packages`
-  (`AssemblySystemPackages.deb`), `Assembly.installSystemPackages` and
-  `Assembly.addSystemPackageDeb` / `removeSystemPackageDeb`.
-- Environment variables for Odoo in `conf/odoo.env`. Odoo started by `odood`
-  (server, addons updates, database operations, tests, scripts) gets them, and
-  `odood deploy` creates the file and makes the systemd service
-  (`EnvironmentFile=`) and the init script load it, so the service and
-  `sudo odood ...` run Odoo with the same variables. A variable set in odood's
-  own environment wins over the file. The file accepts only the forms systemd,
-  a shell and odood read alike, and odood refuses other lines. Existing
-  deployments keep working as before; to use the file there, create it and add
-  `EnvironmentFile=-/opt/odoo/conf/odoo.env` to the service.
-- Library: `odood.lib.env_file.parseEnvFile`, `Project.odoo_env_file` and
-  `Project.odooEnv`.
-- `odood assembly upgrade` and `odood assembly pull --link` accept
-  `--with-odoo-requirements`, like `odood assembly link`: Odoo's
-  `requirements.txt` joins the install of the addons' Python requirements, so
-  pip keeps the versions Odoo pins, and puts back any package installed at
-  another version, for example one upgraded by hand.
-- `packaging.dockerfile.with-odoo-requirements` in `odood-assembly.yml`, in a
-  new top-level `packaging` section (what odood produces from the assembly):
-  when `true`, the generated `Dockerfile` runs
-  `odood assembly link --with-odoo-requirements`, so the image keeps the
-  versions Odoo pins. An addon requirement that needs another version of one
-  of them then fails the build with pip's `ResolutionImpossible`; pin a
-  compatible version in the assembly's `requirements.txt`. Off by default; it
-  applies after `odood assembly sync --dockerfile`. Library:
-  `Assembly.packaging` (`AssemblyPackaging`, `AssemblyDockerfileSettings`) and
-  `Assembly.setDockerfileWithOdooRequirements`.
-- Unknown keys in `odood-assembly.yml` are warned about instead of ignored
-  silently, at every level: the top level, `spec`, its addon and source
-  entries, `system-packages` and `packaging`. The warning names each key in
-  full (`spec.sources-list[oca_web].access_group`), so a typo shows up. They
-  are not refused, so a file written by a newer odood loads on an older one,
-  but they are still dropped when odood saves the file. A known key with a bad
-  value is refused. Library: `AssemblyDefinition`, the assembly definition:
-  all sections of `odood-assembly.yml` in one value.
+- Assembly definition: top-level `system-packages.deb`, the Debian packages the
+  addons need on any host. The generated `Dockerfile` and
+  `odood deploy --assembly-repo` install them; on existing servers
+  `odood assembly install-system-packages` and
+  `odood assembly upgrade --install-system-packages` (as root) install the
+  missing ones, and `odood assembly link` warns about them.
+  `odood assembly add-system-package` / `remove-system-package` edit the list.
+  Assemblies created with 0.7.2-dev.1 have to move it out of `spec`.
+- Environment variables for Odoo in `conf/odoo.env`, loaded by the systemd
+  service, the init script and every Odoo process odood starts, so the service
+  and `sudo odood ...` run Odoo with the same variables. odood's own
+  environment wins over the file, and lines a shell and systemd would read
+  differently are refused. `odood deploy` creates it; on an existing
+  deployment, create it and add `EnvironmentFile=-/opt/odoo/conf/odoo.env` to
+  the service.
+- `--with-odoo-requirements` for `odood assembly upgrade` and
+  `odood assembly pull --link`: Odoo's `requirements.txt` joins the addons'
+  install, so pip keeps, and puts back, the versions Odoo pins.
+- Assembly definition: top-level `packaging.dockerfile.with-odoo-requirements`
+  makes the generated `Dockerfile` link with `--with-odoo-requirements`. A
+  conflicting addon requirement then fails the build with
+  `ResolutionImpossible`; pin a compatible version in the assembly's
+  `requirements.txt`.
+- Unknown keys in the assembly definition are warned about, named in full
+  (`spec.sources-list[oca_web].access_group`), instead of ignored silently.
+  They are not refused, so a file from a newer odood still loads, but saving
+  the file drops them.
+- Library: `gitCredentialEnv`, `resolveGitCredentialEnv`,
+  `RepositoryManager.withCredentials`; `odood.lib.deb`; `odood.lib.env_file`,
+  `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition`, and on
+  `Assembly`: `system_packages`, `packaging`, `installSystemPackages`,
+  `addSystemPackageDeb` / `removeSystemPackageDeb`,
+  `setDockerfileWithOdooRequirements`.
 
 ### Changed
 
 - Credentials from `ODOOD_ASSEMBLY_<name|group>_CRED` work alongside a
-  `GIT_CONFIG_COUNT` set in the environment, are sent to the source's host
-  only, and replace the other credential helpers configured for that host.
-- Odoo started by `odood` as the server user gets `USER` and `LOGNAME` of that
-  user, as under the system service, instead of the caller's (`root` under
-  `sudo`).
-- Git passwords and tokens, from a repository URL or from
-  `ODOOD_GIT_CREDENTIALS` / `ODOOD_ASSEMBLY_<name|group>_CRED`, are shown as
-  `***` in git's output that odood adds to error messages, and wherever odood
-  prints a git command. The user of an http(s) URL is masked too, since it
-  may be a token.
+  `GIT_CONFIG_COUNT` in the environment, reach only the source's host, and
+  replace the other credential helpers for that host.
+- Git passwords and tokens, in a URL or from the credential variables, are
+  shown as `***` in git output and in git commands odood prints; so is the user
+  of an http(s) URL, which may be a token.
+- Odoo started by odood as the server user gets that user's `USER` and
+  `LOGNAME`, as under systemd, instead of the caller's.
+- `odood assembly link` and `odood addons link` refuse
+  `--with-odoo-requirements` together with `--individual-requirements`, which
+  ignored it.
+- Docs and messages call the whole `odood-assembly.yml` the *assembly
+  definition*; `spec` is one of its sections. Its errors start with
+  "Invalid assembly definition:".
+- Library: the `Assembly` constructor takes an `AssemblyDefinition` instead of
+  an `AssemblySpec` (`AssemblyDefinition d; d.spec = spec;`).
 - Requires `theprocess` 0.1.3.
-- `odood assembly link` and `odood addons link` refuse `--with-odoo-requirements`
-  together with `--individual-requirements`, which ignored it: the per-addon
-  installs would be free to move the versions Odoo pins.
-
-- Docs and messages call `odood-assembly.yml` as a whole the *assembly
-  definition*; `spec` is one of its sections. Errors in it start with
-  "Invalid assembly definition:", and the "Assembly Spec" docs page is now
-  "Assembly Definition" (same address).
-- Library: the `Assembly` constructor takes an `AssemblyDefinition` (the whole
-  `odood-assembly.yml`) instead of an `AssemblySpec`. To build one from a spec:
-  `AssemblyDefinition definition; definition.spec = spec;`.
 
 ### Deprecated
 
-- The init-script supervisor (`odood deploy --supervisor=init-script`). odood
-  0.8.0 removes it completely, including starting and stopping Odoo through an
-  existing init script, so move such deployments before upgrading: to systemd,
-  or on a host without systemd to the odood supervisor. `deploy` and
-  `odood server start` warn when it is used. The production deployment docs
-  ("Init scripts (deprecated)") give the steps.
-- The assembly requirements lock, to be removed in odood 0.8.0:
-  `requirements.lock.txt`, `odood assembly sync --generate-lock` and its
-  `--with-odoo-requirements`. The lock freezes the whole virtualenv it is
-  generated in, including the path of Odoo on that machine, so it fails on a
-  server where Odoo is installed elsewhere. `odood assembly link` still
-  installs from an existing lock, with a warning. Pin versions in the
-  assembly's `requirements.txt` instead, and link with
-  `--with-odoo-requirements`.
-- Library: `ProjectAssembly.generateRequirementsLock` and
-  `ProjectAssembly.sync(generate_lock, with_odoo_requirements)`; use
-  `ProjectAssembly.sync()`.
+- The init-script supervisor (`--supervisor=init-script`). odood 0.8.0 removes
+  it completely, starting and stopping existing init scripts included: before
+  upgrading, move such deployments to systemd, or without systemd to the odood
+  supervisor (see "Init scripts (deprecated)" in the production deployment
+  docs).
+- The assembly requirements lock, removed in 0.8.0: `requirements.lock.txt`,
+  `odood assembly sync --generate-lock` and its `--with-odoo-requirements`. It
+  freezes the whole virtualenv, including where Odoo is installed on that
+  machine. Pin versions in the assembly's `requirements.txt` and link with
+  `--with-odoo-requirements`. Library: `ProjectAssembly.generateRequirementsLock`
+  and `ProjectAssembly.sync(generate_lock, ...)`.
 
 ### Fixed
 
-- `odood server start` on a server deployed with `--supervisor=odood` failed
-  with "Cannot start Odoo!": the pidfile was in `/var/run`, where Odoo, running
-  as the Odoo user, cannot write. New deployments keep it in the project root;
-  on an existing one, set `pidfile: /opt/odoo/odoo.pid` in the `odoo` section
-  of `/etc/odood.yml`.
-- Downloads (Odoo and Python sources, Odoo Apps addons) no longer save an HTTP
-  error page as the file, which then failed to extract with
-  `GZIP: inflate failed`. Rate limits (429) and server errors (5xx) are
-  retried, other errors fail with the HTTP status, and a connection closed
-  before `Content-Length` bytes arrived is retried too.
-- A failed download no longer leaves a partial file at its destination, where
-  later installs reused it from `ODOOD_CACHE_DIR`.
-- `odood assembly upgrade-sources` lists the tags of an ssh source as the user
-  in its URL (`git@`) instead of the local user, and on GitLab CI with the job
-  token, as `odood assembly sync` does.
-- `odood assembly upgrade` and `odood assembly pull --link` relink with the
-  spec the pull brought, not the one loaded before it.
-- Errors of a failed clone, remote query (`ls-remote`) or `git remote add` no
-  longer show the credentials embedded in the repository URL
-  (`https://user:token@…`). The message listed the whole git command line,
-  token included, and Odood logs these errors.
-- `odood deploy --use-system-ca-bundle` applies to the Odoo processes `odood`
-  starts itself, such as `addons update`, not only to the service, and works
-  with `--supervisor=odood`, which ignored it. The bundle is now set in
-  `conf/odoo.env`.
-- The init script `odood deploy --supervisor=init-script` writes now starts
-  and stops Odoo: `/etc/init.d/odoo start` printed its usage and failed, and
-  the script wrote a different PID file than the one `odood server` checks.
+- Downloads no longer save an HTTP error page as the file (which then failed
+  with `GZIP: inflate failed`) or leave a partial file in the cache. Rate
+  limits, server errors and connections closed early are retried.
+- `odood assembly upgrade-sources` queries an ssh source as the user in its URL
+  (`git@`), and uses the job token on GitLab CI, as `sync` does.
+- `odood assembly upgrade` and `pull --link` relink with the assembly
+  definition the pull brought.
+- Git errors no longer show the credentials embedded in a repository URL.
+- `odood deploy --use-system-ca-bundle` also applies to the Odoo processes odood
+  starts itself, such as `addons update`, and to `--supervisor=odood`.
+- `odood server start` failed on servers deployed with `--supervisor=odood`:
+  the pidfile was in `/var/run`, where Odoo cannot write. New deployments keep
+  it in the project root; on an existing one, set `pidfile: /opt/odoo/odoo.pid`
+  in the `odoo` section of `/etc/odood.yml`.
+- The init script generated by `--supervisor=init-script` starts and stops
+  Odoo: it printed its usage instead, and used another pidfile than
+  `odood server`.
 
 ## Release 0.7.1 (2026-11-06)
 

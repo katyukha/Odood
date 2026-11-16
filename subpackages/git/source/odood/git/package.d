@@ -88,8 +88,7 @@ GitRepository gitClone(
     if (single_branch)
         proc.addArgs("--single-branch");
     proc.addArgs(clone_url, dest.toString);
-    // An own message: it names the URL without its credentials, where the
-    // default one lists every argument, with the credentials masked.
+    // An own message: it names the URL without its credentials.
     proc.execute().ensureOk(
         "Cannot clone %s to %s".format(redactCredentials(clone_url), dest), true);
     return new GitRepository(dest);

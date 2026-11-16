@@ -219,9 +219,8 @@ class ProjectAssembly {
         writeRequirementsLock(with_odoo_requirements);
     }
 
-    /* `generateRequirementsLock`, for the CLI's deprecated --generate-lock,
-     * which has to keep working without a deprecation warning in odood's own
-     * build. */
+    /* `generateRequirementsLock` without its deprecation, for the CLI's
+     * --generate-lock. */
     package(odood) void writeRequirementsLock(in bool with_odoo_requirements) {
         PyRequirements reqs;
 

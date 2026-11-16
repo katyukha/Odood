@@ -38,7 +38,7 @@ alias AssemblyDefaultLayout = AssemblyLayout.STANDARD;
 
 
 /* Keys `AssemblySpec` reads; others are reported as unknown. `git-sources`
- * is the older name of `sources-list`, `branch` of a source's `ref`. */
+ * is an alias of `sources-list`, `branch` of a source's `ref`. */
 private immutable string[] ASSEMBLY_SPEC_KEYS = [
     "addons-list", "sources-list", "git-sources", "known-addons", "layout",
 ];

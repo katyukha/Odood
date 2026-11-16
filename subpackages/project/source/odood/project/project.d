@@ -302,10 +302,9 @@ class Project {
         import std.process: environment;
         if (!odoo_env_file.exists)
             return null;
-        auto inherited = environment.toAA;
         string[string] res;
         foreach(name, value; parseEnvFile(odoo_env_file.readFileText, odoo_env_file.toString))
-            if (name !in inherited)
+            if (name !in environment)
                 res[name] = value;
         return res;
     }

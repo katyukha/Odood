@@ -13,7 +13,7 @@ private import std.typecons: Nullable, nullable;
 private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
-private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys;
+private import odood.lib.assembly.unknown_keys: checkSection;
 private import odood.lib.deb: isValidDebPackageName;
 
 
@@ -28,11 +28,7 @@ struct AssemblySystemPackages {
       * every package name is valid.
       **/
     this(in Node section) {
-        enforce!OdoodAssemblyInvalidSpecException(
-            section.nodeTypeString == "mapping",
-            "Invalid assembly definition: 'system-packages' must map a package " ~
-            "format to package names, e.g. 'deb: [ghostscript]'");
-        warnUnknownKeys(findUnknownKeys(section, ["deb"], "system-packages."));
+        checkSection(section, "system-packages", ["deb"], "deb: [ghostscript]");
         if (section.containsKey("deb"))
             foreach(node; section["deb"].sequence) {
                 auto name = node.as!string;
@@ -97,15 +93,6 @@ unittest {
     load("[ghostscript]").shouldThrow!OdoodAssemblyInvalidSpecException;
     load("deb: ['--allow-unauthenticated']")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
-}
-
-// An unknown key, such as an unsupported package format, is not refused.
-unittest {
-    import dyaml: Loader;
-    import unit_threaded.assertions;
-
-    AssemblySystemPackages(Loader.fromString("debs: [ghostscript]\n").load())
-        .deb.length.shouldEqual(0);
 }
 
 // addDeb / removeDeb keep the list free of duplicates and invalid names, and
