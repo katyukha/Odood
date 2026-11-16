@@ -127,31 +127,38 @@ characters, starting with a letter or digit. See
 
 ## Packaging
 
-A top-level key, beside `spec`. It holds what odood produces from the assembly;
-for now, the options of the generated `Dockerfile`:
+A top-level key, beside `spec`. It holds what odood produces from the
+assembly: the generated `Dockerfile` and its options.
 
 ```yaml
 spec:
   addons-list: [...]
 packaging:
   dockerfile:
+    generate: true
     with-odoo-requirements: true
 ```
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
+| `dockerfile.generate` | no | `false` | `odood assembly sync` and `odood assembly release` write the `Dockerfile` (and a default `.dockerignore`). Needs `layout: standard`. |
 | `dockerfile.with-odoo-requirements` | no | `false` | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
 
-`packaging.dockerfile` holds options only: it does not make odood generate
-the `Dockerfile`; `odood assembly sync --dockerfile` and
-`odood assembly release --dockerfile` do.
+With `generate: true`, `sync` keeps the `Dockerfile` in step with the assembly
+definition (system packages, the options below), and `release` labels the
+image with the new version. Odood rewrites only the part above the
+`# ---- ODOOD END DYNAMIC DOCKER CONFIG ----` line; lines you add below it are
+kept. A flat assembly is refused: its addons are in the repository root, which
+the `Dockerfile` does not copy.
+
+The `--dockerfile` flag of `sync` and `release` does the same for one run. It
+is deprecated and will be removed in odood 0.8.0.
 
 With `with-odoo-requirements: true`, the image build installs the addons'
 Python requirements together with Odoo's own `requirements.txt`, so pip keeps
 the versions Odoo pins. An addon requirement that needs another version of one
 of them fails the build with pip's `ResolutionImpossible`; pin a compatible
-version in the assembly's `requirements.txt`. The setting applies after
-`odood assembly sync --dockerfile` regenerates the `Dockerfile`. See
+version in the assembly's `requirements.txt`. See
 [Python requirements](./assembly.md#python-requirements).
 
 ---

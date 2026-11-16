@@ -22,6 +22,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyException,
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
+private import odood.lib.assembly.definition: enforceDockerfileLayout;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
@@ -798,6 +799,13 @@ class Assembly {
         _definition.system_packages.removeDeb(name);
     }
 
+    /// Set `packaging.dockerfile.generate`: whether `odood assembly sync` and
+    /// `release` write the Dockerfile. Refused for a flat assembly.
+    void setDockerfileGenerate(in bool value) {
+        enforceDockerfileLayout(spec.layout, value);
+        _definition.packaging.setDockerfileGenerate(value);
+    }
+
     /// Set `packaging.dockerfile.with-odoo-requirements`: whether the
     /// generated Dockerfile links the assembly with Odoo's requirements.
     void setDockerfileWithOdooRequirements(in bool value) {
@@ -1325,8 +1333,8 @@ unittest {
     (install >= 0 && install < dockerfile.indexOf("\nCOPY ")).shouldBeTrue;
 }
 
-// setDockerfileWithOdooRequirements turns the setting on and off, and the saved
-// assembly definition keeps it.
+// The image is labelled with its version and source repository only when the
+// assembly has them: an empty "" is true in a template condition.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1335,12 +1343,42 @@ unittest {
     scope(exit) root.remove();
 
     auto assembly = makeTestAssembly(root, []);
+    assembly.generateDockerfile("");
+    assembly.path.join("Dockerfile").readFileText
+        .canFind("org.opencontainers.image").shouldBeFalse;
+
+    assembly.repo.remoteAdd("origin", "https://example.test/org/assembly.git");
+    assembly.generateDockerfile("1.2.0");
+    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
+    dockerfile.canFind("LABEL org.opencontainers.image.version=\"1.2.0\"\n").shouldBeTrue;
+    dockerfile.canFind("LABEL org.opencontainers.image.source=" ~
+        "\"https://example.test/org/assembly").shouldBeTrue;
+}
+
+// The packaging.dockerfile setters turn their option on and off, and the
+// saved assembly definition keeps it; generate is refused for a flat assembly.
+unittest {
+    import unit_threaded.assertions;
+    import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
     foreach(value; [true, false]) {
+        assembly.setDockerfileGenerate(value);
         assembly.setDockerfileWithOdooRequirements(value);
         assembly.save();
-        Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
-            .packaging.dockerfile.with_odoo_requirements.shouldEqual(value);
+        auto dockerfile = Assembly.load(
+            assembly.path, assembly.serie, new TestSourceProvider(root)).packaging.dockerfile;
+        dockerfile.generate.shouldEqual(value);
+        dockerfile.with_odoo_requirements.shouldEqual(value);
     }
+
+    assembly.spec_path.writeFile("spec:\n  addons-list: []\n  layout: flat\n");
+    Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
+        .setDockerfileGenerate(true).shouldThrow!OdoodAssemblyInvalidSpecException;
 }
 
 // The Dockerfile links with Odoo's requirements only when the assembly asks

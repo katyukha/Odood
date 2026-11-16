@@ -228,8 +228,9 @@ odood assembly remove-system-package ghostscript
 ```
 
 Removing a package from the list does not uninstall it from servers that
-already have it. The `Dockerfile` follows the list only after
-`odood assembly sync --dockerfile` regenerates it.
+already have it. The `Dockerfile` follows the list on the next
+`odood assembly sync`, with
+[`packaging.dockerfile.generate: true`](./assembly-spec.md#packaging).
 
 How the packages get installed depends on where the assembly runs:
 
@@ -567,11 +568,13 @@ cannot exist until the branch is merged, and two PRs branched from the same
 point would otherwise both claim the same number.
 
 A release assigns the version once and writes it into every artifact it
-regenerates from that single value: with `--changelog` and `--dockerfile`, the
-tag, the changelog and the Docker image label cannot disagree.
+regenerates from that single value: with `--changelog`, and with
+[`packaging.dockerfile.generate: true`](./assembly-spec.md#packaging) in
+`odood-assembly.yml`, the tag, the changelog and the Docker image label cannot
+disagree.
 
 ```bash
-odood assembly release --changelog --dockerfile --push
+odood assembly release --changelog --push
 ```
 
 This creates a tag named after the new version, and generates in the root
@@ -735,7 +738,6 @@ jobs:
       - name: Sync assembly
         run: |
           odood --config-from-env -v -d assembly -p . sync \
-            --dockerfile \
             --changelog-preview \
             --commit \
             --commit-user='Github Action' \
@@ -743,10 +745,18 @@ jobs:
             --push
 ```
 
-The `--dockerfile` flag instructs Odood to generate (or regenerate) a `Dockerfile` in the assembly
-repository root on every sync. This Dockerfile copies the assembly definition and the synced `dist/` directory into
-the image and runs `odood assembly use` and `odood assembly link` — it is what enables building a
-Docker image from the assembly.
+With `packaging.dockerfile.generate: true` in `odood-assembly.yml`, every sync generates (or
+regenerates) a `Dockerfile` in the assembly repository root:
+
+```yaml
+packaging:
+  dockerfile:
+    generate: true
+```
+
+This Dockerfile copies the assembly definition and the synced `dist/` directory into the image and
+runs `odood assembly use` and `odood assembly link` — it is what enables building a Docker image
+from the assembly.
 
 The `--changelog-preview` flag writes the pending changelog under an
 `## Unreleased` heading, so the update branch carries it in the pull-request
@@ -799,7 +809,6 @@ jobs:
       - name: Sync assembly
         run: |
           odood -v -d --config-from-env assembly sync \
-            --dockerfile \
             --changelog-preview \
             --commit \
             --commit-user='Github Action' \
@@ -846,8 +855,8 @@ jobs:
 Key flags used in the sync step:
 - `--push-to=18.0-assembly-update` — pushes to a dedicated update branch instead of the current one.
 - `--fail-nothing-to-commit` — exits non-zero if no addons changed, preventing a no-op PR.
-- `--dockerfile --changelog-preview` — regenerate the Dockerfile and the changelog preview in the
-  same commit. The push is made with `GITHUB_TOKEN`, which does not trigger other workflows, so
+- `--changelog-preview` — writes the changelog preview in the same commit as the synced addons
+  and, with `packaging.dockerfile.generate`, the Dockerfile. The push is made with `GITHUB_TOKEN`, which does not trigger other workflows, so
   the `Sync assembly` workflow above does not run on the update branch.
 - `assembly use .` — attaches the checked-out assembly to the image's Odood project (saved in its
   `odood.yml`), so the following `assembly` commands need no `-p .`.
@@ -917,7 +926,6 @@ jobs:
         run: |
           odood -v -d --config-from-env assembly release \
             --changelog \
-            --dockerfile \
             --commit-user='Github Action' \
             --commit-email='github-action@odood.dev' \
             --push

@@ -296,23 +296,24 @@ Every assembly release becomes a distinct, pinned image that can be rolled back 
 
 ### Building assembly images
 
-Odood generates the `Dockerfile` automatically. Add `--dockerfile` to the `assembly sync` command
-in your CI workflow and it will be created (or updated) on every sync:
+Odood generates the `Dockerfile` automatically. Turn it on in `odood-assembly.yml`, and the
+`assembly sync` command in your CI workflow creates (or updates) it on every sync:
+
+```yaml
+packaging:
+  dockerfile:
+    generate: true
+```
 
 ```bash
-odood --config-from-env assembly sync \
-    --dockerfile \
-    --commit --push
+odood --config-from-env assembly sync --commit --push
 ```
 
 The image version label is stamped when the assembly is released, so the release
 step regenerates the Dockerfile too:
 
 ```bash
-odood --config-from-env assembly release \
-    --changelog \
-    --dockerfile \
-    --push
+odood --config-from-env assembly release --changelog --push
 ```
 
 The image build itself is bound to the release tag: pushing the tag triggers

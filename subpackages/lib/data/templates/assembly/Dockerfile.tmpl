@@ -46,10 +46,10 @@ RUN odood assembly use /opt/odoo/assembly && \
 {% endif %}
 
 LABEL odoo.serie="{{ assembly.serie }}"
-{% if assembly_version %}
+{% if assembly_version.length > 0 %}
 LABEL org.opencontainers.image.version="{{ assembly_version }}"
 {% endif %}
-{% if assembly_source_url %}
+{% if assembly_source_url.length > 0 %}
 LABEL org.opencontainers.image.source="{{ assembly_source_url }}"
 {% endif %}
 STOPSIGNAL SIGINT

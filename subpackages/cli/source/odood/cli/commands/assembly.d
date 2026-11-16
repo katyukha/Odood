@@ -25,6 +25,11 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
+private enum DOCKERFILE_FLAG_DEPRECATED =
+    "Option --dockerfile is deprecated and will be removed in odood 0.8.0: " ~
+    "set 'packaging.dockerfile.generate: true' in odood-assembly.yml instead, " ~
+    "and 'odood assembly sync' and 'release' write the Dockerfile.";
+
 /* Files sync generates itself; anything else dirty is not sync's to touch. */
 private string[] syncGeneratedPaths() {
     return [
@@ -177,7 +182,10 @@ class CommandAssemblySync: AssemblyCommandBase {
             "Write CHANGELOG.md with the pending changes under an "
             ~ "'## Unreleased' heading. No version is assigned; "
             ~ "'odood assembly release --changelog' replaces the section.");
-        this.addFlag!(dockerfile)("", "dockerfile", "Generate Dockerfile for assembly.");
+        this.addFlag!(dockerfile)("", "dockerfile",
+            "Deprecated, removed in odood 0.8.0: set "
+            ~ "'packaging.dockerfile.generate: true' in odood-assembly.yml. "
+            ~ "Generate Dockerfile for assembly.");
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
         this.addFlag!(generateLock)("", "generate-lock",
@@ -210,6 +218,8 @@ class CommandAssemblySync: AssemblyCommandBase {
             project.assembly.raw.generateChangelogPreview;
 
         if (dockerfile)
+            warningf(DOCKERFILE_FLAG_DEPRECATED);
+        if (dockerfile || project.assembly.raw.packaging.dockerfile.generate)
             project.assembly.raw.generateDockerfile;
 
         if (addonsListMd || addonsListCsv)
@@ -289,7 +299,9 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             "Create the VERSION file even if the assembly does not have one. "
             ~ "An existing VERSION file is always updated.");
         this.addFlag!(dockerfile)("", "dockerfile",
-            "Regenerate the Dockerfile so its version label matches this release.");
+            "Deprecated, removed in odood 0.8.0: set "
+            ~ "'packaging.dockerfile.generate: true' in odood-assembly.yml. "
+            ~ "Regenerate the Dockerfile so its version label matches this release.");
         this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md.");
         this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv.");
         this.addOption!(baseRef)("", "base-ref",
@@ -307,6 +319,8 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         auto assembly = project.assembly.raw;
         auto repo = assembly.repo;
         immutable serie_str = project.odoo.serie.toString;
+        if (dockerfile)
+            warningf(DOCKERFILE_FLAG_DEPRECATED);
 
         auto current_branch = repo.getCurrBranch();
         immutable on_stable =
@@ -398,7 +412,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         if (changelog)
             assembly.generateChangelog(result.get);
         assembly.generateVersionFile(result.get.new_version, create: versionFile);
-        if (dockerfile)
+        if (dockerfile || assembly.packaging.dockerfile.generate)
             assembly.generateDockerfile(tag_name);
         if (addonsListMd || addonsListCsv)
             assembly.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
@@ -972,11 +986,14 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
 }
 
 
-/* The Dockerfile installs the packages, but only `sync --dockerfile`
- * regenerates it from the assembly definition. */
+/* The Dockerfile installs the packages, but only sync and release regenerate
+ * it from the assembly definition. */
 private void hintDockerfileUpdate(Assembly assembly) {
-    if (assembly.path.join("Dockerfile").exists)
-        infof("Run 'odood assembly sync --dockerfile' to update the Dockerfile.");
+    if (assembly.packaging.dockerfile.generate)
+        infof("Run 'odood assembly sync' to update the Dockerfile.");
+    else if (assembly.path.join("Dockerfile").exists)
+        infof("Set 'packaging.dockerfile.generate: true' in odood-assembly.yml " ~
+            "and run 'odood assembly sync' to update the Dockerfile.");
 }
 
 

@@ -6,9 +6,13 @@
 module odood.lib.assembly.definition;
 
 
+private import std.exception: enforce;
+
 private import dyaml: Node;
 
-private import odood.lib.assembly.spec: AssemblySpec;
+private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
+
+private import odood.lib.assembly.spec: AssemblySpec, AssemblyLayout;
 private import odood.lib.assembly.system_packages: AssemblySystemPackages;
 private import odood.lib.assembly.packaging: AssemblyPackaging;
 private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys;
@@ -16,6 +20,16 @@ private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys
 
 /// Top-level keys of `odood-assembly.yml`.
 private immutable string[] ASSEMBLY_TOP_LEVEL_KEYS = ["spec", "system-packages", "packaging"];
+
+
+/* A flat assembly keeps its addons in the repository root, which the
+ * Dockerfile template does not copy: the image would have no addons. */
+package(odood) void enforceDockerfileLayout(in AssemblyLayout layout, in bool generate) {
+    enforce!OdoodAssemblyInvalidSpecException(
+        !generate || layout != AssemblyLayout.FLAT,
+        "Invalid assembly definition: 'packaging.dockerfile.generate' needs " ~
+        "'layout: standard'; a flat assembly cannot build a Docker image");
+}
 
 
 /** The assembly definition, the sections of `odood-assembly.yml`:
@@ -48,6 +62,7 @@ struct AssemblyDefinition {
             system_packages = AssemblySystemPackages(root["system-packages"]);
         if (root.containsKey("packaging"))
             packaging = AssemblyPackaging(root["packaging"]);
+        enforceDockerfileLayout(spec.layout, packaging.dockerfile.generate);
         warnUnknownKeys(findUnknownKeys(root, ASSEMBLY_TOP_LEVEL_KEYS, ""));
     }
 
@@ -100,7 +115,21 @@ unittest {
         "packaging:\n" ~
         "  changelog: true\n" ~
         "  dockerfile:\n" ~
-        "    generate: true\n" ~
+        "    base-image: odoo:18\n" ~
         "pakaging: {}\n").load()
     ).packaging.dockerfile.with_odoo_requirements.shouldBeFalse;
+}
+
+// A generated Dockerfile is refused for a flat assembly, which it could not
+// build an image of.
+unittest {
+    import dyaml: Loader;
+    import unit_threaded.assertions;
+
+    auto load(in string layout) => AssemblyDefinition(Loader.fromString(
+        "spec:\n  addons-list: []\n  layout: " ~ layout ~ "\n" ~
+        "packaging:\n  dockerfile:\n    generate: true\n").load());
+
+    load("standard").packaging.dockerfile.generate.shouldBeTrue;
+    load("flat").shouldThrow!OdoodAssemblyInvalidSpecException;
 }

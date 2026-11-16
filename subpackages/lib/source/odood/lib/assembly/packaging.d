@@ -5,6 +5,7 @@
 module odood.lib.assembly.packaging;
 
 private import std.exception: enforce;
+private import std.format: format;
 private import std.typecons: Nullable, nullable;
 
 private import dyaml: Node, NodeType;
@@ -13,11 +14,9 @@ private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
 private import odood.lib.assembly.unknown_keys: checkSection;
 
 
-/** Options of the generated Dockerfile (`packaging.dockerfile`). They apply
-  * whenever the Dockerfile is generated; the section's presence does not make
-  * odood generate it.
-  **/
+/// The generated Dockerfile (`packaging.dockerfile`).
 struct AssemblyDockerfileSettings {
+    private bool _generate;
     private bool _with_odoo_requirements;
 
     /** Read the `packaging.dockerfile` section. An unknown key is logged as a
@@ -27,26 +26,40 @@ struct AssemblyDockerfileSettings {
       * every known option has a boolean value.
       **/
     this(in Node section) {
-        checkSection(section, "packaging.dockerfile", ["with-odoo-requirements"],
-            "with-odoo-requirements: true");
-        if (section.containsKey("with-odoo-requirements")) {
+        checkSection(section, "packaging.dockerfile",
+            ["generate", "with-odoo-requirements"], "generate: true");
+
+        bool option(in string key) {
+            if (!section.containsKey(key))
+                return false;
             enforce!OdoodAssemblyInvalidSpecException(
-                section["with-odoo-requirements"].type == NodeType.boolean,
-                "Invalid assembly definition: " ~
-                "'packaging.dockerfile.with-odoo-requirements' must be true or false");
-            _with_odoo_requirements = section["with-odoo-requirements"].as!bool;
+                section[key].type == NodeType.boolean,
+                ("Invalid assembly definition: 'packaging.dockerfile.%s' " ~
+                 "must be true or false").format(key));
+            return section[key].as!bool;
         }
+        _generate = option("generate");
+        _with_odoo_requirements = option("with-odoo-requirements");
     }
+
+    /// `odood assembly sync` and `release` write the Dockerfile
+    /// (`packaging.dockerfile.generate`).
+    @property bool generate() const => _generate;
 
     /// The generated Dockerfile links the assembly with Odoo's requirements
     /// (`packaging.dockerfile.with-odoo-requirements`).
     @property bool with_odoo_requirements() const => _with_odoo_requirements;
 
-    /// The section to save; null when every option has its default.
+    /// The section to save, with the options that are on; null when none is.
     Nullable!Node toYAML() const {
-        if (!_with_odoo_requirements)
+        auto res = Node(string[].init, bool[].init);
+        if (_generate)
+            res["generate"] = true;
+        if (_with_odoo_requirements)
+            res["with-odoo-requirements"] = true;
+        if (res.length == 0)
             return Nullable!Node.init;
-        return Node(["with-odoo-requirements": true]).nullable;
+        return res.nullable;
     }
 }
 
@@ -63,13 +76,18 @@ struct AssemblyPackaging {
       **/
     this(in Node section) {
         checkSection(section, "packaging", ["dockerfile"],
-            "dockerfile: {with-odoo-requirements: true}");
+            "dockerfile: {generate: true}");
         if (section.containsKey("dockerfile"))
             _dockerfile = AssemblyDockerfileSettings(section["dockerfile"]);
     }
 
     /// Options of the generated Dockerfile (`packaging.dockerfile`).
     @property auto dockerfile() const => _dockerfile;
+
+    /// Set `packaging.dockerfile.generate`.
+    package(odood) void setDockerfileGenerate(in bool value) {
+        _dockerfile._generate = value;
+    }
 
     /// Set `packaging.dockerfile.with-odoo-requirements`.
     package(odood) void setDockerfileWithOdooRequirements(in bool value) {
@@ -85,18 +103,24 @@ struct AssemblyPackaging {
     }
 }
 
-// packaging.dockerfile.with-odoo-requirements survives a save; it is off by
-// default, and then the section is left out.
+// Each packaging.dockerfile option is read, and survives a save, on its own
+// and together; both are off by default, and then the section is left out.
 unittest {
     import dyaml: Loader;
     import unit_threaded.assertions;
 
-    auto packaging = AssemblyPackaging(Loader.fromString(
-        "dockerfile:\n  with-odoo-requirements: true\n").load());
-    packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
-    AssemblyPackaging(packaging.toYAML.get)
-        .dockerfile.with_odoo_requirements.shouldBeTrue;
+    void check(in string options, in bool generate, in bool with_odoo_requirements) {
+        auto loaded = AssemblyPackaging(Loader.fromString("dockerfile: " ~ options).load());
+        foreach(packaging; [loaded, AssemblyPackaging(loaded.toYAML.get)]) {
+            packaging.dockerfile.generate.shouldEqual(generate);
+            packaging.dockerfile.with_odoo_requirements.shouldEqual(with_odoo_requirements);
+        }
+    }
+    check("{generate: true}", true, false);
+    check("{with-odoo-requirements: true}", false, true);
+    check("{generate: true, with-odoo-requirements: true}", true, true);
 
+    AssemblyPackaging.init.dockerfile.generate.shouldBeFalse;
     AssemblyPackaging.init.dockerfile.with_odoo_requirements.shouldBeFalse;
     AssemblyPackaging.init.toYAML.isNull.shouldBeTrue;
 }
@@ -114,5 +138,7 @@ unittest {
     load("dockerfile: [with-odoo-requirements]")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
     load("dockerfile: {with-odoo-requirements: 'yes please'}")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("dockerfile: {generate: 1}")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
 }
