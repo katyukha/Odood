@@ -123,6 +123,11 @@ class ProjectAssembly {
         if (lock_path.exists) {
             // Lock file present: install only from it, skip per-addon scanning
             warningf("Assembly Link: %s: %s", ASSEMBLY_REQUIREMENTS_LOCK, REQUIREMENTS_LOCK_DEPRECATED);
+            if (with_odoo_requirements)
+                warningf(
+                    "Assembly Link: --with-odoo-requirements is ignored: " ~
+                    "requirements are installed from %s only.",
+                    ASSEMBLY_REQUIREMENTS_LOCK);
             infof("Assembly Link: Installing requirements from lock file '%s'", lock_path);
             _project.venv.installPyRequirements(lock_path);
 

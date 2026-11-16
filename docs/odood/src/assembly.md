@@ -214,6 +214,11 @@ Odood does not work out the package names from the addons' manifests. The
 mapping from a binary to a package is up to you, and can differ between
 distribution releases.
 
+List real packages, not virtual ones such as `awk` or `mail-transport-agent`.
+Odood checks what is installed by package name, so a virtual name is always
+reported missing, and every install runs `apt-get` for it again. Name the
+package that provides it instead, for example `gawk` or `mawk`.
+
 The list can also be edited from the command line. Both commands take
 `--commit` and `--push` like `add-source`:
 

@@ -115,7 +115,7 @@ system-packages:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `deb` | no | `[]` | Debian package names, as `apt-get install` takes them. Versions cannot be pinned. |
+| `deb` | no | `[]` | Debian package names, as `apt-get install` takes them. Real packages only: a virtual one (e.g. `awk`) is always reported missing. Versions cannot be pinned. |
 
 `deb` is the only supported key; another one is warned about, and dropped
 when odood saves the file. Each name must follow Debian's rule for

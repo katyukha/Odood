@@ -314,6 +314,10 @@ unittest {
     config.odoo.system_ca_bundle_path = Path("/etc/ssl/certs/ca-certificates.crt");
     parseEnvFile(renderFile!("templates/deploy/odoo.env.tmpl", config), "odoo.env")
         .shouldEqual(["REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt"]);
+    // Quoted, so a path the unquoted form cannot hold (a space) still parses.
+    config.odoo.system_ca_bundle_path = Path("/etc/ssl/my certs/ca.pem");
+    parseEnvFile(renderFile!("templates/deploy/odoo.env.tmpl", config), "odoo.env")
+        .shouldEqual(["REQUESTS_CA_BUNDLE": "/etc/ssl/my certs/ca.pem"]);
 
     renderFile!("templates/deploy/systemd.tmpl", project, config)
         .canFind("\nEnvironmentFile=-" ~ project.odoo_env_file.toString ~ "\n")
