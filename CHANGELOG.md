@@ -44,7 +44,8 @@
   has them, instead of dropping them.
 - Assembly definition: top-level `meta.format-version`, the format of the
   file. A format newer than the running odood is refused, with a message to
-  upgrade odood. Every file so far is format 1, the default.
+  upgrade odood. Odood writes it whenever it saves the file; a file without
+  it is format 1.
 - Library: `gitCredentialEnv`, `resolveGitCredentialEnv`,
   `RepositoryManager.withCredentials`; `odood.lib.deb`; `odood.lib.env_file`,
   `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition` (with

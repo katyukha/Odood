@@ -14,6 +14,8 @@ produces from it.
 | `meta` | no | How to read the file: its format version. See [Meta](#meta). |
 
 ```yaml
+meta:
+  format-version: 1
 spec:
   addons-list: [...]
   sources-list: [...]
@@ -203,8 +205,12 @@ spec:
 The format changes only when a key moves, is renamed or changes meaning; an
 added key does not change it. A file in a format newer than the odood reading
 it is refused, with a message to upgrade odood, before anything else in it is
-read. Every file so far is format 1, so odood leaves `meta` out when it saves
-the file.
+read.
+
+Odood writes `meta.format-version` whenever it saves the file, so a file
+edited by a newer odood says which format it needs, and an older odood asks
+to be upgraded instead of misreading it. A file without it, written by hand
+or by an older odood, is format 1.
 
 ---
 

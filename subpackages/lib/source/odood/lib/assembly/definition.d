@@ -116,11 +116,16 @@ struct AssemblyDefinition {
         return res;
     }
 
-    /** The file to save. Sections left at their defaults are left out; so is
-      * `meta` while the format is 1.
+    /** The file to save, `meta` first. Sections left at their defaults are
+      * left out.
+      *
+      * `meta.format-version` is written on every save, though a file without
+      * it is format 1: a file edited by a newer odood then says which format
+      * it needs.
       **/
     Node toYAML() const {
-        auto res = spec.toYAML;
+        auto res = Node(["meta": Node(["format-version": ASSEMBLY_FORMAT_VERSION])]);
+        res["spec"] = spec.toYAML["spec"];
         auto system_packages_node = system_packages.toYAML;
         if (!system_packages_node.isNull)
             res["system-packages"] = system_packages_node.get;
@@ -131,7 +136,8 @@ struct AssemblyDefinition {
     }
 }
 
-// Every section survives a save, at the top level of the file.
+// Every section survives a save, at the top level of the file, and the save
+// states the format.
 unittest {
     import dyaml: Loader;
     import unit_threaded.assertions;
@@ -146,7 +152,9 @@ unittest {
         "  dockerfile:\n" ~
         "    with-odoo-requirements: true\n").load());
 
-    auto saved = AssemblyDefinition(definition.toYAML);
+    auto yaml = definition.toYAML;
+    yaml["meta"]["format-version"].as!int.shouldEqual(ASSEMBLY_FORMAT_VERSION);
+    auto saved = AssemblyDefinition(yaml);
     saved.spec.addons.length.shouldEqual(1);
     saved.system_packages.deb.should == ["poppler-utils"];
     saved.packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
