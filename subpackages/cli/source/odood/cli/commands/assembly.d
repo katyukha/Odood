@@ -14,7 +14,7 @@ private import colored;
 private import darkcommand;
 private import thepath: Path;
 
-private import odood.lib.assembly: Assembly, AssemblySpecSource, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
+private import odood.lib.assembly: Assembly, AssemblyPackaging, AssemblySpecSource, SourceUpgradeResult, ASSEMBLY_VERSION_PATH, ASSEMBLY_REQUIREMENTS_LOCK, ASSEMBLY_ADDONS_MD_PATH, ASSEMBLY_ADDONS_CSV_PATH;
 private import odood.lib.assembly.exception: OdoodAssemblyNothingToCommitException;
 private import odood.lib.addons.repository: renderChangelog;
 private import odood.project: Project;
@@ -221,7 +221,16 @@ class CommandAssemblySync: AssemblyCommandBase {
         warnDeprecatedFlag(addonsListCsv, "addons-list-csv", "packaging.addons-list-csv");
 
         auto project = loadProject();
-        auto packaging = project.assembly.raw.packaging;
+        auto assembly = project.assembly.raw;
+
+        /* The deprecated flags turn files on for this run only: in memory,
+         * not saved, as sync never saves the assembly definition. Set before
+         * syncing, so a Dockerfile for a flat assembly is refused first. */
+        AssemblyPackaging packaging = assembly.packaging;
+        packaging.dockerfile.generate |= dockerfile;
+        packaging.addons_list_md |= addonsListMd;
+        packaging.addons_list_csv |= addonsListCsv;
+        assembly.setPackaging(packaging);
 
         project.assembly.sync();
         if (generateLock) {
@@ -231,15 +240,6 @@ class CommandAssemblySync: AssemblyCommandBase {
 
         if (changelogPreview)
             project.assembly.raw.generateChangelogPreview;
-
-        if (dockerfile || packaging.dockerfile.generate)
-            project.assembly.raw.generateDockerfile;
-
-        immutable addons_list_md = addonsListMd || packaging.addons_list_md;
-        immutable addons_list_csv = addonsListCsv || packaging.addons_list_csv;
-        if (addons_list_md || addons_list_csv)
-            project.assembly.raw.generateAddonsList(
-                md: addons_list_md, csv: addons_list_csv);
 
         // With --changelog-preview the changelog files are sync's own output.
         auto generated_paths = changelogPreview
@@ -343,7 +343,18 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         warnDeprecatedFlag(dockerfile, "dockerfile", "packaging.dockerfile.generate");
         warnDeprecatedFlag(addonsListMd, "addons-list-md", "packaging.addons-list-md");
         warnDeprecatedFlag(addonsListCsv, "addons-list-csv", "packaging.addons-list-csv");
-        auto packaging = assembly.packaging;
+
+        /* The deprecated flags turn files on for this run only: in memory,
+         * not saved, as release never saves the assembly definition. Set
+         * first, so a Dockerfile for a flat assembly is refused before any
+         * work. */
+        AssemblyPackaging packaging = assembly.packaging;
+        packaging.changelog |= changelog;
+        packaging.version_file |= versionFile;
+        packaging.dockerfile.generate |= dockerfile;
+        packaging.addons_list_md |= addonsListMd;
+        packaging.addons_list_csv |= addonsListCsv;
+        assembly.setPackaging(packaging);
 
         auto current_branch = repo.getCurrBranch();
         immutable on_stable =
@@ -430,16 +441,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         }
 
         // Artifacts are committed before tagging, so the tag includes them.
-        if (changelog || packaging.changelog)
-            assembly.generateChangelog(result.get);
-        assembly.generateVersionFile(
-            result.get.new_version, create: versionFile || packaging.version_file);
-        if (dockerfile || packaging.dockerfile.generate)
-            assembly.generateDockerfile(tag_name);
-        immutable addons_list_md = addonsListMd || packaging.addons_list_md;
-        immutable addons_list_csv = addonsListCsv || packaging.addons_list_csv;
-        if (addons_list_md || addons_list_csv)
-            assembly.generateAddonsList(md: addons_list_md, csv: addons_list_csv);
+        assembly.generateReleaseFiles(result.get);
 
         if (repo.getChangedFiles(
                 path_filters: releaseGeneratedPaths, staged: true).length > 0) {

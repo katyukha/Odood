@@ -55,8 +55,9 @@ class ProjectAssembly {
     private @property spec() const => _assembly.spec;
     private @property repo() => _assembly.repo;
 
-    /** Fetch sources and assemble addons (base `sync`), and validate
-      * dependencies against the project's Odoo instance.
+    /** Fetch sources, assemble addons and write the files `packaging` asks
+      * for (base `sync`), and validate dependencies against the project's
+      * Odoo instance.
       **/
     void sync() {
         _assembly.sync();

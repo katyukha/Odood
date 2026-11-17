@@ -707,12 +707,21 @@ class Assembly {
         }
     }
 
-    /** Generate or update the Dockerfile.
+    /** Generate or update the Dockerfile, and a default `.dockerignore`,
+      * from the assembly definition.
       *
       * Params:
       *     assembly_version = version for the image label; empty for none.
+      *
+      * Throws: `OdoodAssemblyException` for a flat assembly: its addons are in
+      * the repository root, which the Dockerfile does not copy.
       **/
     void generateDockerfile(in string assembly_version) {
+        enforce!OdoodAssemblyException(
+            spec.layout != AssemblyLayout.FLAT,
+            "Cannot generate a Dockerfile for a flat assembly: its addons are " ~
+            "in the repository root, which the Dockerfile does not copy. " ~
+            "Use 'layout: standard'.");
         infof("Assembly: Preparing Dockerfile...");
         auto assembly = this;
         // TODO: move to template, after darktemple will be ready for this
@@ -742,8 +751,7 @@ class Assembly {
             path.join(".dockerignore").writeFile(renderFile!("templates/assembly/dockerignore.tmpl"));
             repo.add(path.join(".dockerignore"));
             infof("Assembly: Default .dockerignore generated!");
-        } else if (spec.layout == AssemblyLayout.STANDARD
-                && path.join(".dockerignore").readFileText
+        } else if (path.join(".dockerignore").readFileText
                     .splitLines
                     .map!(l => l.strip)
                     .canFind("/odood-assembly.yml", "odood-assembly.yml")) {
@@ -756,18 +764,46 @@ class Assembly {
         }
     }
 
-    /// ditto
+    /// ditto, labelled with the latest release, if any.
     void generateDockerfile() {
-        // Label the image with the latest release, if any.
         auto current = currentVersion;
         generateDockerfile(current.isNull ? "" : current.get.toString);
     }
 
-    /** Fetch sources and assemble addons into `dist_dir`.
+    // The files `packaging` asks a sync for, written and staged.
+    private void generateSyncFiles() {
+        if (packaging.dockerfile.generate)
+            generateDockerfile();
+        if (packaging.addons_list_md || packaging.addons_list_csv)
+            generateAddonsList(md: packaging.addons_list_md, csv: packaging.addons_list_csv);
+    }
+
+    /** Generate and stage the files `packaging` asks a release for:
+      * `CHANGELOG.md` and `CHANGELOG.latest.md`; `VERSION`, updated when it
+      * exists and created with `version-file`; the Dockerfile labelled with
+      * the new version; `ADDONS.md` and `ADDONS.csv`. Committing and tagging
+      * are left to the caller.
       *
-      * Project-free packaging step: validates the spec, fetches sources, and
-      * populates the dist directory. Dependency validation against a live Odoo
-      * instance and requirements-lock generation live in `ProjectAssembly.sync`.
+      * Throws: as `generateChangelog(result)`.
+      **/
+    void generateReleaseFiles(in PrepareReleaseResult result) {
+        if (packaging.changelog)
+            generateChangelog(result);
+        generateVersionFile(result.new_version, create: packaging.version_file);
+        if (packaging.dockerfile.generate)
+            generateDockerfile(result.new_version.toString);
+        if (packaging.addons_list_md || packaging.addons_list_csv)
+            generateAddonsList(md: packaging.addons_list_md, csv: packaging.addons_list_csv);
+    }
+
+    /** Fetch sources, assemble addons into `dist_dir`, and write and stage
+      * the files `packaging` asks for: `ADDONS.md`, `ADDONS.csv`, and the
+      * Dockerfile labelled with the latest release. Committing is left to the
+      * caller.
+      *
+      * Project-free. Validating the addons' dependencies against the target
+      * Odoo instance is a separate step, run after this one
+      * (`validateAddonsDependencies`).
       **/
     void sync() {
         spec.validate;
@@ -777,6 +813,7 @@ class Assembly {
         dist_dir.mkdir(true);  // ensure dist dir exists
         _source_provider.ensureSources(_definition.spec.sources, serie);
         syncAddons();
+        generateSyncFiles();
     }
 
     /// Pull the assembly repo, and reload the assembly definition it brings.
@@ -1406,6 +1443,115 @@ unittest {
     assembly.save();
     Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
         .system_packages.deb.should == ["ghostscript"];
+}
+
+// sync writes and stages the files packaging asks for and no others, and
+// labels the Dockerfile with the latest release.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
+    assembly.addAddon("my_addon");
+    assembly.save();
+    assembly.sync();
+    foreach(name; ["ADDONS.md", "ADDONS.csv", "Dockerfile"])
+        assembly.path.join(name).exists.shouldBeFalse;
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("Add my_addon");
+    assembly.repo.setTag("17.0.1.2.0");
+
+    bool staged(in string name) => assembly.repo.getChangedFiles(
+        path_filters: [name], staged: true).length > 0;
+
+    AssemblyPackaging packaging;
+    packaging.addons_list_md = true;
+    packaging.dockerfile.generate = true;
+    assembly.setPackaging(packaging);
+    assembly.sync();
+    staged("ADDONS.md").shouldBeTrue;
+    staged("Dockerfile").shouldBeTrue;
+    assembly.path.join("ADDONS.csv").exists.shouldBeFalse;
+    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
+    dockerfile.canFind(`LABEL org.opencontainers.image.version="17.0.1.2.0"`).shouldBeTrue;
+}
+
+// generateReleaseFiles writes and stages the files packaging asks a release
+// for and no others, and labels the Dockerfile with the new version; VERSION
+// is created only with version-file, and an existing one is always updated.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    // The latest release differs from the new version, so the label shows
+    // which one the Dockerfile got.
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Initial commit");
+    assembly.repo.setTag("17.0.0.0.5");
+    assembly.addAddon("my_addon");
+    assembly.save();
+    assembly.sync();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("Add my_addon");
+    auto result = assembly.prepareRelease().get;
+    result.new_version.toString.should == "17.0.0.1.0";
+
+    bool staged(in string name) => assembly.repo.getChangedFiles(
+        path_filters: [name], staged: true).length > 0;
+
+    immutable all_files = [
+        "CHANGELOG.md", "CHANGELOG.latest.md", "VERSION", "Dockerfile",
+        "ADDONS.md", "ADDONS.csv"];
+    assembly.generateReleaseFiles(result);
+    foreach(name; all_files)
+        assembly.path.join(name).exists.shouldBeFalse;
+
+    AssemblyPackaging packaging;
+    packaging.changelog = true;
+    packaging.version_file = true;
+    packaging.dockerfile.generate = true;
+    assembly.setPackaging(packaging);
+    assembly.generateReleaseFiles(result);
+    foreach(name; ["CHANGELOG.md", "CHANGELOG.latest.md", "VERSION", "Dockerfile"])
+        staged(name).shouldBeTrue;
+    assembly.path.join("ADDONS.md").exists.shouldBeFalse;
+    assembly.version_path.readFileText.should == "17.0.0.1.0\n";
+    assembly.path.join("Dockerfile").readFileText
+        .canFind(`LABEL org.opencontainers.image.version="17.0.0.1.0"`).shouldBeTrue;
+
+    // An existing VERSION is updated without version-file.
+    assembly.setPackaging(AssemblyPackaging.init);
+    assembly.version_path.writeFile("17.0.0.0.5\n");
+    assembly.generateReleaseFiles(result);
+    assembly.version_path.readFileText.should == "17.0.0.1.0\n";
+}
+
+// A Dockerfile is refused for a flat assembly, which it could not build an
+// image of, and nothing is written.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.spec_path.writeFile("spec:\n  addons-list: []\n  layout: flat\n");
+    assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+
+    assembly.generateDockerfile("17.0.1.0.0").shouldThrow!OdoodAssemblyException;
+    assembly.path.join("Dockerfile").exists.shouldBeFalse;
+    assembly.path.join(".dockerignore").exists.shouldBeFalse;
 }
 
 // setPackaging replaces the section, which the saved assembly definition

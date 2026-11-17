@@ -51,7 +51,10 @@
   `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition` (with
   `unknownKeys`, the unknown keys as data), and on
   `Assembly`: `system_packages`, `packaging`, `installSystemPackages`,
-  `addSystemPackageDeb` / `removeSystemPackageDeb`, `setPackaging`.
+  `addSystemPackageDeb` / `removeSystemPackageDeb`, `setPackaging`,
+  `generateReleaseFiles` (the files `packaging` asks a release for).
+- Library: `Assembly.sync` also writes and stages the files `packaging` asks
+  for. Validating dependencies stays a separate step, after it.
 
 ### Changed
 
@@ -70,6 +73,9 @@
   definition*; `spec` is one of its sections. Its errors start with
   "Invalid assembly definition:".
 - `odood assembly release --dry-run` always prints the changelog preview.
+- A Dockerfile for a flat assembly (`--dockerfile`, or
+  `Assembly.generateDockerfile`) is refused instead of written without the
+  addons.
 - Library: the `Assembly` constructor takes an `AssemblyDefinition` instead of
   an `AssemblySpec` (`AssemblyDefinition d; d.spec = spec;`).
 - Requires `theprocess` 0.1.3.

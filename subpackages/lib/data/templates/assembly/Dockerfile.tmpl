@@ -1,8 +1,6 @@
 {% import odood.lib: _version, is_dev_version %}
-{% import odood.lib.assembly.spec %}
 FROM ghcr.io/katyukha/odood/odoo/{{ assembly.serie }}:{% if is_dev_version %}latest{% else %}{{ _version }}{% endif %}
 
-{% if assembly.spec.layout == AssemblyLayout.STANDARD %}
 {% if assembly.system_packages.deb.length > 0 %}
 # Debian packages the assembly needs (system-packages.deb). Installed
 # before anything is copied, so this layer is rebuilt only when the list changes.
@@ -38,12 +36,6 @@ RUN odood assembly use /opt/odoo/assembly && \
     odood assembly link{% if assembly.packaging.dockerfile.with_odoo_requirements %} --with-odoo-requirements{% endif %} && \
     odood venv python -- -m compileall -q /opt/odoo/assembly/dist/ && \
     rm -rf /root/.cache/pip/
-{% elif assembly.spec.layout == AssemblyLayout.FLAT %}
-# WARNING: Building Docker images from assemblies with FLAT layout is not supported.
-#          Switch to standard layout to build Docker images.
-{% else %}
-# Layout {{ assembly.spec.layout }} not supported for Docker yet.
-{% endif %}
 
 LABEL odoo.serie="{{ assembly.serie }}"
 {% if assembly_version.length > 0 %}
