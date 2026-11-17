@@ -127,32 +127,52 @@ characters, starting with a letter or digit. See
 
 ## Packaging
 
-A top-level key, beside `spec`. It holds what odood produces from the
-assembly: the generated `Dockerfile` and its options.
+A top-level key, beside `spec`. It says which files odood generates in the
+assembly repository, so every tool that writes the repository (CI, a release
+made by hand, odood-nest) writes the same ones; and it holds the options of
+the generated `Dockerfile`.
 
 ```yaml
 spec:
   addons-list: [...]
 packaging:
+  changelog: true
+  version-file: true
+  addons-list-md: true
+  addons-list-csv: true
   dockerfile:
     generate: true
     with-odoo-requirements: true
 ```
 
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `dockerfile.generate` | no | `false` | `odood assembly sync` and `odood assembly release` write the `Dockerfile` (and a default `.dockerignore`). Needs `layout: standard`. |
-| `dockerfile.with-odoo-requirements` | no | `false` | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
+| Field | Default | Written by | Description |
+|-------|---------|------------|-------------|
+| `changelog` | `false` | `release` | `CHANGELOG.md` and `CHANGELOG.latest.md`, with the section of the new release. |
+| `version-file` | `false` | `release` | Creates `VERSION` when the assembly has none. An existing `VERSION` is updated either way. |
+| `addons-list-md` | `false` | `sync`, `release` | `ADDONS.md`, the list of the assembly's addons. |
+| `addons-list-csv` | `false` | `sync`, `release` | `ADDONS.csv`, the same list as CSV. |
+| `dockerfile.generate` | `false` | `sync`, `release` | The `Dockerfile` (and a default `.dockerignore`). Needs `layout: standard`. |
+| `dockerfile.with-odoo-requirements` | `false` | — | The generated `Dockerfile` runs `odood assembly link --with-odoo-requirements`. |
+
+`sync` keeps its files in step with the synced addons and the assembly
+definition. `release` writes its files from the new version, and commits them
+before tagging, so the tag holds them. Each option is a boolean; with none on,
+the section is left out of the file.
+
+The flags that choose these files for one run (`--changelog`,
+`--version-file`, `--addons-list-md`, `--addons-list-csv` and `--dockerfile`
+of `odood assembly sync` and `release`) are deprecated and will be removed in
+odood 0.8.0. `sync --changelog-preview` stays: the preview is a choice for one
+sync, not a file the repository keeps.
+
+### Dockerfile
 
 With `generate: true`, `sync` keeps the `Dockerfile` in step with the assembly
-definition (system packages, the options below), and `release` labels the
-image with the new version. Odood rewrites only the part above the
+definition (system packages, `with-odoo-requirements`), and `release` labels
+the image with the new version. Odood rewrites only the part above the
 `# ---- ODOOD END DYNAMIC DOCKER CONFIG ----` line; lines you add below it are
 kept. A flat assembly is refused: its addons are in the repository root, which
 the `Dockerfile` does not copy.
-
-The `--dockerfile` flag of `sync` and `release` does the same for one run. It
-is deprecated and will be removed in odood 0.8.0.
 
 With `with-odoo-requirements: true`, the image build installs the addons'
 Python requirements together with Odoo's own `requirements.txt`, so pip keeps

@@ -568,20 +568,29 @@ cannot exist until the branch is merged, and two PRs branched from the same
 point would otherwise both claim the same number.
 
 A release assigns the version once and writes it into every artifact it
-regenerates from that single value: with `--changelog`, and with
-[`packaging.dockerfile.generate: true`](./assembly-spec.md#packaging) in
-`odood-assembly.yml`, the tag, the changelog and the Docker image label cannot
-disagree.
+regenerates from that single value, so the tag, the changelog and the Docker
+image label cannot disagree. Which artifacts the assembly keeps is set in
+[`packaging`](./assembly-spec.md#packaging) in `odood-assembly.yml`:
+
+```yaml
+packaging:
+  changelog: true
+  dockerfile:
+    generate: true
+```
 
 ```bash
-odood assembly release --changelog --push
+odood assembly release --push
 ```
 
 This creates a tag named after the new version, and generates in the root
 directory of the repo:
-- `CHANGELOG.md` - full changelog, with the new release section prepended.
-- `CHANGELOG.latest.md` - changelog of the latest release only.
+- `CHANGELOG.md` - full changelog, with the new release section prepended
+  (`packaging.changelog`).
+- `CHANGELOG.latest.md` - changelog of the latest release only
+  (`packaging.changelog`).
 - `VERSION` - the assembly version, **if the file already exists** (see below).
+- `Dockerfile`, `ADDONS.md`, `ADDONS.csv`, when `packaging` asks for them.
 
 **Note**, that recommended flow for update process is to create separate branch for each update, and apply each update with merge request.
 
@@ -608,8 +617,8 @@ of the assembly.
 
 The file is optional: **its presence is the opt-in**. If the assembly has a
 `VERSION` file, every release updates it. If it does not, none is created
-unless you pass `--version-file`. Once a release tag exists, the tag decides
-the version, whatever the file says.
+unless `packaging.version-file` is `true`. Once a release tag exists, the tag
+decides the version, whatever the file says.
 
 Assemblies created before tag-based releases keep working with no migration
 step: when there is no tag yet, the first release reads `VERSION` to know what
@@ -684,8 +693,8 @@ This file in same format as `CHANGELOG.md`, but contains only info from last upd
 
 Two ways to see the pending changelog before any version is assigned:
 
-- `odood assembly release --dry-run --changelog` prints the rendered changelog
-  section to stdout, without writing, committing or tagging anything.
+- `odood assembly release --dry-run` prints the rendered changelog section to
+  stdout, without writing, committing or tagging anything.
 - `odood assembly sync --changelog-preview` writes the pending changes into
   `CHANGELOG.md` under an `## Unreleased` heading, so an update branch can
   carry the changelog in its diff (for example, for review in a merge
@@ -693,9 +702,9 @@ Two ways to see the pending changelog before any version is assigned:
   unstaged hand edits to the changelog are refused, not overwritten (staged
   changes are taken as the preview's own output).
 
-No cleanup is needed for the `## Unreleased` section:
-`odood assembly release --changelog` regenerates the changelog from the last
-release, replacing it with the released section.
+No cleanup is needed for the `## Unreleased` section: a release with
+`packaging.changelog` regenerates the changelog from the last release,
+replacing it with the released section.
 
 
 ## Sample CI configuration to build/update assemblies automatically
@@ -925,7 +934,6 @@ jobs:
       - name: Release assembly
         run: |
           odood -v -d --config-from-env assembly release \
-            --changelog \
             --commit-user='Github Action' \
             --commit-email='github-action@odood.dev' \
             --push

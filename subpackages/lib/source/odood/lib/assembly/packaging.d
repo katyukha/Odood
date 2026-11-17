@@ -1,6 +1,7 @@
 /** What odood produces from an assembly: the top-level `packaging` section of
-  * the assembly definition, with the options of the generated Dockerfile
-  * (`packaging.dockerfile`).
+  * the assembly definition. It names the files `odood assembly sync` and
+  * `release` generate in the assembly repository, and the options of the
+  * generated Dockerfile.
   **/
 module odood.lib.assembly.packaging;
 
@@ -14,10 +15,26 @@ private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
 private import odood.lib.assembly.unknown_keys: checkSection;
 
 
+/* The boolean option `key` of the section `path`; false when absent. */
+private bool readOption(in Node section, in string path, in string key) {
+    if (!section.containsKey(key))
+        return false;
+    enforce!OdoodAssemblyInvalidSpecException(
+        section[key].type == NodeType.boolean,
+        "Invalid assembly definition: '%s.%s' must be true or false".format(path, key));
+    return section[key].as!bool;
+}
+
+
 /// The generated Dockerfile (`packaging.dockerfile`).
 struct AssemblyDockerfileSettings {
-    private bool _generate;
-    private bool _with_odoo_requirements;
+    /// `odood assembly sync` and `release` write the Dockerfile (`generate`).
+    /// Refused for a flat assembly.
+    bool generate;
+
+    /// The Dockerfile links the assembly with Odoo's requirements
+    /// (`with-odoo-requirements`).
+    bool with_odoo_requirements;
 
     /** Read the `packaging.dockerfile` section. An unknown key is logged as a
       * warning.
@@ -28,34 +45,17 @@ struct AssemblyDockerfileSettings {
     this(in Node section) {
         checkSection(section, "packaging.dockerfile",
             ["generate", "with-odoo-requirements"], "generate: true");
-
-        bool option(in string key) {
-            if (!section.containsKey(key))
-                return false;
-            enforce!OdoodAssemblyInvalidSpecException(
-                section[key].type == NodeType.boolean,
-                ("Invalid assembly definition: 'packaging.dockerfile.%s' " ~
-                 "must be true or false").format(key));
-            return section[key].as!bool;
-        }
-        _generate = option("generate");
-        _with_odoo_requirements = option("with-odoo-requirements");
+        generate = readOption(section, "packaging.dockerfile", "generate");
+        with_odoo_requirements = readOption(
+            section, "packaging.dockerfile", "with-odoo-requirements");
     }
-
-    /// `odood assembly sync` and `release` write the Dockerfile
-    /// (`packaging.dockerfile.generate`).
-    @property bool generate() const => _generate;
-
-    /// The generated Dockerfile links the assembly with Odoo's requirements
-    /// (`packaging.dockerfile.with-odoo-requirements`).
-    @property bool with_odoo_requirements() const => _with_odoo_requirements;
 
     /// The section to save, with the options that are on; null when none is.
     Nullable!Node toYAML() const {
         auto res = Node(string[].init, bool[].init);
-        if (_generate)
+        if (generate)
             res["generate"] = true;
-        if (_with_odoo_requirements)
+        if (with_odoo_requirements)
             res["with-odoo-requirements"] = true;
         if (res.length == 0)
             return Nullable!Node.init;
@@ -64,64 +64,95 @@ struct AssemblyDockerfileSettings {
 }
 
 
-/// The top-level `packaging` section of `odood-assembly.yml`.
+/** The top-level `packaging` section of `odood-assembly.yml`. A plain value:
+  * `Assembly.setPackaging` checks it against the rest of the assembly
+  * definition.
+  **/
 struct AssemblyPackaging {
-    private AssemblyDockerfileSettings _dockerfile;
+    /// `odood assembly release` writes `CHANGELOG.md` and
+    /// `CHANGELOG.latest.md` (`changelog`).
+    bool changelog;
+
+    /// `odood assembly release` creates `VERSION` when it is missing
+    /// (`version-file`). An existing `VERSION` is updated either way.
+    bool version_file;
+
+    /// `odood assembly sync` and `release` write `ADDONS.md`
+    /// (`addons-list-md`).
+    bool addons_list_md;
+
+    /// `odood assembly sync` and `release` write `ADDONS.csv`
+    /// (`addons-list-csv`).
+    bool addons_list_csv;
+
+    /// The generated Dockerfile (`dockerfile`).
+    AssemblyDockerfileSettings dockerfile;
 
     /** Read the `packaging` section. An unknown key is logged as a
       * warning.
       *
-      * Throws: `OdoodAssemblyInvalidSpecException` unless it is a mapping, and
-      * on an invalid `dockerfile` section.
+      * Throws: `OdoodAssemblyInvalidSpecException` unless it is a mapping,
+      * every option has a boolean value, and `dockerfile` is valid.
       **/
     this(in Node section) {
-        checkSection(section, "packaging", ["dockerfile"],
-            "dockerfile: {generate: true}");
+        checkSection(section, "packaging",
+            ["changelog", "version-file", "addons-list-md", "addons-list-csv",
+             "dockerfile"],
+            "changelog: true");
+        changelog = readOption(section, "packaging", "changelog");
+        version_file = readOption(section, "packaging", "version-file");
+        addons_list_md = readOption(section, "packaging", "addons-list-md");
+        addons_list_csv = readOption(section, "packaging", "addons-list-csv");
         if (section.containsKey("dockerfile"))
-            _dockerfile = AssemblyDockerfileSettings(section["dockerfile"]);
+            dockerfile = AssemblyDockerfileSettings(section["dockerfile"]);
     }
 
-    /// Options of the generated Dockerfile (`packaging.dockerfile`).
-    @property auto dockerfile() const => _dockerfile;
-
-    /// Set `packaging.dockerfile.generate`.
-    package(odood) void setDockerfileGenerate(in bool value) {
-        _dockerfile._generate = value;
-    }
-
-    /// Set `packaging.dockerfile.with-odoo-requirements`.
-    package(odood) void setDockerfileWithOdooRequirements(in bool value) {
-        _dockerfile._with_odoo_requirements = value;
-    }
-
-    /// The section to save; null when every setting has its default.
+    /// The section to save, with the options that are on; null when none is.
     Nullable!Node toYAML() const {
-        auto dockerfile = _dockerfile.toYAML;
-        if (dockerfile.isNull)
+        auto res = Node(string[].init, bool[].init);
+        if (changelog)
+            res["changelog"] = true;
+        if (version_file)
+            res["version-file"] = true;
+        if (addons_list_md)
+            res["addons-list-md"] = true;
+        if (addons_list_csv)
+            res["addons-list-csv"] = true;
+        auto dockerfile_node = dockerfile.toYAML;
+        if (!dockerfile_node.isNull)
+            res["dockerfile"] = dockerfile_node.get;
+        if (res.length == 0)
             return Nullable!Node.init;
-        return Node(["dockerfile": dockerfile.get]).nullable;
+        return res.nullable;
     }
 }
 
-// Each packaging.dockerfile option is read, and survives a save, on its own
-// and together; both are off by default, and then the section is left out.
+// Each option is read, and survives a save, on its own: a mix-up between two
+// options shows. All are off by default, and then the section is left out.
 unittest {
     import dyaml: Loader;
     import unit_threaded.assertions;
 
-    void check(in string options, in bool generate, in bool with_odoo_requirements) {
-        auto loaded = AssemblyPackaging(Loader.fromString("dockerfile: " ~ options).load());
-        foreach(packaging; [loaded, AssemblyPackaging(loaded.toYAML.get)]) {
-            packaging.dockerfile.generate.shouldEqual(generate);
-            packaging.dockerfile.with_odoo_requirements.shouldEqual(with_odoo_requirements);
-        }
-    }
-    check("{generate: true}", true, false);
-    check("{with-odoo-requirements: true}", false, true);
-    check("{generate: true, with-odoo-requirements: true}", true, true);
+    // The options as [changelog, version-file, addons-list-md,
+    // addons-list-csv, dockerfile.generate, dockerfile.with-odoo-requirements].
+    bool[] options(in AssemblyPackaging p) => [
+        p.changelog, p.version_file, p.addons_list_md, p.addons_list_csv,
+        p.dockerfile.generate, p.dockerfile.with_odoo_requirements];
 
-    AssemblyPackaging.init.dockerfile.generate.shouldBeFalse;
-    AssemblyPackaging.init.dockerfile.with_odoo_requirements.shouldBeFalse;
+    void check(in string section, in bool[] expected) {
+        auto loaded = AssemblyPackaging(Loader.fromString(section).load());
+        options(loaded).shouldEqual(expected);
+        options(AssemblyPackaging(loaded.toYAML.get)).shouldEqual(expected);
+    }
+    check("changelog: true", [true, false, false, false, false, false]);
+    check("version-file: true", [false, true, false, false, false, false]);
+    check("addons-list-md: true", [false, false, true, false, false, false]);
+    check("addons-list-csv: true", [false, false, false, true, false, false]);
+    check("dockerfile: {generate: true}", [false, false, false, false, true, false]);
+    check("dockerfile: {with-odoo-requirements: true}",
+        [false, false, false, false, false, true]);
+
+    options(AssemblyPackaging.init).shouldEqual([false, false, false, false, false, false]);
     AssemblyPackaging.init.toYAML.isNull.shouldBeTrue;
 }
 
@@ -141,4 +172,5 @@ unittest {
         .shouldThrow!OdoodAssemblyInvalidSpecException;
     load("dockerfile: {generate: 1}")
         .shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("changelog: yes please").shouldThrow!OdoodAssemblyInvalidSpecException;
 }

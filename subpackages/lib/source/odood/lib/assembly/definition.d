@@ -113,7 +113,7 @@ unittest {
         "system-packages:\n" ~
         "  rpm: [poppler-utils]\n" ~
         "packaging:\n" ~
-        "  changelog: true\n" ~
+        "  helm-chart: true\n" ~
         "  dockerfile:\n" ~
         "    base-image: odoo:18\n" ~
         "pakaging: {}\n").load()

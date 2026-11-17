@@ -310,10 +310,11 @@ odood --config-from-env assembly sync --commit --push
 ```
 
 The image version label is stamped when the assembly is released, so the release
-step regenerates the Dockerfile too:
+step regenerates the Dockerfile too (add `changelog: true` under `packaging` to
+keep a changelog as well):
 
 ```bash
-odood --config-from-env assembly release --changelog --push
+odood --config-from-env assembly release --push
 ```
 
 The image build itself is bound to the release tag: pushing the tag triggers

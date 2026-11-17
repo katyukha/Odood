@@ -799,17 +799,15 @@ class Assembly {
         _definition.system_packages.removeDeb(name);
     }
 
-    /// Set `packaging.dockerfile.generate`: whether `odood assembly sync` and
-    /// `release` write the Dockerfile. Refused for a flat assembly.
-    void setDockerfileGenerate(in bool value) {
-        enforceDockerfileLayout(spec.layout, value);
-        _definition.packaging.setDockerfileGenerate(value);
-    }
-
-    /// Set `packaging.dockerfile.with-odoo-requirements`: whether the
-    /// generated Dockerfile links the assembly with Odoo's requirements.
-    void setDockerfileWithOdooRequirements(in bool value) {
-        _definition.packaging.setDockerfileWithOdooRequirements(value);
+    /** Set the `packaging` section: the files `odood assembly sync` and
+      * `release` generate, and the options of the Dockerfile.
+      *
+      * Throws: `OdoodAssemblyInvalidSpecException` when it generates a
+      * Dockerfile for a flat assembly.
+      **/
+    void setPackaging(in AssemblyPackaging packaging) {
+        enforceDockerfileLayout(spec.layout, packaging.dockerfile.generate);
+        _definition.packaging = packaging;
     }
 
     /// Remove a source from assembly. Refuses if any addon references it.
@@ -1355,8 +1353,8 @@ unittest {
         "\"https://example.test/org/assembly").shouldBeTrue;
 }
 
-// The packaging.dockerfile setters turn their option on and off, and the
-// saved assembly definition keeps it; generate is refused for a flat assembly.
+// setPackaging replaces the section, which the saved assembly definition
+// keeps; a generated Dockerfile is refused for a flat assembly.
 unittest {
     import unit_threaded.assertions;
     import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
@@ -1366,19 +1364,27 @@ unittest {
     scope(exit) root.remove();
 
     auto assembly = makeTestAssembly(root, []);
-    foreach(value; [true, false]) {
-        assembly.setDockerfileGenerate(value);
-        assembly.setDockerfileWithOdooRequirements(value);
-        assembly.save();
-        auto dockerfile = Assembly.load(
-            assembly.path, assembly.serie, new TestSourceProvider(root)).packaging.dockerfile;
-        dockerfile.generate.shouldEqual(value);
-        dockerfile.with_odoo_requirements.shouldEqual(value);
-    }
+    AssemblyPackaging packaging;
+    packaging.changelog = true;
+    packaging.dockerfile.generate = true;
+    assembly.setPackaging(packaging);
+    assembly.save();
+    auto saved = Assembly.load(
+        assembly.path, assembly.serie, new TestSourceProvider(root)).packaging;
+    saved.changelog.shouldBeTrue;
+    saved.dockerfile.generate.shouldBeTrue;
+
+    assembly.setPackaging(AssemblyPackaging.init);
+    assembly.save();
+    Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
+        .packaging.changelog.shouldBeFalse;
 
     assembly.spec_path.writeFile("spec:\n  addons-list: []\n  layout: flat\n");
-    Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
-        .setDockerfileGenerate(true).shouldThrow!OdoodAssemblyInvalidSpecException;
+    auto flat = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+    flat.setPackaging(packaging).shouldThrow!OdoodAssemblyInvalidSpecException;
+    packaging.dockerfile.generate = false;
+    flat.setPackaging(packaging);
+    flat.packaging.changelog.shouldBeTrue;
 }
 
 // The Dockerfile links with Odoo's requirements only when the assembly asks
@@ -1432,7 +1438,9 @@ unittest {
         .execute.ensureOk(true);
     auto other = Assembly.load(other_path, assembly.serie, new TestSourceProvider(root));
     other.addSystemPackageDeb("ghostscript");
-    other.setDockerfileWithOdooRequirements(true);
+    AssemblyPackaging packaging;
+    packaging.dockerfile.with_odoo_requirements = true;
+    other.setPackaging(packaging);
     other.save();
     other.repo.add(other.spec_path);
     other.repo.commit("Add ghostscript");

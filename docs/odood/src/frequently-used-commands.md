@@ -90,7 +90,7 @@ See [Custom Scripts](./custom-scripts.md) for where scripts are looked up.
 - `odood assembly upgrade` - pull latest changes from assembly and upgrade server
 - `odood assembly sync` - synchronize assembly according to spec: fetch latest versions of modules from specified sources and update assembly repo
 - `odood assembly upgrade-sources` - advance version-tag-pinned sources in the spec to the newest matching tags on their remotes; follow up with `assembly sync` to apply
-- `odood assembly release --changelog --push` - assign the next assembly version, generate the changelog, commit, tag and push
+- `odood assembly release --push` - assign the next assembly version, generate the files set in the assembly's `packaging` (changelog, Dockerfile, ...), commit, tag and push
 - `odood assembly link` - relink all addons that are in assembly
 
 ### Virtualenv management

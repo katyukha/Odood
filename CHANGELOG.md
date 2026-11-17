@@ -32,9 +32,11 @@
   conflicting addon requirement then fails the build with
   `ResolutionImpossible`; pin a compatible version in the assembly's
   `requirements.txt`.
-- Assembly definition: `packaging.dockerfile.generate: true` makes
-  `odood assembly sync` and `release` write the `Dockerfile`, without
-  `--dockerfile`. Refused for a flat assembly.
+- Assembly definition: top-level `packaging` names the files
+  `odood assembly sync` and `release` generate, so CI, a release by hand and
+  odood-nest write the same ones: `changelog`, `version-file`,
+  `addons-list-md`, `addons-list-csv` and `dockerfile.generate` (refused for
+  a flat assembly).
 - Unknown keys in the assembly definition are warned about, named in full
   (`spec.sources-list[oca_web].access_group`), instead of ignored silently.
   They are not refused, so a file from a newer odood still loads, but saving
@@ -43,8 +45,7 @@
   `RepositoryManager.withCredentials`; `odood.lib.deb`; `odood.lib.env_file`,
   `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition`, and on
   `Assembly`: `system_packages`, `packaging`, `installSystemPackages`,
-  `addSystemPackageDeb` / `removeSystemPackageDeb`, `setDockerfileGenerate`,
-  `setDockerfileWithOdooRequirements`.
+  `addSystemPackageDeb` / `removeSystemPackageDeb`, `setPackaging`.
 
 ### Changed
 
@@ -62,6 +63,7 @@
 - Docs and messages call the whole `odood-assembly.yml` the *assembly
   definition*; `spec` is one of its sections. Its errors start with
   "Invalid assembly definition:".
+- `odood assembly release --dry-run` always prints the changelog preview.
 - Library: the `Assembly` constructor takes an `AssemblyDefinition` instead of
   an `AssemblySpec` (`AssemblyDefinition d; d.spec = spec;`).
 - Requires `theprocess` 0.1.3.
@@ -79,8 +81,9 @@
   machine. Pin versions in the assembly's `requirements.txt` and link with
   `--with-odoo-requirements`. Library: `ProjectAssembly.generateRequirementsLock`
   and `ProjectAssembly.sync(generate_lock, ...)`.
-- `--dockerfile` of `odood assembly sync` and `release`, removed in 0.8.0: set
-  `packaging.dockerfile.generate: true` in `odood-assembly.yml` instead.
+- `--changelog`, `--version-file`, `--addons-list-md`, `--addons-list-csv` and
+  `--dockerfile` of `odood assembly sync` and `release`, removed in 0.8.0: set
+  the matching key of `packaging` in `odood-assembly.yml` instead.
 
 ### Fixed
 

@@ -25,10 +25,20 @@ private import odood.cli.core: OdoodCommand, OdoodCLIException;
 private import odood.cli.utils: printLogRecordSimplified;
 
 
-private enum DOCKERFILE_FLAG_DEPRECATED =
-    "Option --dockerfile is deprecated and will be removed in odood 0.8.0: " ~
-    "set 'packaging.dockerfile.generate: true' in odood-assembly.yml instead, " ~
-    "and 'odood assembly sync' and 'release' write the Dockerfile.";
+/* The files sync and release generate are chosen in the `packaging` section
+ * of odood-assembly.yml, so that every tool writing the repository agrees on
+ * them; the flags choosing them for one run are deprecated. */
+private string deprecatedFlagHelp(in string key, in string help) =>
+    "Deprecated, removed in odood 0.8.0: set '%s: true' in odood-assembly.yml. %s"
+        .format(key, help);
+
+/// ditto
+private void warnDeprecatedFlag(in bool given, in string flag, in string key) {
+    if (given)
+        warningf(
+            "Option --%s is deprecated and will be removed in odood 0.8.0: " ~
+            "set '%s: true' in odood-assembly.yml instead.", flag, key);
+}
 
 /* Files sync generates itself; anything else dirty is not sync's to touch. */
 private string[] syncGeneratedPaths() {
@@ -182,12 +192,12 @@ class CommandAssemblySync: AssemblyCommandBase {
             "Write CHANGELOG.md with the pending changes under an "
             ~ "'## Unreleased' heading. No version is assigned; "
             ~ "'odood assembly release --changelog' replaces the section.");
-        this.addFlag!(dockerfile)("", "dockerfile",
-            "Deprecated, removed in odood 0.8.0: set "
-            ~ "'packaging.dockerfile.generate: true' in odood-assembly.yml. "
-            ~ "Generate Dockerfile for assembly.");
-        this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md for assembly.");
-        this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv for assembly.");
+        this.addFlag!(dockerfile)("", "dockerfile", deprecatedFlagHelp(
+            "packaging.dockerfile.generate", "Generate Dockerfile for assembly."));
+        this.addFlag!(addonsListMd)("", "addons-list-md", deprecatedFlagHelp(
+            "packaging.addons-list-md", "Generate ADDONS.md for assembly."));
+        this.addFlag!(addonsListCsv)("", "addons-list-csv", deprecatedFlagHelp(
+            "packaging.addons-list-csv", "Generate ADDONS.csv for assembly."));
         this.addFlag!(generateLock)("", "generate-lock",
             "Deprecated, removed in odood 0.8.0. "
             ~ "Generate requirements.lock.txt after syncing.");
@@ -206,7 +216,12 @@ class CommandAssemblySync: AssemblyCommandBase {
             ~ "'odood assembly release'. Drop --changelog and add a release "
             ~ "step after the sync.");
 
+        warnDeprecatedFlag(dockerfile, "dockerfile", "packaging.dockerfile.generate");
+        warnDeprecatedFlag(addonsListMd, "addons-list-md", "packaging.addons-list-md");
+        warnDeprecatedFlag(addonsListCsv, "addons-list-csv", "packaging.addons-list-csv");
+
         auto project = loadProject();
+        auto packaging = project.assembly.raw.packaging;
 
         project.assembly.sync();
         if (generateLock) {
@@ -217,14 +232,14 @@ class CommandAssemblySync: AssemblyCommandBase {
         if (changelogPreview)
             project.assembly.raw.generateChangelogPreview;
 
-        if (dockerfile)
-            warningf(DOCKERFILE_FLAG_DEPRECATED);
-        if (dockerfile || project.assembly.raw.packaging.dockerfile.generate)
+        if (dockerfile || packaging.dockerfile.generate)
             project.assembly.raw.generateDockerfile;
 
-        if (addonsListMd || addonsListCsv)
+        immutable addons_list_md = addonsListMd || packaging.addons_list_md;
+        immutable addons_list_csv = addonsListCsv || packaging.addons_list_csv;
+        if (addons_list_md || addons_list_csv)
             project.assembly.raw.generateAddonsList(
-                md: addonsListMd, csv: addonsListCsv);
+                md: addons_list_md, csv: addons_list_csv);
 
         // With --changelog-preview the changelog files are sync's own output.
         auto generated_paths = changelogPreview
@@ -292,18 +307,22 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             "Exit with code 1 when no changes are detected since the last release.");
         this.addFlag!(push)("", "push", "Push the release commit and tag to origin.");
         this.addFlag!(dryRun)("n", "dry-run",
-            "Only show what would be released; do not write, commit, tag or push.");
-        this.addFlag!(changelog)("", "changelog",
-            "Generate CHANGELOG.md and CHANGELOG.latest.md for this release.");
-        this.addFlag!(versionFile)("", "version-file",
+            "Only show what would be released, with its changelog; "
+            ~ "do not write, commit, tag or push.");
+        this.addFlag!(changelog)("", "changelog", deprecatedFlagHelp(
+            "packaging.changelog",
+            "Generate CHANGELOG.md and CHANGELOG.latest.md for this release."));
+        this.addFlag!(versionFile)("", "version-file", deprecatedFlagHelp(
+            "packaging.version-file",
             "Create the VERSION file even if the assembly does not have one. "
-            ~ "An existing VERSION file is always updated.");
-        this.addFlag!(dockerfile)("", "dockerfile",
-            "Deprecated, removed in odood 0.8.0: set "
-            ~ "'packaging.dockerfile.generate: true' in odood-assembly.yml. "
-            ~ "Regenerate the Dockerfile so its version label matches this release.");
-        this.addFlag!(addonsListMd)("", "addons-list-md", "Generate ADDONS.md.");
-        this.addFlag!(addonsListCsv)("", "addons-list-csv", "Generate ADDONS.csv.");
+            ~ "An existing VERSION file is always updated."));
+        this.addFlag!(dockerfile)("", "dockerfile", deprecatedFlagHelp(
+            "packaging.dockerfile.generate",
+            "Regenerate the Dockerfile so its version label matches this release."));
+        this.addFlag!(addonsListMd)("", "addons-list-md", deprecatedFlagHelp(
+            "packaging.addons-list-md", "Generate ADDONS.md."));
+        this.addFlag!(addonsListCsv)("", "addons-list-csv", deprecatedFlagHelp(
+            "packaging.addons-list-csv", "Generate ADDONS.csv."));
         this.addOption!(baseRef)("", "base-ref",
             "Compare against this revision instead of the latest release tag.");
         this.addOption!(commitMessage)("", "commit-message",
@@ -319,8 +338,12 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         auto assembly = project.assembly.raw;
         auto repo = assembly.repo;
         immutable serie_str = project.odoo.serie.toString;
-        if (dockerfile)
-            warningf(DOCKERFILE_FLAG_DEPRECATED);
+        warnDeprecatedFlag(changelog, "changelog", "packaging.changelog");
+        warnDeprecatedFlag(versionFile, "version-file", "packaging.version-file");
+        warnDeprecatedFlag(dockerfile, "dockerfile", "packaging.dockerfile.generate");
+        warnDeprecatedFlag(addonsListMd, "addons-list-md", "packaging.addons-list-md");
+        warnDeprecatedFlag(addonsListCsv, "addons-list-csv", "packaging.addons-list-csv");
+        auto packaging = assembly.packaging;
 
         auto current_branch = repo.getCurrBranch();
         immutable on_stable =
@@ -401,21 +424,22 @@ class CommandAssemblyRelease: AssemblyCommandBase {
 
         if (dryRun) {
             infof("Assembly Release: would release version %s.", tag_name);
-            if (changelog) {
-                infof("Changelog preview:");
-                writeln(renderChangelog(result.get.addon_changes));
-            }
+            infof("Changelog preview:");
+            writeln(renderChangelog(result.get.addon_changes));
             return 0;
         }
 
         // Artifacts are committed before tagging, so the tag includes them.
-        if (changelog)
+        if (changelog || packaging.changelog)
             assembly.generateChangelog(result.get);
-        assembly.generateVersionFile(result.get.new_version, create: versionFile);
-        if (dockerfile || assembly.packaging.dockerfile.generate)
+        assembly.generateVersionFile(
+            result.get.new_version, create: versionFile || packaging.version_file);
+        if (dockerfile || packaging.dockerfile.generate)
             assembly.generateDockerfile(tag_name);
-        if (addonsListMd || addonsListCsv)
-            assembly.generateAddonsList(md: addonsListMd, csv: addonsListCsv);
+        immutable addons_list_md = addonsListMd || packaging.addons_list_md;
+        immutable addons_list_csv = addonsListCsv || packaging.addons_list_csv;
+        if (addons_list_md || addons_list_csv)
+            assembly.generateAddonsList(md: addons_list_md, csv: addons_list_csv);
 
         if (repo.getChangedFiles(
                 path_filters: releaseGeneratedPaths, staged: true).length > 0) {
