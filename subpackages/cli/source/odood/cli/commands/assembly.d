@@ -918,8 +918,8 @@ class CommandAssemblyAddSource: AssemblySourceCommandBase {
             return 0;
         }
 
-        infof("Added source %s to assembly spec.", git_url.get);
         saveSpec(assembly, "[ASSEMBLY] Add source: %s".format(git_url.get));
+        infof("Added source %s to assembly spec.", git_url.get);
         return 0;
     }
 }
@@ -972,8 +972,8 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
                 ("Assembly has no source named '%s'; give its URL " ~
                  "(--url, --github, --oca, --crnd) to add it.").format(name.get));
             addNewSource(assembly, url_given.get);
-            infof("Added source %s to assembly spec.", url_given.get);
             saveSpec(assembly, "[ASSEMBLY] Add source: %s".format(url_given.get));
+            infof("Added source %s to assembly spec.", url_given.get);
             return 0;
         }
 
@@ -1003,8 +1003,8 @@ class CommandAssemblyUpdateSource: AssemblySourceCommandBase {
         }
 
         assembly.replaceSource(current.get, updated);
-        infof("Updated source %s in assembly spec.", label);
         saveSpec(assembly, "[ASSEMBLY] Update source: %s".format(label));
+        infof("Updated source %s in assembly spec.", label);
         return 0;
     }
 }
@@ -1053,8 +1053,8 @@ class CommandAssemblyAddSystemPackage: AssemblySpecCommandBase {
             return 0;
         }
 
-        infof("Added system package(s): %s", added.join(", "));
         saveSpec(assembly, "[ASSEMBLY] Add system package(s): %s".format(added.join(", ")));
+        infof("Added system package(s): %s", added.join(", "));
         hintDockerfileUpdate(assembly);
         return 0;
     }
@@ -1096,8 +1096,8 @@ class CommandAssemblyRemoveSystemPackage: AssemblySpecCommandBase {
             return 0;
         }
 
-        infof("Removed system package(s): %s", removed.join(", "));
         saveSpec(assembly, "[ASSEMBLY] Remove system package(s): %s".format(removed.join(", ")));
+        infof("Removed system package(s): %s", removed.join(", "));
         hintDockerfileUpdate(assembly);
         return 0;
     }

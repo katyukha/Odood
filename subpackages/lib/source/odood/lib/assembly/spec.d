@@ -11,7 +11,7 @@ private import std.digest.sha;
 private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyException, OdoodAssemblyInvalidSpecException;
-private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys;
+private import odood.lib.assembly.unknown_keys: findUnknownKeys;
 private import odood.git.url: GitURL;
 private import odood.utils.odoo.serie: OdooSerie;
 
@@ -277,8 +277,6 @@ struct AssemblySpec {
                     );
             }
         }
-
-        warnUnknownKeys(findUnknownSpecKeys(spec));
     }
 
     /// Addons that have to be present in this assembly
@@ -308,7 +306,7 @@ struct AssemblySpec {
      * else its URL, under the key the file uses for the sources
      * (`spec.known-addon`, `spec.addons-list[my_addon].freeze`,
      * `spec.sources-list[oca_web].access_group`). */
-    private static string[] findUnknownSpecKeys(in Node spec) {
+    package(odood) static string[] unknownKeys(in Node spec) {
         auto res = findUnknownKeys(spec, ASSEMBLY_SPEC_KEYS, "spec.");
         foreach(node; spec["addons-list"].sequence)
             if (node.nodeTypeString == "mapping")
@@ -743,7 +741,7 @@ unittest {
     import dyaml;
     import unit_threaded.assertions;
 
-    AssemblySpec.findUnknownSpecKeys(Loader.fromString(
+    AssemblySpec.unknownKeys(Loader.fromString(
         "addons-list:\n" ~
         "  - generic_mixin\n" ~
         "  - name: generic_tag\n" ~

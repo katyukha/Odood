@@ -12,7 +12,7 @@ private import std.typecons: Nullable, nullable;
 private import dyaml: Node, NodeType;
 
 private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
-private import odood.lib.assembly.unknown_keys: checkSection;
+private import odood.lib.assembly.unknown_keys: enforceMapping, findUnknownKeys;
 
 
 /* The boolean option `key` of the section `path`; false when absent. */
@@ -36,15 +36,14 @@ struct AssemblyDockerfileSettings {
     /// (`with-odoo-requirements`).
     bool with_odoo_requirements;
 
-    /** Read the `packaging.dockerfile` section. An unknown key is logged as a
-      * warning.
+    /** Read the `packaging.dockerfile` section. An unknown key is not refused
+      * (see `AssemblyPackaging.unknownKeys`).
       *
       * Throws: `OdoodAssemblyInvalidSpecException` unless it is a mapping and
       * every known option has a boolean value.
       **/
     this(in Node section) {
-        checkSection(section, "packaging.dockerfile",
-            ["generate", "with-odoo-requirements"], "generate: true");
+        enforceMapping(section, "packaging.dockerfile", "generate: true");
         generate = readOption(section, "packaging.dockerfile", "generate");
         with_odoo_requirements = readOption(
             section, "packaging.dockerfile", "with-odoo-requirements");
@@ -88,23 +87,35 @@ struct AssemblyPackaging {
     /// The generated Dockerfile (`dockerfile`).
     AssemblyDockerfileSettings dockerfile;
 
-    /** Read the `packaging` section. An unknown key is logged as a
-      * warning.
+    /** Read the `packaging` section. An unknown key is not refused (see
+      * `unknownKeys`).
       *
       * Throws: `OdoodAssemblyInvalidSpecException` unless it is a mapping,
       * every option has a boolean value, and `dockerfile` is valid.
       **/
     this(in Node section) {
-        checkSection(section, "packaging",
-            ["changelog", "version-file", "addons-list-md", "addons-list-csv",
-             "dockerfile"],
-            "changelog: true");
+        enforceMapping(section, "packaging", "changelog: true");
         changelog = readOption(section, "packaging", "changelog");
         version_file = readOption(section, "packaging", "version-file");
         addons_list_md = readOption(section, "packaging", "addons-list-md");
         addons_list_csv = readOption(section, "packaging", "addons-list-csv");
         if (section.containsKey("dockerfile"))
             dockerfile = AssemblyDockerfileSettings(section["dockerfile"]);
+    }
+
+    /// The unknown keys of a valid `packaging` section, `dockerfile`
+    /// included, fully qualified.
+    package(odood) static string[] unknownKeys(in Node section) {
+        auto res = findUnknownKeys(
+            section,
+            ["changelog", "version-file", "addons-list-md", "addons-list-csv",
+             "dockerfile"],
+            "packaging.");
+        if (section.containsKey("dockerfile"))
+            res ~= findUnknownKeys(
+                section["dockerfile"], ["generate", "with-odoo-requirements"],
+                "packaging.dockerfile.");
+        return res;
     }
 
     /// The section to save, with the options that are on; null when none is.

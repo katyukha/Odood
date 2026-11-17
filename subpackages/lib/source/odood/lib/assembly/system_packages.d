@@ -13,7 +13,7 @@ private import std.typecons: Nullable, nullable;
 private import dyaml: Node;
 
 private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
-private import odood.lib.assembly.unknown_keys: checkSection;
+private import odood.lib.assembly.unknown_keys: enforceMapping, findUnknownKeys;
 private import odood.lib.deb: isValidDebPackageName;
 
 
@@ -22,13 +22,13 @@ struct AssemblySystemPackages {
     private string[] _deb;
 
     /** Read the `system-packages` section. An unknown key, such as a package
-      * format odood does not support, is logged as a warning.
+      * format odood does not support, is not refused (see `unknownKeys`).
       *
       * Throws: `OdoodAssemblyInvalidSpecException` unless it is a mapping and
       * every package name is valid.
       **/
     this(in Node section) {
-        checkSection(section, "system-packages", ["deb"], "deb: [ghostscript]");
+        enforceMapping(section, "system-packages", "deb: [ghostscript]");
         if (section.containsKey("deb"))
             foreach(node; section["deb"].sequence) {
                 auto name = node.as!string;
@@ -36,6 +36,10 @@ struct AssemblySystemPackages {
                 _deb ~= name;
             }
     }
+
+    /// The unknown keys of a valid `system-packages` section, fully qualified.
+    package(odood) static string[] unknownKeys(in Node section) =>
+        findUnknownKeys(section, ["deb"], "system-packages.");
 
     /// Debian packages (`system-packages.deb`), in the order listed.
     @property auto deb() const => _deb;

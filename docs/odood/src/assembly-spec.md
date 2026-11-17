@@ -11,6 +11,7 @@ produces from it.
 | `spec` | yes | What the assembly contains. See [`spec` fields](#spec-fields). |
 | `system-packages` | no | What any host running the assembly needs: servers and Docker images. See [System packages](#system-packages). |
 | `packaging` | no | What odood produces from the assembly. See [Packaging](#packaging). |
+| `meta` | no | How to read the file: its format version. See [Meta](#meta). |
 
 ```yaml
 spec:
@@ -117,8 +118,8 @@ system-packages:
 |-------|----------|---------|-------------|
 | `deb` | no | `[]` | Debian package names, as `apt-get install` takes them. Real packages only: a virtual one (e.g. `awk`) is always reported missing. Versions cannot be pinned. |
 
-`deb` is the only supported key; another one is warned about, and dropped
-when odood saves the file. Each name must follow Debian's rule for
+`deb` is the only supported key; another one is warned about (see
+[Validation](#validation)). Each name must follow Debian's rule for
 package names: lowercase letters, digits, `+`, `-` and `.`, at least two
 characters, starting with a letter or digit. See
 [System packages](./assembly.md#system-packages) for how they are installed.
@@ -183,6 +184,30 @@ version in the assembly's `requirements.txt`. See
 
 ---
 
+## Meta
+
+A top-level key that says how to read the rest of the file. Odood reads it
+before any other section.
+
+```yaml
+meta:
+  format-version: 1
+spec:
+  addons-list: [...]
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `format-version` | no | `1` | The format of `odood-assembly.yml`, a positive integer. |
+
+The format changes only when a key moves, is renamed or changes meaning; an
+added key does not change it. A file in a format newer than the odood reading
+it is refused, with a message to upgrade odood, before anything else in it is
+read. Every file so far is format 1, so odood leaves `meta` out when it saves
+the file.
+
+---
+
 ## Layout
 
 | Value | Behaviour |
@@ -216,9 +241,10 @@ level, `spec`, its addon and source entries, `system-packages` and
 A misspelled key leaves its setting off: `with-odoo-requirement: true`, for
 example, does not enable the option.
 
-Odood drops unknown keys when it saves the file, for example after
-`odood assembly add-addon` or `add-system-package`. Fix a misspelled key
-before running a command that changes the file.
+Odood writes only the keys it knows, so a command that changes the file (for
+example `odood assembly add-addon` or `add-system-package`) refuses to run
+while the file has an unknown key, rather than drop it. Fix a misspelled key,
+or upgrade odood if a newer one wrote the key.
 
 Refused, because the value of a known key is wrong:
 

@@ -2,8 +2,11 @@
   * odood does not know.
   *
   * They are not refused, so a file written by a newer odood still loads on an
-  * older one. They are logged as a warning, fully qualified, so a typo shows
-  * up. Saving the file drops them.
+  * older one. Parsing only validates the keys it knows;
+  * `AssemblyDefinition.unknownKeys` lists the others, fully qualified.
+  * `Assembly` logs them as a warning when it loads the file, so a typo shows
+  * up, and refuses to save over a file that has them, since saving writes
+  * only known keys.
   **/
 module odood.lib.assembly.unknown_keys;
 
@@ -33,20 +36,17 @@ package(odood) void warnUnknownKeys(in string[] names) {
     if (names.length > 0)
         warningf(
             "Assembly: Unknown keys in the assembly definition " ~
-            "(odood-assembly.yml) are ignored, and dropped when it is saved: %s",
+            "(odood-assembly.yml) are ignored, and odood refuses to save the " ~
+            "file while it has them: %s",
             names.join(", "));
 }
 
-/** Refuse the section `path` unless it is a mapping (`example` shows one),
-  * and warn about its keys that are not in `known`.
-  **/
-package(odood) void checkSection(
-        in Node section, in string path, in string[] known, in string example) {
+/// Refuse the section `path` unless it is a mapping (`example` shows one).
+package(odood) void enforceMapping(in Node section, in string path, in string example) {
     enforce!OdoodAssemblyInvalidSpecException(
         section.nodeTypeString == "mapping",
         "Invalid assembly definition: '%s' must be a mapping, e.g. '%s'".format(
             path, example));
-    warnUnknownKeys(findUnknownKeys(section, known, path ~ "."));
 }
 
 // Unknown keys are listed in order, qualified with the prefix.

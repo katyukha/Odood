@@ -23,6 +23,7 @@ private import odood.lib.assembly.exception:
     OdoodAssemblyNothingToCommitException;
 private import odood.lib.assembly.spec;
 private import odood.lib.assembly.definition: enforceDockerfileLayout;
+private import odood.lib.assembly.unknown_keys: warnUnknownKeys;
 private import odood.lib.assembly.source_provider: AssemblySourceProviderInterface;
 private import odood.lib.assembly.source_env: resolveSourceGitEnv;
 private import odood.git: GitURL, gitClone, GitRepository, GitRemote, GIT_REF_WORKTREE, isGitRepo;
@@ -89,7 +90,7 @@ class Assembly {
     this(in Path path, in Node yaml_data, in OdooSerie serie,
             AssemblySourceProviderInterface source_provider,
             in string[string] git_env=null) {
-        this(path, AssemblyDefinition(yaml_data), serie, source_provider, git_env);
+        this(path, readDefinition(yaml_data), serie, source_provider, git_env);
     }
 
     /// Spec for this assembly: what it contains (`spec`)
@@ -146,6 +147,14 @@ class Assembly {
         _repo = new AddonRepository(GitRepository.initialize(_path, _git_env));
     }
 
+    /* Read a loaded odood-assembly.yml to work with, warning about the keys
+     * this odood does not know. */
+    private static AssemblyDefinition readDefinition(in Node root) {
+        auto definition = AssemblyDefinition(root);
+        warnUnknownKeys(AssemblyDefinition.unknownKeys(root));
+        return definition;
+    }
+
     /** Try to load asembly spec from specified location
       **/
     static Assembly maybeLoad(in Path path, in OdooSerie serie,
@@ -180,9 +189,26 @@ class Assembly {
         return _definition.toYAML;
     }
 
-    /** Save the assembly definition (`odood-assembly.yml`)
+    /** Save the assembly definition (`odood-assembly.yml`).
+      *
+      * Throws: `OdoodAssemblyException` when the file it would overwrite has
+      * keys this odood does not know (a typo, or keys from a newer odood):
+      * saving writes only known keys, so it would drop them.
       **/
     void save() const {
+        if (spec_path.exists) {
+            auto existing = dyaml.Loader.fromFile(spec_path.toString).load();
+            // Refuses a file this odood cannot read, a newer format included.
+            cast(void) AssemblyDefinition(existing);
+            auto unknown = AssemblyDefinition.unknownKeys(existing);
+            enforce!OdoodAssemblyException(
+                unknown.length == 0,
+                ("Cannot save the assembly definition (odood-assembly.yml) at %s: " ~
+                 "it has keys this odood does not know, which saving would " ~
+                 "drop: %s. Fix or remove them, or upgrade odood if a newer " ~
+                 "one wrote them.").format(_path, unknown.join(", ")));
+        }
+
         auto dumper = dyaml.dumper.dumper();
         dumper.defaultCollectionStyle = dyaml.style.CollectionStyle.block;
 
@@ -757,7 +783,7 @@ class Assembly {
     void pull() {
         infof("Assembly Pull: Pulling changes for assembly.");
         infof("Assembly Pull: Completed: %s.", repo.pull.ensureOk);
-        _definition = AssemblyDefinition(dyaml.Loader.fromFile(spec_path.toString).load());
+        _definition = readDefinition(dyaml.Loader.fromFile(spec_path.toString).load());
     }
 
     void push(in string branch_name=null) {
@@ -1351,6 +1377,35 @@ unittest {
     dockerfile.canFind("LABEL org.opencontainers.image.version=\"1.2.0\"\n").shouldBeTrue;
     dockerfile.canFind("LABEL org.opencontainers.image.source=" ~
         "\"https://example.test/org/assembly").shouldBeTrue;
+}
+
+// save refuses to overwrite a file with keys this odood does not know, or in
+// a newer format, and leaves it as it is; once they are gone, it saves.
+unittest {
+    import unit_threaded.assertions;
+    import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    immutable text = "spec:\n  addons-list: []\npackaging:\n  helm-chart: true\n";
+    assembly.spec_path.writeFile(text);
+    assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+    assembly.addSystemPackageDeb("ghostscript");
+    assembly.save().shouldThrow!OdoodAssemblyException;
+    assembly.spec_path.readFileText.shouldEqual(text);
+
+    immutable newer = "meta:\n  format-version: 2\nspec:\n  addons-list: []\n";
+    assembly.spec_path.writeFile(newer);
+    assembly.save().shouldThrow!OdoodAssemblyInvalidSpecException;
+    assembly.spec_path.readFileText.shouldEqual(newer);
+
+    assembly.spec_path.writeFile("spec:\n  addons-list: []\n");
+    assembly.save();
+    Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
+        .system_packages.deb.should == ["ghostscript"];
 }
 
 // setPackaging replaces the section, which the saved assembly definition

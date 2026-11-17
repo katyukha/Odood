@@ -7,19 +7,51 @@ module odood.lib.assembly.definition;
 
 
 private import std.exception: enforce;
+private import std.format: format;
 
-private import dyaml: Node;
+private import dyaml: Node, NodeType;
 
+private import odood.lib: _version;
 private import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
 
 private import odood.lib.assembly.spec: AssemblySpec, AssemblyLayout;
 private import odood.lib.assembly.system_packages: AssemblySystemPackages;
 private import odood.lib.assembly.packaging: AssemblyPackaging;
-private import odood.lib.assembly.unknown_keys: findUnknownKeys, warnUnknownKeys;
+private import odood.lib.assembly.unknown_keys: enforceMapping, findUnknownKeys;
 
 
 /// Top-level keys of `odood-assembly.yml`.
-private immutable string[] ASSEMBLY_TOP_LEVEL_KEYS = ["spec", "system-packages", "packaging"];
+private immutable string[] ASSEMBLY_TOP_LEVEL_KEYS = [
+    "meta", "spec", "system-packages", "packaging"];
+
+/** The newest format of `odood-assembly.yml` this odood reads
+  * (`meta.format-version`). It changes only when a key moves, is renamed or
+  * changes meaning; an added key does not change it.
+  **/
+private enum ASSEMBLY_FORMAT_VERSION = 1;
+
+
+/* `meta` says how to read the rest of the file, so it is checked before any
+ * other section, and a later format may only add keys to it. Without
+ * `format-version` the file is format 1. */
+private void checkMeta(in Node root) {
+    if (!root.containsKey("meta"))
+        return;
+    auto meta = root["meta"];
+    if (meta.nodeTypeString == "mapping" && meta.containsKey("format-version")) {
+        auto value = meta["format-version"];
+        enforce!OdoodAssemblyInvalidSpecException(
+            value.type == NodeType.integer && value.as!long >= 1,
+            "Invalid assembly definition: 'meta.format-version' must be a " ~
+            "positive integer");
+        enforce!OdoodAssemblyInvalidSpecException(
+            value.as!long <= ASSEMBLY_FORMAT_VERSION,
+            ("The assembly definition (odood-assembly.yml) has format " ~
+             "version %s, and odood %s reads up to format version %s: " ~
+             "upgrade odood.").format(value.as!long, _version, ASSEMBLY_FORMAT_VERSION));
+    }
+    enforceMapping(meta, "meta", "format-version: 1");
+}
 
 
 /* A flat assembly keeps its addons in the repository root, which the
@@ -48,25 +80,45 @@ struct AssemblyDefinition {
     /// What odood produces from the assembly (`packaging`).
     AssemblyPackaging packaging;
 
-    /** Read a loaded `odood-assembly.yml`.
+    /** Read a loaded `odood-assembly.yml`. Nothing is logged.
       *
       * A key odood does not know, at any level it reads, is not refused: a
-      * file written by a newer odood still loads. It is logged as a warning;
-      * saving the file drops it. A known key with a bad value is refused.
+      * file written by a newer odood still loads (`unknownKeys` lists them).
+      * A known key with a bad value is refused, and so is a format newer than
+      * this odood reads (`meta.format-version`).
       *
-      * Throws: `OdoodAssemblyInvalidSpecException` on an invalid section.
+      * Throws: `OdoodAssemblyInvalidSpecException` on an invalid section or
+      * an unsupported format.
       **/
     this(in Node root) {
+        checkMeta(root);
         spec = AssemblySpec(root);
         if (root.containsKey("system-packages"))
             system_packages = AssemblySystemPackages(root["system-packages"]);
         if (root.containsKey("packaging"))
             packaging = AssemblyPackaging(root["packaging"]);
         enforceDockerfileLayout(spec.layout, packaging.dockerfile.generate);
-        warnUnknownKeys(findUnknownKeys(root, ASSEMBLY_TOP_LEVEL_KEYS, ""));
     }
 
-    /// The file to save. Sections left at their defaults are left out.
+    /** The keys of a loaded `odood-assembly.yml` that odood does not know,
+      * at every level, fully qualified (`spec.addons-list[web].freeze`).
+      * For a file that reads without error.
+      **/
+    static string[] unknownKeys(in Node root) {
+        auto res = findUnknownKeys(root, ASSEMBLY_TOP_LEVEL_KEYS, "");
+        if (root.containsKey("meta"))
+            res ~= findUnknownKeys(root["meta"], ["format-version"], "meta.");
+        res ~= AssemblySpec.unknownKeys(root["spec"]);
+        if (root.containsKey("system-packages"))
+            res ~= AssemblySystemPackages.unknownKeys(root["system-packages"]);
+        if (root.containsKey("packaging"))
+            res ~= AssemblyPackaging.unknownKeys(root["packaging"]);
+        return res;
+    }
+
+    /** The file to save. Sections left at their defaults are left out; so is
+      * `meta` while the format is 1.
+      **/
     Node toYAML() const {
         auto res = spec.toYAML;
         auto system_packages_node = system_packages.toYAML;
@@ -132,4 +184,60 @@ unittest {
 
     load("standard").packaging.dockerfile.generate.shouldBeTrue;
     load("flat").shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// meta.format-version: absent or 1 loads, a newer format is refused before any
+// other section is read, and a value that is not a positive integer is
+// refused.
+unittest {
+    import std.algorithm: canFind;
+    import std.exception: collectException;
+    import dyaml: Loader;
+    import unit_threaded.assertions;
+
+    auto load(in string text) => AssemblyDefinition(Loader.fromString(text).load());
+
+    load("spec:\n  addons-list: []\n");
+    load("meta:\n  format-version: 1\nspec:\n  addons-list: []\n");
+
+    // The spec of a newer format may not parse at all: the format error comes first.
+    auto e = collectException!OdoodAssemblyInvalidSpecException(
+        load("meta:\n  format-version: 2\nspec: [moved]\n"));
+    (e !is null).shouldBeTrue;
+    e.msg.canFind("format version 2").shouldBeTrue;
+
+    load("meta:\n  format-version: 0\nspec:\n  addons-list: []\n")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("meta:\n  format-version: '1'\nspec:\n  addons-list: []\n")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+    load("meta: [format-version]\nspec:\n  addons-list: []\n")
+        .shouldThrow!OdoodAssemblyInvalidSpecException;
+}
+
+// unknownKeys lists the unknown keys of every level, meta included; a
+// file with only known keys has none.
+unittest {
+    import dyaml: Loader;
+    import unit_threaded.assertions;
+
+    AssemblyDefinition.unknownKeys(Loader.fromString(
+        "meta:\n" ~
+        "  written-by: odood\n" ~
+        "spec:\n" ~
+        "  addons-list:\n" ~
+        "    - name: generic_mixin\n" ~
+        "      freeze: true\n" ~
+        "system-packages:\n" ~
+        "  rpm: [poppler-utils]\n" ~
+        "packaging:\n" ~
+        "  dockerfile:\n" ~
+        "    base-image: odoo:18\n" ~
+        "pakaging: {}\n").load()
+    ).should == [
+        "pakaging", "meta.written-by", "spec.addons-list[generic_mixin].freeze",
+        "system-packages.rpm", "packaging.dockerfile.base-image"];
+
+    AssemblyDefinition.unknownKeys(Loader.fromString(
+        "meta:\n  format-version: 1\nspec:\n  addons-list: []\n").load()
+    ).length.shouldEqual(0);
 }

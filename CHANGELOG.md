@@ -39,11 +39,16 @@
   a flat assembly).
 - Unknown keys in the assembly definition are warned about, named in full
   (`spec.sources-list[oca_web].access_group`), instead of ignored silently.
-  They are not refused, so a file from a newer odood still loads, but saving
-  the file drops them.
+  They are not refused, so a file from a newer odood still loads; but commands
+  that save the file (`add-addon`, `add-source`, ...) refuse to run while it
+  has them, instead of dropping them.
+- Assembly definition: top-level `meta.format-version`, the format of the
+  file. A format newer than the running odood is refused, with a message to
+  upgrade odood. Every file so far is format 1, the default.
 - Library: `gitCredentialEnv`, `resolveGitCredentialEnv`,
   `RepositoryManager.withCredentials`; `odood.lib.deb`; `odood.lib.env_file`,
-  `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition`, and on
+  `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition` (with
+  `unknownKeys`, the unknown keys as data), and on
   `Assembly`: `system_packages`, `packaging`, `installSystemPackages`,
   `addSystemPackageDeb` / `removeSystemPackageDeb`, `setPackaging`.
 
