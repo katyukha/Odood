@@ -84,7 +84,8 @@ struct RepositoryManager {
             return repo;
 
         Nullable!GitURL origin;
-        // An origin that is not a URL, such as a local path, needs none.
+        // An origin that cannot be parsed needs none; a local one matches no
+        // credentials.
         try origin = repo.getRemoteUrl;
         catch (OdoodException)
             return repo;

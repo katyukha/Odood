@@ -727,7 +727,13 @@ class Assembly {
         // TODO: move to template, after darktemple will be ready for this
         auto handle_requirements_txt = path.join("requirements.txt").exists;
         auto handle_requirements_lock_txt = path.join(ASSEMBLY_REQUIREMENTS_LOCK).exists;
-        auto assembly_source_url = repo.hasRemoteUrl("origin") ? repo.getRemoteUrl().toString : "";
+        // A local origin says nothing to a reader of the image: no label.
+        string assembly_source_url;
+        if (repo.hasRemoteUrl("origin")) {
+            auto origin = repo.getRemoteUrl();
+            if (!origin.isLocal)
+                assembly_source_url = origin.toString;
+        }
         if (path.join("Dockerfile").exists) {
             /* The rendered template is inserted verbatim via the callback
              * overload: the replacement-format overload would read '$&',
@@ -778,15 +784,23 @@ class Assembly {
             generateAddonsList(md: packaging.addons_list_md, csv: packaging.addons_list_csv);
     }
 
-    /** Generate and stage the files `packaging` asks a release for:
-      * `CHANGELOG.md` and `CHANGELOG.latest.md`; `VERSION`, updated when it
-      * exists and created with `version-file`; the Dockerfile labelled with
-      * the new version; `ADDONS.md` and `ADDONS.csv`. Committing and tagging
-      * are left to the caller.
+    /** Write and stage the files `packaging` asks a release for:
+      * - `CHANGELOG.md` and `CHANGELOG.latest.md`;
+      * - `VERSION`, updated when it exists and created with `version-file`;
+      * - the Dockerfile (with `.dockerignore`), labelled with the new version;
+      * - `ADDONS.md` and `ADDONS.csv`.
       *
-      * Throws: as `generateChangelog(result)`.
+      * Call it after `prepareRelease` and `validateRelease`. Committing,
+      * tagging and pushing are left to the caller.
+      *
+      * Throws: `OdoodAssemblyException`, before anything is written, as
+      * `generateChangelog(result)` does. Writing can still fail (an I/O
+      * error): the files above written so far are then left written and
+      * staged, and a caller that commits after a failure restores its index
+      * first.
       **/
     void generateReleaseFiles(in PrepareReleaseResult result) {
+        // First: the changelog's base check must run before anything is written.
         if (packaging.changelog)
             generateChangelog(result);
         generateVersionFile(result.new_version, create: packaging.version_file);
@@ -1534,6 +1548,63 @@ unittest {
     assembly.version_path.writeFile("17.0.0.0.5\n");
     assembly.generateReleaseFiles(result);
     assembly.version_path.readFileText.should == "17.0.0.1.0\n";
+}
+
+// generateReleaseFiles refuses a changelog from a base older than the latest
+// release before it writes anything: no file is left behind.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, ["my_addon"]);
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Initial commit");
+    immutable initial = assembly.repo.getCurrCommit;
+    assembly.path.join("README.md").writeFile("Assembly\n");
+    assembly.repo.add(assembly.path.join("README.md"));
+    assembly.repo.commit("Add README");
+    assembly.repo.setTag("17.0.0.0.5");
+    assembly.addAddon("my_addon");
+    assembly.save();
+    assembly.sync();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.add(assembly.dist_dir);
+    assembly.repo.commit("Add my_addon");
+
+    AssemblyPackaging packaging;
+    packaging.changelog = true;
+    packaging.version_file = true;
+    packaging.dockerfile.generate = true;
+    assembly.setPackaging(packaging);
+
+    auto stale = assembly.prepareRelease(base_rev: initial).get;
+    assembly.generateReleaseFiles(stale).shouldThrow!OdoodAssemblyException;
+    foreach(name; ["CHANGELOG.md", "CHANGELOG.latest.md", "VERSION", "Dockerfile"])
+        assembly.path.join(name).exists.shouldBeFalse;
+}
+
+// A local origin gives the image no source label: it says nothing to a
+// reader of the image.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.save();
+    assembly.repo.add(assembly.spec_path);
+    assembly.repo.commit("Add source");
+    addTestOrigin(assembly, root);
+    assembly.generateDockerfile("17.0.1.0.0");
+    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
+    dockerfile.canFind(`LABEL org.opencontainers.image.version="17.0.1.0.0"`).shouldBeTrue;
+    dockerfile.canFind("org.opencontainers.image.source").shouldBeFalse;
 }
 
 // A Dockerfile is refused for a flat assembly, which it could not build an

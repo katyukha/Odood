@@ -624,7 +624,9 @@ class GitRepository {
             .isOk;
     }
 
-    /** Get remote url for specified remote
+    /** Get remote url for specified remote. A remote that is a filesystem
+      * path, as `git clone /path` records it, is returned as a local URL
+      * (`isLocal`); a relative one is relative to the repository.
       **/
     auto getRemoteUrl(in string name) const {
         string res = gitCmd
@@ -633,6 +635,10 @@ class GitRepository {
             .execute
             .ensureOk(true)
             .output.strip;
+        if (res.startsWith("/"))
+            return GitURL(Path(res));
+        if (res.startsWith("./") || res.startsWith("../"))
+            return GitURL(_path.join(res));
         return GitURL(res);
     }
 
@@ -2079,4 +2085,29 @@ class GitRepository {
                 .ensureOk("Cannot get git status", true)
                 .output);
     }
+}
+
+// getRemoteUrl returns a remote given as a filesystem path, absolute or
+// relative to the repository, as a local URL; a remote URL is parsed as one.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto repo = GitRepository.initialize(root.join("repo"));
+    repo.remoteAdd("origin", "/srv/git/assembly.git");
+    repo.remoteAdd("sibling", "../assembly.git");
+    repo.remoteAdd("forge", "https://example.test/org/assembly.git");
+
+    auto origin = repo.getRemoteUrl("origin");
+    origin.isLocal.shouldBeTrue;
+    origin.path.shouldEqual("/srv/git/assembly.git");
+
+    auto sibling = repo.getRemoteUrl("sibling");
+    sibling.isLocal.shouldBeTrue;
+    sibling.path.shouldEqual(repo.path.join("../assembly.git").toString);
+
+    repo.getRemoteUrl("forge").isLocal.shouldBeFalse;
 }
