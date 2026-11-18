@@ -96,8 +96,7 @@ Run `odood deploy --help` for the full list of options.
 `--supervisor=init-script` is deprecated. odood 0.8.0 removes it completely: it no longer
 generates init scripts, and no longer starts or stops Odoo through one. Move existing
 init-script deployments before upgrading to 0.8.0. Debian fully supports only systemd,
-systemd 255 deprecated its support for SysV init scripts, and the generated script could
-not start Odoo from odood 0.4.3 to 0.7.1 without anyone reporting it.
+and systemd 255 deprecated its support for SysV init scripts.
 
 Deploy new servers with `--supervisor=systemd`, the default. On a host without systemd
 (Devuan, MX Linux in sysvinit mode, a container) use `--supervisor=odood`: odood then

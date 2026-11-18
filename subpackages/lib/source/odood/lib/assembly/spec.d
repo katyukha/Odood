@@ -246,18 +246,17 @@ struct AssemblySpec {
         foreach(node; spec["addons-list"].sequence)
             _addons ~= AssemblySpecAddon(node);
 
-        if (spec.containsKey("sources-list"))
-            foreach(node; spec["sources-list"].sequence)
-                _sources ~= AssemblySpecSource(node);
-        else if (spec.containsKey("git-sources"))
-            foreach(node; spec["git-sources"].sequence)
+        immutable sources_key = spec.containsKey("sources-list")
+            ? "sources-list" : "git-sources";
+        if (spec.containsKey(sources_key))
+            foreach(node; spec[sources_key].sequence)
                 _sources ~= AssemblySpecSource(node);
 
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
 
-        // Refused rather than ignored as an unknown key: an assembly that has
-        // it would otherwise lose its packages without a word.
+        // Refused rather than warned about as an unknown key: an assembly that
+        // has it would sync and install without its packages.
         enforce!OdoodAssemblyInvalidSpecException(
             !spec.containsKey("system-packages"),
             "Invalid assembly definition: 'system-packages' is a top-level section of " ~
@@ -763,8 +762,19 @@ unittest {
     ];
 }
 
+// Sources listed under the `git-sources` alias are read like `sources-list`.
+unittest {
+    import dyaml;
+    import unit_threaded.assertions;
+
+    auto spec = AssemblySpec(Loader.fromString(
+        "spec:\n  addons-list: []\n  git-sources:\n    - oca: web\n      name: oca_web\n").load());
+    spec.sources.length.shouldEqual(1);
+    spec.sources[0].name.shouldEqual("oca_web");
+}
+
 // spec.system-packages is refused with a pointer to the top-level section,
-// instead of being dropped as an unknown key.
+// instead of being warned about as an unknown key.
 unittest {
     import dyaml;
     import unit_threaded.assertions;

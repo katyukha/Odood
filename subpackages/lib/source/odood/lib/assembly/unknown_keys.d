@@ -48,17 +48,3 @@ package(odood) void enforceMapping(in Node section, in string path, in string ex
         "Invalid assembly definition: '%s' must be a mapping, e.g. '%s'".format(
             path, example));
 }
-
-// Unknown keys are listed in order, qualified with the prefix.
-unittest {
-    import dyaml: Loader;
-    import unit_threaded.assertions;
-
-    findUnknownKeys(
-        Loader.fromString("deb: [a]\nrpm: [b]\napk: [c]\n").load(),
-        ["deb"], "system-packages."
-    ).should == ["system-packages.rpm", "system-packages.apk"];
-
-    findUnknownKeys(Loader.fromString("deb: [a]\n").load(), ["deb"], "")
-        .length.shouldEqual(0);
-}

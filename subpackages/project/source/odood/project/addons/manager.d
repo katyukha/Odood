@@ -435,7 +435,7 @@ struct AddonManager {
             in bool with_odoo_requirements=false) const {
         enforceOdooRequirementsBatched(individual_requirements, with_odoo_requirements);
         if (individual_requirements) {
-            // Old behavior: install requirements per-addon individually
+            // Install the requirements of each addon on its own
             foreach(addon; scan(search_path, recursive))
                 link(addon, force, py_requirements, manifest_requirements, true);
 

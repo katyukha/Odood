@@ -11,7 +11,9 @@ sections describe what hosts running the assembly need and what odood produces f
 All third-party addons will be placed into `dist` directory inside assembly during `sync` operation.
 
 After `spec` is created/updated there is need to run `sync` operation as next step.
-The `sync` operation updates assembly with latest versions of addons according to the `spec` definition.
+The `sync` operation updates assembly with latest versions of addons according to the `spec` definition,
+and regenerates the files the [`packaging`](./assembly-spec.md#packaging) section asks for, such as
+the `Dockerfile`.
 
 So, after sync is completed, and changes pushed to assembly git repo,
 the servers that use this assembly could be updated in single step, by calling command
@@ -704,7 +706,8 @@ Two ways to see the pending changelog before any version is assigned:
 
 No cleanup is needed for the `## Unreleased` section: a release with
 `packaging.changelog` regenerates the changelog from the last release,
-replacing it with the released section.
+replacing it with the released section. Without `packaging.changelog` the
+section stays in `CHANGELOG.md` after the release, so the preview warns.
 
 
 ## Sample CI configuration to build/update assemblies automatically

@@ -166,7 +166,9 @@ The flags that choose these files for one run (`--changelog`,
 `--version-file`, `--addons-list-md`, `--addons-list-csv` and `--dockerfile`
 of `odood assembly sync` and `release`) are deprecated and will be removed in
 odood 0.8.0. `sync --changelog-preview` stays: the preview is a choice for one
-sync, not a file the repository keeps.
+sync, not a file the repository keeps. It needs `changelog: true`, since only
+a release that writes the changelog replaces its `## Unreleased` section;
+without it, the preview warns.
 
 ### Dockerfile
 
@@ -240,10 +242,10 @@ key is warned about, a known key with a bad value is refused.**
 
 An unknown key does not stop the file from loading, so a file written by a
 newer odood still loads on an older one. That holds at every level: the top
-level, `spec`, its addon and source entries, `system-packages` and
+level, `meta`, `spec`, its addon and source entries, `system-packages` and
 `packaging`. Odood warns about it, naming it in full: `pakaging`,
 `spec.addons-list[my_addon].freeze`, `spec.sources-list[oca_web].access_group`
-(a source without a name is named by its URL), `packaging.dockerfile.generate`.
+(a source without a name is named by its URL), `packaging.dockerfile.base-image`.
 A misspelled key leaves its setting off: `with-odoo-requirement: true`, for
 example, does not enable the option.
 
@@ -256,8 +258,11 @@ Refused, because the value of a known key is wrong:
 
 - a `system-packages` that is not a mapping, or a `deb` name that is not a
   valid Debian package name;
-- a `packaging` or `packaging.dockerfile` that is not a mapping, or a
-  `with-odoo-requirements` that is not `true` or `false`;
+- a `packaging` or `packaging.dockerfile` that is not a mapping, or an option
+  of them that is not `true` or `false`;
+- `packaging.dockerfile.generate` with `layout: flat`;
+- a `meta.format-version` that is not a positive integer, or is newer than
+  the odood reading it;
 - `system-packages` inside `spec`: it is a top-level key.
 
 ---
@@ -265,6 +270,8 @@ Refused, because the value of a known key is wrong:
 ## Complete example
 
 ```yaml
+meta:
+  format-version: 1                       # written by odood on every save
 spec:
   addons-list:
     - generic_mixin                       # shorthand
@@ -293,6 +300,8 @@ system-packages:
   deb:
     - poppler-utils                       # binaries the addons call
 packaging:
+  changelog: true                         # release writes CHANGELOG.md
   dockerfile:
+    generate: true                        # sync and release write the Dockerfile
     with-odoo-requirements: true          # image keeps Odoo's pinned versions
 ```

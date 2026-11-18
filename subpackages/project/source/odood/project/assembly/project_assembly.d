@@ -32,8 +32,7 @@ package(odood) enum REQUIREMENTS_LOCK_DEPRECATED =
   * validating addon dependencies against the project's system addons.
   *
   * Only the project-bound operations live here; the base (project-free) surface
-  * is reached explicitly via the `raw` accessor. Moves to `odood:project` when
-  * the subpackage split lands; the base `Assembly` stays in `odood:lib`.
+  * is reached explicitly via the `raw` accessor.
   **/
 class ProjectAssembly {
     private Assembly _assembly;
@@ -52,7 +51,6 @@ class ProjectAssembly {
 
     // Private shortcuts to the base members used by the operations below.
     private @property dist_dir() const => _assembly.dist_dir;
-    private @property spec() const => _assembly.spec;
     private @property repo() => _assembly.repo;
 
     /** Fetch sources, assemble addons and write the files `packaging` asks
@@ -96,7 +94,7 @@ class ProjectAssembly {
       *     py_requirements = collect/install from requirements.txt files
       *     manifest_requirements = collect/install from manifest python_dependencies
       *     individual_requirements = if set, install requirements per-addon
-      *         instead of batched (old behavior)
+      *         instead of batched
       *     with_odoo_requirements = if set, include Odoo's requirements.txt
       *         in the batch install. Cannot be combined with
       *         individual_requirements.

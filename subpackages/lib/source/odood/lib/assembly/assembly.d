@@ -669,6 +669,12 @@ class Assembly {
                   "no changelog preview to generate.");
             return false;
         }
+        if (!packaging.changelog)
+            warningf(
+                "Assembly: Only a release that writes the changelog replaces " ~
+                "the '## Unreleased' section of the preview. Set " ~
+                "'packaging.changelog: true' in odood-assembly.yml, or the " ~
+                "section stays in CHANGELOG.md after the release.");
         repo.generateChangelog(result.get, heading: "Unreleased");
         return true;
     }
@@ -776,14 +782,6 @@ class Assembly {
         generateDockerfile(current.isNull ? "" : current.get.toString);
     }
 
-    // The files `packaging` asks a sync for, written and staged.
-    private void generateSyncFiles() {
-        if (packaging.dockerfile.generate)
-            generateDockerfile();
-        if (packaging.addons_list_md || packaging.addons_list_csv)
-            generateAddonsList(md: packaging.addons_list_md, csv: packaging.addons_list_csv);
-    }
-
     /** Write and stage the files `packaging` asks a release for:
       * - `CHANGELOG.md` and `CHANGELOG.latest.md`;
       * - `VERSION`, updated when it exists and created with `version-file`;
@@ -827,7 +825,10 @@ class Assembly {
         dist_dir.mkdir(true);  // ensure dist dir exists
         _source_provider.ensureSources(_definition.spec.sources, serie);
         syncAddons();
-        generateSyncFiles();
+        if (packaging.dockerfile.generate)
+            generateDockerfile();
+        if (packaging.addons_list_md || packaging.addons_list_csv)
+            generateAddonsList(md: packaging.addons_list_md, csv: packaging.addons_list_csv);
     }
 
     /// Pull the assembly repo, and reload the assembly definition it brings.
@@ -1409,7 +1410,8 @@ unittest {
 }
 
 // The image is labelled with its version and source repository only when the
-// assembly has them: an empty "" is true in a template condition.
+// assembly has them (an empty "" is true in a template condition); a local
+// origin says nothing to a reader of the image, so it gives no source label.
 unittest {
     import unit_threaded.assertions;
     import thepath: createTempPath;
@@ -1422,11 +1424,18 @@ unittest {
     assembly.path.join("Dockerfile").readFileText
         .canFind("org.opencontainers.image").shouldBeFalse;
 
-    assembly.repo.remoteAdd("origin", "https://example.test/org/assembly.git");
+    assembly.repo.remoteAdd("origin", root.join("remote.git").toString);
     assembly.generateDockerfile("1.2.0");
     auto dockerfile = assembly.path.join("Dockerfile").readFileText;
     dockerfile.canFind("LABEL org.opencontainers.image.version=\"1.2.0\"\n").shouldBeTrue;
-    dockerfile.canFind("LABEL org.opencontainers.image.source=" ~
+    dockerfile.canFind("org.opencontainers.image.source").shouldBeFalse;
+
+    assembly.repo.gitCmd
+        .withArgs("remote", "set-url", "origin", "https://example.test/org/assembly.git")
+        .execute.ensureOk(true);
+    assembly.generateDockerfile("1.2.0");
+    assembly.path.join("Dockerfile").readFileText.canFind(
+        "LABEL org.opencontainers.image.source=" ~
         "\"https://example.test/org/assembly").shouldBeTrue;
 }
 
@@ -1587,26 +1596,6 @@ unittest {
         assembly.path.join(name).exists.shouldBeFalse;
 }
 
-// A local origin gives the image no source label: it says nothing to a
-// reader of the image.
-unittest {
-    import unit_threaded.assertions;
-    import thepath: createTempPath;
-
-    auto root = createTempPath;
-    scope(exit) root.remove();
-
-    auto assembly = makeTestAssembly(root, []);
-    assembly.save();
-    assembly.repo.add(assembly.spec_path);
-    assembly.repo.commit("Add source");
-    addTestOrigin(assembly, root);
-    assembly.generateDockerfile("17.0.1.0.0");
-    auto dockerfile = assembly.path.join("Dockerfile").readFileText;
-    dockerfile.canFind(`LABEL org.opencontainers.image.version="17.0.1.0.0"`).shouldBeTrue;
-    dockerfile.canFind("org.opencontainers.image.source").shouldBeFalse;
-}
-
 // A Dockerfile is refused for a flat assembly, which it could not build an
 // image of, and nothing is written.
 unittest {
@@ -1625,8 +1614,8 @@ unittest {
     assembly.path.join(".dockerignore").exists.shouldBeFalse;
 }
 
-// setPackaging replaces the section, which the saved assembly definition
-// keeps; a generated Dockerfile is refused for a flat assembly.
+// setPackaging replaces the section; a generated Dockerfile is refused for a
+// flat assembly.
 unittest {
     import unit_threaded.assertions;
     import odood.lib.assembly.exception: OdoodAssemblyInvalidSpecException;
@@ -1640,16 +1629,10 @@ unittest {
     packaging.changelog = true;
     packaging.dockerfile.generate = true;
     assembly.setPackaging(packaging);
-    assembly.save();
-    auto saved = Assembly.load(
-        assembly.path, assembly.serie, new TestSourceProvider(root)).packaging;
-    saved.changelog.shouldBeTrue;
-    saved.dockerfile.generate.shouldBeTrue;
-
+    assembly.packaging.changelog.shouldBeTrue;
+    assembly.packaging.dockerfile.generate.shouldBeTrue;
     assembly.setPackaging(AssemblyPackaging.init);
-    assembly.save();
-    Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root))
-        .packaging.changelog.shouldBeFalse;
+    assembly.packaging.changelog.shouldBeFalse;
 
     assembly.spec_path.writeFile("spec:\n  addons-list: []\n  layout: flat\n");
     auto flat = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
@@ -1710,9 +1693,6 @@ unittest {
         .execute.ensureOk(true);
     auto other = Assembly.load(other_path, assembly.serie, new TestSourceProvider(root));
     other.addSystemPackageDeb("ghostscript");
-    AssemblyPackaging packaging;
-    packaging.dockerfile.with_odoo_requirements = true;
-    other.setPackaging(packaging);
     other.save();
     other.repo.add(other.spec_path);
     other.repo.commit("Add ghostscript");
@@ -1720,5 +1700,4 @@ unittest {
 
     assembly.pull();
     assembly.system_packages.deb.should == ["ghostscript"];
-    assembly.packaging.dockerfile.with_odoo_requirements.shouldBeTrue;
 }

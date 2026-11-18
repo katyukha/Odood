@@ -239,7 +239,7 @@ class CommandAssemblySync: AssemblyCommandBase {
         }
 
         if (changelogPreview)
-            project.assembly.raw.generateChangelogPreview;
+            assembly.generateChangelogPreview;
 
         // With --changelog-preview the changelog files are sync's own output.
         auto generated_paths = changelogPreview
@@ -248,10 +248,10 @@ class CommandAssemblySync: AssemblyCommandBase {
 
         if (commit || push || !pushTo.isNull) {
             enforce!OdoodCLIException(
-                project.assembly.raw.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
+                assembly.repo.getChangedFiles(path_filters: [":(exclude)dist"], staged: false).length == 0,
                 "Assembly Sync: There are unexpected changes in assembly. Please, handle it manually.");
             enforce!OdoodCLIException(
-                project.assembly.raw.repo.getChangedFiles(
+                assembly.repo.getChangedFiles(
                     path_filters: (generated_paths ~ "dist")
                         .map!(pth => ":(exclude)%s".format(pth)).array,
                     staged: true
@@ -259,12 +259,12 @@ class CommandAssemblySync: AssemblyCommandBase {
                 "Assembly Sync: There are unexpected staged changes in assembly. Please, handle it manually.");
 
             if (
-                project.assembly.raw.repo.getChangedFiles(
+                assembly.repo.getChangedFiles(
                     path_filters: generated_paths ~ "dist",
                     staged: true)
             ) {
                 infof("Assembly Sync: Committing assembly changes...");
-                project.assembly.raw.repo.commit(
+                assembly.repo.commit(
                     message: commitMessage.isNull ?
                         "[SYNC] Assembly synced" : commitMessage.get,
                     username: commitUser.isNull ? null : commitUser.get,
@@ -279,7 +279,7 @@ class CommandAssemblySync: AssemblyCommandBase {
         }
 
         if (push || !pushTo.isNull)
-            project.assembly.raw.push(
+            assembly.push(
                 branch_name: pushTo.isNull ? null : pushTo.get);
         return 0;
     }

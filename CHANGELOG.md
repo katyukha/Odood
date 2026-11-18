@@ -6,17 +6,9 @@
 
 - `ODOOD_GIT_CREDENTIALS`: credentials for private https repositories by URL
   prefix, one `<prefix> <user>:<token>` per line. Used by `odood repo add`,
-  `addons add --odoo-requirements` (and the requirements of the repositories it
-  fetches), `odood repo pull-all`, and assembly sources without
+  `addons add --odoo-requirements` (and the repositories it fetches),
+  `odood repo pull-all`, and assembly sources without
   `ODOOD_ASSEMBLY_<name|group>_CRED`.
-- Assembly definition: top-level `system-packages.deb`, the Debian packages the
-  addons need on any host. The generated `Dockerfile` and
-  `odood deploy --assembly-repo` install them; on existing servers
-  `odood assembly install-system-packages` and
-  `odood assembly upgrade --install-system-packages` (as root) install the
-  missing ones, and `odood assembly link` warns about them.
-  `odood assembly add-system-package` / `remove-system-package` edit the list.
-  Assemblies created with 0.7.2-dev.1 have to move it out of `spec`.
 - Environment variables for Odoo in `conf/odoo.env`, loaded by the systemd
   service, the init script and every Odoo process odood starts, so the service
   and `sudo odood ...` run Odoo with the same variables. odood's own
@@ -24,40 +16,42 @@
   differently are refused. `odood deploy` creates it; on an existing
   deployment, create it and add `EnvironmentFile=-/opt/odoo/conf/odoo.env` to
   the service.
-- `--with-odoo-requirements` for `odood assembly upgrade` and
-  `odood assembly pull --link`: Odoo's `requirements.txt` joins the addons'
-  install, so pip keeps, and puts back, the versions Odoo pins.
-- Assembly definition: top-level `packaging.dockerfile.with-odoo-requirements`
-  makes the generated `Dockerfile` link with `--with-odoo-requirements`. A
-  conflicting addon requirement then fails the build with
-  `ResolutionImpossible`; pin a compatible version in the assembly's
-  `requirements.txt`.
-- Assembly definition: top-level `packaging` names the files
-  `odood assembly sync` and `release` generate, so CI, a release by hand and
-  odood-nest write the same ones: `changelog`, `version-file`,
-  `addons-list-md`, `addons-list-csv` and `dockerfile.generate` (refused for
-  a flat assembly).
+- `--with-odoo-requirements` for `odood assembly upgrade` and `pull --link`:
+  Odoo's `requirements.txt` joins the addons' install, so pip keeps, and puts
+  back, the versions Odoo pins.
+- Assembly definition (`odood-assembly.yml`), new top-level sections:
+  - `system-packages.deb`: Debian packages the addons need on any host. The
+    generated `Dockerfile` and `odood deploy --assembly-repo` install them; on
+    existing servers `odood assembly install-system-packages` and
+    `upgrade --install-system-packages` (as root) install the missing ones,
+    and `link` warns about them. `add-system-package` / `remove-system-package`
+    edit the list. Assemblies created with 0.7.2-dev.1 have to move it out of
+    `spec`.
+  - `packaging`: the files `odood assembly sync` and `release` generate
+    (`changelog`, `version-file`, `addons-list-md`, `addons-list-csv`,
+    `dockerfile.generate`), so CI, a release by hand and odood-nest write the
+    same ones. `dockerfile.with-odoo-requirements` makes the `Dockerfile` link
+    with `--with-odoo-requirements`; a conflicting addon requirement then
+    fails the build with `ResolutionImpossible`.
+  - `meta.format-version`: the file's format, written on every save. A format
+    newer than the running odood is refused with a message to upgrade it; a
+    file without it is format 1.
 - Unknown keys in the assembly definition are warned about, named in full
-  (`spec.sources-list[oca_web].access_group`), instead of ignored silently.
-  They are not refused, so a file from a newer odood still loads; but commands
-  that save the file (`add-addon`, `add-source`, ...) refuse to run while it
-  has them, instead of dropping them.
-- Assembly definition: top-level `meta.format-version`, the format of the
-  file. A format newer than the running odood is refused, with a message to
-  upgrade odood. Odood writes it whenever it saves the file; a file without
-  it is format 1.
+  (`spec.sources-list[oca_web].access_group`). A file from a newer odood still
+  loads, but commands that save it refuse to run instead of dropping them.
 - Library: `gitCredentialEnv`, `resolveGitCredentialEnv`,
   `RepositoryManager.withCredentials`; `odood.lib.deb`; `odood.lib.env_file`,
-  `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition` (with
-  `unknownKeys`, the unknown keys as data), and on
-  `Assembly`: `system_packages`, `packaging`, `installSystemPackages`,
-  `addSystemPackageDeb` / `removeSystemPackageDeb`, `setPackaging`,
-  `generateReleaseFiles` (the files `packaging` asks a release for).
-- Library: `Assembly.sync` also writes and stages the files `packaging` asks
-  for. Validating dependencies stays a separate step, after it.
+  `Project.odoo_env_file`, `Project.odooEnv`; `AssemblyDefinition` with
+  `unknownKeys`; on `Assembly`: `system_packages`, `packaging`,
+  `setPackaging`, `installSystemPackages`, `addSystemPackageDeb` /
+  `removeSystemPackageDeb`, `generateReleaseFiles`. `Assembly.sync` also
+  writes the files `packaging` asks for.
 
 ### Changed
 
+- Upgrade every odood that works on an assembly (CI images, odood-nest)
+  before moving the deprecated flags into `packaging`: 0.7.1 ignores the new
+  sections in `sync` and `release`, and drops them when it saves the file.
 - Credentials from `ODOOD_ASSEMBLY_<name|group>_CRED` work alongside a
   `GIT_CONFIG_COUNT` in the environment, reach only the source's host, and
   replace the other credential helpers for that host.
@@ -69,13 +63,15 @@
 - `odood assembly link` and `odood addons link` refuse
   `--with-odoo-requirements` together with `--individual-requirements`, which
   ignored it.
-- Docs and messages call the whole `odood-assembly.yml` the *assembly
-  definition*; `spec` is one of its sections. Its errors start with
-  "Invalid assembly definition:".
-- `odood assembly release --dry-run` always prints the changelog preview.
+- `odood assembly release --dry-run` always prints the changelog preview, and
+  `sync --changelog-preview` warns without `packaging.changelog`: no release
+  would replace its `## Unreleased` section.
 - A Dockerfile for a flat assembly (`--dockerfile`, or
   `Assembly.generateDockerfile`) is refused instead of written without the
   addons.
+- Docs and messages call the whole `odood-assembly.yml` the *assembly
+  definition*; `spec` is one of its sections. Its errors start with
+  "Invalid assembly definition:".
 - Library: the `Assembly` constructor takes an `AssemblyDefinition` instead of
   an `AssemblySpec` (`AssemblyDefinition d; d.spec = spec;`).
 - Requires `theprocess` 0.1.3.
@@ -95,7 +91,7 @@
   and `ProjectAssembly.sync(generate_lock, ...)`.
 - `--changelog`, `--version-file`, `--addons-list-md`, `--addons-list-csv` and
   `--dockerfile` of `odood assembly sync` and `release`, removed in 0.8.0: set
-  the matching key of `packaging` in `odood-assembly.yml` instead.
+  the matching `packaging` key instead.
 
 ### Fixed
 
@@ -116,13 +112,11 @@
 - The init script generated by `--supervisor=init-script` starts and stops
   Odoo: it printed its usage instead, and used another pidfile than
   `odood server`.
-- Generating the `Dockerfile` no longer fails when the assembly's `origin`
-  is a local path; such an origin gives the image no source label. Library:
-  `GitRepository.getRemoteUrl` returns a remote that is a filesystem path as
-  a local URL instead of failing.
-- The generated `Dockerfile` no longer has empty
-  `org.opencontainers.image.version` / `source` labels when the assembly has no
-  release yet or no `origin` remote.
+- The generated `Dockerfile` no longer fails for an assembly whose `origin` is
+  a local path (it gets no source label), and no longer has empty
+  `org.opencontainers.image.version` / `source` labels without a release or an
+  `origin`. Library: `GitRepository.getRemoteUrl` returns a remote that is a
+  filesystem path as a local URL.
 
 ## Release 0.7.1 (2026-11-06)
 
