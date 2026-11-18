@@ -130,6 +130,10 @@ jobs:
           # When multiple outputs are configured mdBook places each in its own
           # subdirectory: book/html/ for HTML, book/pdf/ for PDF.
           printf '\n[output.pdf]\n' >> docs/odood/book.toml
+          # Keep print.html from starting its own print, which makes
+          # mdbook-pdf fail with "Page is already being printed".
+          sed -i 's/^additional-js = \[/additional-js = ["pdf-print-guard.js", /' docs/odood/book.toml
+          grep -q '^additional-js = \["pdf-print-guard.js"' docs/odood/book.toml
 
       - name: Install mdBook and mdbook-pdf
         run: |
