@@ -545,6 +545,7 @@ void testAssembly(Project project, in string ukey="n") {
 
 /// Test `odood assembly release` CLI command, on the state left by `testAssembly`
 void testAssemblyReleaseCLI(Project project) {
+    import odood.lib.assembly: AssemblyPackaging;
     infof("Testing assembly release CLI for %s", project);
 
     auto assembly = project.assembly.raw;
@@ -561,8 +562,12 @@ void testAssemblyReleaseCLI(Project project) {
     runOdoodCLI(project, "assembly", "release", "--fail-nothing-to-release")
         .shouldEqual(1);
 
-    // Removing an addon from the spec is the release-worthy change.
+    // Removing an addon from the spec is the release-worthy change; from now
+    // on the assembly keeps a changelog, which releases write.
     assembly.removeAddon("generic_tag");
+    AssemblyPackaging packaging = assembly.packaging;
+    packaging.changelog = true;
+    assembly.setPackaging(packaging);
     assembly.save();
     repo.add(assembly.spec_path);
     repo.commit("Remove generic_tag from assembly spec");
@@ -601,15 +606,14 @@ void testAssemblyReleaseCLI(Project project) {
         .execute.ensureOk(true);
 
     // Dry run predicts without writing, committing or tagging.
-    runOdoodCLI(project, "assembly", "release", "--dry-run", "--changelog")
-        .shouldEqual(0);
+    runOdoodCLI(project, "assembly", "release", "--dry-run").shouldEqual(0);
     repo.listLocalTags().length.shouldEqual(0);
     repo.getChangedFiles(staged: false).length.shouldEqual(0);
     repo.getChangedFiles(staged: true).length.shouldEqual(0);
 
     // A removed addon is a MAJOR bump: <serie>.0.2.0 -> <serie>.1.0.0.
     immutable expected = "%s.1.0.0".format(serie);
-    runOdoodCLI(project, "assembly", "release", "--changelog").shouldEqual(0);
+    runOdoodCLI(project, "assembly", "release").shouldEqual(0);
     repo.listLocalTags().canFind(expected).shouldBeTrue;
     assembly.version_path.readFileText.shouldEqual(expected ~ "\n");
     assembly.changelog_latest_path.readFileText
