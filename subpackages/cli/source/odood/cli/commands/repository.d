@@ -835,8 +835,7 @@ class CommandRepositoryRelease: OdoodCommand {
         infof("Created tag: %s", result.get.new_version);
 
         if (push) {
-            repo.push();
-            repo.pushTag(result.get.new_version.toString);
+            repo.pushWithTag(result.get.new_version.toString);
             infof("Pushed branch and tag to origin.");
         }
         return 0;
@@ -1107,8 +1106,7 @@ class CommandRepositoryHotfixRelease: HotfixBranchCommand {
         infof("Created tag: %s", result.get.new_version);
 
         if (push) {
-            repo.push();
-            repo.pushTag(result.get.new_version.toString);
+            repo.pushWithTag(result.get.new_version.toString);
             infof("Pushed branch and tag to origin.");
         }
         return 0;

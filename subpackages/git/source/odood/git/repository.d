@@ -1908,18 +1908,101 @@ class GitRepository {
       **/
     void push(in string branch_name=null, in string remote="origin",
             in bool force_with_lease=false) const {
+        auto cmd = gitCmd.withArgs("push");
+        if (force_with_lease)
+            cmd.addArgs("--force-with-lease");
+        cmd.addArgs(remote, currentBranchRefspec(branch_name));
+        cmd.execute.ensureOk(
+            "Cannot push changes to %s branch".format(
+                pushTarget(branch_name)), true);
+    }
+
+    /** Push the current branch and the tag `tag_name` in one atomic push
+      * (`git push --atomic`): the remote takes both or neither, so its branch
+      * never carries a release commit without the release tag.
+      *
+      * Params:
+      *     tag_name = tag to push.
+      *     branch_name = remote branch to push the current branch to
+      *         (default: the current branch's name).
+      *     remote = remote to push to (default: origin).
+      **/
+    void pushWithTag(in string tag_name, in string branch_name=null,
+            in string remote="origin") const
+    in (tag_name.length > 0) {
+        gitCmd
+            .withArgs(
+                "push", "--atomic", remote,
+                currentBranchRefspec(branch_name), "refs/tags/" ~ tag_name)
+            .execute
+            .ensureOk(
+                "Cannot push branch %s and tag %s to %s".format(
+                    pushTarget(branch_name), tag_name, remote), true);
+    }
+
+    // The remote branch a push of the current branch goes to.
+    private string pushTarget(in string branch_name) const {
         auto current_branch = getCurrBranch();
         enforce!OdoodException(
             !current_branch.isNull,
             "Repository push operation is not allowed in detached tree mode");
-        immutable target = branch_name ? branch_name : current_branch.get;
+        return branch_name ? branch_name : current_branch.get;
+    }
 
-        auto cmd = gitCmd.withArgs("push");
-        if (force_with_lease)
-            cmd.addArgs("--force-with-lease");
-        cmd.addArgs(remote, "%s:%s".format(current_branch.get, target));
-        cmd.execute.ensureOk(
-            "Cannot push changes to %s branch".format(target), true);
+    // `<current>:<target>`: the current branch pushed to `branch_name`.
+    private string currentBranchRefspec(in string branch_name) const {
+        immutable target = pushTarget(branch_name);
+        return "%s:%s".format(getCurrBranch.get, target);
+    }
+
+    // pushWithTag pushes the branch and the tag together: when the remote
+    // refuses the tag, it takes neither.
+    unittest {
+        import std.conv: octal;
+        import std.file: setAttributes;
+        import unit_threaded.assertions;
+        import thepath.utils: createTempPath;
+
+        auto root = createTempPath;
+        scope(exit) root.remove();
+
+        auto remote_path = root.join("remote.git");
+        Process("git").withArgs("init", "--bare", remote_path.toString).execute.ensureOk(true);
+
+        auto src_path = root.join("source");
+        auto src = GitRepository.initialize(src_path);
+        src_path.join("f.txt").writeFile("v1");
+        src.add(src_path.join("f.txt"));
+        src.commit("initial");
+        src.remoteAdd("origin", remote_path.toString);
+        src.push();
+        immutable branch = src.getCurrBranch.get;
+        immutable initial = src.getCurrCommit;
+
+        src_path.join("f.txt").writeFile("v2");
+        src.add(src_path.join("f.txt"));
+        src.commit("Release 1.0");
+        src.setTag("1.0");
+
+        string remoteRef(in string refname) => Process("git")
+            .withArgs("--git-dir", remote_path.toString, "rev-parse", "--verify", "-q", refname)
+            .execute.output.strip;
+
+        // An `update` hook judges each ref on its own: without --atomic the
+        // branch would be taken while the tag is refused.
+        auto hook = remote_path.join("hooks", "update");
+        hook.writeFile(
+            "#!/bin/sh\n" ~
+            "case \"$1\" in refs/tags/*) exit 1;; esac\n");
+        setAttributes(hook.toString, octal!755);
+        src.pushWithTag("1.0").shouldThrow;
+        remoteRef("refs/heads/" ~ branch).shouldEqual(initial);
+        remoteRef("refs/tags/1.0").shouldEqual("");
+
+        hook.remove();
+        src.pushWithTag("1.0");
+        remoteRef("refs/heads/" ~ branch).shouldEqual(src.getCurrCommit);
+        remoteRef("refs/tags/1.0^{commit}").shouldEqual(src.getCurrCommit);
     }
 
     /// Test push: plain, non-ff rejection, and force_with_lease semantics

@@ -410,8 +410,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
             infof("Assembly Release: HEAD is already released as %s.",
                 head_tag.get);
             if (!dryRun && push) {
-                repo.push();
-                repo.pushTag(head_tag.get.toString);
+                repo.pushWithTag(head_tag.get.toString);
                 infof("Assembly Release: pushed branch and tag to origin.");
             }
             return 0;
@@ -457,8 +456,7 @@ class CommandAssemblyRelease: AssemblyCommandBase {
         infof("Assembly Release: created tag %s.", tag_name);
 
         if (push) {
-            repo.push();
-            repo.pushTag(tag_name);
+            repo.pushWithTag(tag_name);
             infof("Assembly Release: pushed branch and tag to origin.");
         }
         return 0;

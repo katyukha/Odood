@@ -137,7 +137,7 @@ they must list the same packages.
 
 A top-level key, beside `spec`. It says which files odood generates in the
 assembly repository, so every tool that writes the repository (CI, a release
-made by hand, odood-nest) writes the same ones; and it holds the options of
+made by hand, a tool using odood as a library) writes the same ones; and it holds the options of
 the generated `Dockerfile`.
 
 ```yaml
