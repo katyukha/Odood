@@ -74,7 +74,8 @@
   "Invalid assembly definition:".
 - Library: the `Assembly` constructor takes an `AssemblyDefinition` instead of
   an `AssemblySpec` (`AssemblyDefinition d; d.spec = spec;`).
-- Requires `theprocess` 0.1.3.
+- Requires `theprocess` 0.1.3 and `peque` 0.4.0, so building with DMD needs
+  DMD 2.113 or newer (LDC is not affected).
 
 ### Deprecated
 

@@ -245,6 +245,11 @@ class ProjectAssembly {
         lock_path.writeFile(freeze_result.output);
         repo.add(lock_path);
         infof("Assembly: Generated %s", ASSEMBLY_REQUIREMENTS_LOCK);
+
+        // The Dockerfile copies the lock only if it exists, and a sync writes
+        // the Dockerfile before the lock.
+        if (_assembly.packaging.dockerfile.generate)
+            _assembly.generateDockerfile();
     }
 
     // Linking refuses Odoo's requirements with per-addon installs, before it
