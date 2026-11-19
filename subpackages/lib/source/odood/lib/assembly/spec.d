@@ -37,10 +37,13 @@ enum AssemblyLayout {
 alias AssemblyDefaultLayout = AssemblyLayout.STANDARD;
 
 
-/* Keys `AssemblySpec` reads; others are reported as unknown. `git-sources`
- * is an alias of `sources-list`, `branch` of a source's `ref`. */
+/* Keys of `spec` odood reads; others are reported as unknown. `git-sources`
+ * is an alias of `sources-list`, `branch` of a source's `ref`.
+ * `system-packages` is the deprecated place of the top-level section, which
+ * `AssemblyDefinition` reads. */
 private immutable string[] ASSEMBLY_SPEC_KEYS = [
     "addons-list", "sources-list", "git-sources", "known-addons", "layout",
+    "system-packages",
 ];
 private immutable string[] ASSEMBLY_ADDON_KEYS = ["name", "source", "odoo_apps"];
 private immutable string[] ASSEMBLY_SOURCE_KEYS = [
@@ -254,13 +257,6 @@ struct AssemblySpec {
 
         if (spec.containsKey("known-addons"))
             _known_addons = spec["known-addons"].sequence.map!(i => i.as!string).array;
-
-        // Refused rather than warned about as an unknown key: an assembly that
-        // has it would sync and install without its packages.
-        enforce!OdoodAssemblyInvalidSpecException(
-            !spec.containsKey("system-packages"),
-            "Invalid assembly definition: 'system-packages' is a top-level section of " ~
-            "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 
         if (spec.containsKey("layout")) {
             switch (spec["layout"].as!string) {
@@ -771,22 +767,6 @@ unittest {
         "spec:\n  addons-list: []\n  git-sources:\n    - oca: web\n      name: oca_web\n").load());
     spec.sources.length.shouldEqual(1);
     spec.sources[0].name.shouldEqual("oca_web");
-}
-
-// spec.system-packages is refused with a pointer to the top-level section,
-// instead of being warned about as an unknown key.
-unittest {
-    import dyaml;
-    import unit_threaded.assertions;
-
-    AssemblySpec(Loader.fromString(
-        "spec:\n" ~
-        "  addons-list: []\n" ~
-        "  system-packages:\n" ~
-        "    deb: [poppler-utils]\n").load()
-    ).shouldThrowWithMessage!OdoodAssemblyInvalidSpecException(
-        "Invalid assembly definition: 'system-packages' is a top-level section of " ~
-        "odood-assembly.yml, not a key of 'spec'; move it out of 'spec'");
 }
 
 // removeAddon / removeSource / replaceSource and validate integrity checks.

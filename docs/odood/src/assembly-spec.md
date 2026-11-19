@@ -126,6 +126,11 @@ package names: lowercase letters, digits, `+`, `-` and `.`, at least two
 characters, starting with a letter or digit. See
 [System packages](./assembly.md#system-packages) for how they are installed.
 
+Assemblies written by odood 0.7.2-dev.1 have the section inside `spec`
+(`spec.system-packages`). Odood reads it there, with a warning, until 0.8.0,
+and moves it to the top level when it saves the file. If both places are set,
+they must list the same packages.
+
 ---
 
 ## Packaging
@@ -263,7 +268,8 @@ Refused, because the value of a known key is wrong:
 - `packaging.dockerfile.generate` with `layout: flat`;
 - a `meta.format-version` that is not a positive integer, or is newer than
   the odood reading it;
-- `system-packages` inside `spec`: it is a top-level key.
+- `spec.system-packages` and a top-level `system-packages` that list
+  different packages.
 
 ---
 

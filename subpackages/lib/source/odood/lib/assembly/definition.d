@@ -95,6 +95,16 @@ struct AssemblyDefinition {
         spec = AssemblySpec(root);
         if (root.containsKey("system-packages"))
             system_packages = AssemblySystemPackages(root["system-packages"]);
+        if (root["spec"].containsKey("system-packages")) {
+            auto deprecated_place = AssemblySystemPackages(root["spec"]["system-packages"]);
+            enforce!OdoodAssemblyInvalidSpecException(
+                !root.containsKey("system-packages")
+                    || deprecated_place.deb == system_packages.deb,
+                "Invalid assembly definition: 'spec.system-packages' and the " ~
+                "top-level 'system-packages' list different packages; keep " ~
+                "only the top-level section");
+            system_packages = deprecated_place;
+        }
         if (root.containsKey("packaging"))
             packaging = AssemblyPackaging(root["packaging"]);
         enforceDockerfileLayout(spec.layout, packaging.dockerfile.generate);
@@ -109,11 +119,24 @@ struct AssemblyDefinition {
         if (root.containsKey("meta"))
             res ~= findUnknownKeys(root["meta"], ["format-version"], "meta.");
         res ~= AssemblySpec.unknownKeys(root["spec"]);
+        if (root["spec"].containsKey("system-packages"))
+            res ~= AssemblySystemPackages.unknownKeys(
+                root["spec"]["system-packages"], "spec.system-packages");
         if (root.containsKey("system-packages"))
             res ~= AssemblySystemPackages.unknownKeys(root["system-packages"]);
         if (root.containsKey("packaging"))
             res ~= AssemblyPackaging.unknownKeys(root["packaging"]);
         return res;
+    }
+
+    /** The keys of a loaded `odood-assembly.yml` that are in a deprecated
+      * place, fully qualified: `spec.system-packages`, where odood 0.7.2-dev.1
+      * kept the top-level `system-packages` section. Read until odood 0.8.0;
+      * saving the file moves them. For a file that reads without error.
+      **/
+    static string[] deprecatedKeys(in Node root) {
+        return root["spec"].containsKey("system-packages")
+            ? ["spec.system-packages"] : null;
     }
 
     /** The file to save, `meta` first. Sections left at their defaults are
@@ -233,4 +256,37 @@ unittest {
     AssemblyDefinition.unknownKeys(Loader.fromString(
         "meta:\n  format-version: 1\nspec:\n  addons-list: []\n").load()
     ).length.shouldEqual(0);
+}
+
+// spec.system-packages, the deprecated place, is read when the top-level
+// section is absent, and saved at the top level; the same list in both places
+// is accepted, a different one refused.
+unittest {
+    import dyaml: Loader;
+    import unit_threaded.assertions;
+
+    auto root = Loader.fromString(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  system-packages:\n" ~
+        "    deb: [poppler-utils]\n").load();
+    auto definition = AssemblyDefinition(root);
+    definition.system_packages.deb.should == ["poppler-utils"];
+    AssemblyDefinition.deprecatedKeys(root).should == ["spec.system-packages"];
+    AssemblyDefinition.unknownKeys(root).length.shouldEqual(0);
+
+    auto saved = definition.toYAML;
+    saved["spec"].containsKey("system-packages").shouldBeFalse;
+    AssemblyDefinition(saved).system_packages.deb.should == ["poppler-utils"];
+    AssemblyDefinition.deprecatedKeys(saved).length.shouldEqual(0);
+
+    auto both = (in string top) => AssemblyDefinition(Loader.fromString(
+        "spec:\n" ~
+        "  addons-list: []\n" ~
+        "  system-packages:\n" ~
+        "    deb: [poppler-utils]\n" ~
+        "system-packages:\n" ~
+        "  deb: [" ~ top ~ "]\n").load());
+    both("poppler-utils").system_packages.deb.should == ["poppler-utils"];
+    both("ghostscript").shouldThrow!OdoodAssemblyInvalidSpecException;
 }

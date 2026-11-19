@@ -25,8 +25,8 @@
     existing servers `odood assembly install-system-packages` and
     `upgrade --install-system-packages` (as root) install the missing ones,
     and `link` warns about them. `add-system-package` / `remove-system-package`
-    edit the list. Assemblies created with 0.7.2-dev.1 have to move it out of
-    `spec`.
+    edit the list. `spec.system-packages`, where 0.7.2-dev.1 kept it, is read
+    with a warning until 0.8.0; saving the file moves it to the top level.
   - `packaging`: the files `odood assembly sync` and `release` generate
     (`changelog`, `version-file`, `addons-list-md`, `addons-list-csv`,
     `dockerfile.generate`), so CI, a release by hand and odood-nest write the

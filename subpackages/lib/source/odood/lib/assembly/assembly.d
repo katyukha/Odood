@@ -152,6 +152,14 @@ class Assembly {
     private static AssemblyDefinition readDefinition(in Node root) {
         auto definition = AssemblyDefinition(root);
         warnUnknownKeys(AssemblyDefinition.unknownKeys(root));
+        auto deprecated_keys = AssemblyDefinition.deprecatedKeys(root);
+        if (deprecated_keys.length > 0)
+            warningf(
+                "Assembly: Keys in a deprecated place in the assembly definition " ~
+                "(odood-assembly.yml), read until odood 0.8.0: %s. Move them to " ~
+                "the top level, or run a command that edits the file " ~
+                "(e.g. 'odood assembly add-system-package'), which moves them.",
+                deprecated_keys.join(", "));
         return definition;
     }
 
@@ -1612,6 +1620,27 @@ unittest {
     assembly.generateDockerfile("17.0.1.0.0").shouldThrow!OdoodAssemblyException;
     assembly.path.join("Dockerfile").exists.shouldBeFalse;
     assembly.path.join(".dockerignore").exists.shouldBeFalse;
+}
+
+// A file with spec.system-packages, the deprecated place, loads with its
+// packages, and saving it moves them to the top level.
+unittest {
+    import unit_threaded.assertions;
+    import thepath: createTempPath;
+
+    auto root = createTempPath;
+    scope(exit) root.remove();
+
+    auto assembly = makeTestAssembly(root, []);
+    assembly.spec_path.writeFile(
+        "spec:\n  addons-list: []\n  system-packages:\n    deb: [poppler-utils]\n");
+    assembly = Assembly.load(assembly.path, assembly.serie, new TestSourceProvider(root));
+    assembly.system_packages.deb.should == ["poppler-utils"];
+    assembly.save();
+
+    auto text = assembly.spec_path.readFileText;
+    text.canFind("\nsystem-packages:").shouldBeTrue;
+    text.canFind("  system-packages:").shouldBeFalse;
 }
 
 // setPackaging replaces the section; a generated Dockerfile is refused for a

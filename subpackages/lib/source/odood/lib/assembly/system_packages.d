@@ -37,9 +37,11 @@ struct AssemblySystemPackages {
             }
     }
 
-    /// The unknown keys of a valid `system-packages` section, fully qualified.
-    package(odood) static string[] unknownKeys(in Node section) =>
-        findUnknownKeys(section, ["deb"], "system-packages.");
+    /// The unknown keys of a valid `system-packages` section at `path`, fully
+    /// qualified.
+    package(odood) static string[] unknownKeys(
+            in Node section, in string path = "system-packages") =>
+        findUnknownKeys(section, ["deb"], path ~ ".");
 
     /// Debian packages (`system-packages.deb`), in the order listed.
     @property auto deb() const => _deb;
