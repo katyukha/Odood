@@ -727,13 +727,23 @@ class CommandAddonsUninstall: CommandAddonsUpdateInstallUninstall {
         applyForDatabases(project, (in string dbname) {
             auto db = project.dbSQL(dbname);
             string[] to_uninstall;
-            foreach(name; names)
-                if (db.isAddonInstalled(name))
+            foreach(name; names) {
+                auto state = db.getAddonState(name);
+                // The states Odoo's button_uninstall accepts: an update left
+                // unfinished, e.g. of an addon gone from disk, leaves a module
+                // 'to upgrade'.
+                if (!state.isNull && ["installed", "to upgrade"].canFind(state.get))
                     to_uninstall ~= name;
-                else
+                else if (state.isNull || ["uninstalled", "uninstallable"].canFind(state.get))
                     warningf(
                         "Addon '%s' is not installed in database '%s'. Skipping.",
                         name, dbname);
+                else
+                    warningf(
+                        "Addon '%s' is in state '%s' in database '%s', which " ~
+                        "cannot be uninstalled. Skipping.",
+                        name, state.get, dbname);
+            }
             if (to_uninstall.empty) {
                 infof("Nothing to uninstall in database '%s'.", dbname);
                 return;

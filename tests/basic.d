@@ -289,16 +289,21 @@ void testAddonsManagementBasic(in Project project, in string ukey="n") {
         .run();
     test_result.success.shouldBeTrue();
 
-    // Uninstall an addon that is no longer available on disk: uninstall is a
-    // database-side operation and must work by name alone — the standard
-    // cleanup case after a repo/addon is removed while the module is still
-    // installed in the database (the CLI counterpart resolves such names
-    // leniently, see CommandAddonsUninstall).
+    // Uninstall an addon that is no longer available on disk and was left
+    // 'to upgrade' by an unfinished update: uninstall is a database-side
+    // operation, so the CLI takes the name alone, and Odoo uninstalls a
+    // module 'to upgrade' as well as an installed one.
     project.addons.isInstalled(dbname, "generic_mixin").shouldBeTrue;
     project.directories.addons.join("generic_mixin").remove();
     project.addons.getByName("generic_mixin").isNull.shouldBeTrue;
-    project.addons.uninstall(dbname, "generic_mixin");
-    project.addons.isInstalled(dbname, "generic_mixin").shouldBeFalse;
+    project.databases.get(dbname).runSQLQuery(
+        "UPDATE ir_module_module SET state = 'to upgrade' WHERE name = 'generic_mixin'");
+    project.databases.get(dbname).getAddonState("generic_mixin").get
+        .shouldEqual("to upgrade");
+    runOdoodCLI(project, "addons", "uninstall", "--db", dbname, "generic_mixin")
+        .shouldEqual(0);
+    project.databases.get(dbname).getAddonState("generic_mixin").get
+        .shouldEqual("uninstalled");
 
     // Try to fetch web_responsive from odoo apps
     project.addons.downloadFromOdooApps("web_responsive");

@@ -4,6 +4,7 @@ module odood.project.odoo.db;
 private import std.logger;
 private import std.format: format;
 private import std.exception: enforce;
+private import std.typecons: Nullable, nullable;
 
 private import thepath: Path;
 private import peque: Connection;
@@ -147,6 +148,18 @@ package(odood) struct OdooDatabase {
     /// ditto
     const(bool) isAddonInstalled(in OdooAddon addon) {
         return isAddonInstalled(addon.name);
+    }
+
+    /** The state of module `addon_name` in the database (`installed`,
+      * `to upgrade`, `uninstalled`, ...), or null when the database does not
+      * know the module.
+      **/
+    Nullable!string getAddonState(in string addon_name) {
+        foreach(row; runSQLQuery(
+                "SELECT state FROM ir_module_module WHERE name = $1",
+                false, addon_name))
+            return row["state"].as!string.nullable;
+        return Nullable!string.init;
     }
 
     /** Get information about unfinished (install/update/uninstall) of modules.
